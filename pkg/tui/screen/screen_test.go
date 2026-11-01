@@ -239,19 +239,15 @@ func TestHeader_ShowsTheModelChip(t *testing.T) {
 	assert.Equal(t, " kdeps ╱╱╱  llama-3.2  ╱╱╱ proj", ansi.Strip(m.headerText()))
 }
 
-// TestPills_ShowConfiguredPillsWithValues checks pills show in PillNames order,
-// only once they have a value, and a cleared value hides the pill.
-func TestPills_ShowConfiguredPillsWithValues(t *testing.T) {
+// TestPills_MergeTheValuesIntoOneChip checks the set pills show as one chip in
+// backend, session, tool order, and a cleared value leaves the others.
+func TestPills_MergeTheValuesIntoOneChip(t *testing.T) {
 	m := New(&feed.Feed{})
-	m.PillNames = []string{"backend", "session", "tool"}
 	m, _ = typed(t, m, PillMsg{Name: "tool", Value: "bash_exec"})
 	m, _ = typed(t, m, PillMsg{Name: "backend", Value: "openrouter"})
-	text := ansi.Strip(m.pillsText())
-	assert.Contains(t, text, "backend: openrouter")
-	assert.Contains(t, text, "tool: bash_exec")
-	assert.Less(t, strings.Index(text, "backend:"), strings.Index(text, "tool:"), "pills follow PillNames order")
+	assert.Equal(t, "    openrouter · bash_exec ", ansi.Strip(m.pillsText()))
 	m, _ = typed(t, m, PillMsg{Name: "tool", Value: ""})
-	assert.NotContains(t, ansi.Strip(m.pillsText()), "tool:", "a cleared value hides the pill")
+	assert.Equal(t, "    openrouter ", ansi.Strip(m.pillsText()))
 }
 
 // TestMessageArea_ShowsTheSubmittedLineBeforeTheReply checks a submitted line
