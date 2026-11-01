@@ -45,6 +45,7 @@ const (
 	eventEfficiencyReads   = "efficiency-reads"
 	eventEfficiencyActions = "efficiency-actions"
 	eventEfficiencyStops   = "efficiency-stops"
+	eventEfficiencyDrops   = "efficiency-drops"
 	eventEfficiencyTighten = "efficiency-tighten"
 	eventEfficiencyWeb     = "efficiency-web"
 	eventEfficiencyBash    = "efficiency-bash"
@@ -53,10 +54,6 @@ const (
 
 	// efficiencyMark prefixes every model-facing note so it can be scrubbed.
 	efficiencyMark = "[kdeps-efficiency]"
-
-	// efficiencyDropLimit is how many refused reads an open stop tolerates
-	// before the refusal itself counts as another stop.
-	efficiencyDropLimit = 2
 )
 
 // efficiencyCategories maps each category event to its display name, in the
@@ -282,7 +279,7 @@ func (l *Loop) efficiencyAdmit(tc domain.StreamedToolCall) effVerdict {
 			return effAdmit
 		}
 		e.drops++
-		if e.drops > efficiencyDropLimit {
+		if e.drops > effectiveRounds(eventEfficiencyDrops) {
 			return l.efficiencyStop(fmt.Sprintf("reads were refused %d times while stopped", e.drops-1))
 		}
 		return effDrop

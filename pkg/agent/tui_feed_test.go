@@ -29,7 +29,29 @@ func TestFeedToolResult_LongOutputIsCutToTheBodyLines(t *testing.T) {
 	t.Cleanup(func() { setTUIFeed(nil) })
 
 	feedToolResult("bash_exec", strings.Repeat("line\n", 50))
-	assert.Equal(t, 1+feedBodyLines, strings.Count(f.Render(80, 100), "\n")+1)
+	assert.Equal(t, 1+defaultFeedBodyLines, strings.Count(f.Render(80, 100), "\n")+1)
+}
+
+// TestFeedToolResult_TheEventSetsTheBodyLength checks the tui-activity-lines
+// event's items cut the body, and a disabled event leaves it whole.
+func TestFeedToolResult_TheEventSetsTheBodyLength(t *testing.T) {
+	var f feed.Feed
+	setTUIFeed(&f)
+	t.Cleanup(func() { setTUIFeed(nil) })
+
+	withEvent(t, Event{Name: eventTuiActivityLines, Items: 2, Run: actionTruncate})
+	feedToolResult("bash_exec", strings.Repeat("line\n", 50))
+	assert.Equal(t, 1+2, strings.Count(f.Render(80, 100), "\n")+1)
+}
+
+func TestFeedToolResult_ADisabledEventLeavesTheBodyWhole(t *testing.T) {
+	var f feed.Feed
+	setTUIFeed(&f)
+	t.Cleanup(func() { setTUIFeed(nil) })
+
+	withEvent(t, Event{Name: eventTuiActivityLines, Items: 2, Run: actionTruncate, Disabled: true})
+	feedToolResult("bash_exec", strings.Repeat("line\n", 50))
+	assert.Equal(t, 1+50, strings.Count(f.Render(80, 200), "\n")+1)
 }
 
 func TestFeedToolResult_NoFeedIsANoOp(t *testing.T) {
