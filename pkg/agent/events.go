@@ -54,55 +54,6 @@ import (
 // handshake.go/tool_history_window.go/builtin_tools.go/
 // context_detect.go/builtin_resource_tools.go instead of a literal string at
 // every call site.
-const (
-	eventAutoCompact                = "auto-compact"
-	eventFold                       = "fold"
-	eventIdenticalCalls             = "identical-tool-calls"
-	eventConvergenceBlock           = "convergence-block"
-	eventHandshakeTimeout           = "handshake-timeout"
-	eventToolResultTruncate         = "tool-result-truncate"
-	eventToolErrorTruncate          = "tool-error-truncate"
-	eventForceAnswerDigest          = "force-answer-digest"
-	eventHistoryWindowTrim          = "history-window-trim"
-	eventFileReadLimit              = "file-read-limit"
-	eventWebCallBudget              = "web-call-budget"
-	eventBashCallBudget             = "bash-call-budget"
-	eventFileCallBudget             = "file-call-budget"
-	eventCodeCallBudget             = "code-call-budget"
-	eventJudgeMaxRounds             = "judge-max-rounds"
-	eventJudgeIterations            = "judge-iterations"
-	eventMemoryPromptLimit          = "memory-prompt-limit"
-	eventMemoryKeysLimit            = "memory-keys-limit"
-	eventKnowledgeExtractPerSession = "knowledge-extract-per-session"
-	eventKnowledgeExtractTokens     = "knowledge-extract-tokens"
-	eventKnowledgeExtractSeconds    = "knowledge-extract-seconds"
-	eventTuiActivityLines           = "tui-activity-lines"
-	eventMemoryFocusMax             = "memory-focus-max"
-	eventMemoryChainMax             = "memory-chain-max"
-	eventRelMemoryLimit             = "rel-memory-limit"
-	eventMemorySearchLimit          = "memory-search-limit"
-	eventMemoryValueLimit           = "memory-value-limit"
-	eventMemoryCaptureLimit         = "memory-capture-limit"
-	eventMemoryToolResults          = "memory-tool-results-limit"
-	eventMemoryThinking             = "memory-thinking-limit"
-	eventMemoryLowSignal            = "memory-low-signal-limit"
-	eventMemoryStatus               = "memory-status-limit"
-	eventModelRecordLimit           = "model-record-limit"
-	eventOpenRouterFreePerMinute    = "openrouter-free-per-minute"
-	eventOpenRouterRefusal          = "openrouter-refusal"
-	eventOpenRouterRateLimit        = "openrouter-rate-limit"
-	eventOpenRouterProviderLimit    = "openrouter-provider-limit"
-	eventOpenRouterNoise            = "openrouter-noise"
-	eventSideCallMaxTokens          = "side-call-max-tokens"
-	eventBugCaptureMaxErrors        = "bug-capture-max-errors"
-	eventProviderBodyDashscope      = "provider-body-limit-dashscope"
-	eventProviderBodyXAI            = "provider-body-limit-xai"
-	eventProviderBodyOpenAI         = "provider-body-limit-openai"
-	eventProviderSmallThreshold     = "provider-small-threshold"
-	eventKnowledgeRecallFiles       = "knowledge-recall-files"
-	eventTrivialPromptMax           = "trivial-prompt-max"
-	eventTrivialPromptShort         = "trivial-prompt-short"
-)
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
 // kind; an event sets only the ones it uses -- zero means "not this kind".
@@ -668,19 +619,19 @@ func memoryCaptureLimit() int {
 // memoryToolResultsLimit is how many automatic captures are kept per tool.
 func memoryToolResultsLimit() int {
 	const fallback = 20
-	return effectiveItems(eventMemoryToolResults, fallback)
+	return effectiveItems(eventMemoryToolResultsLimit, fallback)
 }
 
 // memoryThinkingLimit is how many reasoning entries are kept.
 func memoryThinkingLimit() int {
 	const fallback = 20
-	return effectiveItems(eventMemoryThinking, fallback)
+	return effectiveItems(eventMemoryThinkingLimit, fallback)
 }
 
 // memoryStatusLimit is how many tool-call status entries are kept.
 func memoryStatusLimit() int {
 	const fallback = 60
-	return effectiveItems(eventMemoryStatus, fallback)
+	return effectiveItems(eventMemoryStatusLimit, fallback)
 }
 
 // modelRecordLimit is how many distinct refusals a model's record keeps.
@@ -692,7 +643,7 @@ func modelRecordLimit() int {
 // memoryLowSignalLimit is how many low-signal entries are kept.
 func memoryLowSignalLimit() int {
 	const fallback = 50
-	return effectiveItems(eventMemoryLowSignal, fallback)
+	return effectiveItems(eventMemoryLowSignalLimit, fallback)
 }
 
 // effectiveItems returns the registered event's Items count, floored at
