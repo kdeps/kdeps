@@ -157,7 +157,7 @@ func TestFileExcerpt(t *testing.T) {
 	assert.Equal(t, "Current content of f, lines 1-2 of 2:\n1\ta\n2\tb", fileExcerpt("f", "a\nb\n", 99))
 	long := strings.Repeat(strings.Repeat("x", 500)+"\n", 50)
 	out := fileExcerpt("f", long, 25)
-	assert.LessOrEqual(t, len(out), failureContextMaxBytes+100)
+	assert.LessOrEqual(t, len(out), defaultFailureContextBytes+100)
 	assert.True(t, strings.HasSuffix(out, "..."))
 }
 
@@ -180,9 +180,9 @@ func TestFailureFileContext_Skips(t *testing.T) {
 func TestToolErrorTextAndQuote(t *testing.T) {
 	assert.Equal(t, "boom", toolErrorText(`{"error":"boom"}`))
 	assert.Equal(t, "plain", toolErrorText("plain"))
-	q := failureQuote(strings.Repeat("é", failureErrorMaxBytes))
+	q := failureQuote(strings.Repeat("é", defaultFailureErrorBytes))
 	assert.True(t, strings.HasSuffix(q, `..."`))
-	assert.LessOrEqual(t, len(q), failureErrorMaxBytes+10)
+	assert.LessOrEqual(t, len(q), defaultFailureErrorBytes+10)
 }
 
 // newFailingToolLoop wires an output tool that fails until it has been called
@@ -352,4 +352,11 @@ func TestRunStreaming_LLMErrorReturnedWhenRoundsRunOut(t *testing.T) {
 	loop.config.MaxToolRounds = 2
 	_, err := loop.RunStreaming(context.Background(), "go", &bytes.Buffer{})
 	require.ErrorContains(t, err, "400 bad request", "never end silently on a swallowed error")
+}
+
+func TestBriefLimit_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
+	withEvent(t, Event{Name: eventFailureErrorBytes, Items: 7, Run: actionTruncate})
+	withEvent(t, Event{Name: eventFailureDirEntries, Items: 9, Run: actionCap, Disabled: true})
+	assert.Equal(t, 7, briefLimit(eventFailureErrorBytes, defaultFailureErrorBytes))
+	assert.Equal(t, defaultFailureDirEntries, briefLimit(eventFailureDirEntries, defaultFailureDirEntries))
 }

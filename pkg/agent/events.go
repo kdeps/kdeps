@@ -94,6 +94,7 @@ const (
 	eventOpenRouterProviderLimit    = "openrouter-provider-limit"
 	eventOpenRouterNoise            = "openrouter-noise"
 	eventSideCallMaxTokens          = "side-call-max-tokens"
+	eventBugCaptureMaxErrors        = "bug-capture-max-errors"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
