@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -311,7 +312,7 @@ func TestJumpAutoImproveModel_FreeIDWithoutBackend(t *testing.T) {
 func TestBugCaptureBody_CapsErrorLines(t *testing.T) {
 	dir := t.TempDir()
 	var b strings.Builder
-	for i := range bugCaptureMaxErrors + 5 {
+	for i := range defaultBugCaptureMaxErrors + 5 {
 		fmt.Fprintf(&b, "{\"kind\":\"model_response\",\"model\":\"m\",\"ts\":\"t%d\",\"error\":\"boom %d\"}\n", i, i)
 	}
 	b.WriteString("{\"kind\":\"prompt\",\"text\":\"ok\"}\n")
@@ -319,8 +320,8 @@ func TestBugCaptureBody_CapsErrorLines(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, instrument.EventsFile), []byte(b.String()), 0o644))
 	body := bugCaptureBody(dir, "m", "")
 	require.Contains(t, body, "boom 0")
-	require.Contains(t, body, fmt.Sprintf("boom %d", bugCaptureMaxErrors-1))
-	require.NotContains(t, body, fmt.Sprintf("boom %d", bugCaptureMaxErrors))
+	require.Contains(t, body, fmt.Sprintf("boom %d", defaultBugCaptureMaxErrors-1))
+	require.NotContains(t, body, fmt.Sprintf("boom %d", defaultBugCaptureMaxErrors))
 	require.NotContains(t, body, "read_file")
 	require.Contains(t, body, "Bug capture on model `m`.")
 
@@ -501,4 +502,14 @@ func TestShouldFileBugCapture_NoiseIsNotAProductBug(t *testing.T) {
 
 	require.False(t, shouldFileBugCapture(write(bash, bad502), nil), "a failed model command and a 5xx are noise")
 	require.False(t, shouldFileBugCapture(write(empty), nil), "an empty reply is noise")
+}
+
+func TestBugCaptureMaxErrors_FromTheEvent(t *testing.T) {
+	withEvent(t, Event{Name: eventBugCaptureMaxErrors, Items: 3, Run: actionCap})
+	assert.Equal(t, 3, bugCaptureMaxErrors())
+}
+
+func TestBugCaptureMaxErrors_ADisabledEventKeepsTheDefault(t *testing.T) {
+	withEvent(t, Event{Name: eventBugCaptureMaxErrors, Items: 3, Run: actionCap, Disabled: true})
+	assert.Equal(t, defaultBugCaptureMaxErrors, bugCaptureMaxErrors())
 }

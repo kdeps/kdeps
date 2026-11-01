@@ -74,6 +74,7 @@ const (
 	eventMemoryPromptLimit       = "memory-prompt-limit"
 	eventMemoryKeysLimit         = "memory-keys-limit"
 	eventKnowledgeRecallFiles    = "knowledge-recall-files"
+	eventBugCaptureMaxErrors     = "bug-capture-max-errors"
 	eventTuiActivityLines        = "tui-activity-lines"
 	eventMemoryFocusMax          = "memory-focus-max"
 	eventMemoryChainMax          = "memory-chain-max"
