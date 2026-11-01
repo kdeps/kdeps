@@ -73,6 +73,7 @@ const (
 	eventJudgeIterations         = "judge-iterations"
 	eventMemoryPromptLimit       = "memory-prompt-limit"
 	eventMemoryKeysLimit         = "memory-keys-limit"
+	eventPromptHistoryLimit      = "prompt-history-limit"
 	eventMemoryFocusMax          = "memory-focus-max"
 	eventMemoryChainMax          = "memory-chain-max"
 	eventRelMemoryLimit          = "rel-memory-limit"

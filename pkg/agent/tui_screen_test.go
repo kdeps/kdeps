@@ -93,3 +93,13 @@ func TestSessionPillValue_NewThenShortID(t *testing.T) {
 	assert.Equal(t, "abcdefgh", sessionPillValue("abcdefghijkl"))
 	assert.Equal(t, "abc", sessionPillValue("abc"))
 }
+
+func TestPromptHistoryLimit_FromTheEvent(t *testing.T) {
+	withEvent(t, Event{Name: eventPromptHistoryLimit, Items: 3, Run: actionCap})
+	assert.Equal(t, 3, promptHistoryLimit())
+}
+
+func TestPromptHistoryLimit_ADisabledEventKeepsEverything(t *testing.T) {
+	withEvent(t, Event{Name: eventPromptHistoryLimit, Items: 3, Run: actionCap, Disabled: true})
+	assert.Equal(t, 0, promptHistoryLimit())
+}
