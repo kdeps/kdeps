@@ -74,6 +74,7 @@ const (
 	eventMemoryPromptLimit       = "memory-prompt-limit"
 	eventMemoryKeysLimit         = "memory-keys-limit"
 	eventContextSegmentCap       = "context-segment-cap"
+	eventKnowledgeRecallFiles    = "knowledge-recall-files"
 	eventProviderBodyDashscope   = "provider-body-limit-dashscope"
 	eventProviderBodyXAI         = "provider-body-limit-xai"
 	eventProviderBodyOpenAI      = "provider-body-limit-openai"
