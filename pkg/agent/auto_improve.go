@@ -38,10 +38,21 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/instrument"
 )
 
-const (
-	bugCaptureMaxErrors = 40
-	bugCaptureTitleMax  = 120
-)
+// defaultBugCaptureMaxErrors is the error-line cap when the event is missing or off.
+const defaultBugCaptureMaxErrors = 40
+
+// bugCaptureTitleMax is the longest bug-report title, in runes.
+const bugCaptureTitleMax = 120
+
+// bugCaptureMaxErrors is how many error lines a bug report quotes: the
+// bug-capture-max-errors event's items, or the default when it is off.
+func bugCaptureMaxErrors() int {
+	n := effectiveItems(eventBugCaptureMaxErrors, defaultBugCaptureMaxErrors)
+	if n == disabledSentinel || n < 1 {
+		return defaultBugCaptureMaxErrors
+	}
+	return n
+}
 
 // freeModelIDs, pickFreeModelN, and bugCaptureIssue are replaced in tests.
 //
@@ -464,7 +475,7 @@ func bugCaptureBody(dir, model, conclusion string) string {
 		b.WriteString(conclusion)
 		b.WriteString("\n\n")
 	}
-	lines := captureErrorLines(filepath.Join(dir, instrument.EventsFile), bugCaptureMaxErrors)
+	lines := captureErrorLines(filepath.Join(dir, instrument.EventsFile), bugCaptureMaxErrors())
 	if len(lines) == 0 {
 		b.WriteString("No event in this session has an error field.\n")
 		return b.String()

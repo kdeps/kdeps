@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: bug-capture-max-errors
+# How many error lines an auto-improve bug report quotes from the instrument
+# log. Older lines are dropped first. Disabling the event keeps the default cap.
+items: 40
+run: cap

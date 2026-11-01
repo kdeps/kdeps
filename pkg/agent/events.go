@@ -77,6 +77,7 @@ const (
 	eventProviderBodyXAI         = "provider-body-limit-xai"
 	eventProviderBodyOpenAI      = "provider-body-limit-openai"
 	eventProviderSmallThreshold  = "provider-small-threshold"
+	eventBugCaptureMaxErrors     = "bug-capture-max-errors"
 	eventTuiActivityLines        = "tui-activity-lines"
 	eventMemoryFocusMax          = "memory-focus-max"
 	eventMemoryChainMax          = "memory-chain-max"
