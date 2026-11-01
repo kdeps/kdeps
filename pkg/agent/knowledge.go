@@ -327,7 +327,7 @@ func (k *knowledgeState) recallFiles(text string) string {
 	for _, place := range card.SearchRoots() {
 		place = knowledge.ExpandPath(place, k.vault.Root)
 		var hits []searchlocal.Hit
-		for _, h := range searchlocal.QueryIndex(place, text, recallFileLimit) {
+		for _, h := range searchlocal.QueryIndex(place, text, knowledgeRecallFiles()) {
 			if !seen[h.Path] { // a folder nested in another: each file once
 				seen[h.Path] = true
 				hits = append(hits, h)
@@ -356,8 +356,18 @@ func (k *knowledgeState) recallFiles(text string) string {
 		b.String() + "\n</knowledge-files>"
 }
 
-// recallFileLimit is how many files each search index adds to recall.
-const recallFileLimit = 3
+// defaultKnowledgeRecallFiles is the per-index recall count when the event is off.
+const defaultKnowledgeRecallFiles = 3
+
+// knowledgeRecallFiles is how many files each search index adds to recall: the
+// knowledge-recall-files event's items, or the default when it is off.
+func knowledgeRecallFiles() int {
+	n := effectiveItems(eventKnowledgeRecallFiles, defaultKnowledgeRecallFiles)
+	if n == disabledSentinel || n < 1 {
+		return defaultKnowledgeRecallFiles
+	}
+	return n
+}
 
 // recallChain is the relation path recall already printed for abs, when abs
 // is a vault note in this turn's recall. Search hits and recall then name

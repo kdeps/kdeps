@@ -2865,7 +2865,7 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	called := tc.Name
 	result := l.runStreamToolCall(&tc, w)
 	recordToolCall(called, tc.Name, tc.Arguments, result, time.Since(started))
-	feedToolResult(tc.Name, result)
+	feedToolResult(tc.Name, tc.Arguments, result)
 	return result
 }
 

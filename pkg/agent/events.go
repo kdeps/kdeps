@@ -75,6 +75,7 @@ const (
 	eventMemoryKeysLimit         = "memory-keys-limit"
 	eventHandshakeHistory        = "handshake-history"
 	eventHandshakeEvidence       = "handshake-evidence-attempts"
+	eventKnowledgeRecallFiles    = "knowledge-recall-files"
 	eventProviderBodyDashscope   = "provider-body-limit-dashscope"
 	eventProviderBodyXAI         = "provider-body-limit-xai"
 	eventProviderBodyOpenAI      = "provider-body-limit-openai"

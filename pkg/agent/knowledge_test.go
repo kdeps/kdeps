@@ -631,3 +631,13 @@ func TestUpdateSessionNote_NewTopicGetsItsOwnNote(t *testing.T) {
 	assert.Len(t, notes(), 2, "the new thread continues in its note")
 	l.knowledge.waitBuilds()
 }
+
+func TestKnowledgeRecallFiles_FromTheEvent(t *testing.T) {
+	withEvent(t, Event{Name: eventKnowledgeRecallFiles, Items: 5, Run: actionCap})
+	assert.Equal(t, 5, knowledgeRecallFiles())
+}
+
+func TestKnowledgeRecallFiles_OffKeepsTheDefault(t *testing.T) {
+	withEvent(t, Event{Name: eventKnowledgeRecallFiles, Items: 5, Run: actionCap, Disabled: true})
+	assert.Equal(t, defaultKnowledgeRecallFiles, knowledgeRecallFiles())
+}
