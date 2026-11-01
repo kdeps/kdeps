@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: tui-activity-lines
+# How many lines of a tool result the full-screen activity panel shows under
+# each entry. Longer results are cut; the rest of the result stays in the
+# transcript.
+items: 6
+run: truncate
