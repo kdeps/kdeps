@@ -40,17 +40,6 @@ import (
 // (frugal, balanced, thorough) overwrite all of them and a single /efficiency
 // change overwrites one value; both persist as ~/.kdeps/events overrides.
 const (
-	eventEfficiency        = "efficiency"
-	eventEfficiencyVerbose = "efficiency-verbose"
-	eventEfficiencyReads   = "efficiency-reads"
-	eventEfficiencyActions = "efficiency-actions"
-	eventEfficiencyStops   = "efficiency-stops"
-	eventEfficiencyDrops   = "efficiency-drops"
-	eventEfficiencyTighten = "efficiency-tighten"
-	eventEfficiencyWeb     = "efficiency-web"
-	eventEfficiencyBash    = "efficiency-bash"
-	eventEfficiencyFile    = "efficiency-file"
-	eventEfficiencyCode    = "efficiency-code"
 
 	// efficiencyMark prefixes every model-facing note so it can be scrubbed.
 	efficiencyMark = "[kdeps-efficiency]"

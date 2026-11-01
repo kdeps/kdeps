@@ -1,0 +1,121 @@
+# Shelves are the catalog words assets are filed under. tools/registrygen
+# turns this file into pkg/assets/shelves_gen.go. Edit here, then run
+# make generate. The model never sees a shelf; kdeps list and the published
+# index carry it.
+
+# Shelf order is the catalog order.
+shelves:
+  - model
+  - context
+  - harness
+  - tools
+  - memory
+  - rag
+  - agent
+  - guardrails
+  - evals
+  - workflow
+  - deploy
+
+# sets: the shelf a set's items use unless items below names one.
+sets:
+  models: model
+  providers: model
+  recipes: model
+  presets: context
+  harness: harness
+  tools: tools
+  commands: agent
+  themes: agent
+  events: guardrails
+  policy: guardrails
+  actions: guardrails
+  schemas: workflow
+  templates: workflow
+  components: workflow
+  defaults: workflow
+  docker: deploy
+  k8s: deploy
+  memory: memory
+
+# items: a shelf other than its set's default. The key is set/name.
+items:
+  "commands/model": model
+  "harness/branch-summary": context
+  "harness/compaction-system": context
+  "harness/compaction-update-user": context
+  "harness/compaction-user": context
+  "harness/internals": context
+  "harness/refine-system": context
+  "events/auto-compact": context
+  "events/fold": context
+  "events/force-answer-digest": context
+  "events/history-window-trim": context
+  "events/memory-prompt-limit": context
+  "events/knowledge-recall-files": rag
+  "events/bug-capture-max-errors": evals
+  "events/tui-activity-lines": context
+  "events/side-call-max-tokens": context
+  "events/thinking-budget-auto": model
+  "events/thinking-budget-high": model
+  "events/thinking-budget-low": model
+  "events/thinking-budget-medium": model
+  "events/thinking-budget-minimal": model
+  "events/thinking-budget-xhigh": model
+  "events/tool-error-truncate": context
+  "events/tool-result-truncate": context
+  "actions/cap": context
+  "actions/compact": context
+  "actions/drop_oldest": context
+  "actions/truncate": context
+  "harness/memory": memory
+  "harness/knowledge-extract-system": memory
+  "tools/knowledge_card_get": memory
+  "tools/knowledge_card_update": memory
+  "tools/knowledge_note_save": memory
+  "tools/knowledge_recall": memory
+  "tools/memory_delete": memory
+  "tools/memory_query": memory
+  "tools/memory_save": memory
+  "tools/memory_search": memory
+  "events/memory-capture-limit": memory
+  "events/memory-chain-max": memory
+  "events/memory-focus-max": memory
+  "events/memory-keys-limit": memory
+  "events/memory-tool-results-limit": memory
+  "events/memory-thinking-limit": memory
+  "events/memory-low-signal-limit": memory
+  "events/memory-status-limit": memory
+  "events/model-record-limit": guardrails
+  "events/memory-search-limit": memory
+  "events/memory-value-limit": memory
+  "events/rel-memory-limit": memory
+  "tools/cohere_rerank": rag
+  "tools/embedding_search": rag
+  "tools/embedding_vectorize": rag
+  "tools/jina_rerank": rag
+  "tools/load_document": rag
+  "tools/retrieve_context": rag
+  "tools/search_local": rag
+  "tools/voyageai_rerank": rag
+  "tools/identity_get": agent
+  "tools/instruct": agent
+  "tools/load_skill": agent
+  "actions/force_answer": agent
+  "harness/handshake": guardrails
+  "harness/handshake-ack": guardrails
+  "harness/handshake-evidence": guardrails
+  "harness/handshake-evidence-praise": guardrails
+  "harness/handshake-evidence-retry": guardrails
+  "harness/safety": guardrails
+  "tools/approval_grant": guardrails
+  "tools/approval_list": guardrails
+  "tools/approval_request": guardrails
+  "tools/approval_revoke": guardrails
+  "tools/session_handshake": guardrails
+  "harness/judge-roster-system": evals
+  "harness/judge-system": evals
+  "tools/judge_verdict": evals
+  "events/judge-iterations": evals
+  "events/judge-max-rounds": evals
+  "actions/accept_last": evals

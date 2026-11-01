@@ -331,16 +331,20 @@ golangci-lint-bin:
 
 # Run linter
 # generate rewrites the generated sources: pkg/assets/setflow_gen.go (where
-# kdeps uses each asset set, from its call graph).
+# kdeps uses each asset set, from its call graph), and the event and shelf
+# registries from assets/events and assets/shelves.yaml.
 .PHONY: generate
 generate:
 	@go run ./tools/assetflow
+	@go run ./tools/registrygen
 
 lint: golangci-lint-bin
 	@echo "Running linter (golangci-lint $(GOLANGCI_VERSION))..."
 	@'$(GOLANGCI_BIN)' run --timeout=10m --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...
 	@echo "Checking asset flows (make generate rewrites them)..."
 	@go run ./tools/assetflow -check
+	@echo "Checking generated registries (make generate rewrites them)..."
+	@go run ./tools/registrygen -check
 	@echo "Running govulncheck..."
 	@set +e; \
 	go tool govulncheck $(GO_PKGS) > /tmp/govuln-lint.txt 2>&1; \

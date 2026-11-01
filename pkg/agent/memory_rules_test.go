@@ -121,8 +121,8 @@ func TestMemoryCaps_AreEvents(t *testing.T) {
 	assert.Equal(t, 60, memoryStatusLimit())
 	assert.Equal(t, []string{memTypeNote, memTypeFact}, memoryRules.LowSignal)
 
-	withEvent(t, Event{Name: eventMemoryLowSignal, Items: 3, Run: actionCap})
-	withEvent(t, Event{Name: eventMemoryToolResults, Items: 2, Run: actionCap})
+	withEvent(t, Event{Name: eventMemoryLowSignalLimit, Items: 3, Run: actionCap})
+	withEvent(t, Event{Name: eventMemoryToolResultsLimit, Items: 2, Run: actionCap})
 	m := NewMemoryStore(t.TempDir())
 	m.SetCwd(t.TempDir())
 	for i := range 5 {

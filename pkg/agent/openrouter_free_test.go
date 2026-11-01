@@ -36,7 +36,7 @@ import (
 )
 
 func TestOpenRouterFreePerMinute_ReadsEvent(t *testing.T) {
-	assert.Equal(t, 20, effectiveItems(eventOpenRouterFreePerMinute, 1))
+	assert.Equal(t, 20, effectiveItems(eventOpenrouterFreePerMinute, 1))
 	assert.Equal(t, 19, freeModelSwitchAfter())
 	assert.Equal(t, 3*time.Second, freeModelGap())
 }

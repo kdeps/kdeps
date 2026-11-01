@@ -354,9 +354,9 @@ func shouldFileBugCapture(dir string, runErr error) bool {
 // isProviderFailure matches a refusal or rate limit from the provider, not a
 // kdeps failure.
 func isProviderFailure(text string) bool {
-	return eventPatternMatch(eventOpenRouterRefusal, text) ||
-		eventPatternMatch(eventOpenRouterRateLimit, text) ||
-		eventPatternMatch(eventOpenRouterNoise, text)
+	return eventPatternMatch(eventOpenrouterRefusal, text) ||
+		eventPatternMatch(eventOpenrouterRateLimit, text) ||
+		eventPatternMatch(eventOpenrouterNoise, text)
 }
 
 func (r *REPL) finishAutoImprove(dir string, runErr error, conclusion string) error {
