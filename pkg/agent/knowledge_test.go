@@ -649,3 +649,13 @@ func TestKnowledgeExtractLimits_OffKeepsTheDefaults(t *testing.T) {
 	assert.Equal(t, time.Duration(defaultExtractSeconds)*time.Second, knowledgeExtractTimeout())
 	assert.Equal(t, fmt.Sprintf("%ds", defaultExtractSeconds), knowledgeExtractCallTimeout())
 }
+
+func TestKnowledgeRecallFiles_FromTheEvent(t *testing.T) {
+	withEvent(t, Event{Name: eventKnowledgeRecallFiles, Items: 5, Run: actionCap})
+	assert.Equal(t, 5, knowledgeRecallFiles())
+}
+
+func TestKnowledgeRecallFiles_OffKeepsTheDefault(t *testing.T) {
+	withEvent(t, Event{Name: eventKnowledgeRecallFiles, Items: 5, Run: actionCap, Disabled: true})
+	assert.Equal(t, defaultKnowledgeRecallFiles, knowledgeRecallFiles())
+}

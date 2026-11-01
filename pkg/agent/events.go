@@ -99,6 +99,7 @@ const (
 	eventProviderBodyXAI            = "provider-body-limit-xai"
 	eventProviderBodyOpenAI         = "provider-body-limit-openai"
 	eventProviderSmallThreshold     = "provider-small-threshold"
+	eventKnowledgeRecallFiles       = "knowledge-recall-files"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
