@@ -105,6 +105,7 @@ var itemShelf = map[string]string{
 	"actions/compact":                    ShelfContext,
 	"actions/drop_oldest":                ShelfContext,
 	"actions/truncate":                   ShelfContext,
+	"events/bug-capture-max-errors":      ShelfEvals,
 
 	// memory: memory and knowledge tools, the memory harness section, memory events.
 	"harness/memory":                   ShelfMemory,

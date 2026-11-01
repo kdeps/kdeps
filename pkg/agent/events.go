@@ -75,6 +75,7 @@ const (
 	eventMemoryKeysLimit         = "memory-keys-limit"
 	eventHandshakeHistory        = "handshake-history"
 	eventHandshakeEvidence       = "handshake-evidence-attempts"
+	eventBugCaptureMaxErrors     = "bug-capture-max-errors"
 	eventTuiActivityLines        = "tui-activity-lines"
 	eventMemoryFocusMax          = "memory-focus-max"
 	eventMemoryChainMax          = "memory-chain-max"

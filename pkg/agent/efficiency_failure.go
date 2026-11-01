@@ -41,18 +41,30 @@ import (
 // /efficiency verbose is on. Past the per-turn failure budget the plain
 // [TOOL FAILED] banner (tool calls) or the error itself (LLM calls) takes over.
 const (
-	eventEfficiencyFailures = "efficiency-failures"
+	eventEfficiencyFailures  = "efficiency-failures"
+	eventFailureContextBytes = "failure-context-bytes"
+	eventFailureDirEntries   = "failure-dir-entries"
+	eventFailureErrorBytes   = "failure-error-bytes"
 
 	// failureContextRadius is how many lines either side of the focus line a
 	// failed edit's file excerpt shows.
 	failureContextRadius = 20
-	// failureContextMaxBytes caps that excerpt.
-	failureContextMaxBytes = 6000
-	// failureDirMaxEntries caps the folder listing shown for a missing path.
-	failureDirMaxEntries = 40
-	// failureErrorMaxBytes caps the error quoted in a brief.
-	failureErrorMaxBytes = 1500
+	// defaultFailureContextBytes, defaultFailureDirEntries and
+	// defaultFailureErrorBytes are the brief limits when their events are off.
+	defaultFailureContextBytes = 6000
+	defaultFailureDirEntries   = 40
+	defaultFailureErrorBytes   = 1500
 )
+
+// briefLimit is a failure-brief limit from its event's items, or the default
+// when the event is off.
+func briefLimit(name string, fallback int) int {
+	n := effectiveItems(name, fallback)
+	if n == disabledSentinel || n < 1 {
+		return fallback
+	}
+	return n
+}
 
 // llmUnfixableErrRe matches LLM-call errors the model cannot fix by being told
 // about them: credentials, billing, quotas, unknown models, and request-shape
@@ -173,8 +185,8 @@ func toolErrorText(result string) string {
 
 func failureQuote(s string) string {
 	s = strings.TrimSpace(s)
-	if len(s) > failureErrorMaxBytes {
-		s = truncateUTF8(s, failureErrorMaxBytes) + "..."
+	if limit := briefLimit(eventFailureErrorBytes, defaultFailureErrorBytes); len(s) > limit {
+		s = truncateUTF8(s, limit) + "..."
 	}
 	return fmt.Sprintf("%q", s)
 }
@@ -230,9 +242,10 @@ func missingPathContext(path string) string {
 	if err != nil {
 		return fmt.Sprintf("%s does not exist.", path)
 	}
-	names := make([]string, 0, min(len(entries), failureDirMaxEntries))
+	dirLimit := briefLimit(eventFailureDirEntries, defaultFailureDirEntries)
+	names := make([]string, 0, min(len(entries), dirLimit))
 	for i, e := range entries {
-		if i == failureDirMaxEntries {
+		if i == dirLimit {
 			names = append(names, fmt.Sprintf("... %d more", len(entries)-i))
 			break
 		}
@@ -272,7 +285,7 @@ func fileExcerpt(path, content string, focus int) string {
 	fmt.Fprintf(&b, "Current content of %s, lines %d-%d of %d:\n", path, from, to, len(lines))
 	for i := from; i <= to; i++ {
 		row := fmt.Sprintf("%d\t%s\n", i, lines[i-1])
-		if b.Len()+len(row) > failureContextMaxBytes {
+		if b.Len()+len(row) > briefLimit(eventFailureContextBytes, defaultFailureContextBytes) {
 			b.WriteString("...\n")
 			break
 		}
