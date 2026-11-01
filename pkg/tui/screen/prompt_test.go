@@ -198,3 +198,19 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
 	assert.Contains(t, ansi.Strip(m.render()), "/model  /session", "the help lists the slash commands")
 }
+
+func TestPrompt_HistoryKeepsTheLimitAndAllWhenUnlimited(t *testing.T) {
+	m := newPromptScreen(t)
+	m.HistoryMax = 2
+	m.OnSubmit = func(string) {}
+	for _, line := range []string{"a", "b", "c"} {
+		m = typeText(t, m, line)
+		m, _ = typed(t, m, keyPress(tea.KeyEnter))
+	}
+	assert.Equal(t, []string{"b", "c"}, m.history, "only the last two prompts are kept")
+
+	m.HistoryMax = 0
+	m = typeText(t, m, "d")
+	m, _ = typed(t, m, keyPress(tea.KeyEnter))
+	assert.Equal(t, []string{"b", "c", "d"}, m.history, "zero keeps every prompt")
+}

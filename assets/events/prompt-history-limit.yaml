@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: prompt-history-limit
+# How many submitted prompts the full-screen view keeps for ctrl+p and ctrl+n.
+# Older prompts are dropped first.
+items: 100
+run: cap

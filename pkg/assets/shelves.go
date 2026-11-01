@@ -89,6 +89,7 @@ var itemShelf = map[string]string{
 	"events/force-answer-digest":     ShelfContext,
 	"events/history-window-trim":     ShelfContext,
 	"events/memory-prompt-limit":     ShelfContext,
+	"events/prompt-history-limit":    ShelfContext,
 	"events/knowledge-recall-files":  ShelfRAG,
 	"events/bug-capture-max-errors":  ShelfEvals,
 	"events/tui-activity-lines":      ShelfContext,
