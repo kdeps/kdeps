@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: context-segment-cap
+# How many context groups the status row shows. Older groups collapse into a
+# "+N" marker, so the row stays on one line. Identical labels are summed first.
+items: 5
+run: cap

@@ -125,11 +125,15 @@ func recordContextSegmentTokens(label string, tokens int) {
 	contextSegments = append(contextSegments, contextSegment{Label: label, Tokens: tokens})
 }
 
-// contextPathSegmentCap bounds how many groups contextPathStatus shows.
-// Past this, older groups collapse into a "+N" marker instead of a line
-// long enough to wrap. Identical labels are summed first, so twenty calls
-// to the same tool are one group, not twenty copies of the same node.
-const contextPathSegmentCap = 5
+// defaultContextSegmentCap is the group cap when the event is missing.
+const defaultContextSegmentCap = 5
+
+// contextSegmentCap is how many context groups the status row shows: the
+// context-segment-cap event's items. It returns disabledSentinel when the event
+// is off, and every group is then shown.
+func contextSegmentCap() int {
+	return effectiveItems(eventContextSegmentCap, defaultContextSegmentCap)
+}
 
 // statusWrapGuard leaves one column unused. A line that fills the width
 // makes the terminal wrap, and the next tick then prints a new copy.
@@ -177,9 +181,10 @@ func contextPathStatus() string {
 		totals[label] += seg.Tokens
 	}
 	hidden := 0
-	if len(order) > contextPathSegmentCap {
-		hidden = len(order) - contextPathSegmentCap
-		order = order[len(order)-contextPathSegmentCap:]
+	if limit := contextSegmentCap(); limit != disabledSentinel && len(order) > max(limit, 1) {
+		keep := max(limit, 1)
+		hidden = len(order) - keep
+		order = order[len(order)-keep:]
 	}
 
 	parts := []string{fmt.Sprintf("turn %s/%s",

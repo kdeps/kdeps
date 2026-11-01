@@ -73,6 +73,7 @@ const (
 	eventJudgeIterations         = "judge-iterations"
 	eventMemoryPromptLimit       = "memory-prompt-limit"
 	eventMemoryKeysLimit         = "memory-keys-limit"
+	eventContextSegmentCap       = "context-segment-cap"
 	eventTrivialPromptMax        = "trivial-prompt-max"
 	eventTrivialPromptShort      = "trivial-prompt-short"
 	eventKnowledgeRecallFiles    = "knowledge-recall-files"
