@@ -100,6 +100,8 @@ const (
 	eventProviderBodyOpenAI         = "provider-body-limit-openai"
 	eventProviderSmallThreshold     = "provider-small-threshold"
 	eventKnowledgeRecallFiles       = "knowledge-recall-files"
+	eventTrivialPromptMax           = "trivial-prompt-max"
+	eventTrivialPromptShort         = "trivial-prompt-short"
 )
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger

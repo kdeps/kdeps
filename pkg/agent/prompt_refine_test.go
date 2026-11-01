@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -166,4 +168,11 @@ func TestSetPromptRefine(t *testing.T) {
 	if l.PromptRefineEnabled() {
 		t.Fatal("expected disabled")
 	}
+}
+
+func TestTrivialLength_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
+	withEvent(t, Event{Name: eventTrivialPromptMax, Items: 50, Run: actionCap})
+	withEvent(t, Event{Name: eventTrivialPromptShort, Items: 10, Run: actionCap, Disabled: true})
+	assert.Equal(t, 50, trivialLength(eventTrivialPromptMax, defaultTrivialPromptMax))
+	assert.Equal(t, defaultTrivialPromptShort, trivialLength(eventTrivialPromptShort, defaultTrivialPromptShort))
 }
