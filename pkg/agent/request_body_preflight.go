@@ -31,23 +31,35 @@ import (
 	"strings"
 )
 
-// ProviderMaxRequestBodyBytes defines the maximum request body size per backend.
-// Keys are backend names (e.g. "dashscope", "openai"), values are byte limits.
-// 0 means no known limit (provider default is used).
-//
-//nolint:gochecknoglobals // read-only static mapping
-var ProviderMaxRequestBodyBytes = map[string]int64{
-	"dashscope":     dashscopeMaxBytes, // 6 MB — kimi/DashScope
-	"xai":           xaiMaxBytes,       // 50 MB — xAI/Grok
-	toolParamOpenAI: openaiMaxBytes,    // 100 MB
-	// All other backends default to 0 (no known limit).
+// providerBodyLimitEvent names the event that holds a backend's request body
+// limit, or "" for a backend with no known limit.
+func providerBodyLimitEvent(backend string) string {
+	switch backend {
+	case "dashscope":
+		return eventProviderBodyDashscope
+	case "xai":
+		return eventProviderBodyXAI
+	case toolParamOpenAI:
+		return eventProviderBodyOpenAI
+	}
+	return ""
+}
+
+// providerMaxRequestBodyBytes is the request body limit for backend, or 0 when
+// it has no known limit (no event, or the event is off).
+func providerMaxRequestBodyBytes(backend string) int64 {
+	name := providerBodyLimitEvent(backend)
+	if name == "" {
+		return 0
+	}
+	n := effectiveBytes(name, 0)
+	if n == disabledSentinel {
+		return 0
+	}
+	return int64(n)
 }
 
 const (
-	dashscopeMaxBytes      = 6_291_456   // 6 MB
-	xaiMaxBytes            = 52_428_800  // 50 MB
-	openaiMaxBytes         = 104_857_600 // 100 MB
-	smallProviderThreshold = 10_000_000  // 10 MB
 	// avgBytesPerToken approximates UTF-8 bytes per token for English
 	// technical text (1 token ≈ 4 bytes).
 	avgBytesPerToken = 4
@@ -66,8 +78,8 @@ func EstimateRequestSizeBytes(tokenCount int, messageCount int) int64 {
 // provider's limit. Returns nil if within limits or no limit is configured.
 // Returns an error with an actionable message if the request would exceed the limit.
 func CheckRequestBodySize(backend string, estimatedBytes int64) error {
-	limit, ok := ProviderMaxRequestBodyBytes[backend]
-	if !ok || limit == 0 {
+	limit := providerMaxRequestBodyBytes(backend)
+	if limit <= 0 {
 		return nil // no known limit
 	}
 	if estimatedBytes > limit {
@@ -101,8 +113,9 @@ func formatBytes(b int64) string {
 // it has a low request size limit (DashScope users should know their context
 // window is limited), or nothing: a limit of a backend not in use is noise.
 func RequestSizePreflightWarnings(backend string) []string {
-	limit := ProviderMaxRequestBodyBytes[strings.ToLower(strings.TrimSpace(backend))]
-	if limit <= 0 || limit >= smallProviderThreshold {
+	limit := providerMaxRequestBodyBytes(strings.ToLower(strings.TrimSpace(backend)))
+	threshold := effectiveBytes(eventProviderSmallThreshold, 0)
+	if threshold == disabledSentinel || limit <= 0 || limit >= int64(threshold) {
 		return nil
 	}
 	return []string{fmt.Sprintf(
