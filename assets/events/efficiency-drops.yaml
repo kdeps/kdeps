@@ -1,0 +1,13 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/block: ""
+name: efficiency-drops
+on:
+  # Refused reads an open stop tolerates. One more and the refusal itself counts
+  # as another stop. Disabling the event removes the limit.
+  rounds: 2
+# Efficiency events are read by the efficiency governor (pkg/agent/efficiency.go),
+# not fired as an action, so "block" here is a placeholder that satisfies action
+# validation.
+run: block
