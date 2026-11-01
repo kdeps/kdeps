@@ -264,3 +264,13 @@ func TestMessageArea_ShowsTheSubmittedLineBeforeTheReply(t *testing.T) {
 	assert.Contains(t, strings.Join(m.main, "\n"), "list files", "the user's line is in the message area")
 	assert.Contains(t, ansi.Strip(m.main[len(m.main)-1]), "› list files")
 }
+
+// TestRedrawMsg_ShowsAFeedChangeMadeOffTheLoop checks a redraw message after
+// the feed changes draws the new entry.
+func TestRedrawMsg_ShowsAFeedChangeMadeOffTheLoop(t *testing.T) {
+	var f feed.Feed
+	m := resized(t, New(&f))
+	f.Add(feed.Entry{Kind: feed.KindAction, Title: "bash_exec"})
+	m, _ = typed(t, m, RedrawMsg{})
+	assert.Contains(t, ansi.Strip(m.render()), "bash_exec", "the new entry is drawn after the redraw")
+}

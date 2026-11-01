@@ -29,6 +29,12 @@ func feedResourceLoaded(path string) {
 		return
 	}
 	addResourceEntry(f, path)
+	tuiFeedSink.Lock()
+	redraw := tuiFeedSink.redraw
+	tuiFeedSink.Unlock()
+	if redraw != nil {
+		redraw()
+	}
 }
 
 // addResourceEntry writes one resource-loaded entry.

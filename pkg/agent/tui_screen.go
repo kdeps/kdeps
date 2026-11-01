@@ -300,6 +300,9 @@ func attachScreenModel(program *tea.Program) func() {
 	screenModelSend.Lock()
 	screenModelSend.send = func(msg screen.ModelMsg) { program.Send(msg) }
 	screenModelSend.Unlock()
+	tuiFeedSink.Lock()
+	tuiFeedSink.redraw = func() { program.Send(screen.RedrawMsg{}) }
+	tuiFeedSink.Unlock()
 	screenPillSend.Lock()
 	screenPillSend.send = func(msg screen.PillMsg) { program.Send(msg) }
 	screenPillSend.enabled = map[string]bool{}
@@ -308,6 +311,9 @@ func attachScreenModel(program *tea.Program) func() {
 	}
 	screenPillSend.Unlock()
 	return func() {
+		tuiFeedSink.Lock()
+		tuiFeedSink.redraw = nil
+		tuiFeedSink.Unlock()
 		screenModelSend.Lock()
 		screenModelSend.send = nil
 		screenModelSend.Unlock()

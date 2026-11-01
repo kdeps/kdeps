@@ -23,6 +23,9 @@ var fileEditTools = map[string]bool{"edit_file": true, "write_file": true}
 var tuiFeedSink struct {
 	sync.Mutex
 	f *feed.Feed
+	// redraw tells the running view that the feed changed; the view draws only
+	// when it receives a message, so an entry added off the UI loop needs one.
+	redraw func()
 }
 
 // setTUIFeed points the tool results at f. A nil feed turns feeding off.
@@ -58,4 +61,7 @@ func feedToolResult(tool, result string) {
 		body = strings.Join(lines[:feedBodyLines], "\n")
 	}
 	tuiFeedSink.f.Add(feed.Entry{Kind: kind, Title: tool, Body: body})
+	if tuiFeedSink.redraw != nil {
+		tuiFeedSink.redraw()
+	}
 }

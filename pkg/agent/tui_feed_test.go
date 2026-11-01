@@ -36,3 +36,23 @@ func TestFeedToolResult_NoFeedIsANoOp(t *testing.T) {
 	setTUIFeed(nil)
 	assert.NotPanics(t, func() { feedToolResult("bash_exec", "x") })
 }
+
+// TestFeedToolResult_RedrawsTheViewAfterAnEntry checks an entry added off the UI
+// loop asks the running view to draw again.
+func TestFeedToolResult_RedrawsTheViewAfterAnEntry(t *testing.T) {
+	var f feed.Feed
+	setTUIFeed(&f)
+	redraws := 0
+	tuiFeedSink.Lock()
+	tuiFeedSink.redraw = func() { redraws++ }
+	tuiFeedSink.Unlock()
+	t.Cleanup(func() {
+		tuiFeedSink.Lock()
+		tuiFeedSink.redraw = nil
+		tuiFeedSink.Unlock()
+		setTUIFeed(nil)
+	})
+
+	feedToolResult("bash_exec", "ok")
+	assert.Equal(t, 1, redraws, "the view is asked to draw after the entry")
+}
