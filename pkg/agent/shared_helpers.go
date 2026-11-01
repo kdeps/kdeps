@@ -45,7 +45,7 @@ func looksTrivial(input string) bool {
 	if input == "" {
 		return true
 	}
-	if len(input) > trivialPromptMaxLen {
+	if len(input) > trivialLength(eventTrivialPromptMax, defaultTrivialPromptMax) {
 		return false
 	}
 	// Multi-line input is a spec, not a one-liner.
@@ -60,7 +60,8 @@ func looksTrivial(input string) bool {
 	}
 	// A very short remark, or any question under the length cap, has nothing to
 	// decompose. A longer imperative one-liner still gets a planning attempt.
-	return len(input) <= trivialShortLen || strings.HasSuffix(input, "?")
+	short := trivialLength(eventTrivialPromptShort, defaultTrivialPromptShort)
+	return len(input) <= short || strings.HasSuffix(input, "?")
 }
 
 // localModelNotServed reports whether the configured backend is a local
@@ -86,9 +87,21 @@ func extractJSONObject(s string) string {
 	return s[start : end+1]
 }
 
-const trivialPromptMaxLen = 120
+// Defaults for the trivial-prompt events, used when an event is off.
+const (
+	defaultTrivialPromptMax   = 120
+	defaultTrivialPromptShort = 32
+)
 
-const trivialShortLen = 32
+// trivialLength is a trivial-prompt length from its event's items, or the
+// default when the event is off.
+func trivialLength(name string, fallback int) int {
+	n := effectiveItems(name, fallback)
+	if n == disabledSentinel || n < 1 {
+		return fallback
+	}
+	return n
+}
 
 //nolint:gochecknoglobals // fixed list of trivial-prompt markers
 var multiStepMarkers = []string{

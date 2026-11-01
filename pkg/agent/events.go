@@ -75,6 +75,8 @@ const (
 	eventMemoryKeysLimit         = "memory-keys-limit"
 	eventHandshakeHistory        = "handshake-history"
 	eventHandshakeEvidence       = "handshake-evidence-attempts"
+	eventTrivialPromptMax        = "trivial-prompt-max"
+	eventTrivialPromptShort      = "trivial-prompt-short"
 	eventKnowledgeRecallFiles    = "knowledge-recall-files"
 	eventProviderBodyDashscope   = "provider-body-limit-dashscope"
 	eventProviderBodyXAI         = "provider-body-limit-xai"
