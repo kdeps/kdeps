@@ -26,9 +26,13 @@ import (
 )
 
 func TestProviderMaxRequestBodyBytes(t *testing.T) {
-	assert.Equal(t, int64(6_291_456), ProviderMaxRequestBodyBytes["dashscope"])
-	assert.Equal(t, int64(52_428_800), ProviderMaxRequestBodyBytes["xai"])
-	assert.Equal(t, int64(104_857_600), ProviderMaxRequestBodyBytes["openai"])
+	withEvent(t, Event{Name: eventProviderBodyDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderBodyXAI, On: EventTrigger{Bytes: 52_428_800}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderBodyOpenAI, On: EventTrigger{Bytes: 104_857_600}, Run: actionReject})
+	assert.Equal(t, int64(6_291_456), providerMaxRequestBodyBytes("dashscope"))
+	assert.Equal(t, int64(52_428_800), providerMaxRequestBodyBytes("xai"))
+	assert.Equal(t, int64(104_857_600), providerMaxRequestBodyBytes("openai"))
+	assert.Equal(t, int64(0), providerMaxRequestBodyBytes("ollama"), "a backend with no event has no known limit")
 }
 
 func TestEstimateRequestSizeBytes(t *testing.T) {
@@ -111,4 +115,16 @@ func TestRequestSizePreflightWarnings(t *testing.T) {
 	// limit is not shown (instrument session hunt7 warned about dashscope on m365)
 	assert.Empty(t, RequestSizePreflightWarnings("xai"))
 	assert.Empty(t, RequestSizePreflightWarnings("m365"))
+}
+
+func TestRequestSizePreflightWarnings_UseTheEvents(t *testing.T) {
+	withEvent(t, Event{Name: eventProviderBodyDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderSmallThreshold, On: EventTrigger{Bytes: 10_000_000}, Run: actionReject})
+	assert.Len(t, RequestSizePreflightWarnings("dashscope"), 1, "a small limit warns")
+	assert.Empty(t, RequestSizePreflightWarnings("ollama"), "no limit, no warning")
+
+	withEvent(t, Event{
+		Name: eventProviderSmallThreshold, On: EventTrigger{Bytes: 10_000_000}, Run: actionReject, Disabled: true,
+	})
+	assert.Empty(t, RequestSizePreflightWarnings("dashscope"), "a disabled threshold warns about nothing")
 }

@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/reject: ""
+name: provider-small-threshold
+# Request body byte limit for one provider (or the small-provider warning
+# threshold). Turning the event off means no known limit.
+on:
+  bytes: 10000000
+run: reject
