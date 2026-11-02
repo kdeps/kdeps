@@ -39,6 +39,7 @@ var Shelves = []string{
 //nolint:gochecknoglobals // fixed table
 var setShelf = map[string]string{
 	"actions":    ShelfGuardrails,
+	"codegraph":  ShelfTools,
 	"commands":   ShelfAgent,
 	"components": ShelfWorkflow,
 	"defaults":   ShelfWorkflow,
@@ -46,6 +47,7 @@ var setShelf = map[string]string{
 	"events":     ShelfGuardrails,
 	"harness":    ShelfHarness,
 	"k8s":        ShelfDeploy,
+	"knowledge":  ShelfRag,
 	"memory":     ShelfMemory,
 	"models":     ShelfModel,
 	"policy":     ShelfGuardrails,

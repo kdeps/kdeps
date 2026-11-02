@@ -56,7 +56,7 @@ import (
 var Sets = []string{
 	"harness", "events", "actions", "presets", "policy", "themes", "tools", "commands", "recipes",
 	"models", "templates",
-	"docker", "k8s", "schemas", "defaults", "components", "providers", "memory",
+	"docker", "k8s", "schemas", "defaults", "components", "providers", "memory", "knowledge", "codegraph",
 }
 
 // bundleSets are the sets whose items are directories, distributed as one
