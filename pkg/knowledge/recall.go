@@ -113,11 +113,14 @@ func knowledgeSpec() assets.Spec {
 			case notesItem:
 				_, err := parseNoteRules(data)
 				return err
+			case extractItem:
+				_, err := parseExtractRules(data)
+				return err
 			}
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem, policyItem, vaultItem, checkItem, notesItem},
+		Required: []string{recallItem, policyItem, vaultItem, checkItem, notesItem, extractItem},
 	}
 }
 

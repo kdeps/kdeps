@@ -61,6 +61,15 @@ templates:
 
 Install rejects a `notes.yaml` with a missing or broken template.
 
+What a model's extraction may name, and how its answer joins the graph, is the same set's `extract.yaml`:
+
+```yaml
+entity_kinds: [project, tool, decision, rationale, gotcha, concept]  # other kinds become default_kind
+relations: [depends_on, rationale_for, relates_to, supersedes, references]  # kept as the model named them
+fallback_relation: relates_to  # any other relation becomes this...
+fallback_max_confidence: 0.49  # ...at most this sure, so it is marked ambiguous
+```
+
 A fact written in two places goes stale in one of them. `kdeps knowledge check` reports structural duplicates: the same summary, a next step outside a card, or two notes that set the same `canonical` or `fact_id`. It does not decide that two different wordings are the same fact.
 
 ## Projects

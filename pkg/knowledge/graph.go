@@ -233,7 +233,9 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 			b.missing[m] = true
 		}
 	}
-	b.addExtracted(v.Root, dir, notes, resolve)
+	if err = b.addExtracted(v.Root, dir, notes, resolve); err != nil {
+		return nil, st, err
+	}
 	b.addCode(ctx, v)
 	g := &Graph{Graph: *b.kg.Graph(), Vault: v.Root, Built: now.UTC()}
 	for m := range b.missing {
