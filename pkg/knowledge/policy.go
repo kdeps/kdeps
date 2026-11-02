@@ -39,6 +39,7 @@ type policyFile struct {
 
 // policyValues loads the policy once; a missing or broken item is reported and
 // the counts fall back to 1, so the graph still builds with a visible warning.
+//nolint:gochecknoglobals // loaded once from the knowledge asset set
 var policyValues = sync.OnceValue(func() policyFile {
 	var p policyFile
 	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + policyItem + ".yaml")
