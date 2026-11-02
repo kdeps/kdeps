@@ -514,10 +514,10 @@ func TestSummaryHelpers(t *testing.T) {
 	assert.Equal(t, "made progress", sec["progress"])
 	assert.Empty(t, sec["wins"])
 	assert.Equal(t, "Fix the bug", oneLine("\n- [ ] **Fix the bug**\n"))
-	assert.Len(t, []rune(oneLine(strings.Repeat("x", 300))), maxSummary)
+	assert.Len(t, []rune(oneLine(strings.Repeat("x", 300))), policy().MaxSummary)
 	assert.Empty(t, firstItem("  "))
 	assert.Equal(t, "session", slug("///"))
-	assert.Len(t, []rune(slug(strings.Repeat("y", 100))), maxSlug)
+	assert.Len(t, []rune(slug(strings.Repeat("y", 100))), policy().MaxSlug)
 }
 
 func TestCode_GitIgnoredFilesSkipped(t *testing.T) {

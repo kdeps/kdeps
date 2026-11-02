@@ -27,6 +27,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	kgnotes "github.com/kdeps/kartographer/notes"
 )
 
 // writeVault writes files (vault-relative path -> content) under a temp dir.
@@ -176,9 +178,9 @@ func TestCards(t *testing.T) {
 	_, err = ReadCard(filepath.Join(root, "none.md"))
 	require.Error(t, err)
 
-	assert.Equal(t, "plain", yamlScalar("plain"))
-	assert.Equal(t, `"a: b"`, yamlScalar("a: b"))
-	assert.Equal(t, `""`, yamlScalar(""))
+	assert.Equal(t, "plain", kgnotes.Scalar("plain"))
+	assert.Equal(t, `"a: b"`, kgnotes.Scalar("a: b"))
+	assert.Equal(t, `""`, kgnotes.Scalar(""))
 }
 
 func TestCheck(t *testing.T) {

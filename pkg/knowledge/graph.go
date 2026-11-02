@@ -103,7 +103,7 @@ func CurrentManifest(v Vault) (Manifest, error) {
 // Unreadable and oversized notes are omitted so one bad file does not fail the scan.
 func indexableNote(d os.DirEntry) (os.FileInfo, bool) {
 	info, err := d.Info()
-	if err != nil || info.Size() > maxNoteSize {
+	if err != nil || info.Size() > policy().MaxNoteSize {
 		return nil, false
 	}
 	return info, true
