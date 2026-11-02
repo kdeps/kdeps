@@ -33,5 +33,3 @@ limits:
 paths:
   max_depth: 8          # longest call path trace searches
   max_paths: 10         # most call paths trace returns
-  skip_dirs: [vendor, node_modules, testdata]  # folders the Go file listing never enters
-  skip_hidden: true     # and folders whose names start with a dot

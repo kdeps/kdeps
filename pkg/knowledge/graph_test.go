@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kartographer/codegraph"
 	kword "github.com/kdeps/kartographer/text"
 )
 
@@ -538,14 +537,15 @@ func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
 		require.NoError(t, os.WriteFile(abs, []byte(c), 0o600))
 	}
 	require.NoError(t, exec.Command("git", "-C", repo, "init", "-q").Run())
-	files, err := codegraph.GoFiles(t.Context(), repo)
-	require.NoError(t, err)
+	files := gitGoFiles(t.Context(), repo)
 	var rel []string
 	for _, f := range files {
 		r, _ := filepath.Rel(repo, f)
 		rel = append(rel, filepath.ToSlash(r))
 	}
 	assert.ElementsMatch(t, []string{"main.go", "lib/lib.go"}, rel, "ignored and vendored files are skipped")
+	assert.Empty(t, gitGoFiles(t.Context(), t.TempDir()), "not a git work tree, or ignored by an enclosing one")
+	assert.Len(t, walkGoFiles(repo), 3, "without git: everything outside vendor")
 }
 
 func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
