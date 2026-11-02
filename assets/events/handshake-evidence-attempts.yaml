@@ -1,0 +1,11 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/fail_handshake: ""
+name: handshake-evidence-attempts
+# Retries the handshake's evidence step gets before the challenge is failed.
+# Turning the event off keeps the default: an unlimited retry loop is not a
+# policy a turn can run under.
+on:
+  rounds: 3
+run: fail_handshake
