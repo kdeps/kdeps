@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	kgstore "github.com/kdeps/kartographer/store"
+
 	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
@@ -164,7 +166,7 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 			delete(cache.Notes, p)
 		}
 	}
-	return st, saveJSON(filepath.Join(dir, extractFile), cache)
+	return st, kgstore.WriteJSON(filepath.Join(dir, extractFile), cache)
 }
 
 // PendingExtractCount is how many notes still need a model pass.
@@ -310,9 +312,7 @@ func salvage(s string) (Extraction, bool) {
 
 func loadExtractCache(dir string) extractCache {
 	c := extractCache{Notes: map[string]Extraction{}}
-	if data, err := os.ReadFile(filepath.Join(dir, extractFile)); err == nil {
-		_ = json.Unmarshal(data, &c)
-	}
+	_ = kgstore.ReadJSON(filepath.Join(dir, extractFile), &c)
 	if c.Notes == nil {
 		c.Notes = map[string]Extraction{}
 	}

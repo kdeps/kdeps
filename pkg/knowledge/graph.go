@@ -20,8 +20,6 @@ package knowledge
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -29,6 +27,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	kgstore "github.com/kdeps/kartographer/store"
 
 	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
@@ -117,18 +117,12 @@ func NeedsBuild(v Vault, dir string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, manifestFile))
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
 	stored := Manifest{}
-	if json.Unmarshal(data, &stored) == nil {
-		return !reflect.DeepEqual(current, stored), nil
+	// A missing or unreadable manifest means the graph must be rebuilt.
+	if readErr := kgstore.ReadJSON(filepath.Join(dir, manifestFile), &stored); readErr != nil {
+		return true, nil //nolint:nilerr // an unreadable manifest is a reason to rebuild, not an error
 	}
-	return true, nil
+	return !reflect.DeepEqual(current, stored), nil
 }
 
 // graphMu serializes builds. Session startup, workflow recall, vault search,
@@ -249,17 +243,17 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 	applyExtractMeta(g, dir)
 	g.Modularity = Communities(g)
 	st.Nodes, st.Edges, st.Communities = len(g.Nodes), len(g.Edges), g.Communities
-	if innerErr := saveJSON(filepath.Join(dir, cacheFile), next); innerErr != nil {
+	if innerErr := kgstore.WriteJSON(filepath.Join(dir, cacheFile), next); innerErr != nil {
 		return nil, st, innerErr
 	}
-	if innerErr := saveJSON(filepath.Join(dir, graphFile), g); innerErr != nil {
+	if innerErr := kgstore.WriteJSON(filepath.Join(dir, graphFile), g); innerErr != nil {
 		return nil, st, innerErr
 	}
 	manifest, innerErr := CurrentManifest(v)
 	if innerErr != nil {
 		return nil, st, innerErr
 	}
-	if innerErr = saveJSON(filepath.Join(dir, manifestFile), manifest); innerErr != nil {
+	if innerErr = kgstore.WriteJSON(filepath.Join(dir, manifestFile), manifest); innerErr != nil {
 		return nil, st, innerErr
 	}
 	if innerErr = writeReport(g, g.Modularity, dir); innerErr != nil {
@@ -294,13 +288,9 @@ func sortGraph(g *Graph) {
 
 // Load reads a built graph from dir.
 func Load(dir string) (*Graph, error) {
-	data, err := os.ReadFile(filepath.Join(dir, graphFile))
-	if err != nil {
-		return nil, err
-	}
 	var g Graph
-	if innerErr := json.Unmarshal(data, &g); innerErr != nil {
-		return nil, innerErr
+	if err := kgstore.ReadJSON(filepath.Join(dir, graphFile), &g); err != nil {
+		return nil, err
 	}
 	return &g, nil
 }
@@ -310,9 +300,7 @@ func GraphPath(dir string) string { return filepath.Join(dir, graphFile) }
 
 func loadCache(dir string) buildCache {
 	c := buildCache{Files: map[string]cacheEntry{}}
-	if data, err := os.ReadFile(filepath.Join(dir, cacheFile)); err == nil {
-		_ = json.Unmarshal(data, &c)
-	}
+	_ = kgstore.ReadJSON(filepath.Join(dir, cacheFile), &c)
 	if c.Files == nil || c.Version != parserVersion {
 		c.Files = map[string]cacheEntry{}
 	}
@@ -337,21 +325,6 @@ func applyExtractMeta(g *Graph, dir string) {
 	if !at.IsZero() {
 		g.ExtractedAt = at.UTC()
 	}
-}
-
-func saveJSON(file string, v any) error {
-	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(v, "", " ")
-	if err != nil {
-		return err
-	}
-	tmp := file + ".tmp"
-	if innerErr := os.WriteFile(tmp, data, filePerm); innerErr != nil {
-		return innerErr
-	}
-	return os.Rename(tmp, file)
 }
 
 // noteDoc is the graph's view of one vault note.
