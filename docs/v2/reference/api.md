@@ -33,6 +33,17 @@ Five YAML sets configure the agent loop. They are configuration data, not callab
 | `themes/` | `pkg/agent/theme_yaml.go` | REPL colors and styles |
 
 Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
+
+## Knowledge and code graph rules
+
+Two more asset sets hold business rules for the graph features. Each is one YAML file, and each is read once at start.
+
+| Set | Read by | What it configures |
+|---|---|---|
+| `knowledge/` | `pkg/knowledge/recall.go` | The word lengths and stopwords a knowledge-graph recall query is matched on |
+| `codegraph/` | `pkg/codegraph/codegraph.go` | The code graph's ranking weights, stopwords, result limits and path bounds, handed to Kartographer |
+
+If a set's file is missing or broken, the knowledge recall keeps every word and prints a warning. The code graph reports that it has no rules until the file loads.
 ## Traceability: API to component to YAML
 
 Every YAML file that runs reaches the kdeps API. A workflow reaches a tool through a component, a slash command reaches the REPL through the commands group, and a loop data set is read directly by the agent loop:

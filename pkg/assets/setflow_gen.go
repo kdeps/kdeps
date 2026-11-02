@@ -18,6 +18,16 @@ var generatedFlows = map[string]SetInfo{
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
 	},
+	"codegraph": {
+		Mode: "cli",
+		Flow: []FlowStep{
+			{Label: "the code graph is built or queried"},
+			{Label: "its rules are read from the codegraph set at start", Here: true},
+			{Label: "ranking weights, stopwords and limits apply to each query"},
+		},
+		UsedBy: []string{"kdeps start-up"},
+		Code:   []string{"kdeps start-up", "codegraph.Configure"},
+	},
 	"commands": {
 		Mode: "both",
 		Flow: []FlowStep{
@@ -93,6 +103,18 @@ var generatedFlows = map[string]SetInfo{
 		},
 		UsedBy: []string{"kdeps export k8s"},
 		Code:   []string{"kdeps export k8s", "k8s.(*Generator).GenerateManifests", "k8s.(*Generator).renderManifest"},
+	},
+	"knowledge": {
+		Mode: "cli",
+		Flow: []FlowStep{
+			{Label: "a knowledge-graph recall query arrives"},
+			{Label: "its words are split and stemmed"},
+			{Label: "the recall rules set the word lengths and stopwords", Here: true},
+			{Label: "matching nodes are scored"},
+			{Label: "the best notes fill the budget"},
+		},
+		UsedBy: []string{"kdeps start-up"},
+		Code:   []string{"kdeps start-up", "knowledge.loadRecallRules"},
 	},
 	"memory": {
 		Mode: "agent",
