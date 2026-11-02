@@ -20,3 +20,5 @@ report_top: 10  # Entries of each top list in the graph report.
 community_top: 5  # Communities listed in the graph report.
 missing_top: 20  # Missing links listed in the graph report.
 marker_window: 512  # Bytes read around a report marker.
+tag_edge_weight: 0.3  # weight of a tag edge in recall, against 1 for a link
+ambiguous_weight: 0.3  # weight of an ambiguous edge in recall, times its confidence
