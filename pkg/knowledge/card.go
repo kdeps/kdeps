@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"github.com/spf13/fileflow"
+
+	kgnotes "github.com/kdeps/kartographer/notes"
 )
 
 // Card fields every card carries in its frontmatter.
@@ -264,7 +266,7 @@ func (v Vault) CreateProject(name, source, place string, now time.Time) (*Card, 
 	}
 	body := fmt.Sprintf("%s\ntype: project\nstatus: active\nnext: %s\nupdated: %s\n%s\n"+
 		"| Source | Path |\n|---|---|\n| %s | %s |\n",
-		frontDelim, yamlScalar(noneText), now.Format(time.DateOnly), frontDelim, source, place)
+		frontDelim, kgnotes.Scalar(noneText), now.Format(time.DateOnly), frontDelim, source, place)
 	file := filepath.Join(dir, name+mdExt)
 	if err := writeFileAtomic(file, body); err != nil {
 		return nil, false, err
@@ -500,7 +502,7 @@ func (c *Card) Update(status, next string, now time.Time) error {
 	if next != "" {
 		set[CardNext] = next
 	}
-	out, err := setFrontmatter(string(data), set, CardFields)
+	out, err := kgnotes.EditFrontmatter(string(data), set, CardFields)
 	if err != nil {
 		return err
 	}
@@ -513,52 +515,4 @@ func (c *Card) Update(status, next string, now time.Time) error {
 	}
 	*c = *updated
 	return nil
-}
-
-// setFrontmatter replaces (or adds, in order) top-level frontmatter keys,
-// creating the block when the file has none. Values are written as YAML
-// double-quoted strings when they need it.
-func setFrontmatter(text string, set map[string]string, order []string) (string, error) {
-	var head []string
-	body := text
-	if strings.HasPrefix(text, frontDelim+"\n") {
-		rest := text[len(frontDelim)+1:]
-		end := strings.Index("\n"+rest, "\n"+frontDelim+"\n")
-		if end < 0 {
-			if !strings.HasSuffix(rest, "\n"+frontDelim) {
-				return "", errors.New("unterminated frontmatter")
-			}
-			end = len(rest) - len(frontDelim)
-		}
-		if end > 0 {
-			head = strings.Split(strings.TrimSuffix(rest[:end], "\n"), "\n")
-		}
-		body = strings.TrimPrefix(rest[end:], frontDelim)
-		body = strings.TrimPrefix(body, "\n")
-	}
-	done := map[string]bool{}
-	for i, line := range head {
-		key, _, ok := strings.Cut(line, ":")
-		if !ok || strings.HasPrefix(line, " ") {
-			continue
-		}
-		if v, want := set[key]; want {
-			head[i] = key + ": " + yamlScalar(v)
-			done[key] = true
-		}
-	}
-	for _, key := range order {
-		if v, want := set[key]; want && !done[key] {
-			head = append(head, key+": "+yamlScalar(v))
-		}
-	}
-	return frontDelim + "\n" + strings.Join(head, "\n") + "\n" + frontDelim + "\n" + body, nil
-}
-
-// yamlScalar writes s as a plain scalar when safe, else double-quoted.
-func yamlScalar(s string) string {
-	if s == "" || strings.ContainsAny(s, ":#{}[],&*!|>'\"%@`\n") || strings.TrimSpace(s) != s {
-		return fmt.Sprintf("%q", s)
-	}
-	return s
 }

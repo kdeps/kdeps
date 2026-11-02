@@ -27,6 +27,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	kgnotes "github.com/kdeps/kartographer/notes"
 )
 
 const (
@@ -173,7 +175,7 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 		summaryLine := strings.ReplaceAll(item, boldTitleMark, "")
 		body := fmt.Sprintf("%s\ntype: decision\nstatus: done\nproject: %s\ncreated: %s\nsummary: %s\n"+
 			"links: [%q, %q]\n%s\n\n# %s\n\n%s\n",
-			frontDelim, yamlScalar(card.Name), now.Format(time.DateOnly), yamlScalar(oneLine(summaryLine)),
+			frontDelim, kgnotes.Scalar(card.Name), now.Format(time.DateOnly), kgnotes.Scalar(oneLine(summaryLine)),
 			sessionLink, card.SelfLink(), frontDelim, title, summaryLine)
 		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
 		if errors.Is(err, os.ErrExist) {
@@ -237,20 +239,20 @@ func recordedGitStart(file string) string {
 func sessionBody(id, project, cardLink, summary string, sec map[string]string, now time.Time, git GitRange) string {
 	var b strings.Builder
 	b.WriteString(frontDelim + "\ntype: session\nstatus: done\n")
-	fmt.Fprintf(&b, "project: %s\n", yamlScalar(project))
+	fmt.Fprintf(&b, "project: %s\n", kgnotes.Scalar(project))
 	fmt.Fprintf(
 		&b,
 		"session: %s\ncreated: %s\nsummary: %s\ntags: [session",
-		yamlScalar(id),
+		kgnotes.Scalar(id),
 		now.Format(time.DateOnly),
-		yamlScalar(summary),
+		kgnotes.Scalar(summary),
 	)
-	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", yamlScalar(project), cardLink)
+	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", kgnotes.Scalar(project), cardLink)
 	if git.To != "" {
 		if git.Branch != "" {
-			fmt.Fprintf(&b, "branch: %s\n", yamlScalar(git.Branch))
+			fmt.Fprintf(&b, "branch: %s\n", kgnotes.Scalar(git.Branch))
 		}
-		fmt.Fprintf(&b, "commits: %s\n", yamlScalar(gitRangeMeta(git)))
+		fmt.Fprintf(&b, "commits: %s\n", kgnotes.Scalar(gitRangeMeta(git)))
 	}
 	b.WriteString(frontDelim + "\n")
 	body := map[string]string{
@@ -401,9 +403,9 @@ func AppendRun(card *Card, prompt, reply string, now time.Time) (string, error) 
 	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
 		head := fmt.Sprintf("%s\ntype: session\nstatus: done\nproject: %s\nsession: %s\ncreated: %s\nsummary: %s\n"+
 			"tags: [session, workflow, %s]\nlinks: [%q]\n%s\n\n## Runs\n\n",
-			frontDelim, yamlScalar(card.Name), yamlScalar("runs-"+now.Format(time.DateOnly)),
-			now.Format(time.DateOnly), yamlScalar(card.Name+" workflow runs on "+now.Format(time.DateOnly)),
-			yamlScalar(card.Name), card.SelfLink(), frontDelim)
+			frontDelim, kgnotes.Scalar(card.Name), kgnotes.Scalar("runs-"+now.Format(time.DateOnly)),
+			now.Format(time.DateOnly), kgnotes.Scalar(card.Name+" workflow runs on "+now.Format(time.DateOnly)),
+			kgnotes.Scalar(card.Name), card.SelfLink(), frontDelim)
 		return file, os.WriteFile(file, []byte(head+entry), filePerm)
 	}
 	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, filePerm)
