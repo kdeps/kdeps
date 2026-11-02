@@ -119,4 +119,5 @@ items:
   "events/judge-iterations": evals
   "events/judge-max-rounds": evals
   "actions/accept_last": evals
+  "events/context-segment-cap": context
   "events/prompt-history-limit": context

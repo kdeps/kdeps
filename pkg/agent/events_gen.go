@@ -8,6 +8,7 @@ const (
 	eventBashCallBudget             = "bash-call-budget"
 	eventBugCaptureMaxErrors        = "bug-capture-max-errors"
 	eventCodeCallBudget             = "code-call-budget"
+	eventContextSegmentCap          = "context-segment-cap"
 	eventConvergenceBlock           = "convergence-block"
 	eventEfficiency                 = "efficiency"
 	eventEfficiencyActions          = "efficiency-actions"
