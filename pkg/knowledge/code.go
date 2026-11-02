@@ -21,13 +21,13 @@ package knowledge
 import (
 	"bufio"
 	"context"
-	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/kdeps/kartographer/codegraph"
+	// The rules come from the codegraph asset set; the adapter configures them.
+	_ "github.com/kdeps/kdeps/v2/pkg/codegraph"
 )
 
 // policy().MaxCodeFiles caps the Go files read per repo.
@@ -66,16 +66,16 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 // honouring .gitignore), else every .go file outside vendor, testdata and
 // hidden folders. Kartographer reads each file's in-module imports.
 func (b *builder) addModule(ctx context.Context, root string) {
-	files := gitGoFiles(ctx, root)
-	if files == nil {
-		files = walkGoFiles(root)
+	files, err := codegraph.GoFiles(ctx, root)
+	if err != nil {
+		return
 	}
 	if len(files) > policy().MaxCodeFiles {
 		files = files[:policy().MaxCodeFiles]
 	}
 	rels := make([]string, 0, len(files))
 	for _, p := range files {
-		if rel, err := filepath.Rel(root, p); err == nil {
+		if rel, rerr := filepath.Rel(root, p); rerr == nil {
 			rels = append(rels, rel)
 		}
 	}
@@ -99,61 +99,6 @@ func (b *builder) addPackageFile(root string, fi codegraph.FileImports) {
 		b.add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
 		b.link(id, "code:"+imp, RelDependsOn, file, lineRef(fi.Lines[i]))
 	}
-}
-
-// gitGoFiles lists root's .go files that git tracks or would track, or nil
-// when root is not in a git work tree, git is missing, or git lists none
-// (root ignored by an enclosing repo): the caller then walks the folder.
-func gitGoFiles(ctx context.Context, root string) []string {
-	cmd := exec.CommandContext(
-		ctx,
-		"git",
-		"-C",
-		root,
-		"ls-files",
-		"--cached",
-		"--others",
-		"--exclude-standard",
-		"-z",
-		"--",
-		"*.go",
-	)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-	var files []string
-	for _, f := range strings.Split(string(out), "\x00") {
-		if f == "" || strings.Contains("/"+f, "/vendor/") || strings.Contains("/"+f, "/testdata/") {
-			continue
-		}
-		files = append(files, filepath.Join(root, filepath.FromSlash(f)))
-	}
-	return files
-}
-
-// walkGoFiles lists root's .go files outside vendor, testdata and hidden
-// folders.
-func walkGoFiles(root string) []string {
-	var files []string
-	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			return nil //nolint:nilerr // unreadable paths are skipped
-		case d.IsDir():
-			if p != root && skipCodeDir(d.Name()) {
-				return filepath.SkipDir
-			}
-		case strings.HasSuffix(d.Name(), ".go"):
-			files = append(files, p)
-		}
-		return nil
-	})
-	return files
-}
-
-func skipCodeDir(name string) bool {
-	return strings.HasPrefix(name, ".") || name == "vendor" || name == "node_modules" || name == "testdata"
 }
 
 // goModule is the module path in root/go.mod, or "".
