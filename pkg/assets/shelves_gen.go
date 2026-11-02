@@ -71,6 +71,7 @@ var itemShelf = map[string]string{
 	"commands/model":                     ShelfModel,
 	"events/auto-compact":                ShelfContext,
 	"events/bug-capture-max-errors":      ShelfEvals,
+	"events/context-segment-cap":         ShelfContext,
 	"events/fold":                        ShelfContext,
 	"events/force-answer-digest":         ShelfContext,
 	"events/handshake-evidence-attempts": ShelfHarness,

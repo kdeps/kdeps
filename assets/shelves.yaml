@@ -119,5 +119,6 @@ items:
   "events/judge-iterations": evals
   "events/judge-max-rounds": evals
   "actions/accept_last": evals
+  "events/context-segment-cap": context
   "events/handshake-evidence-attempts": harness
   "events/handshake-history": harness

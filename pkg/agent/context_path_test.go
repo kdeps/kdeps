@@ -77,7 +77,7 @@ func TestContextPathStatus_SumsRepeatedLabel(t *testing.T) {
 
 func TestContextPathStatus_TruncatesToCapWithMoreMarker(t *testing.T) {
 	resetContextSegments(modelGPT4o, "")
-	for i := range contextPathSegmentCap + 3 {
+	for i := range defaultContextSegmentCap + 3 {
 		recordContextSegmentTokens(fmt.Sprintf("tool: t%d", i), 100)
 	}
 	status := contextPathStatus()
@@ -330,4 +330,23 @@ func TestTurnTokenDelta(t *testing.T) {
 	in, out = turnTokenDelta()
 	assert.Equal(t, int64(0), in, "a compaction must never produce a negative delta")
 	assert.Equal(t, int64(0), out)
+}
+
+func TestContextPathStatus_TheEventSetsTheCap(t *testing.T) {
+	resetContextSegments(modelGPT4o, "")
+	withEvent(t, Event{Name: eventContextSegmentCap, Items: 2, Run: actionCap})
+	for i := range 4 {
+		recordContextSegmentTokens(fmt.Sprintf("tool: t%d", i), 100)
+	}
+	status := contextPathStatus()
+	assert.Contains(t, status, "+2", "the event's two groups are kept, the rest collapse")
+}
+
+func TestContextPathStatus_ADisabledEventShowsEveryGroup(t *testing.T) {
+	resetContextSegments(modelGPT4o, "")
+	withEvent(t, Event{Name: eventContextSegmentCap, Items: 2, Run: actionCap, Disabled: true})
+	for i := range 4 {
+		recordContextSegmentTokens(fmt.Sprintf("tool: t%d", i), 100)
+	}
+	assert.NotContains(t, contextPathStatus(), "+", "no collapse marker when the cap is off")
 }
