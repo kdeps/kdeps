@@ -65,12 +65,34 @@ var (
 
 // loadPolicy reads the policy item of the knowledge asset set.
 func loadPolicy() (policyFile, error) {
-	var p policyFile
 	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + policyItem + ".yaml")
 	if err != nil {
+		return policyFile{}, err
+	}
+	return parsePolicy(data)
+}
+
+// parsePolicy reads policy.yaml. The recall counts must be set: a file from
+// before they existed is rejected, so the warning fallback applies instead of
+// a recall that divides by zero.
+func parsePolicy(data []byte) (policyFile, error) {
+	var p policyFile
+	if err := yaml.Unmarshal(data, &p); err != nil {
 		return p, err
 	}
-	return p, yaml.Unmarshal(data, &p)
+	for _, f := range []struct {
+		key   string
+		value int
+	}{
+		{"recall_max_hops", p.RecallMaxHops}, {"recall_budget", p.RecallBudget},
+		{"recall_max_seeds", p.RecallMaxSeeds}, {"recall_max_hits", p.RecallMaxHits},
+		{"bytes_per_token", p.BytesPerToken},
+	} {
+		if f.value <= 0 {
+			return p, fmt.Errorf("%s must be above 0", f.key)
+		}
+	}
+	return p, nil
 }
 
 // policy returns the knowledge graph's limits and thresholds.

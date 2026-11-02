@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # Limits and thresholds of the knowledge graph: how much of a note, a repo or a
 # report is read, kept or shown. The code holds none of these values.
 

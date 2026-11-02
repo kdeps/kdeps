@@ -94,7 +94,11 @@ func parseRecallRules(data []byte) (recallRulesFile, error) {
 //nolint:gochecknoinits // registers the knowledge asset set
 func init() {
 	assets.Register(knowledgeSet, assets.Spec{
-		Validate: func(data []byte, _ string) error {
+		Validate: func(data []byte, name string) error {
+			if name == policyItem {
+				_, err := parsePolicy(data)
+				return err
+			}
 			_, err := parseRecallRules(data)
 			return err
 		},

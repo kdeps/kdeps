@@ -16,7 +16,7 @@ set -euo pipefail
 base=${1:?base ref}
 head=${2:?head ref}
 
-flat_re='^assets/(harness|events|actions|presets|themes|tools|commands|recipes|models|defaults|providers)/[^/]+\.yaml$'
+flat_re='^assets/(harness|events|actions|presets|themes|tools|commands|recipes|models|defaults|providers|knowledge|codegraph)/[^/]+\.yaml$'
 bundle_re='^assets/(templates|docker|k8s|schemas|components)/([^/]+)/'
 
 version_at() { # <ref> <path> -> version or empty
