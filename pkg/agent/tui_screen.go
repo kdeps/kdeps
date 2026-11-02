@@ -137,11 +137,25 @@ const sessionPillIDLen = 8
 // title, the active model, and the pills to show.
 func newScreenModel(f *feed.Feed) screen.Model {
 	m := screen.New(f)
+	m.HistoryMax = promptHistoryLimit()
 	m.Model = screenModelLabel()
 	if wd, wdErr := os.Getwd(); wdErr == nil {
 		m.Title = filepath.Base(wd)
 	}
 	return m
+}
+
+// defaultPromptHistory is the prompt recall depth when the event is missing.
+const defaultPromptHistory = 100
+
+// promptHistoryLimit is how many prompts the full-screen view recalls: the
+// prompt-history-limit event's items. A disabled event keeps every prompt (0).
+func promptHistoryLimit() int {
+	n := effectiveItems(eventPromptHistoryLimit, defaultPromptHistory)
+	if n == disabledSentinel {
+		return 0
+	}
+	return n
 }
 
 // sendScreenPill sets a pill's value in the running view. It does nothing when

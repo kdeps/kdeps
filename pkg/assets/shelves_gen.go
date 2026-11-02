@@ -94,6 +94,7 @@ var itemShelf = map[string]string{
 	"events/memory-tool-results-limit":   ShelfMemory,
 	"events/memory-value-limit":          ShelfMemory,
 	"events/model-record-limit":          ShelfGuardrails,
+	"events/prompt-history-limit":        ShelfContext,
 	"events/rel-memory-limit":            ShelfMemory,
 	"events/side-call-max-tokens":        ShelfContext,
 	"events/thinking-budget-auto":        ShelfModel,

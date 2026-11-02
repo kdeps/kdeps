@@ -124,3 +124,4 @@ items:
   "events/context-segment-cap": context
   "events/handshake-evidence-attempts": harness
   "events/handshake-history": harness
+  "events/prompt-history-limit": context

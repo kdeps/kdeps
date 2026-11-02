@@ -75,6 +75,8 @@ type Model struct {
 	Status        string
 	// Title is shown in the header row, after the product name (for example the folder).
 	Title string
+	// HistoryMax bounds the submitted lines ctrl+p and ctrl+n recall; 0 keeps all.
+	HistoryMax int
 	// Model is the active model name, shown as a chip in the header row.
 	Model     string
 	pills     map[string]string

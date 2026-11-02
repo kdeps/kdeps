@@ -57,6 +57,7 @@ const (
 	eventOpenrouterProviderLimit    = "openrouter-provider-limit"
 	eventOpenrouterRateLimit        = "openrouter-rate-limit"
 	eventOpenrouterRefusal          = "openrouter-refusal"
+	eventPromptHistoryLimit         = "prompt-history-limit"
 	eventProviderBodyLimitDashscope = "provider-body-limit-dashscope"
 	eventProviderBodyLimitOpenai    = "provider-body-limit-openai"
 	eventProviderBodyLimitXai       = "provider-body-limit-xai"

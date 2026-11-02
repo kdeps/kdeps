@@ -4,9 +4,6 @@ import (
 	"strings"
 )
 
-// promptHistoryMax bounds the submitted lines ctrl+p and ctrl+n recall.
-const promptHistoryMax = 100
-
 // editKey applies a prompt editing key (cursor, delete, kill, history). It
 // reports false for keys that are not editing keys.
 func (m Model) editKey(name string) (Model, bool) {
@@ -148,7 +145,7 @@ func (m Model) deleteWordBefore() Model {
 func (m Model) recordPrompt(line string) Model {
 	if n := len(m.history); n == 0 || m.history[n-1] != line {
 		m.history = append(m.history, line)
-		if extra := len(m.history) - promptHistoryMax; extra > 0 {
+		if extra := len(m.history) - m.HistoryMax; m.HistoryMax > 0 && extra > 0 {
 			m.history = m.history[extra:]
 		}
 	}
