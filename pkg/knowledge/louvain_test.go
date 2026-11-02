@@ -110,13 +110,13 @@ func TestReport(t *testing.T) {
 	assert.Equal(t, 5, min(r.Surprising[0].FromSize, r.Surprising[0].ToSize))
 	assert.Len(t, r.Groups, 2, "single-node communities are left out")
 
-	md := r.Markdown("/v")
+	md := ReportMarkdown(r, "/v")
 	for _, want := range []string{"# Knowledge graph report", "| 11 |", "## God nodes", "[[a/0]]", "## Communities",
 		"**Community 0**", "## Surprising connections", "-[relates_to, inferred]->", "[[Gone]]"} {
 		assert.Contains(t, md, want)
 	}
 
-	empty := NewReport(&Graph{}, 0).Markdown("/v")
+	empty := ReportMarkdown(NewReport(&Graph{}, 0), "/v")
 	assert.Contains(
 		t,
 		empty,
