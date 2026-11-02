@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kartographer/graph"
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/index"
@@ -242,29 +243,31 @@ func TestBoostByGraph_VaultGraphWeightsAndSkipsKartographer(t *testing.T) {
 
 	g := knowledge.Graph{
 		Vault: vault,
-		Nodes: []*knowledge.Node{
-			{ID: "note:hub.md", Kind: "note", Note: "hub.md"},
-			{ID: "note:extracted.md", Kind: "note", Note: "extracted.md"},
-			{ID: "note:inferred.md", Kind: "note", Note: "inferred.md"},
-			{ID: "note:tagged.md", Kind: "note", Note: "tagged.md"},
-			{ID: "tag:billing", Kind: "tag", Label: "#billing"},
-		},
-		Edges: []*knowledge.Edge{
-			{
-				From: "note:hub.md", To: "note:extracted.md", Relation: "references",
-				Provenance: "extracted", Confidence: 1,
+		Graph: kgknowledge.Graph{
+			Nodes: []*knowledge.Node{
+				{ID: "note:hub.md", Kind: "note", Note: "hub.md"},
+				{ID: "note:extracted.md", Kind: "note", Note: "extracted.md"},
+				{ID: "note:inferred.md", Kind: "note", Note: "inferred.md"},
+				{ID: "note:tagged.md", Kind: "note", Note: "tagged.md"},
+				{ID: "tag:billing", Kind: "tag", Label: "#billing"},
 			},
-			{
-				From: "note:hub.md", To: "note:inferred.md", Relation: "mentions",
-				Provenance: "inferred", Confidence: 0.4,
-			},
-			{
-				From: "note:hub.md", To: "tag:billing", Relation: "tagged",
-				Provenance: "extracted", Confidence: 1,
-			},
-			{
-				From: "note:tagged.md", To: "tag:billing", Relation: "tagged",
-				Provenance: "extracted", Confidence: 1,
+			Edges: []*knowledge.Edge{
+				{
+					From: "note:hub.md", To: "note:extracted.md", Relation: "references",
+					Provenance: "extracted", Confidence: 1,
+				},
+				{
+					From: "note:hub.md", To: "note:inferred.md", Relation: "mentions",
+					Provenance: "inferred", Confidence: 0.4,
+				},
+				{
+					From: "note:hub.md", To: "tag:billing", Relation: "tagged",
+					Provenance: "extracted", Confidence: 1,
+				},
+				{
+					From: "note:tagged.md", To: "tag:billing", Relation: "tagged",
+					Provenance: "extracted", Confidence: 1,
+				},
 			},
 		},
 	}
