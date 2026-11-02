@@ -36,11 +36,11 @@ import (
 func providerBodyLimitEvent(backend string) string {
 	switch backend {
 	case "dashscope":
-		return eventProviderBodyDashscope
+		return eventProviderBodyLimitDashscope
 	case "xai":
-		return eventProviderBodyXAI
+		return eventProviderBodyLimitXai
 	case toolParamOpenAI:
-		return eventProviderBodyOpenAI
+		return eventProviderBodyLimitOpenai
 	}
 	return ""
 }

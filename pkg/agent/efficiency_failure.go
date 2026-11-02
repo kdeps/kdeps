@@ -41,10 +41,6 @@ import (
 // /efficiency verbose is on. Past the per-turn failure budget the plain
 // [TOOL FAILED] banner (tool calls) or the error itself (LLM calls) takes over.
 const (
-	eventEfficiencyFailures  = "efficiency-failures"
-	eventFailureContextBytes = "failure-context-bytes"
-	eventFailureDirEntries   = "failure-dir-entries"
-	eventFailureErrorBytes   = "failure-error-bytes"
 
 	// failureContextRadius is how many lines either side of the focus line a
 	// failed edit's file excerpt shows.

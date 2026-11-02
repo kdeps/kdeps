@@ -112,10 +112,10 @@ func TestCmdHarnessEvents_EnableDisableRoundTrip(t *testing.T) {
 	repl := newHarnessTestREPL(t)
 
 	require.NoError(t, repl.dispatchCommand("/harness events disable identical-tool-calls"))
-	assert.False(t, EventEnabled(eventIdenticalCalls))
+	assert.False(t, EventEnabled(eventIdenticalToolCalls))
 
 	require.NoError(t, repl.dispatchCommand("/harness events enable identical-tool-calls"))
-	assert.True(t, EventEnabled(eventIdenticalCalls))
+	assert.True(t, EventEnabled(eventIdenticalToolCalls))
 }
 
 func TestCmdHarnessEvents_DisableUnknownEventReportsError(t *testing.T) {

@@ -38,7 +38,7 @@ const defaultFreeModelPerMinute = 20
 // Every OpenRouter free-model request in the process waits in one queue under it.
 func setFreeModelQueueCap() {
 	executorLLM.SetFreeModelPerMinute(func() int {
-		n := effectiveItems(eventOpenRouterFreePerMinute, defaultFreeModelPerMinute)
+		n := effectiveItems(eventOpenrouterFreePerMinute, defaultFreeModelPerMinute)
 		if n == disabledSentinel || n < 1 {
 			return 0
 		}
@@ -52,7 +52,7 @@ func isRateLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return eventPatternMatch(eventOpenRouterRateLimit, err.Error())
+	return eventPatternMatch(eventOpenrouterRateLimit, err.Error())
 }
 
 // isProviderRateLimit is an upstream provider 429, from the
@@ -62,14 +62,14 @@ func isProviderRateLimit(err error) bool {
 	if !isRateLimitError(err) {
 		return false
 	}
-	return eventPatternMatch(eventOpenRouterProviderLimit, err.Error())
+	return eventPatternMatch(eventOpenrouterProviderLimit, err.Error())
 }
 
 // isFreeModelRefusal is a provider refusal of one free id that another id may
 // accept (openrouter-refusal event). Bug capture moves to another id instead of
 // stopping.
 func isFreeModelRefusal(err error) bool {
-	return err != nil && eventPatternMatch(eventOpenRouterRefusal, err.Error())
+	return err != nil && eventPatternMatch(eventOpenrouterRefusal, err.Error())
 }
 
 // freeModelSwitchAfter is how many free-model calls, across every id, may
@@ -77,7 +77,7 @@ func isFreeModelRefusal(err error) bool {
 // account cap; the wait starts one call before that cap.
 func freeModelSwitchAfter() int {
 	const fallback = 20
-	n := effectiveItems(eventOpenRouterFreePerMinute, fallback)
+	n := effectiveItems(eventOpenrouterFreePerMinute, fallback)
 	if n == disabledSentinel || n < 2 {
 		return 0
 	}
@@ -89,7 +89,7 @@ func freeModelSwitchAfter() int {
 // across them so calls stay under the cap.
 func freeModelGap() time.Duration {
 	const fallback = 20
-	n := effectiveItems(eventOpenRouterFreePerMinute, fallback)
+	n := effectiveItems(eventOpenrouterFreePerMinute, fallback)
 	if n == disabledSentinel || n < 1 {
 		return 0
 	}
