@@ -23,6 +23,15 @@ card:  # front matter keys of a project card, all required
   updated: updated  # the date the card last changed
   archived: archived  # the status value that moves a project to the archive folder
 
+note:  # front matter keys kdeps reads from every note
+  type: type  # the note's kind (a decision, a gotcha); its graph node kind
+  status: status  # the note's state
+  summary: summary  # one line recall shows before anyone opens the note
+  tags: tags  # a list, or one comma-separated string; a leading # is dropped
+  aliases: aliases  # other names a wiki link may use for the note
+  links: links  # wiki links in the front matter; they relate the note to others
+  canonical: [canonical, fact_id]  # a stable fact id; the first key that is set wins
+
 sources:  # link kinds a card maps to the project's places on disk
   repo: repo  # a code repository
   folder: folder  # a folder of files

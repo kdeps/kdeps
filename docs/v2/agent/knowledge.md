@@ -41,6 +41,9 @@ project:
   decisions: decisions  # one note per decision
 card:
   next: next  # front matter key of the one next step; it lives only in the card
+note:
+  summary: summary  # the line recall shows before anyone opens a note
+  canonical: [canonical, fact_id]  # a stable fact id; the first key that is set wins
 ```
 
 Every name must be set. Install rejects a `vault.yaml` that leaves one empty.

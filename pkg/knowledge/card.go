@@ -373,14 +373,14 @@ func ReadCard(file string) (*Card, error) {
 	if err != nil {
 		return nil, err
 	}
-	meta, body := SplitFrontmatter(data)
+	meta, body := kgnotes.SplitFrontmatter(data)
 	c := &Card{
 		Name:    strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)),
 		File:    file,
-		Type:    metaString(meta, Layout().Card.Type),
-		Status:  metaString(meta, Layout().Card.Status),
-		Next:    metaString(meta, Layout().Card.Next),
-		Updated: metaString(meta, Layout().Card.Updated),
+		Type:    kgnotes.MetaString(meta, Layout().Card.Type),
+		Status:  kgnotes.MetaString(meta, Layout().Card.Status),
+		Next:    kgnotes.MetaString(meta, Layout().Card.Next),
+		Updated: kgnotes.MetaString(meta, Layout().Card.Updated),
 	}
 	for _, line := range strings.Split(body, "\n") {
 		t := strings.TrimSpace(line)

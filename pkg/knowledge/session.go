@@ -231,8 +231,8 @@ func recordedGitStart(file string) string {
 	if err != nil {
 		return ""
 	}
-	meta, _ := SplitFrontmatter(data)
-	from, _, _ := strings.Cut(metaString(meta, "commits"), "..")
+	meta, _ := kgnotes.SplitFrontmatter(data)
+	from, _, _ := strings.Cut(kgnotes.MetaString(meta, "commits"), "..")
 	return strings.TrimSpace(from)
 }
 
@@ -377,7 +377,7 @@ func findSession(dir, id string) string {
 		if readErr != nil {
 			continue
 		}
-		if meta, _ := SplitFrontmatter(data); metaString(meta, "session") == id {
+		if meta, _ := kgnotes.SplitFrontmatter(data); kgnotes.MetaString(meta, "session") == id {
 			return filepath.Join(dir, e.Name())
 		}
 	}
