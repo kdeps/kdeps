@@ -27,7 +27,7 @@ Five YAML sets configure the agent loop. They are configuration data, not callab
 | Set | Read by | What it configures |
 |---|---|---|
 | `harness/` | `pkg/agent/harness_yaml.go` | Prompt sections the loop sends to the model |
-| `events/` | `pkg/agent/events.go` | Governor triggers: conditions that start an efficiency action |
+| `events/` | `assets/events/` (names generated into `pkg/agent/events_gen.go`) | Governor triggers: conditions that start an efficiency action |
 | `actions/` | `pkg/agent/actions.go` | The governor's action vocabulary |
 | `presets/` | `pkg/agent/presets.go` | Named bundles of harness and efficiency settings (`/efficiency preset`) |
 | `themes/` | `pkg/agent/theme_yaml.go` | REPL colors and styles |

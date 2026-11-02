@@ -1726,7 +1726,7 @@ func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
 		"\nThe model repeated the same %q tool call %d times without making "+
 			"progress - ending the turn. The tool was likely blocked or kept "+
 			"failing. Try rephrasing, or switch models with /model.\n\n",
-		toolName, effectiveRounds(eventIdenticalCalls))
+		toolName, effectiveRounds(eventIdenticalToolCalls))
 	_, _ = io.WriteString(w, notice)
 	return notice
 }
@@ -2054,7 +2054,7 @@ func isConvergenceBlocked(result string) bool {
 // identicalRepeatLimit is how many identical call+result rounds in a row end
 // the turn: the identical-tool-calls event threshold.
 func identicalRepeatLimit(_ string) int {
-	return effectiveRounds(eventIdenticalCalls)
+	return effectiveRounds(eventIdenticalToolCalls)
 }
 
 // trackRepeat updates the consecutive-identical-tool-call counter. A round
