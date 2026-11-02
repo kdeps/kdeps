@@ -51,9 +51,9 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 			continue
 		}
 		rootID := "code:" + module
-		b.add(&Node{ID: rootID, Label: module, Kind: KindCode})
+		b.kg.Add(&Node{ID: rootID, Label: module, Kind: KindCode})
 		if rel, relErr := filepath.Rel(v.Root, c.File); relErr == nil && !strings.HasPrefix(rel, "..") {
-			b.link(
+			b.kg.Link(
 				noteID(filepath.ToSlash(rel)), rootID, RelReferences,
 				filepath.ToSlash(rel), lineRef(lineInFile(c.File, repo)),
 			)
@@ -93,11 +93,11 @@ func (b *builder) addModule(ctx context.Context, root string) {
 // imports connect packages: an edge the code does not write is not added.
 func (b *builder) addPackageFile(root string, fi codegraph.FileImports) {
 	id := "code:" + fi.Package
-	b.add(&Node{ID: id, Label: fi.Package, Kind: KindCode})
+	b.kg.Add(&Node{ID: id, Label: fi.Package, Kind: KindCode})
 	file := filepath.Join(root, filepath.FromSlash(fi.File))
 	for i, imp := range fi.Imports {
-		b.add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
-		b.link(id, "code:"+imp, RelDependsOn, file, lineRef(fi.Lines[i]))
+		b.kg.Add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
+		b.kg.Link(id, "code:"+imp, RelDependsOn, file, lineRef(fi.Lines[i]))
 	}
 }
 

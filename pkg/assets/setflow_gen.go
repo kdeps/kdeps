@@ -105,7 +105,7 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps export k8s", "k8s.(*Generator).GenerateManifests", "k8s.(*Generator).renderManifest"},
 	},
 	"knowledge": {
-		Mode: "cli",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "a knowledge-graph recall query arrives"},
 			{Label: "its words are split and stemmed"},
@@ -113,8 +113,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "matching nodes are scored"},
 			{Label: "the best notes fill the budget"},
 		},
-		UsedBy: []string{"kdeps start-up"},
-		Code:   []string{"kdeps start-up", "knowledge.loadRecallRules"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.Extract", "knowledge.loadPolicy"},
 	},
 	"memory": {
 		Mode: "agent",
