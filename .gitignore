@@ -223,6 +223,9 @@ dist/
 coverage.html
 pkg/**/**/*.txt
 pkg/**/**/*.yaml
+# Business-rule YAML that go:embed reads from its package (see pkg/codegraph, pkg/knowledge).
+!pkg/codegraph/rules.yaml
+!pkg/knowledge/recall_rules.yaml
 pkg/**/**/*.cover
 pkg/**/**/*.cov
 *.cov

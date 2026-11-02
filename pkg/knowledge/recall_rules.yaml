@@ -1,0 +1,6 @@
+# Recall rules for the knowledge graph: the words a query is matched on.
+# A word shorter than min_word_length, or in stopwords, is ignored. A word of
+# at least min_stem_length after its suffix is removed is matched by its stem.
+min_word_length: 3
+min_stem_length: 3
+stopwords: [the, and, for, with, that, this, what, how, why, are, was, were, you, your, from, into, can, does, did, not, have, has, had, about, which, when, where, who, will, would, should, could, there, their, them, then, than, also, just, like, make, please, tell, show, give, all, any, its]

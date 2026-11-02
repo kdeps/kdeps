@@ -19,6 +19,7 @@
 package knowledge
 
 import (
+	_ "embed"
 	"fmt"
 	"math"
 	"os"
@@ -30,36 +31,31 @@ import (
 	"time"
 
 	kword "github.com/kdeps/kartographer/text"
+	"gopkg.in/yaml.v3"
 )
 
 // Recall defaults.
 const (
-	DefaultHops        = 2
-	DefaultBudget      = 1500 // tokens of recalled paths and summaries
-	maxSeeds           = 5
-	maxHits            = 8
-	hopDecay           = 0.5
-	tagEdgeWeight      = 0.3
-	ambiguousWeight    = 0.3
-	labelMatchBoost    = 2.0
-	fullLabelBoost     = 3.0
-	minQueryWordLength = 3
-	minStemLength      = 3
-	sessionNoteWeight  = 0.4
-	memoryNoteWeight   = 0.6
-	bytesPerToken      = 4
+	DefaultHops       = 2
+	DefaultBudget     = 1500 // tokens of recalled paths and summaries
+	maxSeeds          = 5
+	maxHits           = 8
+	hopDecay          = 0.5
+	tagEdgeWeight     = 0.3
+	ambiguousWeight   = 0.3
+	labelMatchBoost   = 2.0
+	fullLabelBoost    = 3.0
+	sessionNoteWeight = 0.4
+	memoryNoteWeight  = 0.6
+	bytesPerToken     = 4
 )
 
-//nolint:gochecknoglobals // fixed set
-var stopWords = map[string]bool{
-	"the": true, "and": true, "for": true, "with": true, "that": true, "this": true, "what": true,
-	"how": true, "why": true, "are": true, "was": true, "were": true, "you": true, "your": true,
-	"from": true, "into": true, "can": true, "does": true, "did": true, "not": true, "have": true,
-	"has": true, "had": true, "about": true, "which": true, "when": true, "where": true, "who": true,
-	"will": true, "would": true, "should": true, "could": true, "there": true, "their": true,
-	"them": true, "then": true, "than": true, "also": true, "just": true, "like": true, "make": true,
-	"please": true, "tell": true, "show": true, "give": true, "all": true, "any": true, "its": true,
-}
+// recallRules are the recall policy: word lengths and stopwords, read from
+// recall_rules.yaml.
+var recallRules, stopWords = loadRecallRules() //nolint:gochecknoglobals // loaded from embedded YAML
+
+//go:embed recall_rules.yaml
+var recallRulesYAML []byte
 
 // PathStep is one edge on the path that reached a recalled note.
 type PathStep struct {
@@ -187,9 +183,29 @@ func provOrder(p string) int {
 
 // wordOptions is the kdeps policy for keyword words.
 var wordOptions = kword.Options{ //nolint:gochecknoglobals // fixed policy
-	MinWordLength: minQueryWordLength,
-	MinStemLength: minStemLength,
+	MinWordLength: recallRules.MinWordLength,
+	MinStemLength: recallRules.MinStemLength,
 	Stopwords:     stopWords,
+}
+
+// loadRecallRules parses recall_rules.yaml. A broken file is a build defect, so it panics.
+func loadRecallRules() (recallRulesFile, map[string]bool) {
+	var r recallRulesFile
+	if err := yaml.Unmarshal(recallRulesYAML, &r); err != nil {
+		panic("knowledge: recall_rules.yaml: " + err.Error())
+	}
+	set := make(map[string]bool, len(r.Stopwords))
+	for _, w := range r.Stopwords {
+		set[w] = true
+	}
+	return r, set
+}
+
+// recallRulesFile mirrors recall_rules.yaml.
+type recallRulesFile struct {
+	MinWordLength int      `yaml:"min_word_length"`
+	MinStemLength int      `yaml:"min_stem_length"`
+	Stopwords     []string `yaml:"stopwords"`
 }
 
 func words(s string) []string { return kword.Words(s, wordOptions) }
@@ -287,7 +303,7 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 		s += w
 	}
 	label := strings.ToLower(strings.TrimPrefix(ix.byID[id].Label, "#"))
-	if s > 0 && len(label) > minQueryWordLength && strings.Contains(lowerText, label) {
+	if s > 0 && len(label) > recallRules.MinWordLength && strings.Contains(lowerText, label) {
 		s *= fullLabelBoost
 	}
 	return s * sourceWeight(ix.byID[id])

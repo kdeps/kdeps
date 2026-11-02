@@ -1,0 +1,34 @@
+# Business rules for the code graph: ranking weights, result limits and path
+# bounds. Change a value here; the code reads it at start-up.
+ranking:
+  name_weight: 3        # a query word found in a symbol's name
+  path_weight: 1        # a query word found in the symbol's file path
+  degree_weight: 0.1    # per call edge, a small bonus for connected symbols
+  body_lines: 30        # lines of source returned for a symbol
+  stopwords: [the, a, an, of, is, are, where, how, what, which, does, do, in, to, and, or, for, on, with, by, it, this, that, be, when, who]
+
+limits:
+  find_symbol: 30       # default result count of find_symbol
+  callers: 25
+  callees: 25
+  impact: 60            # direct neighbours returned by impact
+  impact_seeds: 8
+  tests_for: 25
+  rank_files: 15
+  file_neighbors: 50
+  query_budget: 5000    # characters of source returned by query
+  query_k: 5            # symbols returned by query
+  max_result: 300       # largest count any tool accepts
+  node_neighbours: 12
+  find_seeds: 10
+  render_depth: 1
+  render_nodes: 300
+  render_edges: 4000
+  recall: 10            # notes returned by recall
+  memories_about: 5
+  impact_files: 15      # files returned by impact_and_risk
+  fetch_bytes: 16384    # source bytes returned by fetch
+
+paths:
+  max_depth: 8          # longest call path trace searches
+  max_paths: 10         # most call paths trace returns
