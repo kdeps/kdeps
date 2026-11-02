@@ -163,7 +163,8 @@ writes the report next to the graph, under ~/.kdeps/knowledge/<vault-id>.
 
 With --extract, a local model first reads every note that changed since its
 last extraction and lists what it is about; its findings join the graph as
-inferred edges (with the model's confidence) or ambiguous ones (below 0.5).
+inferred edges (with the model's confidence) or ambiguous ones (below the
+knowledge policy's ambiguous_below).
 --export also copies GRAPH_REPORT.md and graph.html into the vault. A file
 of yours there is never replaced.
 
