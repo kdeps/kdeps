@@ -36,21 +36,44 @@ type policyFile struct {
 	CommunityTop      int     `yaml:"community_top"`      // Communities listed in the graph report.
 	MissingTop        int     `yaml:"missing_top"`        // Missing links listed in the graph report.
 	MarkerWindow      int     `yaml:"marker_window"`      // Bytes read around a report marker.
+	TagEdgeWeight     float64 `yaml:"tag_edge_weight"`    // weight of a tag edge in recall, against 1 for a link
+	AmbiguousWeight   float64 `yaml:"ambiguous_weight"`   // weight of an ambiguous edge in recall, times its confidence
 }
 
 // policyValues loads the policy once; a missing or broken item is reported and
 // the counts fall back to 1, so the graph still builds with a visible warning.
 //
+// policyCache holds the policy once it has loaded. A failed load is reported
+// and not cached, so a later call with the assets in place reads them.
+//
 //nolint:gochecknoglobals // loaded once from the knowledge asset set
-var policyValues = sync.OnceValue(func() policyFile {
+//nolint:gochecknoglobals // loaded once from the knowledge asset set
+var (
+	policyMu    sync.Mutex
+	policyCache *policyFile
+)
+
+// loadPolicy reads the policy item of the knowledge asset set.
+func loadPolicy() (policyFile, error) {
 	var p policyFile
 	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + policyItem + ".yaml")
-	if err == nil {
-		err = yaml.Unmarshal(data, &p)
+	if err != nil {
+		return p, err
 	}
+	return p, yaml.Unmarshal(data, &p)
+}
+
+// policy returns the knowledge graph's limits and thresholds.
+func policy() policyFile {
+	policyMu.Lock()
+	defer policyMu.Unlock()
+	if policyCache != nil {
+		return *policyCache
+	}
+	p, err := loadPolicy()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "knowledge: policy: %v\n", err)
-		p = policyFile{
+		return policyFile{
 			MaxCodeFiles:   1,
 			MaxCardBody:    1,
 			ChunkChars:     1,
@@ -68,8 +91,6 @@ var policyValues = sync.OnceValue(func() policyFile {
 			MarkerWindow:   1,
 		}
 	}
+	policyCache = &p
 	return p
-})
-
-// policy returns the knowledge graph's limits and thresholds.
-func policy() policyFile { return policyValues() }
+}

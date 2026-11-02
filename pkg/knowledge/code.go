@@ -53,9 +53,9 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 			continue
 		}
 		rootID := "code:" + module
-		b.add(&Node{ID: rootID, Label: module, Kind: KindCode})
+		b.kg.Add(&Node{ID: rootID, Label: module, Kind: KindCode})
 		if rel, relErr := filepath.Rel(v.Root, c.File); relErr == nil && !strings.HasPrefix(rel, "..") {
-			b.link(
+			b.kg.Link(
 				noteID(filepath.ToSlash(rel)), rootID, RelReferences,
 				filepath.ToSlash(rel), lineRef(lineInFile(c.File, repo)),
 			)
@@ -141,16 +141,16 @@ func skipCodeDir(name string) bool {
 // imports connect packages: an edge the code does not write is not added.
 func (b *builder) addPackageFile(file, module, pkg string) {
 	id := "code:" + pkg
-	b.add(&Node{ID: id, Label: pkg, Kind: KindCode})
+	b.kg.Add(&Node{ID: id, Label: pkg, Kind: KindCode})
 	imports, lines := fileImports(file, b.cache, b.next)
 	for i, imp := range imports {
 		if imp == module || strings.HasPrefix(imp, module+"/") {
-			b.add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
+			b.kg.Add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
 			loc := ""
 			if i < len(lines) {
 				loc = lineRef(lines[i])
 			}
-			b.link(id, "code:"+imp, RelDependsOn, file, loc)
+			b.kg.Link(id, "code:"+imp, RelDependsOn, file, loc)
 		}
 	}
 }

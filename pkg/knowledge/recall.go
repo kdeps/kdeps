@@ -42,8 +42,6 @@ const (
 	maxSeeds          = 5
 	maxHits           = 8
 	hopDecay          = 0.5
-	tagEdgeWeight     = 0.3
-	ambiguousWeight   = 0.3
 	labelMatchBoost   = 2.0
 	fullLabelBoost    = 3.0
 	sessionNoteWeight = 0.4
@@ -424,10 +422,10 @@ func edgeWeight(e *Edge) float64 {
 	case ProvInferred:
 		w = e.Confidence
 	case ProvAmbiguous:
-		w = ambiguousWeight * e.Confidence
+		w = policy().AmbiguousWeight * e.Confidence
 	}
 	if e.Relation == RelTagged {
-		w *= tagEdgeWeight
+		w *= policy().TagEdgeWeight
 	}
 	return w
 }
