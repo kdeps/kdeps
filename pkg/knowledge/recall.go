@@ -30,35 +30,79 @@ import (
 	"time"
 
 	kword "github.com/kdeps/kartographer/text"
+	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // Recall defaults.
 const (
-	DefaultHops        = 2
-	DefaultBudget      = 1500 // tokens of recalled paths and summaries
-	maxSeeds           = 5
-	maxHits            = 8
-	hopDecay           = 0.5
-	tagEdgeWeight      = 0.3
-	ambiguousWeight    = 0.3
-	labelMatchBoost    = 2.0
-	fullLabelBoost     = 3.0
-	minQueryWordLength = 3
-	minStemLength      = 3
-	sessionNoteWeight  = 0.4
-	memoryNoteWeight   = 0.6
-	bytesPerToken      = 4
+	DefaultHops       = 2
+	DefaultBudget     = 1500 // tokens of recalled paths and summaries
+	maxSeeds          = 5
+	maxHits           = 8
+	hopDecay          = 0.5
+	tagEdgeWeight     = 0.3
+	ambiguousWeight   = 0.3
+	labelMatchBoost   = 2.0
+	fullLabelBoost    = 3.0
+	sessionNoteWeight = 0.4
+	memoryNoteWeight  = 0.6
+	bytesPerToken     = 4
 )
 
-//nolint:gochecknoglobals // fixed set
-var stopWords = map[string]bool{
-	"the": true, "and": true, "for": true, "with": true, "that": true, "this": true, "what": true,
-	"how": true, "why": true, "are": true, "was": true, "were": true, "you": true, "your": true,
-	"from": true, "into": true, "can": true, "does": true, "did": true, "not": true, "have": true,
-	"has": true, "had": true, "about": true, "which": true, "when": true, "where": true, "who": true,
-	"will": true, "would": true, "should": true, "could": true, "there": true, "their": true,
-	"them": true, "then": true, "than": true, "also": true, "just": true, "like": true, "make": true,
-	"please": true, "tell": true, "show": true, "give": true, "all": true, "any": true, "its": true,
+// Recall rules are the "recall" item of the "knowledge" asset set: the word
+// lengths a query word must reach, and the words it ignores.
+const (
+	knowledgeSet = "knowledge"
+	recallItem   = "recall"
+)
+
+// recallRulesFile mirrors recall.yaml.
+type recallRulesFile struct {
+	MinWordLength int      `yaml:"min_word_length"`
+	MinStemLength int      `yaml:"min_stem_length"`
+	Stopwords     []string `yaml:"stopwords"`
+}
+
+// recallRules and stopWords are read once from the knowledge asset set.
+var recallRules, stopWords = loadRecallRules() //nolint:gochecknoglobals // loaded from the knowledge asset set
+
+// loadRecallRules reads recall.yaml. A missing or broken file turns word
+// filtering off (every word of length one or more is kept) and says so.
+//
+//kdeps:flow knowledge: a knowledge-graph recall query arrives > its words are split and stemmed > [the recall rules set the word lengths and stopwords] > matching nodes are scored > the best notes fill the budget
+func loadRecallRules() (recallRulesFile, map[string]bool) {
+	var r recallRulesFile
+	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + recallItem + ".yaml")
+	if err == nil {
+		r, err = parseRecallRules(data)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "knowledge: recall rules: %v\n", err)
+		r = recallRulesFile{MinWordLength: 1, MinStemLength: 1}
+	}
+	set := make(map[string]bool, len(r.Stopwords))
+	for _, w := range r.Stopwords {
+		set[w] = true
+	}
+	return r, set
+}
+
+func parseRecallRules(data []byte) (recallRulesFile, error) {
+	var r recallRulesFile
+	return r, yaml.Unmarshal(data, &r)
+}
+
+//nolint:gochecknoinits // registers the knowledge asset set
+func init() {
+	assets.Register(knowledgeSet, assets.Spec{
+		Validate: func(data []byte, _ string) error {
+			_, err := parseRecallRules(data)
+			return err
+		},
+		Required: []string{recallItem},
+	})
 }
 
 // PathStep is one edge on the path that reached a recalled note.
@@ -187,8 +231,8 @@ func provOrder(p string) int {
 
 // wordOptions is the kdeps policy for keyword words.
 var wordOptions = kword.Options{ //nolint:gochecknoglobals // fixed policy
-	MinWordLength: minQueryWordLength,
-	MinStemLength: minStemLength,
+	MinWordLength: recallRules.MinWordLength,
+	MinStemLength: recallRules.MinStemLength,
 	Stopwords:     stopWords,
 }
 
@@ -287,7 +331,7 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 		s += w
 	}
 	label := strings.ToLower(strings.TrimPrefix(ix.byID[id].Label, "#"))
-	if s > 0 && len(label) > minQueryWordLength && strings.Contains(lowerText, label) {
+	if s > 0 && len(label) > recallRules.MinWordLength && strings.Contains(lowerText, label) {
 		s *= fullLabelBoost
 	}
 	return s * sourceWeight(ix.byID[id])

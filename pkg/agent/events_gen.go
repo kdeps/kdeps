@@ -29,6 +29,8 @@ const (
 	eventFileReadLimit              = "file-read-limit"
 	eventFold                       = "fold"
 	eventForceAnswerDigest          = "force-answer-digest"
+	eventHandshakeEvidenceAttempts  = "handshake-evidence-attempts"
+	eventHandshakeHistory           = "handshake-history"
 	eventHandshakeTimeout           = "handshake-timeout"
 	eventHistoryWindowTrim          = "history-window-trim"
 	eventIdenticalToolCalls         = "identical-tool-calls"

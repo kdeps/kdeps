@@ -37,6 +37,8 @@ sets:
   docker: deploy
   k8s: deploy
   memory: memory
+  knowledge: rag
+  codegraph: tools
 
 # items: a shelf other than its set's default. The key is set/name.
 items:
@@ -120,4 +122,6 @@ items:
   "events/judge-max-rounds": evals
   "actions/accept_last": evals
   "events/context-segment-cap": context
+  "events/handshake-evidence-attempts": harness
+  "events/handshake-history": harness
   "events/prompt-history-limit": context

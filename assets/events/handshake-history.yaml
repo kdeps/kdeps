@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: handshake-history
+# How many user/assistant exchanges the session-integrity handshake keeps before
+# it trims the middle. Turning the event off keeps the default.
+items: 3
+run: cap
