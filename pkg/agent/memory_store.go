@@ -35,9 +35,10 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/kartographer/graph"
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
-	"github.com/spf13/afero"
 )
 
 const (
