@@ -37,13 +37,7 @@ const (
 	KindEntity = "entity"
 	// RelMentions links a note to an entity it is about.
 	RelMentions = "mentions"
-	// chunkChars bounds the note text one extraction call reads.
-	chunkChars        = 6000
-	maxEntities       = 12
-	maxNameLen        = 120
-	mentionConfidence = 0.9
-	ambiguousBelow    = 0.5
-	defaultWorkers    = 2
+	// policy().ChunkChars bounds the note text one extraction call reads.
 )
 
 // ExtractFunc asks a model one question: the system prompt and the user
@@ -130,7 +124,7 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 	}
 	workers := o.Workers
 	if workers <= 0 {
-		workers = defaultWorkers
+		workers = policy().DefaultWorkers
 	}
 	var mu sync.Mutex
 	run := func(n *Note) {
@@ -218,7 +212,7 @@ func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions
 			return ex
 		}
 		for _, e := range part.Entities {
-			if key := strings.ToLower(e.Name); !seen[key] && len(ex.Entities) < maxEntities {
+			if key := strings.ToLower(e.Name); !seen[key] && len(ex.Entities) < policy().MaxEntities {
 				seen[key] = true
 				ex.Entities = append(ex.Entities, e)
 			}
@@ -232,7 +226,7 @@ func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions
 }
 
 // chunks splits a note for the model: its title and summary, then the body
-// in pieces of at most chunkChars, cut at paragraph breaks.
+// in pieces of at most policy().ChunkChars, cut at paragraph breaks.
 func chunks(n *Note) []string {
 	head := "Note: " + n.Title + "\n"
 	if n.Summary != "" {
@@ -242,9 +236,9 @@ func chunks(n *Note) []string {
 	var out []string
 	for body != "" {
 		cut := len(body)
-		if cut > chunkChars {
-			cut = chunkChars
-			if i := strings.LastIndex(body[:cut], "\n\n"); i > chunkChars/2 {
+		if cut > policy().ChunkChars {
+			cut = policy().ChunkChars
+			if i := strings.LastIndex(body[:cut], "\n\n"); i > policy().ChunkChars/2 {
 				cut = i
 			}
 		}
@@ -277,7 +271,7 @@ func parseExtraction(reply string) (Extraction, error) {
 	names := map[string]bool{}
 	for _, e := range raw.Entities {
 		e.Name, e.Kind = strings.TrimSpace(e.Name), strings.ToLower(strings.TrimSpace(e.Kind))
-		if e.Name == "" || len(e.Name) > maxNameLen {
+		if e.Name == "" || len(e.Name) > policy().MaxNameLen {
 			continue
 		}
 		if !entityKinds[e.Kind] {
@@ -340,7 +334,14 @@ func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolve
 			id := b.entityNode(e, resolve, n.Path)
 			ids[strings.ToLower(e.Name)] = id
 			names[id] = e.Name
-			b.inferred(noteID(n.Path), id, RelMentions, mentionConfidence, n.Path, evidenceLine(root, n.Path, e.Name))
+			b.inferred(
+				noteID(n.Path),
+				id,
+				RelMentions,
+				policy().MentionConfidence,
+				n.Path,
+				evidenceLine(root, n.Path, e.Name),
+			)
 		}
 		for _, r := range ex.Relations {
 			from, to := ids[strings.ToLower(r.From)], ids[strings.ToLower(r.To)]
@@ -350,7 +351,7 @@ func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolve
 			rel := r.Relation
 			if !modelRelation[rel] {
 				rel = RelRelatesTo
-				r.Confidence = min(r.Confidence, ambiguousBelow-0.01) //nolint:mnd // just under the cut
+				r.Confidence = min(r.Confidence, policy().AmbiguousBelow-0.01) //nolint:mnd // just under the cut
 			}
 			b.inferred(from, to, rel, r.Confidence, n.Path, evidenceLine(root, n.Path, names[from], names[to]))
 		}
@@ -402,7 +403,7 @@ func (b *builder) inferred(from, to, rel string, conf float64, file, loc string)
 		return
 	}
 	prov := ProvInferred
-	if conf < ambiguousBelow {
+	if conf < policy().AmbiguousBelow {
 		prov = ProvAmbiguous
 	}
 	key := from + "\x00" + to + "\x00" + rel
