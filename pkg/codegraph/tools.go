@@ -54,9 +54,9 @@ func Register(reg *kdepstools.Registry, dir string) error {
 	byName := map[string]mcp.Tool{}
 	load := func() error {
 		once.Do(func() {
-			ix, err := kgraph.BuildCached(dir, mustCacheDir())
-			if err != nil {
-				loadErr = err
+			ix, berr := kgraph.BuildCached(dir, mustCacheDir())
+			if berr != nil {
+				loadErr = berr
 				return
 			}
 			for _, t := range kgraph.Tools(ix) {
