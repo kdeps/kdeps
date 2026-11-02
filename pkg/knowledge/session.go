@@ -30,10 +30,7 @@ import (
 )
 
 const (
-	maxSummary    = 120
-	maxSlug       = 60
 	noneText      = "(none)"
-	titleWords    = 8
 	boldTitleMark = "**"
 )
 
@@ -219,8 +216,8 @@ func decisionTitle(item string) string {
 		}
 	}
 	words := strings.Fields(strings.ReplaceAll(item, boldTitleMark, ""))
-	if len(words) > titleWords {
-		words = words[:titleWords]
+	if len(words) > policy().TitleWords {
+		words = words[:policy().TitleWords]
 	}
 	return slug(strings.TrimRight(strings.Join(words, " "), ":;,."))
 }
@@ -336,8 +333,8 @@ func oneLine(text string) string {
 		l = strings.TrimSpace(listMarkerRe.ReplaceAllString(l, ""))
 		l = strings.Trim(l, "*_ ")
 		if l != "" {
-			if r := []rune(l); len(r) > maxSummary {
-				l = string(r[:maxSummary-3]) + "..."
+			if r := []rune(l); len(r) > policy().MaxSummary {
+				l = string(r[:policy().MaxSummary-3]) + "..."
 			}
 			return l
 		}
@@ -355,8 +352,8 @@ func firstItem(text string) string {
 
 func slug(s string) string {
 	s = strings.TrimSpace(unsafeNameRe.ReplaceAllString(s, ""))
-	if r := []rune(s); len(r) > maxSlug {
-		s = strings.TrimSpace(string(r[:maxSlug]))
+	if r := []rune(s); len(r) > policy().MaxSlug {
+		s = strings.TrimSpace(string(r[:policy().MaxSlug]))
 	}
 	if s == "" {
 		s = "session"

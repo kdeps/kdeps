@@ -28,11 +28,9 @@ type Topic struct {
 
 // Topic detection thresholds.
 const (
-	// followUpWords: a request with fewer content words is a follow-up.
-	followUpWords = 3
-	// relatedShare: the share of a request's words the thread must already
-	// have for the request to continue it.
-	relatedShare = 0.2
+// followUpWords: a request with fewer content words is a follow-up.
+// relatedShare: the share of a request's words the thread must already
+// have for the request to continue it.
 )
 
 // taskWords are verbs and fillers any request may use; they say nothing
@@ -69,7 +67,7 @@ func (t *Topic) Empty() bool { return len(t.words) == 0 }
 // continues an empty thread.
 func (t *Topic) Related(text string) bool {
 	ws := topicWords(text)
-	if t.Empty() || len(ws) < followUpWords {
+	if t.Empty() || len(ws) < policy().FollowUpWords {
 		return true
 	}
 	shared := 0
@@ -78,7 +76,7 @@ func (t *Topic) Related(text string) bool {
 			shared++
 		}
 	}
-	return float64(shared)/float64(len(ws)) >= relatedShare
+	return float64(shared)/float64(len(ws)) >= policy().RelatedShare
 }
 
 // Add adds text's words to the thread.

@@ -45,12 +45,11 @@ import (
 )
 
 const (
-	mdExt       = ".md"
-	frontDelim  = "---"
-	dirPerm     = 0o750
-	filePerm    = 0o600
-	hashPrefix  = 12
-	maxNoteSize = 2 << 20 // notes larger than 2 MiB are skipped
+	mdExt      = ".md"
+	frontDelim = "---"
+	dirPerm    = 0o750
+	filePerm   = 0o600
+	hashPrefix = 12
 )
 
 var (
@@ -108,7 +107,7 @@ func (v Vault) Walk() ([]*Note, error) {
 			return nil
 		}
 		info, infoErr := d.Info()
-		if infoErr != nil || info.Size() > maxNoteSize {
+		if infoErr != nil || info.Size() > policy().MaxNoteSize {
 			return nil //nolint:nilerr // unreadable or huge notes are skipped
 		}
 		// The vault is the user's own folder; its links are followed on purpose.
