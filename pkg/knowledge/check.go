@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
 // Finding is one problem kdeps knowledge check reports.
@@ -34,10 +36,10 @@ type Finding struct {
 
 // danglingLinks reports n's links that reach no note. A full-path link to a
 // file the walk leaves out (memory/.auto captures) is not dangling.
-func danglingLinks(root, abs string, n *Note, resolve *resolver) []Finding {
+func danglingLinks(root, abs string, n *Note, resolve *kgknowledge.Resolver) []Finding {
 	var out []Finding
 	for _, l := range append(append([]string{}, n.Links...), n.MetaLinks...) {
-		if resolve.wiki(l, n.Path) == "" && !onDisk(root, l) {
+		if resolve.Wiki(l, n.Path) == "" && !onDisk(root, l) {
 			out = append(out, Finding{abs, "links to [[" + l + "]], which has no note"})
 		}
 	}
@@ -111,7 +113,7 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 	var out []Finding
 	summaries := map[string][]string{}
 	canonicals := map[string][]string{}
-	resolve := newResolver(notes)
+	resolve := kgknowledge.NewResolver(noteDocs(notes))
 	for _, n := range notes {
 		abs := filepath.Join(v.Root, filepath.FromSlash(n.Path))
 		if cardFiles[filepath.Clean(abs)] {

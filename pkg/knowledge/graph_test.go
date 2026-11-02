@@ -125,20 +125,20 @@ func TestBuild_GraphAndCache(t *testing.T) {
 }
 
 func TestResolver(t *testing.T) {
-	r := newResolver([]*Note{
+	r := kgknowledge.NewResolver(noteDocs([]*Note{
 		{Path: "A/Note.md", Title: "Note"},
 		{Path: "B/C/Note.md", Title: "Note", Aliases: []string{"alias"}},
 		{Path: "B/Other.md", Title: "Other"},
-	})
-	assert.Equal(t, "A/Note.md", r.wiki("A/Note", "x.md"))
-	assert.Equal(t, "B/C/Note.md", r.wiki("C/Note.md", "x.md"), "path suffix")
-	assert.Equal(t, "B/C/Note.md", r.wiki("Note", "B/C/x.md"), "closest")
-	assert.Equal(t, "B/C/Note.md", r.wiki("Alias", "x.md"))
-	assert.Equal(t, "B/Other.md", r.wiki("Z/Other", "x.md"), "unknown folder falls back to the title")
-	assert.Empty(t, r.wiki("", "x.md"))
-	assert.Empty(t, r.wiki("Missing", "x.md"))
-	assert.Equal(t, "B/Other.md", r.relative("../Other.md", "B/C/x.md"))
-	assert.Empty(t, r.relative("nope.md", "x.md"))
+	}))
+	assert.Equal(t, "A/Note.md", r.Wiki("A/Note", "x.md"))
+	assert.Equal(t, "B/C/Note.md", r.Wiki("C/Note.md", "x.md"), "path suffix")
+	assert.Equal(t, "B/C/Note.md", r.Wiki("Note", "B/C/x.md"), "closest")
+	assert.Equal(t, "B/C/Note.md", r.Wiki("Alias", "x.md"))
+	assert.Equal(t, "B/Other.md", r.Wiki("Z/Other", "x.md"), "unknown folder falls back to the title")
+	assert.Empty(t, r.Wiki("", "x.md"))
+	assert.Empty(t, r.Wiki("Missing", "x.md"))
+	assert.Equal(t, "B/Other.md", r.Relative("../Other.md", "B/C/x.md"))
+	assert.Empty(t, r.Relative("nope.md", "x.md"))
 }
 
 func TestRecall(t *testing.T) {
@@ -209,21 +209,10 @@ func TestRecall_EdgeWeights(t *testing.T) {
 
 func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
 	v, repo := sampleVault(t)
-	legacy := LegacyGraphDir(v.Root)
-	require.NoError(t, os.MkdirAll(legacy, 0o750))
-	_, _, err := Build(t.Context(), v, legacy, buildNow())
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(legacy, "keep.txt"), []byte("keep"), 0o600))
-	require.NoError(t, os.WriteFile(ReportPath(v.Root), []byte("# Knowledge graph report\nold\n"), 0o600))
-
 	dir := GraphDir(v.Root)
 	g, _, err := Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	assert.FileExists(t, GraphPath(dir))
-	assert.NoFileExists(t, filepath.Join(legacy, "graph.json"))
-	assert.FileExists(t, filepath.Join(legacy, "keep.txt"))
-	assert.NoFileExists(t, ReportPath(v.Root))
-	assert.NoFileExists(t, HTMLPath(v.Root))
 
 	var billing *Edge
 	for _, e := range g.Edges {
@@ -661,11 +650,11 @@ func TestFullPathLinksAndCardRows(t *testing.T) {
 	require.NoError(t, b.AddLink(SourceRepo, "/r"))
 	assert.Equal(t, []Link{{SourceRepo, "/r"}}, b.Links, "a card without a table gets one")
 
-	r := newResolver([]*Note{{Path: "archive/svc/svc.md", Title: "svc"}})
+	r := kgknowledge.NewResolver(noteDocs([]*Note{{Path: "archive/svc/svc.md", Title: "svc"}}))
 	assert.Equal(
 		t,
 		"archive/svc/svc.md",
-		r.wiki("projects/svc/svc", "x.md"),
+		r.Wiki("projects/svc/svc", "x.md"),
 		"a moved project's links resolve by title",
 	)
 }

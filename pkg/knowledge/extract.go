@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
 const (
@@ -321,7 +323,7 @@ func loadExtractCache(dir string) extractCache {
 // versions: each note mentions its entities, and the entities' relations
 // become inferred edges (ambiguous below 0.5 confidence or with an unknown
 // relation). An entity named like a note is that note.
-func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolver) {
+func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *kgknowledge.Resolver) {
 	cache := loadExtractCache(dir)
 	for _, n := range notes {
 		ex, ok := cache.Notes[n.Path]
@@ -335,7 +337,7 @@ func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolve
 			ids[strings.ToLower(e.Name)] = id
 			names[id] = e.Name
 			b.inferred(
-				noteID(n.Path),
+				kgknowledge.NoteID(n.Path),
 				id,
 				RelMentions,
 				policy().MentionConfidence,
@@ -377,7 +379,7 @@ func evidenceLine(root, rel string, needles ...string) string {
 		l := strings.ToLower(line)
 		for _, n := range low {
 			if strings.Contains(l, n) {
-				return lineRef(i + 1)
+				return kgknowledge.LineRef(i + 1)
 			}
 		}
 	}
@@ -386,9 +388,9 @@ func evidenceLine(root, rel string, needles ...string) string {
 
 // entityNode is the node for an entity: the note of the same name, or an
 // entity node shared by every note that mentions it.
-func (b *builder) entityNode(e Entity, resolve *resolver, from string) string {
-	if p := resolve.wiki(e.Name, from); p != "" {
-		return noteID(p)
+func (b *builder) entityNode(e Entity, resolve *kgknowledge.Resolver, from string) string {
+	if p := resolve.Wiki(e.Name, from); p != "" {
+		return kgknowledge.NoteID(p)
 	}
 	id := "entity:" + strings.ToLower(e.Name)
 	b.kg.Add(&Node{ID: id, Label: e.Name, Kind: e.Kind})

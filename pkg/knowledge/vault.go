@@ -223,13 +223,6 @@ func (n *Note) indexBodyLine(line string, num int) {
 }
 
 // lineRef is a 1-based line as stored on an edge. Zero is unknown.
-func lineRef(n int) string {
-	if n <= 0 {
-		return ""
-	}
-	return fmt.Sprintf("L%d", n)
-}
-
 // lineInFile is the 1-based line of the first occurrence of needle.
 func lineInFile(path, needle string) int {
 	if needle == "" {
@@ -388,11 +381,6 @@ func VaultID(vault string) string {
 	}
 	sum := sha256.Sum256([]byte(filepath.Clean(abs)))
 	return hex.EncodeToString(sum[:16])
-}
-
-// LegacyGraphDir is the old <vault>/.index location.
-func LegacyGraphDir(vault string) string {
-	return filepath.Join(vault, IndexFolder)
 }
 
 // Configured is the vault ~/.kdeps/config.yaml names (the default vault
