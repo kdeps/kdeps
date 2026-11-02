@@ -325,10 +325,6 @@ github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwA
 github.com/json-iterator/go v1.1.9/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/kdeps/kartographer v0.2.1-0.20261102083845-b1d225e9f91a h1:HfqXt0UdsDPn4ceQW3m/XZ2ExKhtN4TcO4w7p6evHDY=
-github.com/kdeps/kartographer v0.2.1-0.20261102083845-b1d225e9f91a/go.mod h1:GvcZPYBzo8VfthC52HXAQGv3IrZBtcRiIbY7hJHO2xU=
-github.com/kdeps/kartographer v0.3.1-0.20261102144201-54447fdbb47c h1:05ZRfdWRaJr3y9UXB9NLWxZLCXHSuy0b606l4gaUkGY=
-github.com/kdeps/kartographer v0.3.1-0.20261102144201-54447fdbb47c/go.mod h1:GvcZPYBzo8VfthC52HXAQGv3IrZBtcRiIbY7hJHO2xU=
 github.com/kdeps/kartographer v0.3.1-0.20261102145006-840cb830a936 h1:NPDcmaqAKlzYLXyxmz6lVlUkjIw6uZuRRJER46evuJo=
 github.com/kdeps/kartographer v0.3.1-0.20261102145006-840cb830a936/go.mod h1:GvcZPYBzo8VfthC52HXAQGv3IrZBtcRiIbY7hJHO2xU=
 github.com/klauspost/compress v1.10.3/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
