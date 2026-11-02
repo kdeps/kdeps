@@ -466,12 +466,28 @@ type harnessPreambleData struct {
 	// 0, or the web-call-budget event disabled), so prompt text must not tell
 	// the model to stop after a fixed number of searches.
 	WebUnlimited bool
+	// Tools is the set of tool names this loop was given. A scoped loop (a
+	// judge, a handshake round) has fewer than the session, and its prompt
+	// must not name a tool the model cannot call.
+	Tools map[string]bool
 }
 
 // currentPreambleData snapshots the web-call limit actually enforced now.
 func currentPreambleData() harnessPreambleData {
 	_, limit := WebConvergenceCalls()
 	return harnessPreambleData{WebCallLimit: limit, WebUnlimited: limit >= disabledSentinel}
+}
+
+// preambleData is currentPreambleData plus the tools this loop was given.
+func (l *Loop) preambleData() harnessPreambleData {
+	d := currentPreambleData()
+	d.Tools = map[string]bool{}
+	if l.registry != nil {
+		for _, t := range l.registry.List() {
+			d.Tools[t.Name] = true
+		}
+	}
+	return d
 }
 
 // renderAssembledPreamble executes the cached assembledPreamble join as a Go

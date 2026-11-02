@@ -3312,7 +3312,7 @@ func (l *Loop) SetPromptMode(mode string) error {
 // For small-context models (< 8K), non-essential parts are dropped to
 // leave room for the actual conversation.
 func (l *Loop) buildSystemPreamble() string {
-	return l.composeSystemPreamble(renderAssembledPreamble(currentPreambleData()))
+	return l.composeSystemPreamble(renderAssembledPreamble(l.preambleData()))
 }
 
 // composeSystemPreamble builds the cached system prompt. harness is the
@@ -3668,7 +3668,7 @@ func (l *Loop) buildChatConfig(
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
 		reminder := harnessText("tools-reminder")
 		if l.sandboxStrikes > 0 {
-			reminder = harnessText("use-kdeps-tools")
+			reminder = harnessRender("use-kdeps-tools", l.preambleData())
 		}
 		if reminder != "" {
 			chatCfg.Scenario = append(chatCfg.Scenario,

@@ -684,7 +684,7 @@ func handshakeStrongRetryNudge(challenge string, misses int, plural string) stri
 // anything else happens -- so it must get the identical addition, not a
 // weaker or bespoke echo of it.
 func (l *Loop) handshakeGrounding(toolNames ...string) string {
-	grounding := renderAssembledPreamble(currentPreambleData())
+	grounding := renderAssembledPreamble(l.preambleData())
 	if grounding == "" {
 		grounding = harnessText("handshake-grounding")
 	}
