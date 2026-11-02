@@ -61,6 +61,7 @@ type recallRulesFile struct {
 	MinWordLength int      `yaml:"min_word_length"`
 	MinStemLength int      `yaml:"min_stem_length"`
 	Stopwords     []string `yaml:"stopwords"`
+	TaskWords     []string `yaml:"task_words"`
 }
 
 // recallRules and stopWords are read once from the knowledge asset set.
