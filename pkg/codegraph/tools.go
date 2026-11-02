@@ -30,7 +30,7 @@ func exposedNames() ([]string, error) {
 	var v struct {
 		Tools []string `yaml:"tools"`
 	}
-	if err := yaml.Unmarshal(data, &v); err != nil {
+	if err = yaml.Unmarshal(data, &v); err != nil {
 		return nil, err
 	}
 	return v.Tools, nil
@@ -77,12 +77,12 @@ func Register(reg *kdepstools.Registry, dir string) error {
 			Parameters:  toolParams(src.InputSchema),
 			Category:    "code",
 			Execute: func(args map[string]any) (string, error) {
-				if err := load(); err != nil {
-					return "", err
+				if lerr := load(); lerr != nil {
+					return "", lerr
 				}
-				raw, err := json.Marshal(args)
-				if err != nil {
-					return "", err
+				raw, merr := json.Marshal(args)
+				if merr != nil {
+					return "", merr
 				}
 				return byName[name].Handle(raw)
 			},
