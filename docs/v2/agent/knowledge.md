@@ -398,6 +398,19 @@ kdeps knowledge check
 
 It exits non-zero when it finds something, so it can run in CI.
 
+Which notes need a summary, and the wording of each finding, come from the `knowledge` asset set's `check.yaml`. Override it under `~/.kdeps/` to change them:
+
+```yaml
+summaries:
+  shared: true  # notes in the shared folder need a summary
+  project_parts: [notes, decisions]  # project parts (vault.yaml keys) whose notes need one
+  exempt_parts: [memory]  # parts whose notes may share a summary and need none
+messages:
+  dangling_link: "links to [[{{.Target}}]], which has no note"  # .Target: the link target
+```
+
+Install rejects a `check.yaml` with an empty message, a message that is not a valid template, or an unknown part.
+
 ## Tools
 
 | Tool | Does |

@@ -24,8 +24,6 @@ import (
 	"sync"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // vaultItem is the layout item of the knowledge asset set (vault.yaml).
@@ -101,32 +99,26 @@ func parseLayout(data []byte) (VaultLayout, error) {
 
 //nolint:gochecknoglobals // loaded once from the knowledge asset set
 var (
-	layoutMu       sync.Mutex
-	layoutCache    *VaultLayout
-	layoutReported bool
+	layoutItem     = &yamlItem[VaultLayout]{name: vaultItem, parse: parseLayout}
+	layoutReported sync.Once
 )
 
 // Layout returns the vault layout. The knowledge asset set installs vault.yaml
 // before any command that uses the vault, and install rejects a file with an
 // empty name, so a failed load is reported once and the empty layout returned.
 func Layout() VaultLayout {
-	layoutMu.Lock()
-	defer layoutMu.Unlock()
-	if layoutCache != nil {
-		return *layoutCache
-	}
-	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + vaultItem + ".yaml")
-	var l VaultLayout
-	if err == nil {
-		l, err = parseLayout(data)
-	}
+	l, err := layoutItem.get()
 	if err != nil {
-		if !layoutReported {
-			fmt.Fprintf(os.Stderr, "knowledge: vault layout: %v\n", err)
-			layoutReported = true
-		}
+		layoutReported.Do(func() { fmt.Fprintf(os.Stderr, "knowledge: vault layout: %v\n", err) })
 		return VaultLayout{}
 	}
-	layoutCache = &l
 	return l
+}
+
+// Parts maps each project part key of vault.yaml to its folder name.
+func (l VaultLayout) Parts() map[string]string {
+	return map[string]string{
+		"sessions": l.Project.Sessions, "memory": l.Project.Memory, "decisions": l.Project.Decisions,
+		"notes": l.Project.Notes, "auto": l.Project.Auto,
+	}
 }

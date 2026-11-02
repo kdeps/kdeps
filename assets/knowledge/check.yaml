@@ -1,0 +1,18 @@
+version: 1.0.0
+# What `kdeps knowledge check` reports, and which notes need a summary.
+# Parts are the project keys of vault.yaml (sessions, memory, decisions, notes, auto).
+# Messages are Go templates; the fields each one can use are named beside it.
+
+summaries:
+  shared: true  # a note in the shared folder needs a summary
+  project_parts: [notes, decisions]  # project parts whose notes need one; sessions and memory write their own
+  exempt_parts: [memory]  # parts whose notes may share a summary: memory entries can share a first line
+
+messages:
+  card_missing_field: "card has no {{.Field}}"  # .Field: the missing front matter key
+  card_prose: "card holds {{.Lines}} lines of prose; move the story to a vault note and link it"  # .Lines: prose lines in the card
+  next_outside_card: "has a next step; it belongs in the project card (one home per fact)"
+  no_summary: "has no summary; recall shows the summary before anyone opens a note"
+  duplicate_summary: "has the same summary as {{.Others}}; keep the fact in one note and link it"  # .Others: the other files
+  duplicate_canonical: "claims canonical id {{.ID}}, also claimed by {{.Others}}; one fact has one home"  # .ID, .Others
+  dangling_link: "links to [[{{.Target}}]], which has no note"  # .Target: the link target

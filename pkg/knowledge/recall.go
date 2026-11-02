@@ -102,14 +102,18 @@ func init() {
 func knowledgeSpec() assets.Spec {
 	return assets.Spec{
 		Validate: func(data []byte, name string) error {
-			if name == vaultItem {
+			switch name {
+			case vaultItem:
 				_, err := parseLayout(data)
+				return err
+			case checkItem:
+				_, err := parseCheckRules(data)
 				return err
 			}
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem, policyItem, vaultItem},
+		Required: []string{recallItem, policyItem, vaultItem, checkItem},
 	}
 }
 
