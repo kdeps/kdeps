@@ -22,3 +22,13 @@ missing_top: 20  # Missing links listed in the graph report.
 marker_window: 512  # Bytes read around a report marker.
 tag_edge_weight: 0.3  # weight of a tag edge in recall, against 1 for a link
 ambiguous_weight: 0.3  # weight of an ambiguous edge in recall, times its confidence
+recall_max_hops: 2  # hops a recall walk takes from a matched note; a larger request is clamped to it
+recall_budget: 1500  # tokens of recalled paths and summaries when a request gives none
+recall_max_seeds: 5  # best-matching notes a recall starts from
+recall_max_hits: 8  # notes a recall returns at most
+recall_hop_decay: 0.5  # score kept per hop, before the edge weight and the node's fan-out
+label_match_boost: 2.0  # multiplier of a query word that is in a note's label
+full_label_boost: 3.0  # multiplier when a note's whole label appears in the query
+session_note_weight: 0.4  # weight of a session note in recall, against 1 for a curated note
+memory_note_weight: 0.6  # weight of a project memory note in recall, against 1 for a curated note
+bytes_per_token: 4  # bytes per token when a recalled note's cost is estimated

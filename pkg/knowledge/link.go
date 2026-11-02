@@ -65,7 +65,7 @@ func NoteRel(vault, abs string) (string, bool) {
 }
 
 // HasNote reports whether abs is a note in this index.
-func (ix *Index) HasNote(vault, abs string) bool {
+func HasNote(ix *Index, vault, abs string) bool {
 	if ix == nil {
 		return false
 	}
@@ -73,52 +73,23 @@ func (ix *Index) HasNote(vault, abs string) bool {
 	if !ok {
 		return false
 	}
-	n := ix.byID[noteID(rel)]
+	n := ix.Node(noteID(rel))
 	return n != nil && n.Note != ""
 }
 
 // LinksFrom returns the files the vault graph connects to abs, strongest
 // edge first kept per path. A shared tag expands to the other notes on that
 // tag. abs itself is never included. Empty when abs is not a note here.
-func (ix *Index) LinksFrom(vault, abs string) []FileLink {
-	if ix == nil {
+func LinksFrom(ix *Index, vault, abs string) []FileLink {
+	if !HasNote(ix, vault, abs) {
 		return nil
 	}
-	rel, ok := NoteRel(vault, abs)
-	if !ok {
-		return nil
-	}
-	id := noteID(rel)
-	self := ix.byID[id]
-	if self == nil || self.Note == "" {
-		return nil
-	}
+	rel, _ := NoteRel(vault, abs)
 	best := map[string]FileLink{}
-	for _, e := range ix.adj[id] {
-		ix.addNeighborLink(best, vault, id, e)
+	for _, nb := range ix.Neighbours(noteID(rel)) {
+		addLink(best, noteFile(vault, nb.Node.Note), nb.Weight, nb.Chain, nb.Relation)
 	}
 	return sortedLinks(best)
-}
-
-func (ix *Index) addNeighborLink(best map[string]FileLink, vault, id string, e *Edge) {
-	n := ix.byID[otherID(e, id)]
-	if n == nil {
-		return
-	}
-	if n.Note != "" {
-		addLink(best, noteFile(vault, n.Note), edgeWeight(e), edgeChain(e), e.Relation)
-		return
-	}
-	if n.Kind != KindTag {
-		return
-	}
-	for _, te := range ix.adj[n.ID] {
-		nn := ix.byID[otherID(te, n.ID)]
-		if nn == nil || nn.Note == "" || nn.ID == id {
-			continue
-		}
-		addLink(best, noteFile(vault, nn.Note), edgeWeight(e), tagChain(id, n, nn), RelTagged)
-	}
 }
 
 func noteFile(vault, rel string) string {
@@ -137,28 +108,10 @@ func sortedLinks(best map[string]FileLink) []FileLink {
 	return out
 }
 
-func otherID(e *Edge, id string) string {
-	if e.From == id {
-		return e.To
-	}
-	return e.From
-}
-
 func addLink(best map[string]FileLink, path string, weight float64, chain, rel string) {
 	path = filepath.Clean(path)
 	if prev, ok := best[path]; ok && prev.Weight >= weight {
 		return
 	}
 	best[path] = FileLink{Path: path, Weight: weight, Chain: chain, Relation: rel}
-}
-
-func edgeChain(e *Edge) string {
-	return Hit{Path: []PathStep{{From: e.From, To: e.To, Relation: e.Relation}}}.Chain()
-}
-
-func tagChain(from string, tag, to *Node) string {
-	return Hit{Path: []PathStep{
-		{From: from, To: tag.ID, Relation: RelTagged},
-		{From: tag.ID, To: to.ID, Relation: RelTagged},
-	}}.Chain()
 }

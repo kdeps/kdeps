@@ -76,7 +76,7 @@ func TestLinksFrom_ReferenceTagAndStrongerEdge(t *testing.T) {
 		},
 	}})
 
-	links := ix.LinksFrom(vault, filepath.Join(vault, "hub.md"))
+	links := LinksFrom(ix, vault, filepath.Join(vault, "hub.md"))
 	require.Len(t, links, 2)
 	byPath := map[string]FileLink{}
 	for _, link := range links {
@@ -92,8 +92,8 @@ func TestLinksFrom_ReferenceTagAndStrongerEdge(t *testing.T) {
 	assert.Equal(t, RelTagged, tagged.Relation)
 	assert.Equal(t, "hub.md --tagged--> billing --tagged--> tagged.md", tagged.Chain)
 
-	assert.False(t, ix.HasNote(vault, filepath.Join(vault, "missing.md")))
-	assert.True(t, ix.HasNote(vault, filepath.Join(vault, "hub.md")))
-	assert.Nil(t, ix.LinksFrom(vault, filepath.Join(t.TempDir(), "hub.md")))
-	assert.Nil(t, (*Index)(nil).LinksFrom(vault, filepath.Join(vault, "hub.md")))
+	assert.False(t, HasNote(ix, vault, filepath.Join(vault, "missing.md")))
+	assert.True(t, HasNote(ix, vault, filepath.Join(vault, "hub.md")))
+	assert.Nil(t, LinksFrom(ix, vault, filepath.Join(t.TempDir(), "hub.md")))
+	assert.Nil(t, LinksFrom(nil, vault, filepath.Join(vault, "hub.md")))
 }

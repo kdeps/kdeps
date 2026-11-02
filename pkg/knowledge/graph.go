@@ -37,12 +37,12 @@ import (
 // Node kinds and edge relations of the graph.
 const (
 	KindNote = "note"
-	KindTag  = "tag"
+	KindTag  = kgknowledge.KindTag
 	KindCode = "code"
 
 	RelReferences = "references"
 	RelRelatesTo  = "relates_to"
-	RelTagged     = "tagged"
+	RelTagged     = kgknowledge.RelTagged
 	RelDependsOn  = "depends_on"
 
 	// ProvExtracted marks an edge written in the source (a link, an import).
