@@ -101,7 +101,7 @@ func init() {
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem},
+		Required: []string{recallItem, policyItem},
 	})
 }
 

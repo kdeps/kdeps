@@ -44,9 +44,8 @@ func danglingLinks(root, abs string, n *Note, resolve *resolver) []Finding {
 	return out
 }
 
-// maxCardBody is how many prose lines a card may hold before it counts as
+// policy().MaxCardBody is how many prose lines a card may hold before it counts as
 // telling the story.
-const maxCardBody = 3
 
 // needsSummary reports notes recall shows by summary: a project's notes
 // and decisions, and shared notes. Sessions and memory write their own;
@@ -98,7 +97,7 @@ func checkCards(cards []*Card) []Finding {
 				out = append(out, Finding{c.File, "card has no " + f})
 			}
 		}
-		if c.BodyLines > maxCardBody {
+		if c.BodyLines > policy().MaxCardBody {
 			out = append(out, Finding{c.File, fmt.Sprintf(
 				"card holds %d lines of prose; move the story to a vault note and link it", c.BodyLines)})
 		}
