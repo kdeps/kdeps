@@ -802,7 +802,7 @@ func registerCodeGraphTools(reg *kdepstools.Registry) {
 	if err != nil {
 		return
 	}
-	if err := codegraphtools.Register(reg, dir); err != nil {
-		fmt.Fprintf(os.Stderr, "codegraph tools: %v\n", err)
+	if rerr := codegraphtools.Register(reg, dir); rerr != nil {
+		fmt.Fprintf(os.Stderr, "codegraph tools: %v\n", rerr)
 	}
 }
