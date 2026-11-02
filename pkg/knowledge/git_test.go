@@ -129,9 +129,6 @@ func TestWriteSession_RecordsTheGitRange(t *testing.T) {
 }
 
 func TestGitSection(t *testing.T) {
-	assert.Empty(t, gitSection(GitRange{}))
-	assert.Contains(t, gitSection(GitRange{To: "abc"}), "detached HEAD at `abc`")
-	assert.Contains(t, gitSection(GitRange{Branch: "main", From: "a", To: "b"}), "branch `main`, commits `a..b`")
 	assert.Equal(t, "b", gitRangeMeta(GitRange{From: "b", To: "b"}))
 	assert.Equal(t, "a..b", gitRangeMeta(GitRange{From: "a", To: "b"}))
 }

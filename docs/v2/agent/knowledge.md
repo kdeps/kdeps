@@ -48,6 +48,19 @@ note:
 
 Every name must be set. Install rejects a `vault.yaml` that leaves one empty.
 
+The notes kdeps writes (a project's card, a session note, a decision note and a workflow's daily run log) are Go templates in the same set's `notes.yaml`, with the compaction summary sections that fill each session heading:
+
+```yaml
+session_sections:  # session note headings, each filled by the first summary section that is set
+  - heading: What was built
+    from: [done, progress]
+templates:
+  run_entry: |  # one workflow chat call in the day's run log
+    - {{.Time}} {{.Prompt}} -> {{.Reply}}
+```
+
+Install rejects a `notes.yaml` with a missing or broken template.
+
 A fact written in two places goes stale in one of them. `kdeps knowledge check` reports structural duplicates: the same summary, a next step outside a card, or two notes that set the same `canonical` or `fact_id`. It does not decide that two different wordings are the same fact.
 
 ## Projects

@@ -1,0 +1,108 @@
+version: 1.0.0
+# The notes kdeps writes into the vault: a project's card, a session note, a
+# decision note and a workflow's daily run log. Section names are a compaction
+# summary's headings, lowercased; they must match the compaction prompt.
+
+summary:
+  focus: [goal, focus]  # the session's focus, the first one set; a summary without one writes no session note
+  next: next steps  # its first item becomes the card's next step
+  decisions: key decisions  # each item becomes one decision note
+  progress: progress  # when empty, filled from progress_from
+  progress_from: [done, in progress]
+
+none: "(none)"  # the text of an empty section; a summary item of only this is no item
+
+session_sections:  # a session note's headings in order, each filled by the first summary section that is set
+  - heading: Focus
+    from: [goal]
+  - heading: What was built
+    from: [done, progress]
+  - heading: Mistakes
+    from: [mistakes]
+  - heading: Decisions
+    from: [key decisions]
+  - heading: Wins
+    from: [wins]
+
+# Go templates. scalar quotes a YAML scalar only when it needs it; quote is a
+# double-quoted string. The fields each template gets are listed beside it.
+templates:
+  # .Keys (the card keys of vault.yaml), .None, .Updated, .Source, .Place
+  card: |
+    ---
+    {{.Keys.Type}}: project
+    {{.Keys.Status}}: active
+    {{.Keys.Next}}: {{scalar .None}}
+    {{.Keys.Updated}}: {{.Updated}}
+    ---
+    | Source | Path |
+    |---|---|
+    | {{.Source}} | {{.Place}} |
+
+  # .ID, .Project, .Created, .Summary, .CardLink, .Commits, .Git (.Branch, .From, .To), .Sections (.Heading, .Text)
+  session: |-
+    ---
+    type: session
+    status: done
+    project: {{scalar .Project}}
+    session: {{scalar .ID}}
+    created: {{.Created}}
+    summary: {{scalar .Summary}}
+    tags: [session, {{scalar .Project}}]
+    links: [{{quote .CardLink}}]
+    {{- if .Git.To}}
+    {{- if .Git.Branch}}
+    branch: {{scalar .Git.Branch}}
+    {{- end}}
+    commits: {{scalar .Commits}}
+    {{- end}}
+    ---
+    {{range .Sections}}
+    ## {{.Heading}}
+
+    {{.Text}}
+    {{end}}
+    {{- if .Git.To}}
+    ## Git
+
+    On {{if .Git.Branch}}branch `{{.Git.Branch}}`{{else}}detached HEAD{{end}}
+    {{- if or (eq .Git.From "") (eq .Git.From .Git.To)}} at `{{.Git.To}}`; no commits in this session yet.
+    {{- else}}, commits `{{.Git.From}}..{{.Git.To}}`: `git log {{.Git.From}}..{{.Git.To}}` shows them (`git diff {{.Git.From}}..{{.Git.To}}` the change).
+    {{- end}}
+    {{end}}
+
+  # .Project, .Created, .Summary, .SessionLink, .CardLink, .Title, .Body
+  decision: |
+    ---
+    type: decision
+    status: done
+    project: {{scalar .Project}}
+    created: {{.Created}}
+    summary: {{scalar .Summary}}
+    links: [{{quote .SessionLink}}, {{quote .CardLink}}]
+    ---
+
+    # {{.Title}}
+
+    {{.Body}}
+
+  # .Project, .Created, .CardLink: the top of a workflow's run log for the day
+  runs_head: |
+    ---
+    type: session
+    status: done
+    project: {{scalar .Project}}
+    session: {{scalar (printf "runs-%s" .Created)}}
+    created: {{.Created}}
+    summary: {{scalar (printf "%s workflow runs on %s" .Project .Created)}}
+    tags: [session, workflow, {{scalar .Project}}]
+    links: [{{quote .CardLink}}]
+    ---
+
+    ## Runs
+    {{""}}
+  # .Time, .Prompt, .Reply: one workflow chat call
+  run_entry: |
+    - {{.Time}} {{.Prompt}} -> {{.Reply}}
+  # .Created, .Project: the run log's file name, without .md
+  runs_file: "{{.Created}} {{.Project}} runs"

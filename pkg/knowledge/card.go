@@ -220,9 +220,16 @@ func (v Vault) CreateProject(name, source, place string, now time.Time) (*Card, 
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, false, err
 	}
-	body := fmt.Sprintf("%s\ntype: project\nstatus: active\nnext: %s\nupdated: %s\n%s\n"+
-		"| Source | Path |\n|---|---|\n| %s | %s |\n",
-		frontDelim, kgnotes.Scalar(noneText), now.Format(time.DateOnly), frontDelim, source, place)
+	r, rerr := notesRules()
+	if rerr != nil {
+		return nil, false, rerr
+	}
+	body, berr := r.render(tmplCard, map[string]any{
+		"Keys": Layout().Card, "None": r.None, "Updated": now.Format(time.DateOnly), "Source": source, "Place": place,
+	})
+	if berr != nil {
+		return nil, false, berr
+	}
 	file := filepath.Join(dir, name+mdExt)
 	if err := writeFileAtomic(file, body); err != nil {
 		return nil, false, err
