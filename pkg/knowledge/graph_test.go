@@ -19,7 +19,6 @@
 package knowledge
 
 import (
-	kword "github.com/kdeps/kartographer/text"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,6 +29,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	kword "github.com/kdeps/kartographer/text"
 )
 
 func buildNow() time.Time { return time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC) }

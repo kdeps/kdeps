@@ -20,7 +20,6 @@ package knowledge
 
 import (
 	"fmt"
-	kword "github.com/kdeps/kartographer/text"
 	"math"
 	"os"
 	"path/filepath"
@@ -29,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	kword "github.com/kdeps/kartographer/text"
 )
 
 // Recall defaults.
@@ -185,7 +186,11 @@ func provOrder(p string) int {
 }
 
 // wordOptions is the kdeps policy for keyword words.
-var wordOptions = kword.Options{MinWordLength: minQueryWordLength, MinStemLength: minStemLength, Stopwords: stopWords} //nolint:gochecknoglobals // fixed policy
+var wordOptions = kword.Options{ //nolint:gochecknoglobals // fixed policy
+	MinWordLength: minQueryWordLength,
+	MinStemLength: minStemLength,
+	Stopwords:     stopWords,
+}
 
 func words(s string) []string { return kword.Words(s, wordOptions) }
 
