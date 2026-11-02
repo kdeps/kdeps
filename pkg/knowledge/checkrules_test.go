@@ -44,6 +44,9 @@ func TestParseCheckRules_ShippedFile(t *testing.T) {
 		"claims canonical id x, also claimed by b.md; one fact has one home",
 		r.say(msgDuplicateCanon, map[string]any{"ID": "x", "Others": "b.md"}))
 
+	assert.Equal(t,
+		"search folder ~/lib is gone; remove it with kdeps knowledge folders remove ~/lib",
+		r.say(msgSearchFolderGone, map[string]any{"Folder": "~/lib"}))
 	assert.True(t, r.needsSummary("shared/Pricing.md"))
 	assert.True(t, r.needsSummary("projects/app/notes/a.md"))
 	assert.True(t, r.needsSummary("projects/app/decisions/b.md"))

@@ -16,3 +16,4 @@ messages:
   duplicate_summary: "has the same summary as {{.Others}}; keep the fact in one note and link it"  # .Others: the other files
   duplicate_canonical: "claims canonical id {{.ID}}, also claimed by {{.Others}}; one fact has one home"  # .ID, .Others
   dangling_link: "links to [[{{.Target}}]], which has no note"  # .Target: the link target
+  search_folder_gone: "search folder {{.Folder}} is gone; remove it with kdeps knowledge folders remove {{.Folder}}"  # .Folder: the card's search folder

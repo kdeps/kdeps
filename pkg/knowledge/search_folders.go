@@ -198,13 +198,12 @@ func within(p, dir string) bool {
 }
 
 // checkSearchFolders reports search folders that are gone.
-func checkSearchFolders(v Vault, cards []*Card) []Finding {
+func checkSearchFolders(v Vault, cards []*Card, r checkRules) []Finding {
 	var out []Finding
 	for _, c := range cards {
 		for _, f := range c.SearchFolders() {
 			if info, err := os.Stat(ExpandPath(f, v.Root)); err != nil || !info.IsDir() {
-				out = append(out, Finding{c.File, "search folder " + f +
-					" is gone; remove it with kdeps knowledge folders remove " + f})
+				out = append(out, Finding{c.File, r.say(msgSearchFolderGone, map[string]any{"Folder": f})})
 			}
 		}
 	}
