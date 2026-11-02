@@ -389,23 +389,13 @@ func ReadCard(file string) (*Card, error) {
 		Next:    kgnotes.MetaString(meta, Layout().Card.Next),
 		Updated: kgnotes.MetaString(meta, Layout().Card.Updated),
 	}
-	for _, line := range strings.Split(body, "\n") {
-		t := strings.TrimSpace(line)
-		switch {
-		case t == "", strings.HasPrefix(t, "#"):
-		case strings.HasPrefix(t, "|"):
-			cells := strings.Split(strings.Trim(t, "|"), "|")
-			if len(cells) < linkCells {
-				continue
-			}
-			src, p := strings.TrimSpace(cells[0]), strings.TrimSpace(cells[1])
-			if strings.Trim(src, "-: ") == "" || strings.EqualFold(src, "source") {
-				continue // separator or header row
-			}
-			c.Links = append(c.Links, Link{Source: src, Path: strings.Trim(p, "`")})
-		default:
-			c.BodyLines++
+	parts := kgnotes.SplitBody(body, Layout().Card.LinksHeader)
+	c.BodyLines = parts.ProseLines
+	for _, row := range parts.Rows {
+		if len(row) < linkCells {
+			continue
 		}
+		c.Links = append(c.Links, Link{Source: row[0], Path: strings.Trim(row[1], "`")})
 	}
 	return c, nil
 }
@@ -422,11 +412,7 @@ func (c *Card) AddLink(source, place string) error {
 	if err != nil {
 		return err
 	}
-	text := strings.TrimRight(string(data), "\n")
-	if len(c.Links) == 0 {
-		text += "\n| Source | Path |\n|---|---|"
-	}
-	text += "\n| " + source + " | " + place + " |\n"
+	text := kgnotes.AppendTableRow(string(data), Layout().Card.LinksHeader, []string{source, place}, len(c.Links) == 0)
 	if err = writeFileAtomic(c.File, text); err != nil {
 		return err
 	}

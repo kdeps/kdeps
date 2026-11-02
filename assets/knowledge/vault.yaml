@@ -22,6 +22,7 @@ card:  # front matter keys of a project card, all required
   next: next  # the one next step; it lives only in the card
   updated: updated  # the date the card last changed
   archived: archived  # the status value that moves a project to the archive folder
+  links_header: [Source, Path]  # the card's places table: a link kind (sources below), then a path
 
 note:  # front matter keys kdeps reads from every note
   type: type  # the note's kind (a decision, a gotcha); its graph node kind

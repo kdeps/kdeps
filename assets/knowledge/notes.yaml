@@ -41,7 +41,7 @@ templates:
     {{.Keys.Next}}: {{scalar .None}}
     {{.Keys.Updated}}: {{.Updated}}
     ---
-    | Source | Path |
+    | {{index .Keys.LinksHeader 0}} | {{index .Keys.LinksHeader 1}} |
     |---|---|
     | {{.Source}} | {{.Place}} |
 
