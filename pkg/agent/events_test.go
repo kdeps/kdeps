@@ -55,7 +55,7 @@ func TestLoadBuiltinEvents_HasRoundCountCluster(t *testing.T) {
 		wantRounds int
 		wantRun    string
 	}{
-		{eventIdenticalCalls, 3, "force_answer"},
+		{eventIdenticalToolCalls, 3, "force_answer"},
 		{eventConvergenceBlock, 1, "force_answer"},
 		{eventHandshakeTimeout, 2, "fail_handshake"},
 	}
@@ -72,7 +72,7 @@ func TestEffectiveRounds_FallsBackToOneWhenEventUnset(t *testing.T) {
 }
 
 func TestEffectiveRounds_UsesEventValueWhenSet(t *testing.T) {
-	assert.Equal(t, 3, effectiveRounds(eventIdenticalCalls))
+	assert.Equal(t, 3, effectiveRounds(eventIdenticalToolCalls))
 	assert.Equal(t, 1, effectiveRounds(eventConvergenceBlock))
 	assert.Equal(t, 2, effectiveRounds(eventHandshakeTimeout))
 }
@@ -401,20 +401,20 @@ func TestSetEventEnabled_UnknownNameErrors(t *testing.T) {
 
 func TestSetEventEnabled_DisableThenEnableRoundTrips(t *testing.T) {
 	isolateEventsHome(t)
-	require.True(t, EventEnabled(eventIdenticalCalls))
+	require.True(t, EventEnabled(eventIdenticalToolCalls))
 
-	require.NoError(t, SetEventEnabled(eventIdenticalCalls, false))
-	assert.False(t, EventEnabled(eventIdenticalCalls))
-	assert.Equal(t, disabledSentinel, effectiveRounds(eventIdenticalCalls),
+	require.NoError(t, SetEventEnabled(eventIdenticalToolCalls, false))
+	assert.False(t, EventEnabled(eventIdenticalToolCalls))
+	assert.Equal(t, disabledSentinel, effectiveRounds(eventIdenticalToolCalls),
 		"a disabled event's trigger must never fire")
 
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(home, ".kdeps", "events", eventIdenticalCalls+".yaml"))
+	assert.FileExists(t, filepath.Join(home, ".kdeps", "events", eventIdenticalToolCalls+".yaml"))
 
-	require.NoError(t, SetEventEnabled(eventIdenticalCalls, true))
-	assert.True(t, EventEnabled(eventIdenticalCalls))
-	assert.Equal(t, 3, effectiveRounds(eventIdenticalCalls))
+	require.NoError(t, SetEventEnabled(eventIdenticalToolCalls, true))
+	assert.True(t, EventEnabled(eventIdenticalToolCalls))
+	assert.Equal(t, 3, effectiveRounds(eventIdenticalToolCalls))
 }
 
 func TestSetEventEnabled_PreservesOtherFieldsOnDisable(t *testing.T) {

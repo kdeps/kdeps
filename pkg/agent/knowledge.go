@@ -973,13 +973,34 @@ func splitList(s string) []string {
 // Extraction defaults.
 const (
 	knowledgeExtractActionID = "knowledge_extract"
-	defaultExtractPerSession = 20
-	knowledgeExtractTimeout  = 3 * time.Minute
-	// knowledgeExtractCallTimeout bounds one extraction call.
-	knowledgeExtractCallTimeout = "180s"
-	// knowledgeExtractMaxTokens caps one extraction reply.
-	knowledgeExtractMaxTokens = 1024
 )
+
+// Knowledge extraction limits, read from their events. Each default applies
+// when its event is off.
+const (
+	defaultExtractPerSession = 20
+	defaultExtractTokens     = 1024
+	defaultExtractSeconds    = 180
+)
+
+// itemsOr is an event's items, or fallback when the event is off or unset.
+func itemsOr(name string, fallback int) int {
+	n := effectiveItems(name, fallback)
+	if n == disabledSentinel || n < 1 {
+		return fallback
+	}
+	return n
+}
+
+// knowledgeExtractTimeout bounds one extraction, from its seconds event.
+func knowledgeExtractTimeout() time.Duration {
+	return time.Duration(itemsOr(eventKnowledgeExtractSeconds, defaultExtractSeconds)) * time.Second
+}
+
+// knowledgeExtractCallTimeout is the same bound as a workflow timeout string.
+func knowledgeExtractCallTimeout() string {
+	return fmt.Sprintf("%ds", itemsOr(eventKnowledgeExtractSeconds, defaultExtractSeconds))
+}
 
 // KnowledgeAsk returns an ExtractFunc that asks a model one question
 // through engines from newEngine (one per call, so calls can run in
@@ -997,13 +1018,13 @@ func KnowledgeAsk(newEngine func() *executor.Engine, model, backend, baseURL str
 			LiteralPrompt: true,
 			// A local model reading a long note, maybe while loading, needs
 			// more than the chat default.
-			Timeout:   knowledgeExtractCallTimeout,
+			Timeout:   knowledgeExtractCallTimeout(),
 			Knowledge: &off,
 			Scenario:  []domain.ScenarioItem{{Role: "system", Prompt: system}},
 		}
 		// The reply is a small JSON object; a cap stops a small model that
 		// rambles from holding a local server for minutes.
-		maxTokens := knowledgeExtractMaxTokens
+		maxTokens := itemsOr(eventKnowledgeExtractTokens, defaultExtractTokens)
 		chatCfg.MaxTokens = &maxTokens
 		wf := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -1058,9 +1079,9 @@ func (l *Loop) extractBackground() {
 	}
 	limit := k.cfg.Extract.PerSession
 	if limit <= 0 {
-		limit = defaultExtractPerSession
+		limit = itemsOr(eventKnowledgeExtractPerSession, defaultExtractPerSession)
 	}
-	ctx, cancel := context.WithTimeout(k.ctx, knowledgeExtractTimeout)
+	ctx, cancel := context.WithTimeout(k.ctx, knowledgeExtractTimeout())
 	defer cancel()
 	_, _ = knowledge.Extract(ctx, k.vault, k.dir, KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
 		knowledge.ExtractOptions{
@@ -1087,12 +1108,12 @@ func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
 	}
 	limit := k.cfg.Extract.PerSession
 	if limit <= 0 {
-		limit = defaultExtractPerSession
+		limit = itemsOr(eventKnowledgeExtractPerSession, defaultExtractPerSession)
 	}
 	if all {
 		limit = 0
 	}
-	ctx, cancel := context.WithTimeout(ctx, knowledgeExtractTimeout)
+	ctx, cancel := context.WithTimeout(ctx, knowledgeExtractTimeout())
 	defer cancel()
 	k.waitBuilds()
 	st, err := knowledge.Extract(

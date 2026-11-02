@@ -1142,7 +1142,7 @@ func TestRunStreaming_HandshakeRunsBeforeRealPromptAndLeavesNoTrace(t *testing.T
 
 func TestHandshakeCaps_FromTheEvents(t *testing.T) {
 	withEvent(t, Event{Name: eventHandshakeHistory, Items: 5, Run: actionCap})
-	withEvent(t, Event{Name: eventHandshakeEvidence, On: EventTrigger{Rounds: 4}, Run: actionFailHandshake})
+	withEvent(t, Event{Name: eventHandshakeEvidenceAttempts, On: EventTrigger{Rounds: 4}, Run: actionFailHandshake})
 	assert.Equal(t, 5, handshakeHistoryPairs())
 	assert.Equal(t, 4, handshakeEvidenceAttempts())
 }
@@ -1150,7 +1150,7 @@ func TestHandshakeCaps_FromTheEvents(t *testing.T) {
 func TestHandshakeCaps_OffKeepsTheDefaults(t *testing.T) {
 	withEvent(t, Event{Name: eventHandshakeHistory, Items: 5, Run: actionCap, Disabled: true})
 	withEvent(t, Event{
-		Name: eventHandshakeEvidence, On: EventTrigger{Rounds: 4}, Run: actionFailHandshake, Disabled: true,
+		Name: eventHandshakeEvidenceAttempts, On: EventTrigger{Rounds: 4}, Run: actionFailHandshake, Disabled: true,
 	})
 	assert.Equal(t, defaultHandshakeHistoryPairs, handshakeHistoryPairs())
 	assert.Equal(t, defaultHandshakeEvidenceAttempts, handshakeEvidenceAttempts())

@@ -26,9 +26,9 @@ import (
 )
 
 func TestProviderMaxRequestBodyBytes(t *testing.T) {
-	withEvent(t, Event{Name: eventProviderBodyDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
-	withEvent(t, Event{Name: eventProviderBodyXAI, On: EventTrigger{Bytes: 52_428_800}, Run: actionReject})
-	withEvent(t, Event{Name: eventProviderBodyOpenAI, On: EventTrigger{Bytes: 104_857_600}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderBodyLimitDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderBodyLimitXai, On: EventTrigger{Bytes: 52_428_800}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderBodyLimitOpenai, On: EventTrigger{Bytes: 104_857_600}, Run: actionReject})
 	assert.Equal(t, int64(6_291_456), providerMaxRequestBodyBytes("dashscope"))
 	assert.Equal(t, int64(52_428_800), providerMaxRequestBodyBytes("xai"))
 	assert.Equal(t, int64(104_857_600), providerMaxRequestBodyBytes("openai"))
@@ -118,7 +118,7 @@ func TestRequestSizePreflightWarnings(t *testing.T) {
 }
 
 func TestRequestSizePreflightWarnings_UseTheEvents(t *testing.T) {
-	withEvent(t, Event{Name: eventProviderBodyDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
+	withEvent(t, Event{Name: eventProviderBodyLimitDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
 	withEvent(t, Event{Name: eventProviderSmallThreshold, On: EventTrigger{Bytes: 10_000_000}, Run: actionReject})
 	assert.Len(t, RequestSizePreflightWarnings("dashscope"), 1, "a small limit warns")
 	assert.Empty(t, RequestSizePreflightWarnings("ollama"), "no limit, no warning")

@@ -444,7 +444,7 @@ const defaultHandshakeEvidenceAttempts = 3
 // handshakeEvidenceAttempts is how many evidence retries the handshake gets: the
 // handshake-evidence-attempts event's rounds, or the default when it is off.
 func handshakeEvidenceAttempts() int {
-	n := effectiveRounds(eventHandshakeEvidence)
+	n := effectiveRounds(eventHandshakeEvidenceAttempts)
 	if n == disabledSentinel || n < 1 {
 		return defaultHandshakeEvidenceAttempts
 	}
