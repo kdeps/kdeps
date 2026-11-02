@@ -43,16 +43,37 @@ type policyFile struct {
 // policyValues loads the policy once; a missing or broken item is reported and
 // the counts fall back to 1, so the graph still builds with a visible warning.
 //
+// policyCache holds the policy once it has loaded. A failed load is reported
+// and not cached, so a later call with the assets in place reads them.
+//
 //nolint:gochecknoglobals // loaded once from the knowledge asset set
-var policyValues = sync.OnceValue(func() policyFile {
+//nolint:gochecknoglobals // loaded once from the knowledge asset set
+var (
+	policyMu    sync.Mutex
+	policyCache *policyFile
+)
+
+// loadPolicy reads the policy item of the knowledge asset set.
+func loadPolicy() (policyFile, error) {
 	var p policyFile
 	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + policyItem + ".yaml")
-	if err == nil {
-		err = yaml.Unmarshal(data, &p)
+	if err != nil {
+		return p, err
 	}
+	return p, yaml.Unmarshal(data, &p)
+}
+
+// policy returns the knowledge graph's limits and thresholds.
+func policy() policyFile {
+	policyMu.Lock()
+	defer policyMu.Unlock()
+	if policyCache != nil {
+		return *policyCache
+	}
+	p, err := loadPolicy()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "knowledge: policy: %v\n", err)
-		p = policyFile{
+		return policyFile{
 			MaxCodeFiles:   1,
 			MaxCardBody:    1,
 			ChunkChars:     1,
@@ -70,8 +91,6 @@ var policyValues = sync.OnceValue(func() policyFile {
 			MarkerWindow:   1,
 		}
 	}
+	policyCache = &p
 	return p
-})
-
-// policy returns the knowledge graph's limits and thresholds.
-func policy() policyFile { return policyValues() }
+}
