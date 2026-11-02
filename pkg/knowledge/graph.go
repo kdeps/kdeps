@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
 // Node kinds and edge relations of the graph.
@@ -164,52 +166,24 @@ func CheckUpdate(
 }
 
 // Node is one thing the graph knows: a note, a tag, a code package.
-type Node struct {
-	ID        string   `json:"id"`
-	Label     string   `json:"label"`
-	Kind      string   `json:"kind"`
-	Note      string   `json:"note,omitempty"` // vault-relative note path
-	Summary   string   `json:"summary,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	Aliases   []string `json:"aliases,omitempty"`
-	Community int      `json:"community"`
-}
+type Node = kgknowledge.Node
 
 // Edge is one relation between two nodes.
-type Edge struct {
-	From           string  `json:"from"`
-	To             string  `json:"to"`
-	Relation       string  `json:"relation"`
-	Provenance     string  `json:"provenance"`
-	Confidence     float64 `json:"confidence"`
-	SourceFile     string  `json:"source_file,omitempty"`
-	SourceLocation string  `json:"source_location,omitempty"`
-}
+type Edge = kgknowledge.Edge
 
-// Graph is the vault's knowledge graph.
+// Graph is the vault's knowledge graph: Kartographer's nodes and edges, with
+// the vault's own build record.
 type Graph struct {
+	kgknowledge.Graph
 	Vault        string    `json:"vault"`
 	Built        time.Time `json:"built"`
-	Communities  int       `json:"communities"`
-	Modularity   float64   `json:"modularity"`
 	ExtractModel string    `json:"extract_model,omitempty"`
 	ExtractedAt  time.Time `json:"extracted_at,omitempty"`
-	Nodes        []*Node   `json:"nodes"`
-	Edges        []*Edge   `json:"edges"`
-	Missing      []string  `json:"missing,omitempty"` // wikilink targets with no note
 }
 
 // BuildStats reports what a build read.
 type BuildStats struct {
 	Notes, Changed, CodeFiles, Nodes, Edges, Communities int
-}
-
-func countCommunities(g *Graph) int {
-	seen := map[int]bool{}
-	for _, n := range g.Nodes {
-		seen[n.Community] = true
-	}
-	return len(seen)
 }
 
 // cacheEntry is one parsed file, reused while its hash is unchanged.
@@ -231,36 +205,11 @@ const parserVersion = 3
 
 // builder accumulates a graph's nodes and edges, deduplicated.
 type builder struct {
-	nodes   map[string]*Node
-	edges   map[string]*Edge
+	kg      *kgknowledge.Builder
 	missing map[string]bool
 	cache   buildCache
 	next    *buildCache
 	st      *BuildStats
-}
-
-func (b *builder) add(n *Node) *Node {
-	if existing, ok := b.nodes[n.ID]; ok {
-		return existing
-	}
-	b.nodes[n.ID] = n
-	return n
-}
-
-// link adds an extracted edge. The first extracted evidence wins. An
-// extracted edge replaces an inferred or ambiguous one for the same triple.
-func (b *builder) link(from, to, rel, file, loc string) {
-	if from == to {
-		return
-	}
-	key := from + "\x00" + to + "\x00" + rel
-	if e, ok := b.edges[key]; ok && e.Provenance == ProvExtracted {
-		return
-	}
-	b.edges[key] = &Edge{
-		From: from, To: to, Relation: rel, Provenance: ProvExtracted, Confidence: 1,
-		SourceFile: file, SourceLocation: loc,
-	}
 }
 
 // Build parses the vault (and the Go code behind cards' repo links),
@@ -282,7 +231,7 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 	var st BuildStats
 	next := buildCache{Version: parserVersion, Files: map[string]cacheEntry{}}
 	b := &builder{
-		nodes: map[string]*Node{}, edges: map[string]*Edge{}, missing: map[string]bool{},
+		kg: kgknowledge.NewBuilder(), missing: map[string]bool{},
 		cache: loadCache(dir), next: &next, st: &st,
 	}
 	notes, err := b.readNotes(v)
@@ -295,20 +244,13 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 	}
 	b.addExtracted(v.Root, dir, notes, resolve)
 	b.addCode(ctx, v)
-	g := &Graph{Vault: v.Root, Built: now.UTC()}
-	for _, n := range b.nodes {
-		g.Nodes = append(g.Nodes, n)
-	}
-	for _, e := range b.edges {
-		g.Edges = append(g.Edges, e)
-	}
+	g := &Graph{Graph: *b.kg.Graph(), Vault: v.Root, Built: now.UTC()}
 	for m := range b.missing {
 		g.Missing = append(g.Missing, m)
 	}
 	sortGraph(g)
 	applyExtractMeta(g, dir)
 	g.Modularity = Communities(g)
-	g.Communities = countCommunities(g)
 	st.Nodes, st.Edges, st.Communities = len(g.Nodes), len(g.Edges), g.Communities
 	if innerErr := saveJSON(filepath.Join(dir, cacheFile), next); innerErr != nil {
 		return nil, st, innerErr
@@ -358,42 +300,32 @@ func (b *builder) addNote(n *Note, resolve *resolver) {
 	if n.Type != "" {
 		kind = strings.ToLower(n.Type)
 	}
-	b.add(&Node{ID: id, Label: n.Title, Kind: kind, Note: n.Path, Summary: n.Summary, Tags: n.Tags, Aliases: n.Aliases})
+	b.kg.Add(&Node{ID: id, Label: n.Title, Kind: kind, Note: n.Path, Summary: n.Summary, Tags: n.Tags, Aliases: n.Aliases})
 	b.linkWiki(id, n.Path, n.Links, n.LinkLine, RelReferences, resolve)
 	b.linkWiki(id, n.Path, n.MetaLinks, n.MetaLine, RelRelatesTo, resolve)
 	for _, t := range n.MDLinks {
 		if target := resolve.relative(t, n.Path); target != "" {
-			b.link(id, noteID(target), RelReferences, n.Path, lineRef(n.MDLine[t]))
+			b.kg.Link(id, noteID(target), RelReferences, n.Path, lineRef(n.MDLine[t]))
 		}
 	}
 	for _, t := range n.Tags {
-		tag := b.add(&Node{ID: "tag:" + strings.ToLower(t), Label: "#" + t, Kind: KindTag})
-		b.link(id, tag.ID, RelTagged, n.Path, lineRef(n.TagLine[t]))
+		tag := b.kg.Add(&Node{ID: "tag:" + strings.ToLower(t), Label: "#" + t, Kind: KindTag})
+		b.kg.Link(id, tag.ID, RelTagged, n.Path, lineRef(n.TagLine[t]))
 	}
 }
 
 func (b *builder) linkWiki(id, from string, targets []string, lines map[string]int, rel string, resolve *resolver) {
 	for _, t := range targets {
 		if target := resolve.wiki(t, from); target != "" {
-			b.link(id, noteID(target), rel, from, lineRef(lines[t]))
+			b.kg.Link(id, noteID(target), rel, from, lineRef(lines[t]))
 		} else {
 			b.missing[t] = true
 		}
 	}
 }
 
+// sortGraph sorts the missing link targets; the builder sorts nodes and edges.
 func sortGraph(g *Graph) {
-	sort.Slice(g.Nodes, func(i, j int) bool { return g.Nodes[i].ID < g.Nodes[j].ID })
-	sort.Slice(g.Edges, func(i, j int) bool {
-		a, b := g.Edges[i], g.Edges[j]
-		if a.From != b.From {
-			return a.From < b.From
-		}
-		if a.To != b.To {
-			return a.To < b.To
-		}
-		return a.Relation < b.Relation
-	})
 	sort.Strings(g.Missing)
 }
 

@@ -36,6 +36,8 @@ type policyFile struct {
 	CommunityTop      int     `yaml:"community_top"`      // Communities listed in the graph report.
 	MissingTop        int     `yaml:"missing_top"`        // Missing links listed in the graph report.
 	MarkerWindow      int     `yaml:"marker_window"`      // Bytes read around a report marker.
+	TagEdgeWeight     float64 `yaml:"tag_edge_weight"`    // weight of a tag edge in recall, against 1 for a link
+	AmbiguousWeight   float64 `yaml:"ambiguous_weight"`   // weight of an ambiguous edge in recall, times its confidence
 }
 
 // policyValues loads the policy once; a missing or broken item is reported and
