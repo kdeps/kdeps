@@ -21,6 +21,7 @@ package agent
 import (
 	"cmp"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,9 +33,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/log"
+	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
-	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
+	"github.com/spf13/afero"
 )
 
 const (
@@ -561,20 +564,6 @@ func (m *MemoryStore) BuildDependencyMap() map[string][]string {
 	return deps
 }
 
-// stringWriter captures graphOutputWriter.WriteLine calls to a buffer.
-type stringWriter struct {
-	buf   *strings.Builder
-	lines int
-}
-
-func (w *stringWriter) WriteLine(content string) {
-	if content != "" {
-		w.buf.WriteString(content)
-		w.buf.WriteByte('\n')
-		w.lines++
-	}
-}
-
 // FormatGraphNode returns the dependency paths for a single key.
 // Returns empty string when the key has no references or doesn't exist.
 func (m *MemoryStore) FormatGraphNode(key string) string {
@@ -582,40 +571,27 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 	if len(deps) == 0 {
 		return ""
 	}
-
-	repo := newInMemoryGraphRepository(deps)
-	formatter := newArrowPathFormatter()
-	writer := &stringWriter{buf: &strings.Builder{}}
-	pathSvc := newGraphPathService(formatter, writer)
-	depSvc := newGraphDependencyService(repo, pathSvc)
-
-	depSvc.TraverseGraph(key)
-
-	if writer.lines == 0 {
+	g := newDepGraph(deps)
+	paths := g.Paths(key)
+	if len(paths) == 0 {
 		return ""
 	}
 
-	// Build reverse dependencies too.
-	revWriter := &stringWriter{buf: &strings.Builder{}}
-
-	// List direct and reverse dependencies as structured output.
 	var sb strings.Builder
 	sb.WriteString("<graph-node key=")
 	sb.WriteString(jsonString(key))
 	sb.WriteString(">\n")
 
 	sb.WriteString("<paths>\n")
-	sb.WriteString(writer.buf.String())
+	for _, p := range paths {
+		sb.WriteString(strings.Join(p, " -> ") + "\n")
+	}
 	sb.WriteString("</paths>\n")
 
-	if revDeps := depSvc.ListReverseDependencies(key); len(revDeps) > 0 {
+	if revDeps := g.Reverse(key); len(revDeps) > 0 {
 		sb.WriteString("<reverse-dependencies>\n")
 		for _, dep := range revDeps {
-			path := &graphPath{Nodes: []string{dep, key}, Direction: "forward"}
-			revWriter.WriteLine(formatter.FormatPath(path))
-		}
-		if revWriter.lines > 0 {
-			sb.WriteString(revWriter.buf.String())
+			sb.WriteString(dep + " -> " + key + "\n")
 		}
 		sb.WriteString("</reverse-dependencies>\n")
 	}
@@ -908,12 +884,12 @@ func (m *MemoryStore) topoOrder(entries []MemoryEntry, keep map[string]bool) []s
 	if len(deps) == 0 {
 		return nodes
 	}
-	depSvc := newDepService(deps)
+	g := newDepGraph(deps)
 
 	order := make([]string, 0, len(nodes))
 	seen := make(map[string]bool, len(nodes))
 	for _, node := range nodes {
-		for _, n := range depSvc.BuildDependencyStack(node) {
+		for _, n := range g.Stack(node) {
 			if keep[n] && !seen[n] {
 				seen[n] = true
 				order = append(order, n)
@@ -937,7 +913,7 @@ func (m *MemoryStore) keptReverseDeps(key string, keep map[string]bool) []string
 		return nil
 	}
 	var out []string
-	for _, r := range newDepService(deps).ListReverseDependencies(key) {
+	for _, r := range newDepGraph(deps).Reverse(key) {
 		if keep[r] {
 			out = append(out, r)
 		}
@@ -946,11 +922,9 @@ func (m *MemoryStore) keptReverseDeps(key string, keep map[string]bool) []string
 	return out
 }
 
-// newDepService wires the kartographer dependency service over a dependency map.
-func newDepService(deps map[string][]string) graphDependencyService {
-	repo := newInMemoryGraphRepository(deps)
-	pathSvc := newGraphPathService(newArrowPathFormatter(), &stringWriter{buf: &strings.Builder{}})
-	return newGraphDependencyService(repo, pathSvc)
+// newDepGraph builds the Kartographer dependency graph over a dependency map.
+func newDepGraph(deps map[string][]string) *graph.DependencyGraph {
+	return graph.NewDependencyGraph(afero.NewMemMapFs(), log.New(io.Discard), deps)
 }
 
 // memoryStopwords are common words ignored when matching a prompt to memory. The
