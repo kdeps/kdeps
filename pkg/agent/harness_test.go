@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // isolateHarnessHome points os.UserHomeDir at a fresh temp dir and restores
@@ -159,6 +161,39 @@ func TestRenderAssembledPreamble_BrokenTemplateFallsBackToRawText(t *testing.T) 
 
 	got := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20})
 	assert.Equal(t, "{{.Unclosed", got)
+}
+
+// The use-kdeps-tools section names bash_exec only when the loop was given it.
+// A scoped loop (a judge, a handshake round) without bash_exec must not be
+// told to use it: the model would call it, get "tool not found", and loop.
+func TestRenderAssembledPreamble_ToolsNamedOnlyWhenGiven(t *testing.T) {
+	with := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20,
+		Tools: map[string]bool{"bash_exec": true, "read_file": true}})
+	assert.Contains(t, with, "bash_exec for shell commands and the file tools")
+	assert.Contains(t, with, `<invoke name="read_file">`)
+	assert.NotContains(t, with, `<invoke name="edit_file">`)
+
+	without := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20})
+	assert.NotContains(t, without, "bash_exec for shell commands and the file tools")
+	assert.NotContains(t, without, `<invoke name="bash_exec">`)
+	assert.NotContains(t, without, `<invoke name="read_file">`)
+	assert.Contains(t, without, "from the list above. Do NOT")
+	assert.NotContains(t, without, "{{")
+}
+
+func TestPreambleData_ToolsFollowLoopRegistry(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	assert.False(t, (&Loop{registry: reg}).preambleData().Tools["bash_exec"])
+
+	reg.Register(&kdepstools.Tool{Name: "identity_get"})
+	d := (&Loop{registry: reg}).preambleData()
+	assert.True(t, d.Tools["identity_get"])
+	assert.False(t, d.Tools["bash_exec"], "other tools do not count")
+
+	reg.Register(&kdepstools.Tool{Name: "bash_exec"})
+	assert.True(t, (&Loop{registry: reg}).preambleData().Tools["bash_exec"])
+
+	assert.Empty(t, (&Loop{}).preambleData().Tools, "a loop with no registry names no tools")
 }
 
 func TestHarnessEnabled_UnknownNameFailsOpen(t *testing.T) {

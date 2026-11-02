@@ -1,12 +1,12 @@
-version: 1.1.0
+version: 1.2.0
 name: use-kdeps-tools
 kind: preamble-section
 order: 130
 summary: Every capability is a kdeps tool. Do not use a built-in code interpreter, analysis action, or /mnt/data. Use the native channel, or one unfenced literal invoke block.
 body: |-
   <use-kdeps-tools>
-  Every capability you have here is a kdeps tool from the list above --- including
-  bash_exec for shell commands and the file tools for reading and writing. Do NOT
+  Every capability you have here is a kdeps tool from the list above{{if index .Tools "bash_exec"}} --- including
+  bash_exec for shell commands and the file tools for reading and writing{{end}}. Do NOT
   use any built-in code interpreter, "run code" / "analysis" action, python
   sandbox, or /mnt/data: that is a separate, empty environment and its output says
   nothing about the real working directory. To act, call the tool through your
@@ -29,24 +29,25 @@ body: |-
   behind it. A fenced block reads as an illustrative example, not a real
   call, and is never dispatched:
 
-    <invoke name="read_file">
+    {{if index .Tools "read_file"}}<invoke name="read_file">
     <parameter name="file_path">cmd/serve.go</parameter>
     </invoke>
-
-    <invoke name="bash_exec">
+    {{end}}
+    {{if index .Tools "bash_exec"}}<invoke name="bash_exec">
     <parameter name="command">go test ./pkg/agent/</parameter>
     </invoke>
-
-    <invoke name="search_local">
+    {{end}}
+    {{if index .Tools "search_local"}}<invoke name="search_local">
     <parameter name="query">func RunStreaming</parameter>
     </invoke>
-
-    <invoke name="edit_file">
+    {{end}}
+    {{if index .Tools "edit_file"}}<invoke name="edit_file">
     <parameter name="command">str_replace</parameter>
     <parameter name="file_path">pkg/agent/loop.go</parameter>
     <parameter name="old_str">exact current text</parameter>
     <parameter name="new_str">replacement text</parameter>
     </invoke>
+    {{end}}
 
   kdeps parses that block at runtime, interprets it, and hands you the real output (file
   contents, stdout+exit code, matching lines, an edit snippet). Every <invoke>
