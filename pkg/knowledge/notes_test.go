@@ -81,3 +81,29 @@ func TestKnowledgeSpec_ValidatesTheNotesItem(t *testing.T) {
 	require.NoError(t, spec.Validate([]byte(shippedNoteRules(t)), notesItem))
 	require.Error(t, spec.Validate([]byte("summary: {}\n"), notesItem))
 }
+
+func TestNoteRules_SessionKeysAreWrittenAndReadBack(t *testing.T) {
+	text := strings.Replace(shippedNoteRules(t), "id_key: session", "id_key: sid", 1)
+	text = strings.Replace(text, "commits_key: commits", "commits_key: range", 1)
+	r, err := parseNoteRules([]byte(text))
+	require.NoError(t, err)
+
+	body, err := sessionBody(r, "s-9", "app", "[[app]]", "x", map[string]string{"goal": "x"},
+		buildNow(), GitRange{From: "a1", To: "b2"})
+	require.NoError(t, err)
+	assert.Contains(t, body, "\nsid: s-9\n")
+	assert.Contains(t, body, "\nrange: a1..b2\n")
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "note.md")
+	require.NoError(t, os.WriteFile(file, []byte(body), 0o600))
+	assert.Equal(t, file, findSession(dir, "s-9", r), "the reader finds the note by the renamed key")
+	assert.Equal(t, "a1", recordedGitStart(file, r))
+}
+
+func TestParseNoteRules_RejectsAMissingSessionBlock(t *testing.T) {
+	text := strings.Replace(shippedNoteRules(t), "  kind: session  #", "  kind: \"\"  #", 1)
+	_, err := parseNoteRules([]byte(text))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "session.kind")
+}

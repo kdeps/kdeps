@@ -124,10 +124,10 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 	}
 	line := oneLine(focus)
 	sn := &SessionNote{Card: card}
-	sn.File = findSession(dir, id)
+	sn.File = findSession(dir, id, r)
 	newNote := sn.File == ""
 	if !newNote {
-		if from := recordedGitStart(sn.File); from != "" {
+		if from := recordedGitStart(sn.File, r); from != "" {
 			git.From = from
 		}
 	}
@@ -232,13 +232,13 @@ func decisionTitle(item string) string {
 
 // recordedGitStart is the first commit of the range a session note records
 // ("from..to", or a single commit), or "".
-func recordedGitStart(file string) string {
+func recordedGitStart(file string, r noteRules) string {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return ""
 	}
 	meta, _ := kgnotes.SplitFrontmatter(data)
-	from, _, _ := strings.Cut(kgnotes.MetaString(meta, "commits"), "..")
+	from, _, _ := strings.Cut(kgnotes.MetaString(meta, r.Session.CommitsKey), "..")
 	return strings.TrimSpace(from)
 }
 
@@ -259,7 +259,7 @@ func sessionBody(
 		secs = append(secs, section{ss.Heading, text})
 	}
 	return r.render(tmplSession, map[string]any{
-		"ID": id, "Project": project, "Created": now.Format(time.DateOnly), "Summary": summary,
+		"Session": r.Session, "ID": id, "Project": project, "Created": now.Format(time.DateOnly), "Summary": summary,
 		"CardLink": cardLink, "Commits": gitRangeMeta(git), "Git": git, "Sections": secs,
 	})
 }
@@ -344,13 +344,14 @@ func slug(s string) string {
 		s = strings.TrimSpace(string(r[:policy().MaxSlug]))
 	}
 	if s == "" {
-		s = "session"
+		r, _ := notesRules()
+		s = r.Session.Untitled
 	}
 	return s
 }
 
 // findSession is the note of session id in dir, or "".
-func findSession(dir, id string) string {
+func findSession(dir, id string, r noteRules) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
@@ -363,7 +364,7 @@ func findSession(dir, id string) string {
 		if readErr != nil {
 			continue
 		}
-		if meta, _ := kgnotes.SplitFrontmatter(data); kgnotes.MetaString(meta, "session") == id {
+		if meta, _ := kgnotes.SplitFrontmatter(data); kgnotes.MetaString(meta, r.Session.IDKey) == id {
 			return filepath.Join(dir, e.Name())
 		}
 	}
@@ -402,7 +403,7 @@ func AppendRun(card *Card, prompt, reply string, now time.Time) (string, error) 
 	}
 	if _, statErr := os.Stat(file); errors.Is(statErr, os.ErrNotExist) {
 		head, herr := r.render(tmplRunsHead, map[string]any{
-			"Project": card.Name, "Created": date, "CardLink": card.SelfLink(),
+			"Session": r.Session, "Project": card.Name, "Created": date, "CardLink": card.SelfLink(),
 		})
 		if herr != nil {
 			return "", herr

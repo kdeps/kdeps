@@ -125,7 +125,7 @@ func TestWriteSession_RecordsTheGitRange(t *testing.T) {
 	data, _ = os.ReadFile(other.File)
 	assert.NotContains(t, string(data), "commits:", "outside a repository: no git lines")
 	assert.NotContains(t, string(data), "## Git")
-	assert.Equal(t, "", recordedGitStart(filepath.Join(t.TempDir(), "none.md")))
+	assert.Equal(t, "", recordedGitStart(filepath.Join(t.TempDir(), "none.md"), noteRules{}))
 }
 
 func TestGitSection(t *testing.T) {

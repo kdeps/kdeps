@@ -358,12 +358,18 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 // both would otherwise out-match a decision or gotcha on the same words.
 func sourceWeight(n *Node) float64 {
 	switch {
-	case n.Kind == "session":
+	case isSessionKind(n.Kind):
 		return sessionNoteWeight
 	case isMemoryNote(n.Note):
 		return memoryNoteWeight
 	}
 	return 1
+}
+
+// isSessionKind reports a node of the kind notes.yaml gives session notes.
+func isSessionKind(kind string) bool {
+	r, err := notesRules()
+	return err == nil && kind == r.Session.Kind
 }
 
 // walk spreads score from a seed, strongest edge first. A node is expanded
