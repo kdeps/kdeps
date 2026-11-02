@@ -1744,44 +1744,12 @@ func TestGraph_GetExecutionOrder_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-// TestGraph_TopologicalSortUtil_Cycle tests topologicalSortUtil cycle detection.
-func TestGraph_TopologicalSortUtil_Cycle(t *testing.T) {
+// TestGraph_TopologicalSort_Cycle tests that sorting a cyclic graph fails.
+func TestGraph_TopologicalSort_Cycle(t *testing.T) {
 	graph := executor.NewGraph()
-
-	// Add resources that form a cycle
-	resources := []*domain.Resource{
-		{
-
-			ActionID: "a",
-			Requires: []string{"b"},
-		},
-		{
-
-			ActionID: "b",
-			Requires: []string{"a"},
-		},
-	}
-
-	for _, resource := range resources {
-		err := graph.AddResource(resource)
-		require.NoError(t, err)
-	}
-
-	// Don't call Build() as it will detect the cycle via DetectCycles()
-	// We want to test that topologicalSortUtil detects cycles directly
-	// Build reverse dependencies manually for the test
-	for actionID, deps := range graph.Edges {
-		for _, dep := range deps {
-			depNode := graph.Nodes[dep]
-			depNode.Dependents = append(depNode.Dependents, actionID)
-		}
-	}
-
-	visited := make(map[string]bool)
-	var result []*domain.Resource
-
-	// Should detect cycle during topological sort
-	err := graph.TopologicalSortUtil("a", visited, &result)
+	require.NoError(t, graph.AddResource(&domain.Resource{ActionID: "a", Requires: []string{"b"}}))
+	require.NoError(t, graph.AddResource(&domain.Resource{ActionID: "b", Requires: []string{"a"}}))
+	_, err := graph.TopologicalSort()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cycle")
 }
