@@ -21,15 +21,13 @@ package knowledge
 import (
 	"bufio"
 	"context"
-	"go/parser"
-	"go/token"
-	"io/fs"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
+
+	"github.com/kdeps/kartographer/codegraph"
+	// The rules come from the codegraph asset set; the adapter configures them.
+	_ "github.com/kdeps/kdeps/v2/pkg/codegraph"
 )
 
 // policy().MaxCodeFiles caps the Go files read per repo.
@@ -60,129 +58,47 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 				filepath.ToSlash(rel), lineRef(lineInFile(c.File, repo)),
 			)
 		}
-		b.addModule(ctx, root, module)
+		b.addModule(ctx, root)
 	}
 }
 
 // addModule adds a Go module's packages: the files git tracks (or would,
 // honouring .gitignore), else every .go file outside vendor, testdata and
-// hidden folders.
-func (b *builder) addModule(ctx context.Context, root, module string) {
-	files := gitGoFiles(ctx, root)
-	if files == nil {
-		files = walkGoFiles(root)
+// hidden folders. Kartographer reads each file's in-module imports.
+func (b *builder) addModule(ctx context.Context, root string) {
+	files, err := codegraph.GoFiles(ctx, root)
+	if err != nil {
+		return
 	}
 	if len(files) > policy().MaxCodeFiles {
 		files = files[:policy().MaxCodeFiles]
 	}
+	rels := make([]string, 0, len(files))
 	for _, p := range files {
-		b.st.CodeFiles++
-		rel, _ := filepath.Rel(root, filepath.Dir(p))
-		b.addPackageFile(p, module, path.Join(module, filepath.ToSlash(rel)))
+		if rel, rerr := filepath.Rel(root, p); rerr == nil {
+			rels = append(rels, rel)
+		}
 	}
-}
-
-// gitGoFiles lists root's .go files that git tracks or would track, or nil
-// when root is not in a git work tree, git is missing, or git lists none
-// (root ignored by an enclosing repo): the caller then walks the folder.
-func gitGoFiles(ctx context.Context, root string) []string {
-	cmd := exec.CommandContext(
-		ctx,
-		"git",
-		"-C",
-		root,
-		"ls-files",
-		"--cached",
-		"--others",
-		"--exclude-standard",
-		"-z",
-		"--",
-		"*.go",
-	)
-	out, err := cmd.Output()
+	b.st.CodeFiles += len(rels)
+	pkgs, err := codegraph.ModuleImports(root, rels)
 	if err != nil {
-		return nil
+		return
 	}
-	var files []string
-	for _, f := range strings.Split(string(out), "\x00") {
-		if f == "" || strings.Contains("/"+f, "/vendor/") || strings.Contains("/"+f, "/testdata/") {
-			continue
-		}
-		files = append(files, filepath.Join(root, filepath.FromSlash(f)))
+	for _, fi := range pkgs {
+		b.addPackageFile(root, fi)
 	}
-	return files
-}
-
-// walkGoFiles lists root's .go files outside vendor, testdata and hidden
-// folders.
-func walkGoFiles(root string) []string {
-	var files []string
-	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			return nil //nolint:nilerr // unreadable paths are skipped
-		case d.IsDir():
-			if p != root && skipCodeDir(d.Name()) {
-				return filepath.SkipDir
-			}
-		case strings.HasSuffix(d.Name(), ".go"):
-			files = append(files, p)
-		}
-		return nil
-	})
-	return files
-}
-
-func skipCodeDir(name string) bool {
-	return strings.HasPrefix(name, ".") || name == "vendor" || name == "node_modules" || name == "testdata"
 }
 
 // addPackageFile adds a Go file's package and its in-module imports. Only
 // imports connect packages: an edge the code does not write is not added.
-func (b *builder) addPackageFile(file, module, pkg string) {
-	id := "code:" + pkg
-	b.kg.Add(&Node{ID: id, Label: pkg, Kind: KindCode})
-	imports, lines := fileImports(file, b.cache, b.next)
-	for i, imp := range imports {
-		if imp == module || strings.HasPrefix(imp, module+"/") {
-			b.kg.Add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
-			loc := ""
-			if i < len(lines) {
-				loc = lineRef(lines[i])
-			}
-			b.kg.Link(id, "code:"+imp, RelDependsOn, file, loc)
-		}
+func (b *builder) addPackageFile(root string, fi codegraph.FileImports) {
+	id := "code:" + fi.Package
+	b.kg.Add(&Node{ID: id, Label: fi.Package, Kind: KindCode})
+	file := filepath.Join(root, filepath.FromSlash(fi.File))
+	for i, imp := range fi.Imports {
+		b.kg.Add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
+		b.kg.Link(id, "code:"+imp, RelDependsOn, file, lineRef(fi.Lines[i]))
 	}
-}
-
-// fileImports parses one Go file's imports, from the cache when unchanged.
-func fileImports(file string, cache buildCache, next *buildCache) ([]string, []int) {
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return nil, nil
-	}
-	hash := hashBytes(data)
-	key := "code:" + file
-	if e, ok := cache.Files[key]; ok && e.Hash == hash {
-		next.Files[key] = e
-		return e.Imports, e.ImportLine
-	}
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, file, data, parser.ImportsOnly)
-	var imports []string
-	var lines []int
-	if err == nil {
-		for _, s := range f.Imports {
-			p, uErr := strconv.Unquote(s.Path.Value)
-			if uErr != nil {
-				continue
-			}
-			imports = append(imports, p)
-			lines = append(lines, fset.Position(s.Pos()).Line)
-		}
-	}
-	next.Files[key] = cacheEntry{Hash: hash, Imports: imports, ImportLine: lines}
-	return imports, lines
 }
 
 // goModule is the module path in root/go.mod, or "".
