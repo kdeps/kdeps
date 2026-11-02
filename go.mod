@@ -5,7 +5,7 @@ go 1.26.10
 tool golang.org/x/vuln/cmd/govulncheck
 
 require (
-	charm.land/bubbletea/v2 v2.1.0
+	charm.land/bubbletea/v2 v2.1.1
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/IBM/watsonx-go v1.0.2
