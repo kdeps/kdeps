@@ -300,7 +300,9 @@ func (b *builder) addNote(n *Note, resolve *resolver) {
 	if n.Type != "" {
 		kind = strings.ToLower(n.Type)
 	}
-	b.kg.Add(&Node{ID: id, Label: n.Title, Kind: kind, Note: n.Path, Summary: n.Summary, Tags: n.Tags, Aliases: n.Aliases})
+	b.kg.Add(
+		&Node{ID: id, Label: n.Title, Kind: kind, Note: n.Path, Summary: n.Summary, Tags: n.Tags, Aliases: n.Aliases},
+	)
 	b.linkWiki(id, n.Path, n.Links, n.LinkLine, RelReferences, resolve)
 	b.linkWiki(id, n.Path, n.MetaLinks, n.MetaLine, RelRelatesTo, resolve)
 	for _, t := range n.MDLinks {

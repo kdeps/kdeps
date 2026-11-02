@@ -276,8 +276,12 @@ func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
 		SourceFile: "mid.md", SourceLocation: "L3"}
 	direct := &Edge{From: "seed", To: "weak", Relation: RelRelatesTo, Provenance: ProvAmbiguous, Confidence: 0.1,
 		SourceFile: "seed.md", SourceLocation: "L9"}
-	r1 := NewIndex(&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}}).Recall("billing", 2, 5000)
-	r2 := NewIndex(&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}}).Recall("billing", 2, 5000)
+	r1 := NewIndex(
+		&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}},
+	).Recall("billing", 2, 5000)
+	r2 := NewIndex(
+		&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}},
+	).Recall("billing", 2, 5000)
 	assert.Equal(t, r1.Hits, r2.Hits)
 	var target Hit
 	for _, h := range r1.Hits {
