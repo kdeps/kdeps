@@ -89,10 +89,10 @@ func legacyMemoryPath(name string) string {
 func projectMemoryDir(root, cwd string) string {
 	v := knowledge.Vault{Root: root}
 	if c := v.CardForDir(cwd); c != nil {
-		return filepath.Join(c.Dir(), knowledge.MemoryFolder)
+		return filepath.Join(c.Dir(), knowledge.Layout().Project.Memory)
 	}
 	name, _, _ := v.NewProjectName(cwd)
-	return filepath.Join(root, knowledge.ProjectsFolder, name, knowledge.MemoryFolder)
+	return filepath.Join(root, knowledge.Layout().Folders.Projects, name, knowledge.Layout().Project.Memory)
 }
 
 // vaultRoot is the vault the store writes into: its base path, unless the
@@ -118,7 +118,7 @@ func (m *MemoryStore) noteFile(e MemoryEntry) string {
 	}
 	dir := m.path
 	if e.Type == memTypeThinking || e.Type == memTypeToolResult {
-		dir = filepath.Join(m.path, knowledge.AutoFolder)
+		dir = filepath.Join(m.path, knowledge.Layout().Project.Auto)
 	}
 	f := filepath.Join(dir, memorySlug(e.Key)+".md")
 	for other, of := range m.files {

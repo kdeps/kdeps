@@ -34,50 +34,6 @@ import (
 	kgnotes "github.com/kdeps/kartographer/notes"
 )
 
-// Card fields every card carries in its frontmatter.
-const (
-	CardType    = "type"
-	CardStatus  = "status"
-	CardNext    = "next"
-	CardUpdated = "updated"
-)
-
-// CardFields lists the required card fields in order.
-//
-//nolint:gochecknoglobals // fixed list
-var CardFields = []string{CardType, CardStatus, CardNext, CardUpdated}
-
-// Vault folders. Every place kdeps runs is a project with one folder that
-// holds all of it; shared/ is knowledge across projects, inbox/ notes
-// dropped by hand, archive/ finished projects.
-const (
-	ProjectsFolder = "projects"
-	SharedFolder   = "shared"
-	InboxFolder    = "inbox"
-	ArchiveFolder  = "archive"
-)
-
-// A project folder's parts, each written by kdeps.
-const (
-	SessionsFolder  = "sessions"  // one note per session, updated every turn
-	MemoryFolder    = "memory"    // one note per saved fact
-	DecisionsFolder = "decisions" // one note per decision from a session summary
-	NotesFolder     = "notes"     // notes the model saves, and your own
-	AutoFolder      = ".auto"     // hidden, inside memory/: thinking and tool-output captures
-)
-
-// StatusArchived is the card status that moves a project to archive/.
-const StatusArchived = "archived"
-
-// Link sources a card maps to the project's places on disk.
-const (
-	SourceRepo     = "repo"
-	SourceFolder   = "folder"
-	SourceWorkflow = "workflow"
-	SourceIndex    = "index"  // a search index of one of the places (under ~/.kdeps)
-	SourceSearch   = "search" // a folder outside the project searched with it
-)
-
 // linkCells is how many cells a links-table row needs: source and path.
 const linkCells = 2
 
@@ -112,13 +68,13 @@ func (c *Card) Dir() string { return filepath.Dir(c.File) }
 
 // Archived reports whether the project sits in archive/.
 func (c *Card) Archived() bool {
-	return filepath.Base(filepath.Dir(c.Dir())) == ArchiveFolder
+	return filepath.Base(filepath.Dir(c.Dir())) == Layout().Folders.Archive
 }
 
 // Cards returns every project card, active and archived, sorted by name.
 func (v Vault) Cards() ([]*Card, error) {
 	var cards []*Card
-	for _, top := range []string{ProjectsFolder, ArchiveFolder} {
+	for _, top := range []string{Layout().Folders.Projects, Layout().Folders.Archive} {
 		entries, err := os.ReadDir(filepath.Join(v.Root, top))
 		if errors.Is(err, os.ErrNotExist) {
 			continue
@@ -172,7 +128,7 @@ func (v Vault) CardForDir(dir string) *Card {
 	for _, c := range cards {
 		for _, l := range c.Links {
 			switch strings.ToLower(l.Source) {
-			case SourceRepo, SourceFolder, SourceWorkflow:
+			case Layout().Sources.Repo, Layout().Sources.Folder, Layout().Sources.Workflow:
 			default:
 				continue
 			}
@@ -189,9 +145,9 @@ func (v Vault) CardForDir(dir string) *Card {
 // its card records: the git repository's root folder, else dir itself.
 func ProjectName(dir string) (string, string, string) {
 	if root := gitRoot(dir); root != "" {
-		return safeName(filepath.Base(root)), root, SourceRepo
+		return safeName(filepath.Base(root)), root, Layout().Sources.Repo
 	}
-	return safeName(filepath.Base(dir)), filepath.Clean(dir), SourceFolder
+	return safeName(filepath.Base(dir)), filepath.Clean(dir), Layout().Sources.Folder
 }
 
 // gitRoot is the nearest folder at or above dir holding .git, or "". Like
@@ -260,7 +216,7 @@ func (v Vault) CreateProject(name, source, place string, now time.Time) (*Card, 
 	if _, err := v.Card(name); err == nil {
 		name = safeName(filepath.Base(filepath.Dir(place))) + "-" + name
 	}
-	dir := filepath.Join(v.Root, ProjectsFolder, name)
+	dir := filepath.Join(v.Root, Layout().Folders.Projects, name)
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, false, err
 	}
@@ -342,13 +298,13 @@ func (v Vault) SetStatus(c *Card, status, next string, now time.Time) error {
 	if err := c.Update(status, next, now); err != nil {
 		return err
 	}
-	archived := strings.EqualFold(c.Status, StatusArchived)
+	archived := strings.EqualFold(c.Status, Layout().Card.Archived)
 	if archived == c.Archived() {
 		return nil
 	}
-	top := ProjectsFolder
+	top := Layout().Folders.Projects
 	if archived {
-		top = ArchiveFolder
+		top = Layout().Folders.Archive
 	}
 	moved, err := v.moveProject(c, top)
 	if err != nil {
@@ -370,7 +326,7 @@ func (v Vault) Reopen(c *Card, now time.Time) error {
 // IsCardPath reports whether a vault-relative note path is a project card.
 func IsCardPath(rel string) bool {
 	parts := strings.Split(rel, "/")
-	return len(parts) == 3 && (parts[0] == ProjectsFolder || parts[0] == ArchiveFolder) &&
+	return len(parts) == 3 && (parts[0] == Layout().Folders.Projects || parts[0] == Layout().Folders.Archive) &&
 		parts[2] == parts[1]+mdExt
 }
 
@@ -394,7 +350,7 @@ func (c *Card) SelfLink() string { return WikiLink(c.VaultRoot(), c.File) }
 // ProjectOf is the project a vault-relative note belongs to, or "".
 func ProjectOf(rel string) string {
 	parts := strings.Split(rel, "/")
-	if len(parts) >= 3 && (parts[0] == ProjectsFolder || parts[0] == ArchiveFolder) {
+	if len(parts) >= 3 && (parts[0] == Layout().Folders.Projects || parts[0] == Layout().Folders.Archive) {
 		return parts[1]
 	}
 	return ""
@@ -421,10 +377,10 @@ func ReadCard(file string) (*Card, error) {
 	c := &Card{
 		Name:    strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)),
 		File:    file,
-		Type:    metaString(meta, CardType),
-		Status:  metaString(meta, CardStatus),
-		Next:    metaString(meta, CardNext),
-		Updated: metaString(meta, CardUpdated),
+		Type:    metaString(meta, Layout().Card.Type),
+		Status:  metaString(meta, Layout().Card.Status),
+		Next:    metaString(meta, Layout().Card.Next),
+		Updated: metaString(meta, Layout().Card.Updated),
 	}
 	for _, line := range strings.Split(body, "\n") {
 		t := strings.TrimSpace(line)
@@ -480,7 +436,7 @@ func (c *Card) Places() []string {
 	var out []string
 	for _, l := range c.Links {
 		switch strings.ToLower(l.Source) {
-		case SourceRepo, SourceFolder, SourceWorkflow:
+		case Layout().Sources.Repo, Layout().Sources.Folder, Layout().Sources.Workflow:
 			out = append(out, l.Path)
 		}
 	}
@@ -495,14 +451,14 @@ func (c *Card) Update(status, next string, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	set := map[string]string{CardUpdated: now.Format(time.DateOnly)}
+	set := map[string]string{Layout().Card.Updated: now.Format(time.DateOnly)}
 	if status != "" {
-		set[CardStatus] = status
+		set[Layout().Card.Status] = status
 	}
 	if next != "" {
-		set[CardNext] = next
+		set[Layout().Card.Next] = next
 	}
-	out, err := kgnotes.EditFrontmatter(string(data), set, CardFields)
+	out, err := kgnotes.EditFrontmatter(string(data), set, Layout().CardFields())
 	if err != nil {
 		return err
 	}

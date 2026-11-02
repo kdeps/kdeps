@@ -68,7 +68,7 @@ func TestSearchFolders(t *testing.T) {
 	data, _ := os.ReadFile(card.File)
 	assert.Contains(t, string(data), "| index | "+index+" |")
 
-	require.NoError(t, v.SetStatus(card, knowledge.StatusArchived, "", now))
+	require.NoError(t, v.SetStatus(card, knowledge.Layout().Card.Archived, "", now))
 	assert.True(t, card.Archived())
 	assert.Equal(t, []string{docs}, card.SearchFolders(), "archiving keeps the search folders")
 	require.NoError(t, v.Reopen(card, now))

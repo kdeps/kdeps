@@ -30,6 +30,21 @@ A vault of 2,000 notes holds about a million words. That's more than any model c
 | An idea, gotcha or concept | one note: `projects/<name>/notes/`, or `shared/` when it spans projects |
 | How notes connect | the link graph, under `~/.kdeps/knowledge/<vault-id>/` |
 
+The folder names in this table and a card's front matter keys are the defaults of the `knowledge` asset set's `vault.yaml`. Override the file under `~/.kdeps/` to rename them:
+
+```yaml
+folders:
+  projects: projects  # one folder per project
+  shared: shared  # knowledge that spans projects
+project:
+  sessions: sessions  # one note per agent session
+  decisions: decisions  # one note per decision
+card:
+  next: next  # front matter key of the one next step; it lives only in the card
+```
+
+Every name must be set. Install rejects a `vault.yaml` that leaves one empty.
+
 A fact written in two places goes stale in one of them. `kdeps knowledge check` reports structural duplicates: the same summary, a next step outside a card, or two notes that set the same `canonical` or `fact_id`. It does not decide that two different wordings are the same fact.
 
 ## Projects

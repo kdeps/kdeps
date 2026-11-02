@@ -122,7 +122,7 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 	if strings.TrimSpace(focus) == "" {
 		return nil, errors.New("summary has no goal")
 	}
-	dir := filepath.Join(card.Dir(), SessionsFolder)
+	dir := filepath.Join(card.Dir(), Layout().Project.Sessions)
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 	if len(items) == 0 {
 		return nil, nil
 	}
-	dir := filepath.Join(card.Dir(), DecisionsFolder)
+	dir := filepath.Join(card.Dir(), Layout().Project.Decisions)
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, err
 	}
@@ -394,7 +394,7 @@ var runLog sync.Mutex
 func AppendRun(card *Card, prompt, reply string, now time.Time) (string, error) {
 	runLog.Lock()
 	defer runLog.Unlock()
-	dir := filepath.Join(card.Dir(), SessionsFolder)
+	dir := filepath.Join(card.Dir(), Layout().Project.Sessions)
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return "", err
 	}

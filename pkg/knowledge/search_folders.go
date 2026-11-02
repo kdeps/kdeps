@@ -46,7 +46,7 @@ var ErrAlreadySearched = errors.New("already a search folder")
 func (c *Card) SearchFolders() []string {
 	var out []string
 	for _, l := range c.Links {
-		if strings.EqualFold(l.Source, SourceSearch) {
+		if strings.EqualFold(l.Source, Layout().Sources.Search) {
 			out = append(out, l.Path)
 		}
 	}
@@ -96,7 +96,7 @@ func (v Vault) AddSearchFolder(c *Card, dir string) (string, error) {
 			return "", fmt.Errorf("%s is inside %s, which project %s already searches", p, r, c.Name)
 		}
 	}
-	if err = c.AddLink(SourceSearch, p); err != nil {
+	if err = c.AddLink(Layout().Sources.Search, p); err != nil {
 		return "", err
 	}
 	return p, nil
@@ -107,11 +107,11 @@ func (v Vault) RemoveSearchFolder(c *Card, dir string) (string, error) {
 	want := resolveFolder(dir)
 	for _, f := range c.SearchFolders() {
 		if samePath(ExpandPath(f, v.Root), want) {
-			if err := c.RemoveLink(SourceSearch, f); err != nil {
+			if err := c.RemoveLink(Layout().Sources.Search, f); err != nil {
 				return "", err
 			}
 			if indexOf != nil {
-				_ = c.RemoveLink(SourceIndex, indexOf(ExpandPath(f, v.Root))) // no index row is fine
+				_ = c.RemoveLink(Layout().Sources.Index, indexOf(ExpandPath(f, v.Root))) // no index row is fine
 			}
 			return f, nil
 		}

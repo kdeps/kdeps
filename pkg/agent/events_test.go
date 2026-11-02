@@ -165,6 +165,8 @@ func TestLoadBuiltinEvents_HasMemoryCluster(t *testing.T) {
 }
 
 func TestMemoryPromptLimit_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 500, memoryPromptLimit())
 }
 
@@ -179,18 +181,26 @@ func TestLoadBuiltinEvents_HasSideCallMaxTokens(t *testing.T) {
 }
 
 func TestMemoryKeysLimit_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 100, memoryKeysLimit())
 }
 
 func TestMemoryFocusMax_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 5, memoryFocusMax())
 }
 
 func TestMemoryChainMax_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 8, memoryChainMax())
 }
 
 func TestRelMemoryLimit_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 500, relMemoryLimit())
 }
 

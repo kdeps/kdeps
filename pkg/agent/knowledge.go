@@ -219,7 +219,7 @@ func (k *knowledgeState) overview() string {
 		}
 		if b.Len() == 0 {
 			b.WriteString("## Status overview (from the project cards in " +
-				filepath.Join(k.vault.Root, knowledge.ProjectsFolder) +
+				filepath.Join(k.vault.Root, knowledge.Layout().Folders.Projects) +
 				")\n\n| Card | Type | Status | Next | Updated |\n|---|---|---|---|---|\n")
 		}
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", c.Name, c.Type, c.Status, c.Next, c.Updated)
@@ -460,7 +460,7 @@ func (k *knowledgeState) gitRange(id string) knowledge.GitRange {
 func recordIndexes(card *knowledge.Card) {
 	for _, place := range card.SearchRoots() {
 		if p := searchlocal.IndexPath(place); fileExistsAt(p) {
-			_ = card.AddLink(knowledge.SourceIndex, p)
+			_ = card.AddLink(knowledge.Layout().Sources.Index, p)
 		}
 	}
 }
@@ -903,11 +903,11 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 		if err != nil {
 			return "", err
 		}
-		dir = filepath.Join(card.Dir(), knowledge.NotesFolder)
+		dir = filepath.Join(card.Dir(), knowledge.Layout().Project.Notes)
 		if typ == "decision" {
-			dir = filepath.Join(card.Dir(), knowledge.DecisionsFolder)
+			dir = filepath.Join(card.Dir(), knowledge.Layout().Project.Decisions)
 		}
-	case knowledge.SharedFolder, knowledge.InboxFolder:
+	case knowledge.Layout().Folders.Shared, knowledge.Layout().Folders.Inbox:
 		dir = filepath.Join(k.vault.Root, scope)
 	default:
 		return "", fmt.Errorf("knowledge_note_save: scope is project, shared or inbox, not %q", scope)

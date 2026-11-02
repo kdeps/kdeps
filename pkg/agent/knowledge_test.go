@@ -589,8 +589,12 @@ func TestKnowledgeRecall_FilesFromTheSearchIndex(t *testing.T) {
 	l.turnStateBlock("x")
 	card, err := l.knowledge.vault.Card("app")
 	require.NoError(t, err)
-	assert.Contains(t, card.Links, knowledge.Link{Source: knowledge.SourceIndex, Path: searchlocal.IndexPath(wd)},
-		"the card says where the project's search index is")
+	assert.Contains(
+		t,
+		card.Links,
+		knowledge.Link{Source: knowledge.Layout().Sources.Index, Path: searchlocal.IndexPath(wd)},
+		"the card says where the project's search index is",
+	)
 }
 
 func TestUpdateSessionNote_NewTopicGetsItsOwnNote(t *testing.T) {

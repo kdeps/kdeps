@@ -54,16 +54,17 @@ func danglingLinks(root, abs string, n *Note, resolve *kgknowledge.Resolver) []F
 // the inbox is unsorted.
 func needsSummary(rel string) bool {
 	parts := strings.Split(rel, "/")
-	if parts[0] == SharedFolder {
+	if parts[0] == Layout().Folders.Shared {
 		return len(parts) > 1
 	}
-	return len(parts) > 3 && ProjectOf(rel) != "" && (parts[2] == NotesFolder || parts[2] == DecisionsFolder)
+	return len(parts) > 3 && ProjectOf(rel) != "" &&
+		(parts[2] == Layout().Project.Notes || parts[2] == Layout().Project.Decisions)
 }
 
 // isMemoryNote reports a note in a project's memory/ folder.
 func isMemoryNote(rel string) bool {
 	parts := strings.Split(rel, "/")
-	return len(parts) > 3 && ProjectOf(rel) != "" && parts[2] == MemoryFolder
+	return len(parts) > 3 && ProjectOf(rel) != "" && parts[2] == Layout().Project.Memory
 }
 
 // Check reports facts with more than one home and notes recall cannot use:
@@ -93,8 +94,13 @@ func Check(v Vault) ([]Finding, error) {
 func checkCards(cards []*Card) []Finding {
 	var out []Finding
 	for _, c := range cards {
-		got := map[string]string{CardType: c.Type, CardStatus: c.Status, CardNext: c.Next, CardUpdated: c.Updated}
-		for _, f := range CardFields {
+		got := map[string]string{
+			Layout().Card.Type:    c.Type,
+			Layout().Card.Status:  c.Status,
+			Layout().Card.Next:    c.Next,
+			Layout().Card.Updated: c.Updated,
+		}
+		for _, f := range Layout().CardFields() {
 			if got[f] == "" {
 				out = append(out, Finding{c.File, "card has no " + f})
 			}
@@ -119,7 +125,7 @@ func checkNotes(v Vault, notes []*Note, cardFiles map[string]bool) []Finding {
 		if cardFiles[filepath.Clean(abs)] {
 			continue
 		}
-		if _, ok := n.Meta[CardNext]; ok {
+		if _, ok := n.Meta[Layout().Card.Next]; ok {
 			out = append(out, Finding{abs, "has a next step; it belongs in the project card (one home per fact)"})
 		}
 		if n.Canonical != "" {

@@ -36,14 +36,14 @@ Users override a set by name under `~/.kdeps/` (see the agent reference). The lo
 
 ## Knowledge and code graph rules
 
-Two more asset sets hold business rules for the graph features. Each is one YAML file, and each is read once at start.
+Two more asset sets hold business rules for the graph features. Each file is read once, the first time it is needed.
 
 | Set | Read by | What it configures |
 |---|---|---|
-| `knowledge/` | `pkg/knowledge/recall.go` | The word lengths and stopwords a knowledge-graph recall query is matched on |
+| `knowledge/` | `pkg/knowledge/` | `recall.yaml`: the word lengths and stopwords a recall query is matched on. `policy.yaml`: the graph's limits, thresholds and recall weights. `vault.yaml`: the vault's folder names, a project card's front matter keys and its link kinds |
 | `codegraph/` | `pkg/codegraph/codegraph.go` | The code graph's ranking weights, stopwords, result limits and path bounds, handed to Kartographer |
 
-If a set's file is missing or broken, the knowledge recall keeps every word and prints a warning. The code graph reports that it has no rules until the file loads.
+If a set's file is missing or broken, the knowledge recall keeps every word and prints a warning. Install rejects a `vault.yaml` that leaves any name empty, so a broken override never replaces a working one. The code graph reports that it has no rules until the file loads.
 ## Traceability: API to component to YAML
 
 Every YAML file that runs reaches the kdeps API. A workflow reaches a tool through a component, a slash command reaches the REPL through the commands group, and a loop data set is read directly by the agent loop:
