@@ -75,7 +75,7 @@ func (b *builder) addModule(ctx context.Context, root string) {
 	}
 	rels := make([]string, 0, len(files))
 	for _, p := range files {
-		if rel, err := filepath.Rel(root, p); err == nil {
+		if rel, rerr := filepath.Rel(root, p); rerr == nil {
 			rels = append(rels, rel)
 		}
 	}
