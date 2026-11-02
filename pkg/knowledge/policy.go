@@ -1,5 +1,6 @@
 // The policy values live in the knowledge asset set (policy.yaml). This file
 // declares their shape and the accessor.
+
 package knowledge
 
 import (
@@ -49,7 +50,23 @@ var policyValues = sync.OnceValue(func() policyFile {
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "knowledge: policy: %v\n", err)
-		p = policyFile{MaxCodeFiles: 1, MaxCardBody: 1, ChunkChars: 1, MaxEntities: 1, MaxNameLen: 1, DefaultWorkers: 1, MaxNoteSize: 1, MaxSummary: 1, MaxSlug: 1, TitleWords: 1, FollowUpWords: 1, ReportTop: 1, CommunityTop: 1, MissingTop: 1, MarkerWindow: 1}
+		p = policyFile{
+			MaxCodeFiles:   1,
+			MaxCardBody:    1,
+			ChunkChars:     1,
+			MaxEntities:    1,
+			MaxNameLen:     1,
+			DefaultWorkers: 1,
+			MaxNoteSize:    1,
+			MaxSummary:     1,
+			MaxSlug:        1,
+			TitleWords:     1,
+			FollowUpWords:  1,
+			ReportTop:      1,
+			CommunityTop:   1,
+			MissingTop:     1,
+			MarkerWindow:   1,
+		}
 	}
 	return p
 })

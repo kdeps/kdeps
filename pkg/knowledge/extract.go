@@ -334,7 +334,14 @@ func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolve
 			id := b.entityNode(e, resolve, n.Path)
 			ids[strings.ToLower(e.Name)] = id
 			names[id] = e.Name
-			b.inferred(noteID(n.Path), id, RelMentions, policy().MentionConfidence, n.Path, evidenceLine(root, n.Path, e.Name))
+			b.inferred(
+				noteID(n.Path),
+				id,
+				RelMentions,
+				policy().MentionConfidence,
+				n.Path,
+				evidenceLine(root, n.Path, e.Name),
+			)
 		}
 		for _, r := range ex.Relations {
 			from, to := ids[strings.ToLower(r.From)], ids[strings.ToLower(r.To)]
