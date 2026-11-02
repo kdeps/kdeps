@@ -50,8 +50,18 @@ func TestToolParamsReadsTypesRequiredAndDefaults(t *testing.T) {
 
 func TestCodeGraphToolRunsOnTheWorkingDirectory(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/hello\n\ngo 1.21\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "hello.go"), []byte("package hello\n\nfunc Greet() string { return \"hi\" }\n"), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/hello\n\ngo 1.21\n"), 0o600),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(dir, "hello.go"),
+			[]byte("package hello\n\nfunc Greet() string { return \"hi\" }\n"),
+			0o600,
+		),
+	)
 
 	reg := kdepstools.NewRegistry()
 	require.NoError(t, Register(reg, dir))
