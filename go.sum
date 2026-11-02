@@ -323,6 +323,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kdeps/kartographer v0.2.1-0.20261102053713-b8c5fd4eb9b3 h1:FPvaGHEVxFAQgySXN4mDf8fgoXtldm73TSxlC2uKaY0=
 github.com/kdeps/kartographer v0.2.1-0.20261102053713-b8c5fd4eb9b3/go.mod h1:GvcZPYBzo8VfthC52HXAQGv3IrZBtcRiIbY7hJHO2xU=
+github.com/kdeps/kartographer v0.2.1-0.20261102062919-c1dbe95cb269 h1:bXJxAO5QcuSP9k8ooOrgkEQ8No7XFZrkCE/XJBVwkEk=
+github.com/kdeps/kartographer v0.2.1-0.20261102062919-c1dbe95cb269/go.mod h1:GvcZPYBzo8VfthC52HXAQGv3IrZBtcRiIbY7hJHO2xU=
 github.com/kisielk/sqlstruct v0.0.0-20201105191214-5f3e10d3ab46/go.mod h1:yyMNCyc/Ib3bDTKd379tNMpB/7/H5TjM2Y9QJ5THLbE=
 github.com/klauspost/compress v1.10.3/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
 github.com/klauspost/compress v1.19.2 h1:hMRETovs/pu/dVWN7zIT1PGG8t509MwT6bO7XSi26R8=

@@ -20,10 +20,10 @@ package knowledge
 
 import (
 	"fmt"
+	kword "github.com/kdeps/kartographer/text"
 	"math"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -48,8 +48,6 @@ const (
 	memoryNoteWeight   = 0.6
 	bytesPerToken      = 4
 )
-
-var wordRe = regexp.MustCompile(`[\p{L}\p{N}]+`)
 
 //nolint:gochecknoglobals // fixed set
 var stopWords = map[string]bool{
@@ -112,10 +110,10 @@ func NewIndex(g *Graph) *Index {
 	for _, n := range g.Nodes {
 		ix.byID[n.ID] = n
 		labelWords := words(n.Label + " " + strings.Join(n.Aliases, " "))
-		ix.label[n.ID] = set(labelWords)
+		ix.label[n.ID] = kword.Set(labelWords)
 		toks := append(append(labelWords, words(n.Summary)...), words(strings.Join(n.Tags, " "))...)
 		ix.terms[n.ID] = toks
-		for t := range set(toks) {
+		for t := range kword.Set(toks) {
 			df[t]++
 		}
 	}
@@ -186,56 +184,10 @@ func provOrder(p string) int {
 	}
 }
 
-func words(s string) []string {
-	var out []string
-	for _, w := range wordRe.FindAllString(strings.ToLower(splitCamel(s)), -1) {
-		if len(w) >= minQueryWordLength && !stopWords[w] {
-			out = append(out, stem(w))
-		}
-	}
-	return out
-}
+// wordOptions is the kdeps policy for keyword words.
+var wordOptions = kword.Options{MinWordLength: minQueryWordLength, MinStemLength: minStemLength, Stopwords: stopWords} //nolint:gochecknoglobals // fixed policy
 
-// stem trims a plural or verb ending so word forms meet: billing and bill,
-// invoices and invoice, deployed and deploy. A double s (process) stays.
-func stem(w string) string {
-	for _, suffix := range []string{"ing", "ed", "s"} {
-		if !strings.HasSuffix(w, suffix) || len(w)-len(suffix) < minStemLength {
-			continue
-		}
-		if suffix == "s" && strings.HasSuffix(w, "ss") {
-			return w
-		}
-		return strings.TrimSuffix(w, suffix)
-	}
-	return w
-}
-
-// splitCamel separates camelCase and snake_case words.
-func splitCamel(s string) string {
-	var b strings.Builder
-	prevLower := false
-	for _, r := range s {
-		isUpper := r >= 'A' && r <= 'Z'
-		if isUpper && prevLower {
-			b.WriteByte(' ')
-		}
-		if r == '_' || r == '-' || r == '/' || r == '.' {
-			r = ' '
-		}
-		b.WriteRune(r)
-		prevLower = r >= 'a' && r <= 'z'
-	}
-	return s + " " + b.String()
-}
-
-func set(ws []string) map[string]bool {
-	m := make(map[string]bool, len(ws))
-	for _, w := range ws {
-		m[w] = true
-	}
-	return m
-}
+func words(s string) []string { return kword.Words(s, wordOptions) }
 
 // Recall finds the notes related to text: it scores nodes on the request's
 // words, walks up to hops edges from the best ones (extracted edges count
@@ -295,7 +247,7 @@ type scored struct {
 
 // seeds are the best-matching nodes for text, best first.
 func (ix *Index) seeds(text string) []scored {
-	q := set(words(text))
+	q := kword.Set(words(text))
 	lowerText := strings.ToLower(text)
 	var out []scored
 	for id, toks := range ix.terms {
@@ -319,7 +271,7 @@ func (ix *Index) seeds(text string) []scored {
 // more, label words double) and triples it when the whole label appears.
 func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText string) float64 {
 	var s float64
-	for t := range set(toks) {
+	for t := range kword.Set(toks) {
 		if !q[t] {
 			continue
 		}
