@@ -34,9 +34,6 @@ const (
 	htmlFile     = "graph.html"
 	htmlTemplate = "templates/knowledge/report/graph.html"
 	htmlDataSlot = `"__GRAPH_DATA__"`
-	reportTop    = 10
-	communityTop = 5
-	missingTop   = 20
 )
 
 // Report is what GRAPH_REPORT.md says about a graph.
@@ -98,8 +95,8 @@ func NewReport(g *Graph, modularity float64) Report {
 		}
 	}
 	sort.SliceStable(r.Review, func(i, j int) bool { return r.Review[i].Confidence > r.Review[j].Confidence })
-	if len(r.Review) > missingTop {
-		r.Review = r.Review[:missingTop]
+	if len(r.Review) > policy().MissingTop {
+		r.Review = r.Review[:policy().MissingTop]
 	}
 	ranked := make([]Ranked, 0, len(g.Nodes))
 	for _, n := range g.Nodes {
@@ -113,11 +110,11 @@ func NewReport(g *Graph, modularity float64) Report {
 		}
 		return ranked[i].Node.ID < ranked[j].Node.ID
 	})
-	r.GodNodes = head(ranked, reportTop)
+	r.GodNodes = head(ranked, policy().ReportTop)
 	r.Groups = groups(ranked, size)
 	r.Surprising = bridges(g, byID, size)
-	if len(r.Missing) > missingTop {
-		r.Missing = r.Missing[:missingTop]
+	if len(r.Missing) > policy().MissingTop {
+		r.Missing = r.Missing[:policy().MissingTop]
 	}
 	return r
 }
@@ -140,7 +137,7 @@ func groups(ranked []Ranked, size map[int]int) []Group {
 			gr = &Group{ID: c, Size: size[c]}
 			byGroup[c] = gr
 		}
-		if len(gr.Top) < communityTop {
+		if len(gr.Top) < policy().CommunityTop {
 			gr.Top = append(gr.Top, rk)
 		}
 		if gr.Summary == "" && rk.Node.Summary != "" {
@@ -189,8 +186,8 @@ func bridges(g *Graph, byID map[string]*Node, size map[int]int) []Bridge {
 		}
 		return out[i].Edge.From+out[i].Edge.To < out[j].Edge.From+out[j].Edge.To
 	})
-	if len(out) > reportTop {
-		out = out[:reportTop]
+	if len(out) > policy().ReportTop {
+		out = out[:policy().ReportTop]
 	}
 	return out
 }
@@ -366,7 +363,6 @@ func writeReport(g *Graph, modularity float64, dir string) error {
 const (
 	reportMarker = "# Knowledge graph report"
 	htmlMarker   = "<title>Knowledge graph</title>"
-	markerWindow = 512
 )
 
 // ours reports whether file is missing or one kdeps wrote (its first bytes
@@ -377,7 +373,7 @@ func ours(file, marker string) bool {
 		return true
 	}
 	defer f.Close()
-	head := make([]byte, markerWindow)
+	head := make([]byte, policy().MarkerWindow)
 	n, _ := f.Read(head)
 	return strings.Contains(string(head[:n]), marker)
 }

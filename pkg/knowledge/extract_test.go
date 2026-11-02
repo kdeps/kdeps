@@ -135,7 +135,7 @@ func TestChunksAndParse(t *testing.T) {
 	require.Greater(t, len(cs), 1)
 	for _, c := range cs {
 		assert.True(t, strings.HasPrefix(c, "Note: Big\nSummary: s\n"))
-		assert.LessOrEqual(t, len(c), chunkChars+40)
+		assert.LessOrEqual(t, len(c), policy().ChunkChars+40)
 	}
 	assert.Equal(t, []string{"Note: Empty\n"}, chunks(&Note{Title: "Empty"}))
 

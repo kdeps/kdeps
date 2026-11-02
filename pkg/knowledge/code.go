@@ -30,8 +30,7 @@ import (
 	"github.com/kdeps/kartographer/codegraph"
 )
 
-// maxCodeFiles caps the Go files read per repo.
-const maxCodeFiles = 20000
+// policy().MaxCodeFiles caps the Go files read per repo.
 
 // addCode adds a node per Go package of each card's repo, with depends_on
 // edges for imports inside the module, and links the card's note to the
@@ -71,8 +70,8 @@ func (b *builder) addModule(ctx context.Context, root string) {
 	if files == nil {
 		files = walkGoFiles(root)
 	}
-	if len(files) > maxCodeFiles {
-		files = files[:maxCodeFiles]
+	if len(files) > policy().MaxCodeFiles {
+		files = files[:policy().MaxCodeFiles]
 	}
 	rels := make([]string, 0, len(files))
 	for _, p := range files {

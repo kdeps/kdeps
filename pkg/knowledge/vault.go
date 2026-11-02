@@ -33,7 +33,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -41,23 +40,20 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	kgnotes "github.com/kdeps/kartographer/notes"
+
 	"github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 const (
-	mdExt       = ".md"
-	frontDelim  = "---"
-	dirPerm     = 0o750
-	filePerm    = 0o600
-	hashPrefix  = 12
-	maxNoteSize = 2 << 20 // notes larger than 2 MiB are skipped
+	mdExt      = ".md"
+	frontDelim = "---"
+	dirPerm    = 0o750
+	filePerm   = 0o600
+	hashPrefix = 12
 )
 
-var (
-	wikiLinkRe   = regexp.MustCompile(`\[\[([^\]|#^]+)(?:[#^][^\]|]*)?(?:\|[^\]]*)?\]\]`)
-	mdLinkRe     = regexp.MustCompile(`\[[^\]]*\]\(([^)\s]+?\.md)(?:#[^)]*)?\)`)
-	inlineCodeRe = regexp.MustCompile("`[^`]*`")
-)
+var ()
 
 // Note is one markdown file of the vault.
 type Note struct {
@@ -108,7 +104,7 @@ func (v Vault) Walk() ([]*Note, error) {
 			return nil
 		}
 		info, infoErr := d.Info()
-		if infoErr != nil || info.Size() > maxNoteSize {
+		if infoErr != nil || info.Size() > policy().MaxNoteSize {
 			return nil //nolint:nilerr // unreadable or huge notes are skipped
 		}
 		// The vault is the user's own folder; its links are followed on purpose.
@@ -145,23 +141,15 @@ func ParseNote(rel string, data []byte) *Note {
 		n.Canonical = metaString(meta, "fact_id")
 	}
 	for _, l := range metaList(meta, "links") {
-		if m := wikiLinkRe.FindAllStringSubmatch(l, -1); len(m) > 0 {
-			for _, x := range m {
-				n.MetaLinks = append(n.MetaLinks, strings.TrimSpace(x[1]))
-			}
+		if m := kgnotes.WikiLinkTargets(l); len(m) > 0 {
+			n.MetaLinks = append(n.MetaLinks, m...)
 		} else if l = strings.TrimSpace(l); l != "" {
 			n.MetaLinks = append(n.MetaLinks, l)
 		}
 	}
 	prose := stripCode(body)
-	for _, m := range wikiLinkRe.FindAllStringSubmatch(prose, -1) {
-		n.Links = append(n.Links, strings.TrimSpace(m[1]))
-	}
-	for _, m := range mdLinkRe.FindAllStringSubmatch(prose, -1) {
-		if !strings.Contains(m[1], "://") {
-			n.MDLinks = append(n.MDLinks, m[1])
-		}
-	}
+	n.Links = append(n.Links, kgnotes.WikiLinkTargets(prose)...)
+	n.MDLinks = append(n.MDLinks, kgnotes.MarkdownNoteLinks(prose)...)
 	n.indexLines(data)
 	return n
 }
@@ -203,13 +191,12 @@ func (n *Note) indexLines(data []byte) {
 			}
 			continue
 		}
-		n.indexBodyLine(inlineCodeRe.ReplaceAllString(line, ""), num)
+		n.indexBodyLine(kgnotes.StripInlineCode(line), num)
 	}
 }
 
 func (n *Note) indexFrontmatterLine(line string, num int) {
-	for _, m := range wikiLinkRe.FindAllStringSubmatch(line, -1) {
-		target := strings.TrimSpace(m[1])
+	for _, target := range kgnotes.WikiLinkTargets(line) {
 		if _, ok := n.MetaLine[target]; !ok {
 			n.MetaLine[target] = num
 		}
@@ -223,18 +210,14 @@ func (n *Note) indexFrontmatterLine(line string, num int) {
 }
 
 func (n *Note) indexBodyLine(line string, num int) {
-	for _, m := range wikiLinkRe.FindAllStringSubmatch(line, -1) {
-		target := strings.TrimSpace(m[1])
+	for _, target := range kgnotes.WikiLinkTargets(line) {
 		if _, ok := n.LinkLine[target]; !ok {
 			n.LinkLine[target] = num
 		}
 	}
-	for _, m := range mdLinkRe.FindAllStringSubmatch(line, -1) {
-		if strings.Contains(m[1], "://") {
-			continue
-		}
-		if _, ok := n.MDLine[m[1]]; !ok {
-			n.MDLine[m[1]] = num
+	for _, target := range kgnotes.MarkdownNoteLinks(line) {
+		if _, ok := n.MDLine[target]; !ok {
+			n.MDLine[target] = num
 		}
 	}
 }
@@ -281,7 +264,7 @@ func stripCode(body string) string {
 			}
 			continue
 		}
-		b.WriteString(inlineCodeRe.ReplaceAllString(line, ""))
+		b.WriteString(kgnotes.StripInlineCode(line))
 	}
 	return b.String()
 }

@@ -1,0 +1,22 @@
+version: 1.0.0
+# Limits and thresholds of the knowledge graph: how much of a note, a repo or a
+# report is read, kept or shown. The code holds none of these values.
+
+max_code_files: 20000  # Go files read per repo; the rest are left out.
+max_card_body: 3  # Body paragraphs of a card kept as its summary.
+chunk_chars: 6000  # Characters of a note sent to the extraction model per request.
+max_entities: 12  # Entities kept from one extraction.
+max_name_len: 120  # Longest entity name kept.
+mention_confidence: 0.9  # Confidence of an entity the note states outright.
+ambiguous_below: 0.5  # An extracted link under this confidence is marked ambiguous.
+default_workers: 2  # Concurrent extraction requests when none is configured.
+max_note_size: 2097152  # Notes larger than this many bytes are skipped (2 MiB).
+max_summary: 120  # Characters of a session note's summary line.
+max_slug: 60  # Longest file name slug of a session note.
+title_words: 8  # Words of a session's first message used as its title.
+follow_up_words: 3  # Words of a topic's follow-up question kept.
+related_share: 0.2  # Share of a topic's related notes shown.
+report_top: 10  # Entries of each top list in the graph report.
+community_top: 5  # Communities listed in the graph report.
+missing_top: 20  # Missing links listed in the graph report.
+marker_window: 512  # Bytes read around a report marker.
