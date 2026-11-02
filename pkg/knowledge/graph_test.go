@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -171,7 +173,7 @@ func TestRecall(t *testing.T) {
 }
 
 func TestRecall_ClampsHopsToTwo(t *testing.T) {
-	g := &Graph{
+	g := &Graph{Graph: kgknowledge.Graph{
 		Nodes: []*Node{
 			{ID: "a", Label: "alpha", Note: "a.md"},
 			{ID: "b", Label: "bravo", Note: "b.md"},
@@ -183,7 +185,7 @@ func TestRecall_ClampsHopsToTwo(t *testing.T) {
 			{From: "b", To: "c", Provenance: ProvExtracted, Confidence: 1},
 			{From: "c", To: "d", Provenance: ProvExtracted, Confidence: 1},
 		},
-	}
+	}}
 
 	r := NewIndex(g).Recall("alpha", 3, 1000)
 	var notes []string
@@ -197,9 +199,9 @@ func TestRecall_ClampsHopsToTwo(t *testing.T) {
 func TestRecall_EdgeWeights(t *testing.T) {
 	assert.InDelta(t, 1.0, edgeWeight(&Edge{Provenance: ProvExtracted}), 1e-9)
 	assert.InDelta(t, 0.4, edgeWeight(&Edge{Provenance: ProvInferred, Confidence: 0.4}), 1e-9)
-	assert.InDelta(t, ambiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
-	assert.InDelta(t, ambiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
-	assert.InDelta(t, tagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
+	assert.InDelta(t, policy().AmbiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
+	assert.InDelta(t, policy().AmbiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
+	assert.InDelta(t, policy().TagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
 	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "frontmatter")
 	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "recall")
 }
@@ -240,18 +242,23 @@ func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
 	text := Explain(g, "Stripe gotcha")
 	assert.Contains(t, text, "Billing decision.md:L5")
 
-	b := &builder{edges: map[string]*Edge{}}
+	b := &builder{kg: kgknowledge.NewBuilder()}
+	onlyEdge := func() *Edge {
+		edges := b.kg.Graph().Edges
+		if len(edges) != 1 {
+			t.Fatalf("want one edge, have %d", len(edges))
+		}
+		return edges[0]
+	}
 	b.inferred("a", "b", RelRelatesTo, 0.4, "low.md", "L1")
 	b.inferred("a", "b", RelRelatesTo, 0.8, "high.md", "L9")
-	got := b.edges["a\x00b\x00"+RelRelatesTo]
-	assert.Equal(t, "high.md", got.SourceFile)
-	assert.Equal(t, "L9", got.SourceLocation)
-	b.link("a", "b", RelRelatesTo, "note.md", "L2")
-	got = b.edges["a\x00b\x00"+RelRelatesTo]
-	assert.Equal(t, ProvExtracted, got.Provenance)
-	assert.Equal(t, "note.md", got.SourceFile)
-	b.link("a", "b", RelRelatesTo, "later.md", "L3")
-	assert.Equal(t, "note.md", b.edges["a\x00b\x00"+RelRelatesTo].SourceFile)
+	assert.Equal(t, "high.md", onlyEdge().SourceFile)
+	assert.Equal(t, "L9", onlyEdge().SourceLocation)
+	b.kg.Link("a", "b", RelRelatesTo, "note.md", "L2")
+	assert.Equal(t, ProvExtracted, onlyEdge().Provenance)
+	assert.Equal(t, "note.md", onlyEdge().SourceFile)
+	b.kg.Link("a", "b", RelRelatesTo, "later.md", "L3")
+	assert.Equal(t, "note.md", onlyEdge().SourceFile)
 }
 
 func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
@@ -269,8 +276,12 @@ func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
 		SourceFile: "mid.md", SourceLocation: "L3"}
 	direct := &Edge{From: "seed", To: "weak", Relation: RelRelatesTo, Provenance: ProvAmbiguous, Confidence: 0.1,
 		SourceFile: "seed.md", SourceLocation: "L9"}
-	r1 := NewIndex(&Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}).Recall("billing", 2, 5000)
-	r2 := NewIndex(&Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}).Recall("billing", 2, 5000)
+	r1 := NewIndex(
+		&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}},
+	).Recall("billing", 2, 5000)
+	r2 := NewIndex(
+		&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}},
+	).Recall("billing", 2, 5000)
 	assert.Equal(t, r1.Hits, r2.Hits)
 	var target Hit
 	for _, h := range r1.Hits {
@@ -549,7 +560,7 @@ func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
 }
 
 func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
-	g := &Graph{Nodes: []*Node{
+	g := &Graph{Graph: kgknowledge.Graph{Nodes: []*Node{
 		{
 			ID: "note:projects/app/sessions/s1.md", Label: "why do we bill monthly",
 			Kind: "session", Note: "projects/app/sessions/s1.md",
@@ -562,7 +573,7 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 			ID: "note:projects/app/decisions/Billing decision.md", Label: "Billing decision",
 			Kind: "decision", Note: "projects/app/decisions/Billing decision.md", Summary: "Bill monthly, not per call",
 		},
-	}}
+	}}}
 	ix := NewIndex(g)
 	r := ix.Recall("why do we bill monthly", 1, 0)
 	var notes []string

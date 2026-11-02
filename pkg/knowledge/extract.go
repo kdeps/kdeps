@@ -391,7 +391,7 @@ func (b *builder) entityNode(e Entity, resolve *resolver, from string) string {
 		return noteID(p)
 	}
 	id := "entity:" + strings.ToLower(e.Name)
-	b.add(&Node{ID: id, Label: e.Name, Kind: e.Kind})
+	b.kg.Add(&Node{ID: id, Label: e.Name, Kind: e.Kind})
 	return id
 }
 
@@ -399,19 +399,5 @@ func (b *builder) entityNode(e Entity, resolve *resolver, from string) string {
 // extracted; a later, more confident guess replaces an earlier one and keeps
 // that guess's source evidence.
 func (b *builder) inferred(from, to, rel string, conf float64, file, loc string) {
-	if from == to {
-		return
-	}
-	prov := ProvInferred
-	if conf < policy().AmbiguousBelow {
-		prov = ProvAmbiguous
-	}
-	key := from + "\x00" + to + "\x00" + rel
-	if e, ok := b.edges[key]; ok && (e.Provenance == ProvExtracted || e.Confidence >= conf) {
-		return
-	}
-	b.edges[key] = &Edge{
-		From: from, To: to, Relation: rel, Provenance: prov, Confidence: conf,
-		SourceFile: file, SourceLocation: loc,
-	}
+	b.kg.Infer(from, to, rel, conf, policy().AmbiguousBelow, file, loc)
 }

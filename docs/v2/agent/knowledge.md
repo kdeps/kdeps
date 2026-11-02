@@ -226,6 +226,24 @@ changed -> first -> rest -> cache -> build
 - **From the shell:** `kdeps knowledge build --extract [--model <local model>] [--limit N]`.
 - A note is read again only when it changes; a failed note is retried on the next run.
 
+### Media into notes
+
+`/ingest` turns a file into a note, so the extraction above can read it. The file is read by a kdeps tool, and its text is saved as a note titled with the second argument:
+
+```text
+/ingest image  ~/scans/receipt.png  receipt-march
+/ingest audio  ~/calls/standup.mp3  standup-2026-11-02
+/ingest document ~/docs/spec.pdf    spec-v2
+```
+
+| Subcommand | Reader tool | Accepts |
+|---|---|---|
+| `image` | `ocr_image` (tesseract, local) | png, jpg, tiff, bmp, gif |
+| `audio` | `transcribe_audio` (Whisper) | mp3, mp4, m4a, wav and other audio or video |
+| `document` | `load_document` | PDF, DOCX, HTML, CSV, text |
+
+Run `/knowledge extract` afterwards to pull facts from the new notes.
+
 ```yaml
 # ~/.kdeps/config.yaml
 knowledge:

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -87,7 +89,7 @@ func TestCommunities(t *testing.T) {
 	}
 
 	assert.Zero(t, Communities(&Graph{}))
-	solo := &Graph{Nodes: []*Node{{ID: "x"}, {ID: "y"}}}
+	solo := &Graph{Graph: kgknowledge.Graph{Nodes: []*Node{{ID: "x"}, {ID: "y"}}}}
 	assert.Zero(t, Communities(solo), "no edges, no modularity")
 	assert.NotEqual(t, solo.Nodes[0].Community, solo.Nodes[1].Community)
 }
@@ -150,7 +152,7 @@ func TestBuild_WritesReportAndExplorer(t *testing.T) {
 }
 
 func TestWriteReport_InstallsTheTemplateOnFirstUse(t *testing.T) {
-	g := &Graph{Vault: "/v", Nodes: []*Node{{ID: "a", Label: "a"}}}
+	g := &Graph{Vault: "/v", Graph: kgknowledge.Graph{Nodes: []*Node{{ID: "a", Label: "a"}}}}
 	dir := t.TempDir()
 	t.Setenv(assets.SourceEnv, t.TempDir()) // a release binary: nothing local
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())

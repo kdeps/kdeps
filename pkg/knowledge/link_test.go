@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,7 +44,7 @@ func TestPathInVaultAndNoteRel(t *testing.T) {
 
 func TestLinksFrom_ReferenceTagAndStrongerEdge(t *testing.T) {
 	vault := t.TempDir()
-	ix := NewIndex(&Graph{
+	ix := NewIndex(&Graph{Graph: kgknowledge.Graph{
 		Nodes: []*Node{
 			{ID: "note:hub.md", Kind: KindNote, Note: "hub.md"},
 			{ID: "note:linked.md", Kind: KindNote, Note: "linked.md"},
@@ -72,7 +74,7 @@ func TestLinksFrom_ReferenceTagAndStrongerEdge(t *testing.T) {
 				Provenance: ProvExtracted, Confidence: 1,
 			},
 		},
-	})
+	}})
 
 	links := ix.LinksFrom(vault, filepath.Join(vault, "hub.md"))
 	require.Len(t, links, 2)
@@ -86,7 +88,7 @@ func TestLinksFrom_ReferenceTagAndStrongerEdge(t *testing.T) {
 	assert.Equal(t, "hub.md --references--> linked.md", linked.Chain)
 
 	tagged := byPath[filepath.Join(vault, "tagged.md")]
-	assert.InDelta(t, tagEdgeWeight, tagged.Weight, 0.0001)
+	assert.InDelta(t, policy().TagEdgeWeight, tagged.Weight, 0.0001)
 	assert.Equal(t, RelTagged, tagged.Relation)
 	assert.Equal(t, "hub.md --tagged--> billing --tagged--> tagged.md", tagged.Chain)
 
