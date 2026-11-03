@@ -118,6 +118,7 @@ run: cap
 | `memory-summary-chars` (`on: bytes`) | characters of a memory note's summary line (longer is cut with `...`) | 120 |
 | `memory-focus-min-word` | the shortest prompt word that counts when the prompt is matched to memory | 3 |
 | `memory-format-tokens` | tokens of memory put in a prompt when the caller sets no budget | 2000 |
+| `memory-query-rows-max` | rows `memory_query` returns for a relation, whatever `limit` asks (keeps the result under the tool result cap) | 500 |
 
 Two agent loop budgets are events of the same kind, read only when the config leaves them unset:
 
