@@ -339,19 +339,22 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	}
 
 	cfg := agent.Config{
-		Model:           startModel,
-		Backend:         startBackend,
-		BaseURL:         flags.BaseURL,
-		SystemPrompt:    flags.SystemPrompt,
-		SkillPaths:      skillPaths,
-		Streamer:        llmAdapter,
-		ModelService:    llm.NewModelService(rootCtx, nil),
-		Store:           store,
-		MemoryStore:     memStore,
-		Identity:        identity,
-		Knowledge:       knowledgeCfg,
-		KnowledgeCtx:    rootCtx,
-		KnowledgeEngine: func() *executor.Engine { return setupEngine(nil, false) },
+		Model:        startModel,
+		Backend:      startBackend,
+		BaseURL:      flags.BaseURL,
+		SystemPrompt: flags.SystemPrompt,
+		SkillPaths:   skillPaths,
+		Streamer:     llmAdapter,
+		ModelService: llm.NewModelService(rootCtx, nil),
+		Store:        store,
+		MemoryStore:  memStore,
+		Identity:     identity,
+		Knowledge:    knowledgeCfg,
+		KnowledgeCtx: rootCtx,
+		// Warn, same as the loop engine: an automatic extract keeps running
+		// after the prompt returns, and its "LLM resource configuration"
+		// lines must not print over the conversation.
+		KnowledgeEngine: func() *executor.Engine { return setupEngineAt(slog.LevelWarn, flags.Debug) },
 		Aux:             auxSpec,
 	}
 

@@ -18,7 +18,7 @@ llm:
   aux: current    # current | free | a model id
 ```
 
-`kdeps knowledge build --extract` uses the same order: `--model`, then `llm.aux` when it names a model, then `knowledge.extract.model`, then the current model. `/knowledge build` chooses when that pass runs: `manual` (when you ask), `auto` (also at session end and before a background build), or `off`. The link graph still rebuilds without a model.
+`kdeps knowledge build --extract` uses the same order: `--model`, then `llm.aux` when it names a model, then `knowledge.extract.model`, then the current model. `/knowledge build` chooses when that pass runs: `manual` (when you ask), `auto` (also at session end and before a background build), or `off`. In an agent session the automatic pass does not hold the prompt. The link graph still rebuilds without a model.
 
 ```bash
 kdeps knowledge build --extract

@@ -52,11 +52,16 @@ type knowledgeState struct {
 	cfg         config.KnowledgeConfig
 	vault       knowledge.Vault
 	dir         string // generated graph files, under ~/.kdeps/knowledge/<vault-id>
-	beforeBuild func() // optional pending extraction, set by the loop
+	beforeBuild func() // starts a model pass; it must return without waiting
 	mu          sync.Mutex
 	last        knowledge.Recall
 	building    atomic.Bool
-	builds      sync.WaitGroup // background builds in flight
+	buildMu     sync.Mutex     // one structural rebuild at a time
+	builds      sync.WaitGroup // background structural builds; recall waits on these
+	extractMu   sync.Mutex
+	extractRun  bool
+	extractMore bool
+	extracts    sync.WaitGroup // model passes; a turn does not wait on these
 	// notedTurns is the session turn count the last model-written session
 	// note covered; summary is that note's summary (the live note's base).
 	notedTurns int
@@ -144,15 +149,21 @@ func (k *knowledgeState) sessionNotes() bool {
 	return k.cfg.SessionNotes == nil || *k.cfg.SessionNotes
 }
 
-// build rebuilds the graph (changed files only) unless a build is running.
+// build starts a pending model pass, then rebuilds the link graph.
+// The model pass returns at once and keeps running on its own.
 func (k *knowledgeState) build() error {
-	if !k.building.CompareAndSwap(false, true) {
-		return errors.New("a knowledge build is already running")
-	}
-	defer k.building.Store(false)
 	if k.beforeBuild != nil {
 		k.beforeBuild()
 	}
+	return k.rebuild()
+}
+
+// rebuild writes the link graph. It does not call a model.
+func (k *knowledgeState) rebuild() error {
+	k.buildMu.Lock()
+	defer k.buildMu.Unlock()
+	k.building.Store(true)
+	defer k.building.Store(false)
 	_, _, err := knowledge.Build(k.ctx, k.vault, k.dir, time.Now())
 	return err
 }
@@ -1076,13 +1087,49 @@ func (l *Loop) SetKnowledgeBuild(v string) error {
 	}
 }
 
-// extractBackground runs a bounded pending-only extraction before a graph
-// build when model graph building is automatic.
+// extractBackground starts one bounded model pass when graph building is
+// automatic. It returns immediately. The pass keeps running after the
+// caller goes on, and recall does not wait for it.
 func (l *Loop) extractBackground() {
 	k := l.knowledge
 	if k == nil || l.knowledgeBuildMode() != KnowledgeBuildAuto || l.config.KnowledgeEngine == nil {
 		return
 	}
+	k.extractMu.Lock()
+	if k.extractRun {
+		k.extractMore = true
+		k.extractMu.Unlock()
+		return
+	}
+	k.extractRun = true
+	k.extracts.Add(1)
+	k.extractMu.Unlock()
+	go l.backgroundExtractLoop()
+}
+
+// backgroundExtractLoop runs queued model passes. A pass that reads notes
+// rebuilds the link graph and does not start another pass from that rebuild.
+func (l *Loop) backgroundExtractLoop() {
+	k := l.knowledge
+	defer k.extracts.Done()
+	for {
+		l.runBackgroundExtract()
+		k.extractMu.Lock()
+		more := k.extractMore
+		k.extractMore = false
+		if !more {
+			k.extractRun = false
+			k.extractMu.Unlock()
+			return
+		}
+		k.extractMu.Unlock()
+	}
+}
+
+// runBackgroundExtract reads a per-session batch of changed notes, then
+// rebuilds the link graph when the batch changed the cache.
+func (l *Loop) runBackgroundExtract() {
+	k := l.knowledge
 	model, backend, baseURL := l.extractModel()
 	if model == "" {
 		return
@@ -1093,11 +1140,15 @@ func (l *Loop) extractBackground() {
 	}
 	ctx, cancel := context.WithTimeout(k.ctx, knowledgeExtractTimeout())
 	defer cancel()
-	_, _ = knowledge.Extract(ctx, k.vault, k.dir, KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
+	st, err := knowledge.Extract(ctx, k.vault, k.dir, KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
 		knowledge.ExtractOptions{
 			Model: model, Workers: k.cfg.Extract.Workers, Limit: limit,
 			System: harnessText("knowledge-extract-system"),
 		})
+	if err != nil || st.Done+st.Failed == 0 {
+		return
+	}
+	_ = k.rebuild()
 }
 
 // knowledgeExtractRuns reports whether this call should read notes.
@@ -1139,6 +1190,8 @@ func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
 	if all {
 		limit = 0
 	}
+	// A background pass owns the extract cache until it finishes.
+	k.extracts.Wait()
 	ctx, cancel := context.WithTimeout(ctx, knowledgeExtractTimeout())
 	defer cancel()
 	k.waitBuilds()
