@@ -1553,12 +1553,11 @@ func extractActionSentence(
 	now int64,
 	seen map[string]bool,
 ) []MemoryEntry {
-	if seen["last_action"] {
+	actionRe := memoryRules.actionRe
+	if seen["last_action"] || actionRe == nil {
 		return nil
 	}
-	actionRe := regexp.MustCompile(
-		`(?i)(Added|Fixed|Changed|Updated|Created|Removed|Deleted|Set|Configured|Installed|Built|Deployed|Refactored|Migrated|Patched|Resolved)\s+(.+)`,
-	)
+	capture := memoryRules.ReplyCapture
 	for _, line := range strings.Split(assistantResponse, "\n") {
 		match := actionRe.FindStringSubmatch(strings.TrimSpace(line))
 		if match == nil {
@@ -1566,7 +1565,7 @@ func extractActionSentence(
 		}
 		action := strings.TrimSpace(match[2])
 		action = strings.TrimRight(action, ".!;:`*_")
-		if len(action) < 5 || len(action) > 200 {
+		if len(action) < capture.ActionMin || len(action) > capture.ActionMax {
 			continue
 		}
 		seen["last_action"] = true
@@ -1584,12 +1583,10 @@ func extractFileReferences(
 	now int64,
 	seen map[string]bool,
 ) []MemoryEntry {
-	if seen["last_files"] {
+	fileRe := memoryRules.fileRe
+	if seen["last_files"] || fileRe == nil {
 		return nil
 	}
-	fileRe := regexp.MustCompile(
-		`(?:Edited|Modified|Created|Read|Wrote)\s+(?:file\s+)?` + "`" + `?([~/.][^\s` + "`" + `]+)` + "`" + `?`,
-	)
 	var files []string
 	for _, match := range fileRe.FindAllStringSubmatch(assistantResponse, -1) {
 		if len(match) > 1 {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -31,6 +32,22 @@ type MemoryRules struct {
 	LowSignal     []string          `yaml:"low_signal"`
 	StatusDone    memoryMarkers     `yaml:"status_done"`
 	ErrorResolved memoryMarkers     `yaml:"error_resolved"`
+	ReplyCapture  struct {
+		ActionVerbs []string `yaml:"action_verbs"`
+		ActionMin   int      `yaml:"action_min"`
+		ActionMax   int      `yaml:"action_max"`
+		FileVerbs   []string `yaml:"file_verbs"`
+	} `yaml:"reply_capture"`
+	actionRe, fileRe *regexp.Regexp // built from ReplyCapture; nil captures nothing
+}
+
+// verbAlternation is a regexp alternation of verbs, each matched literally.
+func verbAlternation(verbs []string) string {
+	quoted := make([]string, len(verbs))
+	for i, v := range verbs {
+		quoted[i] = regexp.QuoteMeta(v)
+	}
+	return strings.Join(quoted, "|")
 }
 
 // memoryTypeRule gives Type to a key that has Prefix, equals Equals, or
@@ -88,6 +105,17 @@ func parseMemoryRules(data []byte) (MemoryRules, error) {
 	}
 	if r.DefaultType == "" {
 		return MemoryRules{}, errors.New("needs a default_type")
+	}
+	if c := r.ReplyCapture; len(c.ActionVerbs) > 0 {
+		if c.ActionMin < 0 || c.ActionMax < c.ActionMin {
+			return MemoryRules{}, errors.New("reply_capture: action_min must be 0 or more and at most action_max")
+		}
+		r.actionRe = regexp.MustCompile(`(?i)(` + verbAlternation(c.ActionVerbs) + `)\s+(.+)`)
+	}
+	if verbs := r.ReplyCapture.FileVerbs; len(verbs) > 0 {
+		r.fileRe = regexp.MustCompile(
+			`(?:` + verbAlternation(verbs) + `)\s+(?:file\s+)?` + "`" + `?([~/.][^\s` + "`" + `]+)` + "`" + `?`,
+		)
 	}
 	return r, nil
 }

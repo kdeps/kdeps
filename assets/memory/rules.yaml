@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 # How the agent's memory store files what it saves: the type it gives an
 # entry, the entry it links each to, which tool results it captures, and
 # what it reads as a finished status or a resolved error.
@@ -72,3 +72,14 @@ status_done:
 error_resolved:
   not: [reopened, not fixed, not resolved, still failing, still broken, regressed]
   markers: [resolved, fixed, closed, no longer, not an issue, works now, wontfix, "won't fix", cancelled, canceled, abandoned]
+
+# What the store reads from the model's reply, besides [MEMORY:] markers.
+reply_capture:
+  # A line starting with one of these verbs (any case) records the rest of the
+  # line as last_action, when it is action_min to action_max characters long.
+  action_verbs: [Added, Fixed, Changed, Updated, Created, Removed, Deleted, Set, Configured, Installed,
+    Built, Deployed, Refactored, Migrated, Patched, Resolved]
+  action_min: 5
+  action_max: 200
+  # "<verb> [file] path" records the paths as last_files; these match as written.
+  file_verbs: [Edited, Modified, Created, Read, Wrote]
