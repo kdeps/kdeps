@@ -28,11 +28,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -85,38 +83,27 @@ type Vault struct {
 // Walk returns every note of the vault, sorted by path. Hidden folders and
 // files are skipped.
 func (v Vault) Walk() ([]*Note, error) {
-	var notes []*Note
-	err := filepath.WalkDir(v.Root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if strings.HasPrefix(d.Name(), ".") && p != v.Root {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if d.IsDir() || !strings.EqualFold(filepath.Ext(p), mdExt) {
-			return nil
-		}
-		info, infoErr := d.Info()
-		if infoErr != nil || info.Size() > policy().MaxNoteSize {
-			return nil //nolint:nilerr // unreadable or huge notes are skipped
-		}
+	files, err := v.noteFiles()
+	notes := make([]*Note, 0, len(files))
+	for _, f := range files {
 		// The vault is the user's own folder; its links are followed on purpose.
-		data, readErr := os.ReadFile(p) //nolint:gosec // see above
+		data, readErr := os.ReadFile(f.Abs)
 		if readErr != nil {
-			return nil //nolint:nilerr // an unreadable note is skipped
+			continue // an unreadable note is skipped
 		}
-		rel, _ := filepath.Rel(v.Root, p)
-		if rel == reportFile && ours(p, reportMarker) {
-			return nil // the generated graph report is not a note; one of the user's is
-		}
-		notes = append(notes, ParseNote(filepath.ToSlash(rel), data))
-		return nil
-	})
-	sort.Slice(notes, func(i, j int) bool { return notes[i].Path < notes[j].Path })
+		notes = append(notes, ParseNote(f.Rel, data))
+	}
 	return notes, err
+}
+
+// noteFiles are the vault's notes as kartographer lists them: markdown files
+// under the policy's size cap, without hidden ones or the generated report (a
+// report of the user's own, without the marker, is a note).
+func (v Vault) noteFiles() ([]kgnotes.File, error) {
+	return kgnotes.Files(v.Root, kgnotes.FileOptions{
+		Ext: mdExt, MaxSize: policy().MaxNoteSize,
+		Skip: func(rel, abs string) bool { return rel == reportFile && ours(abs, reportMarker) },
+	})
 }
 
 // ParseNote parses a note with kartographer's markdown parser, reading the
