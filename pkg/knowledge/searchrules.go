@@ -44,6 +44,19 @@ type searchRules struct {
 	SecretPrefixes   []string `yaml:"secret_prefixes"`
 	SecretExtensions []string `yaml:"secret_extensions"`
 	SecretDirs       []string `yaml:"secret_dirs"`
+
+	Limits SearchLimits `yaml:"limits"`
+}
+
+// SearchLimits are how much of a file the local search reads and shows, and
+// how the knowledge graph re-ranks its results (search.yaml's limits).
+type SearchLimits struct {
+	MaxFileSize      int64   `yaml:"max_file_size"`
+	PreviewChars     int     `yaml:"preview_chars"`
+	SnippetContext   int     `yaml:"snippet_context"`
+	SnippetReadBytes int     `yaml:"snippet_read_bytes"`
+	GraphBoost       float64 `yaml:"graph_boost"`
+	GraphBoostSeeds  int     `yaml:"graph_boost_seeds"`
 }
 
 // parseSearchRules reads search.yaml. The minimum word length must be at
@@ -58,6 +71,10 @@ func parseSearchRules(data []byte) (searchRules, error) {
 	}
 	if r.StemKeep < 0 {
 		return r, errors.New("stem_keep must not be negative")
+	}
+	if l := r.Limits; l.MaxFileSize <= 0 || l.PreviewChars <= 0 || l.SnippetContext <= 0 ||
+		l.SnippetReadBytes <= 0 || l.GraphBoost < 1 || l.GraphBoostSeeds <= 0 {
+		return r, errors.New("limits: sizes and counts must be above 0 and graph_boost at least 1")
 	}
 	if len(r.Extensions) == 0 || len(r.SecretNames) == 0 || len(r.SecretDirs) == 0 {
 		return r, errors.New("extensions, secret_names and secret_dirs must be set")
@@ -110,4 +127,14 @@ func SearchFilter() (*kgsearch.Filter, error) {
 var searchFilterCache struct {
 	sync.Mutex
 	f *kgsearch.Filter
+}
+
+// SearchLimitsNow are search.yaml's limits, or zero values without the file
+// (then the filter indexes nothing and the limits are not reached).
+func SearchLimitsNow() SearchLimits {
+	r, err := searchRulesItem.get()
+	if err != nil {
+		return SearchLimits{}
+	}
+	return r.Limits
 }

@@ -77,7 +77,7 @@ func (e *Executor) walkEntry(
 	if statErr != nil {
 		return nil //nolint:nilerr // skip files whose stat fails
 	}
-	if info.Size() > maxFileSize {
+	if info.Size() > maxFileSize() {
 		return nil // oversized files are never content-matched or snippet-read
 	}
 

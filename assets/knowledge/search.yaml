@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 # How the local search indexes (a project's folders and search folders) split
 # files and queries into terms. An index keeps the terms it was built with:
 # after changing these, rebuild the index so queries and files match again.
@@ -31,3 +31,11 @@ secret_names: [id_rsa, id_dsa, id_ecdsa, id_ed25519, id_ecdsa_sk, id_ed25519_sk,
 secret_prefixes: [.env.]
 secret_extensions: [.pem, .key, .p12, .pfx, .keystore, .jks]
 secret_dirs: [.ssh, .gnupg, .aws]
+
+limits:  # how much of a file the local search reads and shows, and how the knowledge graph re-ranks
+  max_file_size: 1048576  # bytes; larger files are not indexed or read (1 MiB)
+  preview_chars: 240  # characters of a file kept as its preview in the index
+  snippet_context: 120  # characters shown on each side of a match
+  snippet_read_bytes: 524288  # bytes read from a file to find a match's snippet (512 KiB)
+  graph_boost: 1.25  # score multiplier of a result linked from a top result
+  graph_boost_seeds: 5  # top results whose graph links boost the others
