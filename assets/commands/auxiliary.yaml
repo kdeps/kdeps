@@ -1,3 +1,4 @@
+# File name is auxiliary.yaml. aux is a reserved device name on Windows, so aux.yaml cannot be checked out.
 version: 1.3.0
 name: aux
 order: 221
