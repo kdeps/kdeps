@@ -267,8 +267,8 @@ build: "graph build\ninferred / ambiguous edges"
 changed -> first -> rest -> cache -> build
 ```
 
-- **In agent sessions** it runs at session end, after the session note: up to `per_session` changed notes, with the session's model when it is a local one (llamafile, GGUF, Ollama). With a cloud model it is skipped unless `knowledge.extract.model` names a local model. It never runs during your turns. `/knowledge extract` runs it now, over every changed note.
-- **From the shell:** `kdeps knowledge build --extract [--model <local model>] [--limit N]`.
+- **In agent sessions** the model pass is `manual` until you change it. `manual` runs only when you ask (`/knowledge extract`, `kdeps knowledge build --extract`). `auto` also runs it at session end, after the session note, up to `per_session` changed notes, and before a background graph build. `off` does not run it. The call uses the [auxiliary channel](/agent/auxiliary): the session model unless `/aux` or `llm.aux` names another model. `free` picks a large OpenRouter free model. `knowledge.extract.model` is used only while the channel is `current`. An unserved local model is skipped.
+- **From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.aux`, then `knowledge.extract.model`, then the current model.
 - A note is read again only when it changes; a failed note is retried on the next run.
 
 ### Media into notes
@@ -289,15 +289,20 @@ changed -> first -> rest -> cache -> build
 
 Run `/knowledge extract` afterwards to pull facts from the new notes.
 
+```text
+/knowledge build            # manual, the default
+/knowledge build auto       # session end and before a background build
+/knowledge build off
+```
+
 ```yaml
 # ~/.kdeps/config.yaml
 knowledge:
+  build: manual               # manual | auto | off
   extract:
-    enabled: true
-    model: llama3.2:3b        # a 3B+ local model finds far more than a 1B one
+    model: llama3.2:3b        # used when llm.aux is current; empty: the session model
     workers: 2                # parallel calls after the first
-    per_session: 20           # changed notes read at each session end
-    on_background_build: true # extract pending notes before a background build; off unless set
+    per_session: 20           # changed notes read on an automatic run
 ```
 
 A build that did not pass `--extract` prints how many notes are still waiting. The graph records the model and the time of the latest successful extraction.
@@ -324,7 +329,7 @@ kdeps knowledge report
 
 A surprising connection is a single link between two communities that otherwise never touch, ranked by the size of the smaller one: a lone bridge between two large groups is the least expected.
 
-Inside an agent session, kdeps rebuilds the graph in the background when the session starts and after it writes a note. A workflow chat call, a vault search, and skill linking refresh it too, before they read it. Model extraction stays off unless `knowledge.extract.on_background_build` is set, or you run `kdeps knowledge build --extract`.
+Inside an agent session, kdeps rebuilds the link graph in the background when the session starts and after it writes a note. A workflow chat call, a vault search, and skill linking refresh it too, before they read it. That refresh does not call a model. The model pass runs on its own schedule: `manual`, `auto`, or `off`.
 
 ## Recall
 

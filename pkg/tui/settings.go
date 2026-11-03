@@ -98,6 +98,10 @@ type AgentLoopTuning struct {
 	MaxLeafChars         int      `yaml:"max_leaf_chars,omitempty"`
 	InstructReminders    []string `yaml:"instruct_reminders,omitempty"`
 	PromptMode           string   `yaml:"prompt_mode,omitempty"`
+	Aux                  string   `yaml:"aux,omitempty"`
+	AuxSet               bool     `yaml:"aux_set,omitempty"`
+	KnowledgeBuild       string   `yaml:"knowledge_build,omitempty"`
+	KnowledgeBuildSet    bool     `yaml:"knowledge_build_set,omitempty"`
 }
 
 // UnmarshalYAML leaves auto-judges on when the file never set the key.

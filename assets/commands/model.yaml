@@ -1,4 +1,4 @@
-version: 2.1.0
+version: 2.1.2
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""

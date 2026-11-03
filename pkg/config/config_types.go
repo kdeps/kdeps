@@ -159,6 +159,13 @@ type LLMKeys struct {
 	// Serialized to KDEPS_LLM_BASE_URL.
 	BaseURL string `yaml:"base_url,omitempty"`
 
+	// Aux is the model for auxiliary calls (knowledge-graph extraction,
+	// prompt refinement, judges). Empty or "current" uses the session
+	// model. "free" picks a large OpenRouter free model for each call.
+	// Any other value is a model name. A saved /aux stores a catalog model's
+	// model_id instead of that name.
+	Aux string `yaml:"aux,omitempty"`
+
 	// Routing strategy: token_threshold | fallback | cost_optimized | round_robin.
 	// When set, the models list acts as router routes (model: router resources route via this).
 	// When empty, models act as a plain allowlist.
@@ -275,18 +282,19 @@ type KnowledgeConfig struct {
 	WorkflowNotes *bool                  `yaml:"workflow_notes,omitempty"`
 	Recall        KnowledgeRecallConfig  `yaml:"recall,omitempty"`
 	Extract       KnowledgeExtractConfig `yaml:"extract,omitempty"`
+	// Build is the model pass that adds inferred edges: manual (the default),
+	// auto, or off. manual runs only when asked. auto also runs at session
+	// end and before a background graph build. off does not run.
+	Build string `yaml:"build,omitempty"`
 }
 
 // KnowledgeExtractConfig tunes the model pass that finds what notes are
-// about. It runs with a local model: the session's when it is local, else
-// Model (empty: skipped in sessions).
+// about. The model is the auxiliary channel.
 type KnowledgeExtractConfig struct {
-	Enabled           *bool  `yaml:"enabled,omitempty"` // nil means on
-	Model             string `yaml:"model,omitempty"`
-	Backend           string `yaml:"backend,omitempty"`
-	Workers           int    `yaml:"workers,omitempty"`             // parallel model calls (default 2)
-	PerSession        int    `yaml:"per_session,omitempty"`         // notes per session end (default 20)
-	OnBackgroundBuild *bool  `yaml:"on_background_build,omitempty"` // true: extract pending notes before a background build
+	Model      string `yaml:"model,omitempty"`
+	Backend    string `yaml:"backend,omitempty"`
+	Workers    int    `yaml:"workers,omitempty"`     // parallel model calls (default 2)
+	PerSession int    `yaml:"per_session,omitempty"` // notes per automatic run (default 20)
 }
 
 // KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.

@@ -45,7 +45,8 @@ var (
 	}
 
 	knownKnowledgeKeys = map[string]bool{
-		"enabled": true, "vault": true, "session_notes": true, "workflow_notes": true, "recall": true, "extract": true,
+		"enabled": true, "vault": true, "session_notes": true, "workflow_notes": true,
+		"recall": true, "extract": true, "build": true,
 	}
 
 	knownDefaultsKeys = map[string]bool{
@@ -185,6 +186,7 @@ func knownLLMKeys() map[string]bool {
 		"ollama_host": true,
 		"backend":     true,
 		"base_url":    true,
+		"aux":         true,
 		"strategy":    true,
 		"models":      true,
 		"models_dir":  true,

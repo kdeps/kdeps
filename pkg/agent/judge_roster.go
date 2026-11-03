@@ -43,13 +43,14 @@ const maxAutoJudges = 3
 // to input. Returns nil on any engine error or unparsable reply — a broken
 // roster generation must not block the turn.
 func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
-	if localModelNotServed(l) {
+	model, backend, baseURL, ok := l.prepareAuxCall()
+	if !ok {
 		return nil
 	}
 	chatCfg := &domain.ChatConfig{
-		Model:   l.config.Model,
-		Backend: l.config.Backend,
-		BaseURL: l.config.BaseURL,
+		Model:   model,
+		Backend: backend,
+		BaseURL: baseURL,
 		Role:    l.config.Role,
 		Prompt:  "Request:\n" + input,
 		Scenario: []domain.ScenarioItem{
@@ -57,7 +58,7 @@ func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
 		},
 		JSONResponse: true,
 	}
-	chatCfg.MaxTokens = sideCallMaxTokens(l.config.Backend, l.config.Model)
+	chatCfg.MaxTokens = sideCallMaxTokens(backend, model)
 	synthetic := l.buildSyntheticWorkflow(judgeRosterActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)
 	if err != nil {

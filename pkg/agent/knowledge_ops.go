@@ -43,7 +43,7 @@ var knowledgeOps = map[string]func(r *REPL, args map[string]any) (map[string]any
 		}
 		return map[string]any{
 			"value": onOffWord(r.loop.knowledgeOn()), "vault": k.vault.Root, "graph": knowledge.GraphPath(k.dir),
-			"pending": pending,
+			"pending": pending, "build": r.loop.knowledgeBuildMode(),
 		}, nil
 	},
 	"knowledge_extract": func(r *REPL, _ map[string]any) (map[string]any, error) {

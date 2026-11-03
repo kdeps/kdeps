@@ -1,0 +1,16 @@
+# File name is auxiliary.yaml. aux is a reserved device name on Windows, so aux.yaml cannot be checked out.
+version: 1.3.0
+name: aux
+order: 221
+usage:
+  - args: "[current|free|<model>]"
+    help: Show or set the model for auxiliary calls (knowledge extraction, refine, judges)
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: aux           # live session state; the choice persists across sessions
+  values: [current, free]  # any other model id is also accepted
+  show: >-
+    {{if eq .value "free"}}auxiliary calls use a large OpenRouter free model, chosen at random for each call{{else if eq .value "current"}}auxiliary calls use the session model{{if .model}} ({{.model}}){{end}}{{else}}auxiliary calls use {{.value}}{{end}}
+  set: >-
+    {{if eq .value "free"}}auxiliary channel set to a large OpenRouter free model, chosen at random for each call{{else if eq .value "current"}}auxiliary channel set to the session model{{else}}auxiliary channel set to {{.value}}{{end}}
+  invalid: "Usage: /aux [current|free|<model>]"

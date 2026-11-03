@@ -86,14 +86,16 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 	}
 	// Local models must be served before the refiner can call them; otherwise
 	// degrade to the original prompt instead of a failed engine.Execute.
-	if localModelNotServed(l) {
+	// The auxiliary channel can point this call at OpenRouter instead.
+	model, backend, baseURL, ok := l.prepareAuxCall()
+	if !ok {
 		return input
 	}
 
 	chatCfg := &domain.ChatConfig{
-		Model:   l.config.Model,
-		Backend: l.config.Backend,
-		BaseURL: l.config.BaseURL,
+		Model:   model,
+		Backend: backend,
+		BaseURL: baseURL,
 		Role:    l.config.Role,
 		// The conversation so far, same construction the real turn uses
 		// (historyMessages), so "fix that" / "the file we discussed" can be
@@ -112,7 +114,7 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 		},
 		// No tools, no JSON mode: a plain-text rewrite.
 	}
-	chatCfg.MaxTokens = sideCallMaxTokens(l.config.Backend, l.config.Model)
+	chatCfg.MaxTokens = sideCallMaxTokens(backend, model)
 
 	synthetic := l.buildSyntheticWorkflow(refineActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)

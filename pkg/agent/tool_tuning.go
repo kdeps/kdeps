@@ -120,6 +120,15 @@ type ToolTuning struct {
 	// PromptMode persists /efficiency prompt (auto, full, or summary).
 	// Empty means auto, which is also the zero value.
 	PromptMode string
+	// Aux persists /aux. Empty means current. AuxSet is the sentinel: a
+	// snapshot from before this field existed leaves llm.aux in charge.
+	Aux    string
+	AuxSet bool
+	// KnowledgeBuild persists /knowledge build. KnowledgeBuildSet is the
+	// sentinel: a snapshot from before this field existed leaves knowledge.build
+	// in charge.
+	KnowledgeBuild    string
+	KnowledgeBuildSet bool
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -172,6 +181,10 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		MaxLeafChars:         c.MaxLeafChars,
 		InstructReminders:    append([]string(nil), c.InstructReminders...),
 		PromptMode:           c.PromptMode,
+		Aux:                  c.Aux,
+		AuxSet:               c.AuxSet,
+		KnowledgeBuild:       r.loop.knowledgeBuild,
+		KnowledgeBuildSet:    r.loop.knowledgeBuildSet,
 	}
 }
 
@@ -274,6 +287,16 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	c.InstructReminders = validInstructReminders(t.InstructReminders)
 	if mode, ok := normalizePromptMode(t.PromptMode); ok {
 		c.PromptMode = mode
+	}
+	// A saved /aux wins over llm.aux. A snapshot that never stored the
+	// choice leaves the config value applied at startup.
+	if t.AuxSet {
+		c.Aux = t.Aux
+		c.AuxSet = true
+	}
+	if t.KnowledgeBuildSet {
+		r.loop.knowledgeBuild = t.KnowledgeBuild
+		r.loop.knowledgeBuildSet = true
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
