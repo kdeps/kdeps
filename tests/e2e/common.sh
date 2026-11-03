@@ -286,7 +286,17 @@ PYEOF
     python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" "$_mock_registry_parent" >/dev/null 2>&1 </dev/null &
     _MOCK_PID=$!
     sleep 0.2
-    trap 'kill "$_MOCK_PID" ${_MOCK_LLM_PID:+"$_MOCK_LLM_PID"} 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
+    # On Windows the job pid of a python3 started here does not always reach the
+    # real python3.exe, so the mocks are also stopped by their command line.
+    _stop_mocks() {
+        kill "$_MOCK_PID" ${_MOCK_LLM_PID:+"$_MOCK_LLM_PID"} 2>/dev/null
+        case "$(uname -s)" in
+            MINGW* | MSYS* | CYGWIN*)
+                powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -match 'mock_llm\.py|mock_registry_' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" >/dev/null 2>&1 || true
+                ;;
+        esac
+    }
+    trap '_stop_mocks; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
     export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
 fi
 
