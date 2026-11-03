@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"slices"
 	"sync"
@@ -132,14 +133,59 @@ func loadToolSpec(name, fallback string, call func(context.Context, map[string]a
 }
 
 // RegisterTool adds or replaces a tool served by the call route.
-// A spec with an empty name or a nil Call is ignored.
+// A spec with an empty name or a nil Call is ignored. Each call gets the
+// parameter defaults the tool's YAML declares, from the agent or the route.
 func RegisterTool(spec ToolSpec) {
 	if spec.Name == "" || spec.Call == nil {
 		return
 	}
+	if call, params := spec.Call, spec.Parameters; len(params) > 0 {
+		spec.Call = func(ctx context.Context, args map[string]any) (string, error) {
+			return call(ctx, WithParamDefaults(args, params))
+		}
+	}
 	toolMu.Lock()
 	toolReg[spec.Name] = spec
 	toolMu.Unlock()
+}
+
+// WithParamDefaults is args with each declared parameter default filled in
+// where the caller left that argument out or empty, so a tool's defaults live
+// in its YAML definition, not in its handler. args itself is not changed.
+func WithParamDefaults(args map[string]any, params map[string]domain.ToolParam) map[string]any {
+	var out map[string]any
+	for name, p := range params {
+		if p.Default == nil {
+			continue
+		}
+		if !isEmptyValue(args[name]) {
+			continue
+		}
+		if out == nil {
+			out = maps.Clone(args)
+			if out == nil {
+				out = map[string]any{}
+			}
+		}
+		out[name] = p.Default
+	}
+	if out == nil {
+		return args
+	}
+	return out
+}
+
+// ParamDefaultInt is the integer default the registered tool's YAML declares
+// for param, or 0 when it declares none.
+func ParamDefaultInt(tool, param string) int {
+	spec, _ := lookupTool(tool)
+	switch v := spec.Parameters[param].Default.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	}
+	return 0
 }
 
 func lookupTool(name string) (ToolSpec, bool) {

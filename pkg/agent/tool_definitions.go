@@ -193,45 +193,7 @@ func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 	t.Parameters = maps.Clone(d.Parameters)
 	if run := t.Execute; run != nil {
 		params := t.Parameters
-		t.Execute = func(args map[string]any) (string, error) { return run(withParamDefaults(args, params)) }
+		t.Execute = func(args map[string]any) (string, error) { return run(api.WithParamDefaults(args, params)) }
 	}
 	return t
-}
-
-// withParamDefaults is args with each declared parameter default filled in
-// where the model left that argument out or empty, so a tool's defaults live
-// in its YAML definition, not in its handler.
-func withParamDefaults(args map[string]any, params map[string]domain.ToolParam) map[string]any {
-	var out map[string]any
-	for name, p := range params {
-		if p.Default == nil {
-			continue
-		}
-		if v, ok := args[name]; ok && v != nil && v != "" {
-			continue
-		}
-		if out == nil {
-			out = maps.Clone(args)
-			if out == nil {
-				out = map[string]any{}
-			}
-		}
-		out[name] = p.Default
-	}
-	if out == nil {
-		return args
-	}
-	return out
-}
-
-// toolParamDefaultInt is the integer default the named tool's definition
-// declares for param, or 0 when it declares none.
-func toolParamDefaultInt(tool, param string) int {
-	switch v := toolDefinitions[tool].Parameters[param].Default.(type) {
-	case int:
-		return v
-	case float64:
-		return int(v)
-	}
-	return 0
 }

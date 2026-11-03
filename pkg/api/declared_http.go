@@ -168,16 +168,12 @@ func (s *HTTPToolSpec) ResolveEnv() (map[string]string, bool) {
 // withParamDefaults copies args, fills declared defaults and checks that
 // every required parameter is present.
 func withParamDefaults(name string, params map[string]domain.ToolParam, args map[string]any) (map[string]any, error) {
-	full := maps.Clone(args)
+	full := maps.Clone(WithParamDefaults(args, params))
 	if full == nil {
 		full = map[string]any{}
 	}
 	for _, p := range slices.Sorted(maps.Keys(params)) {
-		param := params[p]
-		if isEmptyValue(full[p]) && param.Default != nil {
-			full[p] = param.Default
-		}
-		if param.Required && isEmptyValue(full[p]) {
+		if params[p].Required && isEmptyValue(full[p]) {
 			return nil, fmt.Errorf("%s: %s is required", name, p)
 		}
 	}

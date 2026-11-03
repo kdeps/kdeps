@@ -124,7 +124,7 @@ func resolveQueryLimit(raw any) int {
 		limit = v
 	}
 	if limit <= 0 {
-		limit = toolParamDefaultInt("memory_query", "limit")
+		limit = api.ParamDefaultInt("memory_query", "limit")
 	}
 	return min(limit, itemsOr(eventMemoryQueryRowsMax, defaultRelQueryMaxRows))
 }
