@@ -173,7 +173,7 @@ func (m *MemoryStore) SetGlobal() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cwd = ""
-	m.path = filepath.Join(m.basePath, knowledge.SharedFolder, knowledge.MemoryFolder)
+	m.path = filepath.Join(m.basePath, knowledge.Layout().Folders.Shared, knowledge.Layout().Project.Memory)
 	if m.migrate {
 		m.legacy = legacyMemoryPath(memoryGlobalName)
 	}

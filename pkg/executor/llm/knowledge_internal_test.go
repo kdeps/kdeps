@@ -145,7 +145,7 @@ func TestLogWorkflowRun(t *testing.T) {
 	logWorkflowRun(ctx, &domain.ChatConfig{}, "text", map[string]any{"response": "a response"})
 	card, err := knowledge.Vault{Root: vault}.Card("invoices")
 	require.NoError(t, err, "the workflow gets its project on the first logged run")
-	assert.Equal(t, []knowledge.Link{{Source: knowledge.SourceWorkflow, Path: wfDir}}, card.Links)
+	assert.Equal(t, []knowledge.Link{{Source: knowledge.Layout().Sources.Workflow, Path: wfDir}}, card.Links)
 	ctx.FSRoot = t.TempDir()
 	logWorkflowRun(ctx, &domain.ChatConfig{}, "from elsewhere", "x")
 	again, err := knowledge.Vault{Root: vault}.Cards()

@@ -20,43 +20,33 @@ package knowledge
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	kword "github.com/kdeps/kartographer/text"
+
+	kgstore "github.com/kdeps/kartographer/store"
+
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
-const (
-	extractFile = "extract.json"
-	// KindEntity is a thing a model found in a note (a tool, a decision...).
-	KindEntity = "entity"
-	// RelMentions links a note to an entity it is about.
-	RelMentions = "mentions"
-	// policy().ChunkChars bounds the note text one extraction call reads.
-)
+const extractFile = "extract.json"
 
 // ExtractFunc asks a model one question: the system prompt and the user
 // text, returning its reply.
 type ExtractFunc func(ctx context.Context, system, user string) (string, error)
 
-// Entity is a thing a note is about.
-type Entity struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
-}
+// Entity is a thing a note is about, from kartographer.
+type Entity = kgknowledge.Entity
 
-// Relation is a link between two entities a model found.
-type Relation struct {
-	From       string  `json:"from"`
-	To         string  `json:"to"`
-	Relation   string  `json:"relation"`
-	Confidence float64 `json:"confidence"`
-}
+// Relation is a link between two entities a model found, from kartographer.
+type Relation = kgknowledge.Relation
 
 // Extraction is what a model found in one note version.
 type Extraction struct {
@@ -85,25 +75,10 @@ type ExtractStats struct {
 	Pending, Done, Failed int
 }
 
-//nolint:gochecknoglobals // fixed sets
-var (
-	entityKinds = map[string]bool{
-		"project":   true,
-		"tool":      true,
-		"decision":  true,
-		"rationale": true,
-		"gotcha":    true,
-		"concept":   true,
-	}
-	modelRelation = map[string]bool{
-		RelDependsOn: true, "rationale_for": true, RelRelatesTo: true, "supersedes": true, RelReferences: true,
-	}
-)
-
 // skipExtract reports notes that hold no story: cards, the routing table,
 // the schema.
-func skipExtract(n *Note) bool {
-	return IsCardPath(n.Path) || n.Path == RoutingFile || n.Path == "schema.md"
+func skipExtract(n *Note, r extractRules) bool {
+	return IsCardPath(n.Path) || n.Path == RoutingFile || slices.Contains(r.Skip, n.Path)
 }
 
 // Extract asks a model what each changed note is about, a few notes at a
@@ -112,12 +87,16 @@ func skipExtract(n *Note) bool {
 // at their current version are skipped.
 func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o ExtractOptions) (ExtractStats, error) {
 	var st ExtractStats
+	r, err := loadExtractRules()
+	if err != nil {
+		return st, err
+	}
 	notes, err := v.Walk()
 	if err != nil {
 		return st, err
 	}
 	cache := loadExtractCache(dir)
-	todo := pendingNotes(notes, cache)
+	todo := pendingNotes(notes, cache, r)
 	st.Pending = len(todo)
 	if o.Limit > 0 && len(todo) > o.Limit {
 		todo = todo[:o.Limit]
@@ -128,7 +107,7 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 	}
 	var mu sync.Mutex
 	run := func(n *Note) {
-		ex := extractNote(ctx, n, ask, o)
+		ex := extractNote(ctx, n, ask, o, r)
 		mu.Lock()
 		defer mu.Unlock()
 		cache.Notes[n.Path] = ex
@@ -162,24 +141,28 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 			delete(cache.Notes, p)
 		}
 	}
-	return st, saveJSON(filepath.Join(dir, extractFile), cache)
+	return st, kgstore.WriteJSON(filepath.Join(dir, extractFile), cache)
 }
 
 // PendingExtractCount is how many notes still need a model pass.
 func PendingExtractCount(v Vault, dir string) (int, error) {
+	r, err := loadExtractRules()
+	if err != nil {
+		return 0, err
+	}
 	notes, err := v.Walk()
 	if err != nil {
 		return 0, err
 	}
-	return len(pendingNotes(notes, loadExtractCache(dir))), nil
+	return len(pendingNotes(notes, loadExtractCache(dir), r)), nil
 }
 
 // pendingNotes are the notes with a story whose current version has no
 // successful extraction.
-func pendingNotes(notes []*Note, cache extractCache) []*Note {
+func pendingNotes(notes []*Note, cache extractCache, r extractRules) []*Note {
 	var todo []*Note
 	for _, n := range notes {
-		if skipExtract(n) {
+		if skipExtract(n, r) {
 			continue
 		}
 		if e, ok := cache.Notes[n.Path]; ok && e.Hash == n.Hash && e.Error == "" {
@@ -197,18 +180,23 @@ func hasNote(notes []*Note, p string) bool {
 
 // extractNote runs the model over each chunk of a note and merges the
 // validated results.
-func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions) Extraction {
+func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions, r extractRules) Extraction {
 	ex := Extraction{Hash: n.Hash, Model: o.Model}
+	pieces, err := chunks(n, r)
+	if err != nil {
+		ex.Error = err.Error()
+		return ex
+	}
 	seen := map[string]bool{}
-	for _, chunk := range chunks(n) {
-		reply, err := ask(ctx, o.System, chunk)
-		if err != nil {
-			ex.Error = err.Error()
+	for _, chunk := range pieces {
+		reply, askErr := ask(ctx, o.System, chunk)
+		if askErr != nil {
+			ex.Error = askErr.Error()
 			return ex
 		}
-		part, err := parseExtraction(reply)
-		if err != nil {
-			ex.Error = fmt.Sprintf("unusable reply (%v): %.200q", err, reply)
+		part, parseErr := parseFound(reply, r)
+		if parseErr != nil {
+			ex.Error = fmt.Sprintf("unusable reply (%v): %.200q", parseErr, reply)
 			return ex
 		}
 		for _, e := range part.Entities {
@@ -225,92 +213,33 @@ func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions
 	return ex
 }
 
-// chunks splits a note for the model: its title and summary, then the body
-// in pieces of at most policy().ChunkChars, cut at paragraph breaks.
-func chunks(n *Note) []string {
-	head := "Note: " + n.Title + "\n"
-	if n.Summary != "" {
-		head += "Summary: " + n.Summary + "\n"
+// chunks splits a note for the model: extract.yaml's header (title and
+// summary), then the body in pieces of at most policy().ChunkChars, cut at
+// paragraph breaks.
+func chunks(n *Note, r extractRules) ([]string, error) {
+	var hb strings.Builder
+	if err := r.chunkHeaderTmpl.Execute(&hb, map[string]any{"Title": n.Title, "Summary": n.Summary}); err != nil {
+		return nil, fmt.Errorf("chunk_header: %w", err)
 	}
-	body := strings.TrimSpace(n.Body)
+	head := hb.String()
 	var out []string
-	for body != "" {
-		cut := len(body)
-		if cut > policy().ChunkChars {
-			cut = policy().ChunkChars
-			if i := strings.LastIndex(body[:cut], "\n\n"); i > policy().ChunkChars/2 {
-				cut = i
-			}
-		}
-		out = append(out, head+"\n"+body[:cut])
-		body = strings.TrimSpace(body[cut:])
+	for _, piece := range kword.Chunks(n.Body, policy().ChunkChars) {
+		out = append(out, head+"\n"+piece)
 	}
 	if len(out) == 0 {
 		out = append(out, head)
 	}
-	return out
-}
-
-// parseExtraction reads the first JSON object of a reply and keeps only
-// well-formed entities and relations.
-func parseExtraction(reply string) (Extraction, error) {
-	start := strings.Index(reply, "{")
-	if start < 0 {
-		return Extraction{}, errors.New("reply holds no JSON object")
-	}
-	// Small models add text (or a second object) after the answer: decode
-	// the first complete object only.
-	var raw Extraction
-	if err := json.NewDecoder(strings.NewReader(reply[start:])).Decode(&raw); err != nil {
-		var ok bool
-		if raw, ok = salvage(reply[start:]); !ok {
-			return Extraction{}, err
-		}
-	}
-	var out Extraction
-	names := map[string]bool{}
-	for _, e := range raw.Entities {
-		e.Name, e.Kind = strings.TrimSpace(e.Name), strings.ToLower(strings.TrimSpace(e.Kind))
-		if e.Name == "" || len(e.Name) > policy().MaxNameLen {
-			continue
-		}
-		if !entityKinds[e.Kind] {
-			e.Kind = "concept"
-		}
-		out.Entities = append(out.Entities, e)
-		names[strings.ToLower(e.Name)] = true
-	}
-	for _, r := range raw.Relations {
-		r.From, r.To = strings.TrimSpace(r.From), strings.TrimSpace(r.To)
-		if !names[strings.ToLower(r.From)] || !names[strings.ToLower(r.To)] || strings.EqualFold(r.From, r.To) {
-			continue
-		}
-		r.Relation = strings.ToLower(strings.TrimSpace(r.Relation))
-		r.Confidence = min(max(r.Confidence, 0), 1)
-		out.Relations = append(out.Relations, r)
-	}
 	return out, nil
 }
 
-// salvage recovers a reply cut off mid-list (a model that ran out of
-// tokens): it closes the JSON after the last complete item.
-func salvage(s string) (Extraction, bool) {
-	for i := strings.LastIndex(s, "}"); i > 0; i = strings.LastIndex(s[:i], "}") {
-		for _, tail := range []string{"]}", "}"} {
-			var ex Extraction
-			if json.Unmarshal([]byte(s[:i+1]+tail), &ex) == nil {
-				return ex, true
-			}
-		}
-	}
-	return Extraction{}, false
+// parseFound reads a model's reply with kartographer, by extract.yaml's rules.
+func parseFound(reply string, r extractRules) (kgknowledge.Found, error) {
+	return kgknowledge.ParseFound(reply, r.parseOptions())
 }
 
 func loadExtractCache(dir string) extractCache {
 	c := extractCache{Notes: map[string]Extraction{}}
-	if data, err := os.ReadFile(filepath.Join(dir, extractFile)); err == nil {
-		_ = json.Unmarshal(data, &c)
-	}
+	_ = kgstore.ReadJSON(filepath.Join(dir, extractFile), &c)
 	if c.Notes == nil {
 		c.Notes = map[string]Extraction{}
 	}
@@ -321,41 +250,22 @@ func loadExtractCache(dir string) extractCache {
 // versions: each note mentions its entities, and the entities' relations
 // become inferred edges (ambiguous below 0.5 confidence or with an unknown
 // relation). An entity named like a note is that note.
-func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *resolver) {
+func (b *builder) addExtracted(root, dir string, notes []*Note, resolve *kgknowledge.Resolver) error {
+	r, err := loadExtractRules()
+	if err != nil {
+		return err
+	}
 	cache := loadExtractCache(dir)
 	for _, n := range notes {
 		ex, ok := cache.Notes[n.Path]
 		if !ok || ex.Hash != n.Hash || ex.Error != "" {
 			continue
 		}
-		ids := map[string]string{}
-		names := map[string]string{}
-		for _, e := range ex.Entities {
-			id := b.entityNode(e, resolve, n.Path)
-			ids[strings.ToLower(e.Name)] = id
-			names[id] = e.Name
-			b.inferred(
-				noteID(n.Path),
-				id,
-				RelMentions,
-				policy().MentionConfidence,
-				n.Path,
-				evidenceLine(root, n.Path, e.Name),
-			)
-		}
-		for _, r := range ex.Relations {
-			from, to := ids[strings.ToLower(r.From)], ids[strings.ToLower(r.To)]
-			if from == "" || to == "" {
-				continue
-			}
-			rel := r.Relation
-			if !modelRelation[rel] {
-				rel = RelRelatesTo
-				r.Confidence = min(r.Confidence, policy().AmbiguousBelow-0.01) //nolint:mnd // just under the cut
-			}
-			b.inferred(from, to, rel, r.Confidence, n.Path, evidenceLine(root, n.Path, names[from], names[to]))
-		}
+		evidence := func(names ...string) string { return evidenceLine(root, n.Path, names...) }
+		b.kg.AddFound(n.Path, kgknowledge.Found{Entities: ex.Entities, Relations: ex.Relations}, resolve,
+			r.mergeOptions(evidence))
 	}
+	return nil
 }
 
 // evidenceLine is the first line of a note that contains one of the names.
@@ -377,41 +287,16 @@ func evidenceLine(root, rel string, needles ...string) string {
 		l := strings.ToLower(line)
 		for _, n := range low {
 			if strings.Contains(l, n) {
-				return lineRef(i + 1)
+				return kgknowledge.LineRef(i + 1)
 			}
 		}
 	}
 	return ""
 }
 
-// entityNode is the node for an entity: the note of the same name, or an
-// entity node shared by every note that mentions it.
-func (b *builder) entityNode(e Entity, resolve *resolver, from string) string {
-	if p := resolve.wiki(e.Name, from); p != "" {
-		return noteID(p)
-	}
-	id := "entity:" + strings.ToLower(e.Name)
-	b.add(&Node{ID: id, Label: e.Name, Kind: e.Kind})
-	return id
-}
-
 // inferred adds a model-found edge unless the same relation is already
 // extracted; a later, more confident guess replaces an earlier one and keeps
 // that guess's source evidence.
 func (b *builder) inferred(from, to, rel string, conf float64, file, loc string) {
-	if from == to {
-		return
-	}
-	prov := ProvInferred
-	if conf < policy().AmbiguousBelow {
-		prov = ProvAmbiguous
-	}
-	key := from + "\x00" + to + "\x00" + rel
-	if e, ok := b.edges[key]; ok && (e.Provenance == ProvExtracted || e.Confidence >= conf) {
-		return
-	}
-	b.edges[key] = &Edge{
-		From: from, To: to, Relation: rel, Provenance: prov, Confidence: conf,
-		SourceFile: file, SourceLocation: loc,
-	}
+	b.kg.Infer(from, to, rel, conf, policy().AmbiguousBelow, file, loc)
 }

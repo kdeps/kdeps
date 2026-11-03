@@ -1,0 +1,18 @@
+version: 1.0.0
+# How kdeps asks a model what a note is about, and how the answer joins the
+# knowledge graph. Cards and the routing table are never sent.
+
+skip: [schema.md]  # more notes, by vault path, that are never sent to the model
+entity_kinds: [project, tool, decision, rationale, gotcha, concept]  # kinds kept as the model named them
+default_kind: concept  # the kind of an entity outside entity_kinds
+relations: [depends_on, rationale_for, relates_to, supersedes, references]  # relations kept as the model named them
+fallback_relation: relates_to  # any other relation becomes this...
+fallback_max_confidence: 0.49  # ...at most this sure; below policy.yaml's ambiguous_below, so it is marked ambiguous
+mention_relation: mentions  # the relation from a note to each entity it names
+
+# What the model reads before each piece of a note. Fields: .Title, .Summary
+chunk_header: |
+  Note: {{.Title}}
+  {{- if .Summary}}
+  Summary: {{.Summary}}
+  {{- end}}

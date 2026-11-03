@@ -88,7 +88,19 @@ func NewSessionStorageWithTTL(
 	sessionID string,
 	defaultTTL time.Duration,
 ) (*SessionStorage, error) {
-	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
+	return NewSessionStorageWithClock(ctx, dbPath, sessionID, defaultTTL, time.Now)
+}
+
+// NewSessionStorageWithClock is NewSessionStorageWithTTL with an injected clock:
+// every expiry check and timestamp reads now() instead of the wall clock.
+func NewSessionStorageWithClock(
+	ctx context.Context,
+	dbPath string,
+	sessionID string,
+	defaultTTL time.Duration,
+	now func() time.Time,
+) (*SessionStorage, error) {
+	kdeps_debug.Log("enter: NewSessionStorageWithClock")
 	dbPath = normalizeSessionDBPath(dbPath)
 	sessionID = normalizeSessionID(sessionID)
 
@@ -113,6 +125,7 @@ func NewSessionStorageWithTTL(
 		SessionID:       sessionID,
 		DefaultTTL:      defaultTTL,
 		cleanupInterval: defaultCleanupInterval,
+		clock:           now,
 		ctx:             ctx,
 		stopCh:          make(chan struct{}),
 	}
@@ -134,8 +147,8 @@ func (s *SessionStorage) cleanup() {
 			return
 		case <-ticker.C:
 			s.mu.Lock()
-			now := time.Now().UnixMilli()
-			cutoff := time.Now().Add(-24 * time.Hour).UnixMilli()
+			now := s.clock().UnixMilli()
+			cutoff := s.clock().Add(-24 * time.Hour).UnixMilli()
 			_ = s.DB.Update(func(tx *bolt.Tx) error {
 				b := tx.Bucket(SessionsBucket)
 				c := b.Cursor()
@@ -162,7 +175,7 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 	s.mu.RLock()
 	var valueStr string
 	var expiresAt int64
-	now := time.Now().UnixMilli()
+	now := s.clock().UnixMilli()
 
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		data := tx.Bucket(SessionsBucket).Get(sessionKey(s.SessionID, key))
@@ -211,14 +224,14 @@ func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Dura
 		return fmt.Errorf("failed to marshal value: %w", jsonErr)
 	}
 
-	now := time.Now().UnixMilli()
+	now := s.clock().UnixMilli()
 	entry := sessionEntry{
 		Value:      string(valueBytes),
 		CreatedAt:  now,
 		AccessedAt: now,
 	}
 	if ttl > 0 {
-		entry.ExpiresAt = time.Now().Add(ttl).UnixMilli()
+		entry.ExpiresAt = s.clock().Add(ttl).UnixMilli()
 	}
 
 	// Preserve CreatedAt for existing entries.
@@ -265,9 +278,9 @@ func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
 		if json.Unmarshal(data, &entry) != nil {
 			return nil //nolint:nilerr // corrupt/invalid entry, skip
 		}
-		entry.AccessedAt = time.Now().UnixMilli()
+		entry.AccessedAt = s.clock().UnixMilli()
 		if ttl > 0 {
-			entry.ExpiresAt = time.Now().Add(ttl).UnixMilli()
+			entry.ExpiresAt = s.clock().Add(ttl).UnixMilli()
 		}
 		entryBytes, err := json.Marshal(entry)
 		if err != nil {
@@ -298,7 +311,7 @@ func (s *SessionStorage) IsExpired(key string) (bool, error) {
 		if entry.ExpiresAt == 0 {
 			expired = false
 		} else {
-			expired = time.Now().UnixMilli() > entry.ExpiresAt
+			expired = s.clock().UnixMilli() > entry.ExpiresAt
 		}
 		return nil
 	})
@@ -339,7 +352,7 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	now := time.Now().UnixMilli()
+	now := s.clock().UnixMilli()
 	prefix := []byte(s.SessionID + ":")
 	result := make(map[string]interface{})
 

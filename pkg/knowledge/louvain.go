@@ -19,45 +19,17 @@
 package knowledge
 
 import (
-	"sort"
-
-	"github.com/kdeps/kartographer/community"
+	kgcommunity "github.com/kdeps/kartographer/community"
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
-// Communities groups the graph's nodes with the Louvain method (Kartographer's
-// community package), weighting each edge by edgeWeight. Nodes are numbered in
-// id order, so ties between communities resolve the same way every build. It
-// sets each node's Community (0 is the largest) and returns the modularity.
-func Communities(g *Graph) float64 {
-	n := len(g.Nodes)
-	if n == 0 {
-		return 0
+// Communities groups the graph's nodes with Kartographer's community method
+// the policy names (community_method), weighted by the vault's edge weights,
+// and returns the modularity. An unknown method is an error.
+func Communities(g *Graph) (float64, error) {
+	detect, err := kgcommunity.Method(policy().CommunityMethod)
+	if err != nil {
+		return 0, err
 	}
-	order := make([]int, n) // position in id order -> index in g.Nodes
-	for i := range order {
-		order[i] = i
-	}
-	sort.Slice(order, func(a, b int) bool { return g.Nodes[order[a]].ID < g.Nodes[order[b]].ID })
-	pos := make([]int, n) // index in g.Nodes -> position in id order
-	for p, i := range order {
-		pos[i] = p
-	}
-	idx := make(map[string]int, n)
-	for i, nd := range g.Nodes {
-		idx[nd.ID] = pos[i]
-	}
-	var edges []community.Edge
-	for _, e := range g.Edges {
-		a, okA := idx[e.From]
-		b, okB := idx[e.To]
-		if !okA || !okB {
-			continue
-		}
-		edges = append(edges, community.Edge{From: a, To: b, Weight: edgeWeight(e)})
-	}
-	assign, q := community.Detect(n, edges)
-	for p, i := range order {
-		g.Nodes[i].Community = assign[p]
-	}
-	return q
+	return kgknowledge.CommunitiesWith(&g.Graph, edgeWeight, detect), nil
 }

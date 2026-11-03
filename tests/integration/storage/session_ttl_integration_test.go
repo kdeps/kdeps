@@ -21,6 +21,7 @@ package storage_test
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,46 +67,47 @@ func TestSessionStorage_TTL(t *testing.T) {
 	assert.Nil(t, retrieved)
 }
 
+// fakeClock is a manually advanced clock for the session store, so TTL tests
+// do not depend on wall-clock timing on a loaded CI runner.
+type fakeClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *fakeClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *fakeClock) Advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = c.now.Add(d)
+}
+
 func TestSessionStorage_TTL_Extension(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	// Test that accessing data extends TTL
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "sessions_ttl_extend.db")
+	dbPath := filepath.Join(t.TempDir(), "sessions_ttl_extend.db")
+	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
 
-	// Rescaled to whole-second margins (was 1200ms/900ms/900ms) after an
-	// observed flake on windows-latest: every Get() here also performs a real
-	// bbolt disk-commit via Touch() (see SessionStorage.Get), and on a loaded
-	// Windows CI runner that commit's latency alone can eat the sub-second
-	// margin, pushing the wall-clock check past the TTL before the "still
-	// under TTL" assertion runs. Matches the seconds-scale margin already
-	// used successfully by TestSessionStorage_Cleanup for the same reason.
-	store, err := storage.NewSessionStorageWithTTL(t.Context(), dbPath, "ttl-extend-test", 3*time.Second)
+	store, err := storage.NewSessionStorageWithClock(t.Context(), dbPath, "ttl-extend-test", 3*time.Second, clock.Now)
 	require.NoError(t, err)
 	defer store.Close()
 
-	key := "extend-key"
-	value := "test-value"
-
-	err = store.Set(key, value)
-	require.NoError(t, err)
-
-	// Access immediately
-	_, exists := store.Get(key)
+	require.NoError(t, store.Set("extend-key", "test-value"))
+	_, exists := store.Get("extend-key")
 	require.True(t, exists)
 
-	// Wait (less than TTL, generous margin)
-	time.Sleep(2 * time.Second)
-
-	// Access again - should extend TTL (Get() calls Touch() if TTL is configured)
-	_, exists = store.Get(key)
+	// 2s in: still live, and Get() touches the entry, extending its TTL to 5s.
+	clock.Advance(2 * time.Second)
+	_, exists = store.Get("extend-key")
 	require.True(t, exists)
 
-	// Wait again (total exceeds original TTL, but TTL was extended on last access)
-	time.Sleep(2 * time.Second)
-
-	// Should still exist because TTL was extended on last Get()
-	_, exists = store.Get(key)
-	assert.True(t, exists, "Key should still exist after TTL extension")
+	// 4s in: past the original 3s TTL, but inside the extended one.
+	clock.Advance(2 * time.Second)
+	_, exists = store.Get("extend-key")
+	assert.True(t, exists, "key should still exist after TTL extension")
 }
 
 func TestSessionStorage_Touch(t *testing.T) {

@@ -30,6 +30,47 @@ A vault of 2,000 notes holds about a million words. That's more than any model c
 | An idea, gotcha or concept | one note: `projects/<name>/notes/`, or `shared/` when it spans projects |
 | How notes connect | the link graph, under `~/.kdeps/knowledge/<vault-id>/` |
 
+The folder names in this table and a card's front matter keys are the defaults of the `knowledge` asset set's `vault.yaml`. Override the file under `~/.kdeps/` to rename them:
+
+```yaml
+folders:
+  projects: projects  # one folder per project
+  shared: shared  # knowledge that spans projects
+project:
+  sessions: sessions  # one note per agent session
+  decisions: decisions  # one note per decision
+card:
+  next: next  # front matter key of the one next step; it lives only in the card
+  links_header: [Source, Path]  # the card's places table: a link kind, then a path
+note:
+  summary: summary  # the line recall shows before anyone opens a note
+  canonical: [canonical, fact_id]  # a stable fact id; the first key that is set wins
+```
+
+Every name must be set. Install rejects a `vault.yaml` that leaves one empty.
+
+The notes kdeps writes (a project's card, a session note, a decision note and a workflow's daily run log) are Go templates in the same set's `notes.yaml`, with the compaction summary sections that fill each session heading:
+
+```yaml
+session_sections:  # session note headings, each filled by the first summary section that is set
+  - heading: What was built
+    from: [done, progress]
+templates:
+  run_entry: |  # one workflow chat call in the day's run log
+    - {{.Time}} {{.Prompt}} -> {{.Reply}}
+```
+
+Install rejects a `notes.yaml` with a missing or broken template.
+
+What a model's extraction may name, and how its answer joins the graph, is the same set's `extract.yaml`:
+
+```yaml
+entity_kinds: [project, tool, decision, rationale, gotcha, concept]  # other kinds become default_kind
+relations: [depends_on, rationale_for, relates_to, supersedes, references]  # kept as the model named them
+fallback_relation: relates_to  # any other relation becomes this...
+fallback_max_confidence: 0.49  # ...at most this sure, so it is marked ambiguous
+```
+
 A fact written in two places goes stale in one of them. `kdeps knowledge check` reports structural duplicates: the same summary, a next step outside a card, or two notes that set the same `canonical` or `fact_id`. It does not decide that two different wordings are the same fact.
 
 ## Projects
@@ -226,6 +267,24 @@ changed -> first -> rest -> cache -> build
 - **From the shell:** `kdeps knowledge build --extract [--model <local model>] [--limit N]`.
 - A note is read again only when it changes; a failed note is retried on the next run.
 
+### Media into notes
+
+`/ingest` turns a file into a note, so the extraction above can read it. The file is read by a kdeps tool, and its text is saved as a note titled with the second argument:
+
+```text
+/ingest image  ~/scans/receipt.png  receipt-march
+/ingest audio  ~/calls/standup.mp3  standup-2026-11-02
+/ingest document ~/docs/spec.pdf    spec-v2
+```
+
+| Subcommand | Reader tool | Accepts |
+|---|---|---|
+| `image` | `ocr_image` (tesseract, local) | png, jpg, tiff, bmp, gif |
+| `audio` | `transcribe_audio` (Whisper) | mp3, mp4, m4a, wav and other audio or video |
+| `document` | `load_document` | PDF, DOCX, HTML, CSV, text |
+
+Run `/knowledge extract` afterwards to pull facts from the new notes.
+
 ```yaml
 # ~/.kdeps/config.yaml
 knowledge:
@@ -241,7 +300,7 @@ A build that did not pass `--extract` prints how many notes are still waiting. T
 
 ## Communities and the report
 
-There is one graph per vault, covering every project, `shared/` and the Go packages of each card's `repo` row. Each build groups it with deterministic Louvain: the same notes build the same communities. Each node gets a `community` number in `graph.json`; 0 is the largest. The build writes `GRAPH_REPORT.md` and `graph.html` next to the graph. The page draws each community as its own colored cluster, with a legend of size and best-connected members (click one to focus it), and you can search, zoom and hover for a note's summary. The page's template (`templates/knowledge`) is installed the first time it is needed. `kdeps knowledge build` prints the paths. `kdeps knowledge explain "<query>"` lists the matching edges with the file and line each one came from.
+There is one graph per vault, covering every project, `shared/` and the Go packages of each card's `repo` row. Each build groups it with the knowledge policy's `community_method`, `louvain` (the default) or `leiden`, whose communities are always connected. Both are deterministic: the same notes build the same communities. Each node gets a `community` number in `graph.json`; 0 is the largest. The build writes `GRAPH_REPORT.md` and `graph.html` next to the graph. The page draws each community as its own colored cluster, with a legend of size and best-connected members (click one to focus it), and you can search, zoom and hover for a note's summary. The page's template (`templates/knowledge`) is installed the first time it is needed. `kdeps knowledge build` prints the paths. `kdeps knowledge explain "<query>"` lists the matching edges with the file and line each one came from.
 
 ```bash
 kdeps knowledge report
@@ -364,6 +423,19 @@ kdeps knowledge check
 ```
 
 It exits non-zero when it finds something, so it can run in CI.
+
+Which notes need a summary, and the wording of each finding, come from the `knowledge` asset set's `check.yaml`. Override it under `~/.kdeps/` to change them:
+
+```yaml
+summaries:
+  shared: true  # notes in the shared folder need a summary
+  project_parts: [notes, decisions]  # project parts (vault.yaml keys) whose notes need one
+  exempt_parts: [memory]  # parts whose notes may share a summary and need none
+messages:
+  dangling_link: "links to [[{{.Target}}]], which has no note"  # .Target: the link target
+```
+
+Install rejects a `check.yaml` with an empty message, a message that is not a valid template, or an unknown part.
 
 ## Tools
 

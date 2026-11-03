@@ -20,28 +20,29 @@ package knowledge
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	kgstore "github.com/kdeps/kartographer/store"
+
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
 // Node kinds and edge relations of the graph.
 const (
-	KindNote = "note"
-	KindTag  = "tag"
+	KindNote = kgknowledge.KindNote
+	KindTag  = kgknowledge.KindTag
 	KindCode = "code"
 
-	RelReferences = "references"
-	RelRelatesTo  = "relates_to"
-	RelTagged     = "tagged"
-	RelDependsOn  = "depends_on"
+	RelReferences = kgknowledge.RelReferences
+	RelRelatesTo  = kgknowledge.RelRelatesTo
+	RelTagged     = kgknowledge.RelTagged
+	RelDependsOn  = kgknowledge.RelDependsOn
 
 	// ProvExtracted marks an edge written in the source (a link, an import).
 	ProvExtracted = "extracted"
@@ -116,18 +117,12 @@ func NeedsBuild(v Vault, dir string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, manifestFile))
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
 	stored := Manifest{}
-	if json.Unmarshal(data, &stored) == nil {
-		return !reflect.DeepEqual(current, stored), nil
+	// A missing or unreadable manifest means the graph must be rebuilt.
+	if readErr := kgstore.ReadJSON(filepath.Join(dir, manifestFile), &stored); readErr != nil {
+		return true, nil //nolint:nilerr // an unreadable manifest is a reason to rebuild, not an error
 	}
-	return true, nil
+	return !reflect.DeepEqual(current, stored), nil
 }
 
 // graphMu serializes builds. Session startup, workflow recall, vault search,
@@ -164,52 +159,24 @@ func CheckUpdate(
 }
 
 // Node is one thing the graph knows: a note, a tag, a code package.
-type Node struct {
-	ID        string   `json:"id"`
-	Label     string   `json:"label"`
-	Kind      string   `json:"kind"`
-	Note      string   `json:"note,omitempty"` // vault-relative note path
-	Summary   string   `json:"summary,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	Aliases   []string `json:"aliases,omitempty"`
-	Community int      `json:"community"`
-}
+type Node = kgknowledge.Node
 
 // Edge is one relation between two nodes.
-type Edge struct {
-	From           string  `json:"from"`
-	To             string  `json:"to"`
-	Relation       string  `json:"relation"`
-	Provenance     string  `json:"provenance"`
-	Confidence     float64 `json:"confidence"`
-	SourceFile     string  `json:"source_file,omitempty"`
-	SourceLocation string  `json:"source_location,omitempty"`
-}
+type Edge = kgknowledge.Edge
 
-// Graph is the vault's knowledge graph.
+// Graph is the vault's knowledge graph: Kartographer's nodes and edges, with
+// the vault's own build record.
 type Graph struct {
+	kgknowledge.Graph
 	Vault        string    `json:"vault"`
 	Built        time.Time `json:"built"`
-	Communities  int       `json:"communities"`
-	Modularity   float64   `json:"modularity"`
 	ExtractModel string    `json:"extract_model,omitempty"`
 	ExtractedAt  time.Time `json:"extracted_at,omitempty"`
-	Nodes        []*Node   `json:"nodes"`
-	Edges        []*Edge   `json:"edges"`
-	Missing      []string  `json:"missing,omitempty"` // wikilink targets with no note
 }
 
 // BuildStats reports what a build read.
 type BuildStats struct {
 	Notes, Changed, CodeFiles, Nodes, Edges, Communities int
-}
-
-func countCommunities(g *Graph) int {
-	seen := map[int]bool{}
-	for _, n := range g.Nodes {
-		seen[n.Community] = true
-	}
-	return len(seen)
 }
 
 // cacheEntry is one parsed file, reused while its hash is unchanged.
@@ -231,36 +198,11 @@ const parserVersion = 3
 
 // builder accumulates a graph's nodes and edges, deduplicated.
 type builder struct {
-	nodes   map[string]*Node
-	edges   map[string]*Edge
+	kg      *kgknowledge.Builder
 	missing map[string]bool
 	cache   buildCache
 	next    *buildCache
 	st      *BuildStats
-}
-
-func (b *builder) add(n *Node) *Node {
-	if existing, ok := b.nodes[n.ID]; ok {
-		return existing
-	}
-	b.nodes[n.ID] = n
-	return n
-}
-
-// link adds an extracted edge. The first extracted evidence wins. An
-// extracted edge replaces an inferred or ambiguous one for the same triple.
-func (b *builder) link(from, to, rel, file, loc string) {
-	if from == to {
-		return
-	}
-	key := from + "\x00" + to + "\x00" + rel
-	if e, ok := b.edges[key]; ok && e.Provenance == ProvExtracted {
-		return
-	}
-	b.edges[key] = &Edge{
-		From: from, To: to, Relation: rel, Provenance: ProvExtracted, Confidence: 1,
-		SourceFile: file, SourceLocation: loc,
-	}
 }
 
 // Build parses the vault (and the Go code behind cards' repo links),
@@ -275,59 +217,53 @@ func Build(ctx context.Context, v Vault, dir string, now time.Time) (*Graph, Bui
 }
 
 func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph, BuildStats, error) {
-	external := filepath.Clean(dir) == filepath.Clean(GraphDir(v.Root))
-	if external {
-		adoptLegacy(v.Root, dir)
-	}
 	var st BuildStats
 	next := buildCache{Version: parserVersion, Files: map[string]cacheEntry{}}
 	b := &builder{
-		nodes: map[string]*Node{}, edges: map[string]*Edge{}, missing: map[string]bool{},
+		kg: kgknowledge.NewBuilder(), missing: map[string]bool{},
 		cache: loadCache(dir), next: &next, st: &st,
 	}
 	notes, err := b.readNotes(v)
 	if err != nil {
 		return nil, st, err
 	}
-	resolve := newResolver(notes)
+	resolve := kgknowledge.NewResolver(noteDocs(notes))
 	for _, n := range notes {
-		b.addNote(n, resolve)
+		for _, m := range b.kg.AddDoc(noteDoc(n), resolve) {
+			b.missing[m] = true
+		}
 	}
-	b.addExtracted(v.Root, dir, notes, resolve)
+	if err = b.addExtracted(v.Root, dir, notes, resolve); err != nil {
+		return nil, st, err
+	}
 	b.addCode(ctx, v)
-	g := &Graph{Vault: v.Root, Built: now.UTC()}
-	for _, n := range b.nodes {
-		g.Nodes = append(g.Nodes, n)
-	}
-	for _, e := range b.edges {
-		g.Edges = append(g.Edges, e)
-	}
+	g := &Graph{Graph: *b.kg.Graph(), Vault: v.Root, Built: now.UTC()}
 	for m := range b.missing {
 		g.Missing = append(g.Missing, m)
 	}
 	sortGraph(g)
 	applyExtractMeta(g, dir)
-	g.Modularity = Communities(g)
-	g.Communities = countCommunities(g)
+	q, err := Communities(g)
+	if err != nil {
+		return nil, st, err
+	}
+	g.Modularity = q
 	st.Nodes, st.Edges, st.Communities = len(g.Nodes), len(g.Edges), g.Communities
-	if innerErr := saveJSON(filepath.Join(dir, cacheFile), next); innerErr != nil {
+	if innerErr := kgstore.WriteJSON(filepath.Join(dir, cacheFile), next); innerErr != nil {
 		return nil, st, innerErr
 	}
-	if innerErr := saveJSON(filepath.Join(dir, graphFile), g); innerErr != nil {
+	if innerErr := kgstore.WriteJSON(filepath.Join(dir, graphFile), g); innerErr != nil {
 		return nil, st, innerErr
 	}
 	manifest, innerErr := CurrentManifest(v)
 	if innerErr != nil {
 		return nil, st, innerErr
 	}
-	if innerErr = saveJSON(filepath.Join(dir, manifestFile), manifest); innerErr != nil {
+	if innerErr = kgstore.WriteJSON(filepath.Join(dir, manifestFile), manifest); innerErr != nil {
 		return nil, st, innerErr
 	}
 	if innerErr = writeReport(g, g.Modularity, dir); innerErr != nil {
 		return nil, st, innerErr
-	}
-	if external {
-		removeLegacy(v.Root)
 	}
 	return g, st, nil
 }
@@ -351,63 +287,16 @@ func (b *builder) readNotes(v Vault) ([]*Note, error) {
 	return notes, nil
 }
 
-// addNote adds a note's node and its link and tag edges.
-func (b *builder) addNote(n *Note, resolve *resolver) {
-	id := noteID(n.Path)
-	kind := KindNote
-	if n.Type != "" {
-		kind = strings.ToLower(n.Type)
-	}
-	b.add(&Node{ID: id, Label: n.Title, Kind: kind, Note: n.Path, Summary: n.Summary, Tags: n.Tags, Aliases: n.Aliases})
-	b.linkWiki(id, n.Path, n.Links, n.LinkLine, RelReferences, resolve)
-	b.linkWiki(id, n.Path, n.MetaLinks, n.MetaLine, RelRelatesTo, resolve)
-	for _, t := range n.MDLinks {
-		if target := resolve.relative(t, n.Path); target != "" {
-			b.link(id, noteID(target), RelReferences, n.Path, lineRef(n.MDLine[t]))
-		}
-	}
-	for _, t := range n.Tags {
-		tag := b.add(&Node{ID: "tag:" + strings.ToLower(t), Label: "#" + t, Kind: KindTag})
-		b.link(id, tag.ID, RelTagged, n.Path, lineRef(n.TagLine[t]))
-	}
-}
-
-func (b *builder) linkWiki(id, from string, targets []string, lines map[string]int, rel string, resolve *resolver) {
-	for _, t := range targets {
-		if target := resolve.wiki(t, from); target != "" {
-			b.link(id, noteID(target), rel, from, lineRef(lines[t]))
-		} else {
-			b.missing[t] = true
-		}
-	}
-}
-
+// sortGraph sorts the missing link targets; the builder sorts nodes and edges.
 func sortGraph(g *Graph) {
-	sort.Slice(g.Nodes, func(i, j int) bool { return g.Nodes[i].ID < g.Nodes[j].ID })
-	sort.Slice(g.Edges, func(i, j int) bool {
-		a, b := g.Edges[i], g.Edges[j]
-		if a.From != b.From {
-			return a.From < b.From
-		}
-		if a.To != b.To {
-			return a.To < b.To
-		}
-		return a.Relation < b.Relation
-	})
 	sort.Strings(g.Missing)
 }
 
-func noteID(p string) string { return "note:" + p }
-
 // Load reads a built graph from dir.
 func Load(dir string) (*Graph, error) {
-	data, err := os.ReadFile(filepath.Join(dir, graphFile))
-	if err != nil {
-		return nil, err
-	}
 	var g Graph
-	if innerErr := json.Unmarshal(data, &g); innerErr != nil {
-		return nil, innerErr
+	if err := kgstore.ReadJSON(filepath.Join(dir, graphFile), &g); err != nil {
+		return nil, err
 	}
 	return &g, nil
 }
@@ -417,85 +306,11 @@ func GraphPath(dir string) string { return filepath.Join(dir, graphFile) }
 
 func loadCache(dir string) buildCache {
 	c := buildCache{Files: map[string]cacheEntry{}}
-	if data, err := os.ReadFile(filepath.Join(dir, cacheFile)); err == nil {
-		_ = json.Unmarshal(data, &c)
-	}
+	_ = kgstore.ReadJSON(filepath.Join(dir, cacheFile), &c)
 	if c.Files == nil || c.Version != parserVersion {
 		c.Files = map[string]cacheEntry{}
 	}
 	return c
-}
-
-// adoptLegacy copies an owned graph out of <vault>/.index when dir has none yet.
-func adoptLegacy(vault, dir string) {
-	if filepath.Clean(dir) == filepath.Clean(LegacyGraphDir(vault)) {
-		return
-	}
-	if _, err := os.Stat(GraphPath(dir)); err == nil {
-		return
-	}
-	old := LegacyGraphDir(vault)
-	if !ownedGraphFile(filepath.Join(old, graphFile)) {
-		return
-	}
-	for _, name := range []string{graphFile, cacheFile, manifestFile, extractFile} {
-		src := filepath.Join(old, name)
-		dst := filepath.Join(dir, name)
-		if _, statErr := os.Stat(dst); statErr == nil {
-			continue
-		}
-		data, err := os.ReadFile(src)
-		if err != nil {
-			continue
-		}
-		if err = os.MkdirAll(dir, dirPerm); err != nil {
-			return
-		}
-		_ = os.WriteFile(dst, data, filePerm)
-	}
-}
-
-// removeLegacy deletes generated files an older build left in the vault,
-// and only when a marker or a kdeps graph.json shows kdeps wrote them.
-func removeLegacy(vault string) {
-	old := LegacyGraphDir(vault)
-	if ownedGraphFile(filepath.Join(old, graphFile)) {
-		for _, name := range []string{graphFile, cacheFile, manifestFile, extractFile} {
-			removeIfExists(filepath.Join(old, name))
-		}
-		removeOwned(filepath.Join(old, reportFile), reportMarker)
-		removeOwned(filepath.Join(old, htmlFile), htmlMarker)
-		_ = os.Remove(old)
-	}
-	removeOwned(ReportPath(vault), reportMarker)
-	removeOwned(HTMLPath(vault), htmlMarker)
-}
-
-func ownedGraphFile(path string) bool {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	var g Graph
-	if json.Unmarshal(data, &g) != nil {
-		return false
-	}
-	return g.Vault != "" || len(g.Nodes) > 0 || len(g.Edges) > 0 || !g.Built.IsZero()
-}
-
-func removeIfExists(path string) {
-	if _, err := os.Stat(path); err == nil {
-		_ = os.Remove(path)
-	}
-}
-
-func removeOwned(path, marker string) {
-	if _, err := os.Stat(path); err != nil {
-		return
-	}
-	if ours(path, marker) {
-		_ = os.Remove(path)
-	}
 }
 
 // applyExtractMeta records the extraction model and the latest success time.
@@ -518,86 +333,23 @@ func applyExtractMeta(g *Graph, dir string) {
 	}
 }
 
-func saveJSON(file string, v any) error {
-	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
-		return err
+// noteDoc is the graph's view of one vault note.
+func noteDoc(n *Note) kgknowledge.Doc {
+	kind := ""
+	if n.Type != "" {
+		kind = strings.ToLower(n.Type)
 	}
-	data, err := json.MarshalIndent(v, "", " ")
-	if err != nil {
-		return err
+	return kgknowledge.Doc{
+		Path: n.Path, Title: n.Title, Kind: kind, Summary: n.Summary, Tags: n.Tags, Aliases: n.Aliases,
+		Links: n.Links, MetaLinks: n.MetaLinks, MDLinks: n.MDLinks,
+		LinkLine: n.LinkLine, MetaLine: n.MetaLine, MDLine: n.MDLine, TagLine: n.TagLine,
 	}
-	tmp := file + ".tmp"
-	if innerErr := os.WriteFile(tmp, data, filePerm); innerErr != nil {
-		return innerErr
-	}
-	return os.Rename(tmp, file)
 }
 
-// resolver finds the note a link names: by vault path, by path suffix, by
-// title, or by alias - the way markdown note apps resolve [[links]].
-type resolver struct {
-	paths   map[string]string   // lower path without .md -> path
-	titles  map[string][]string // lower title or alias -> paths
-	ordered []string
-}
-
-func newResolver(notes []*Note) *resolver {
-	r := &resolver{paths: map[string]string{}, titles: map[string][]string{}}
+func noteDocs(notes []*Note) []kgknowledge.Doc {
+	docs := make([]kgknowledge.Doc, 0, len(notes))
 	for _, n := range notes {
-		key := strings.ToLower(strings.TrimSuffix(n.Path, path.Ext(n.Path)))
-		r.paths[key] = n.Path
-		r.ordered = append(r.ordered, key)
-		r.titles[strings.ToLower(n.Title)] = append(r.titles[strings.ToLower(n.Title)], n.Path)
-		for _, a := range n.Aliases {
-			r.titles[strings.ToLower(a)] = append(r.titles[strings.ToLower(a)], n.Path)
-		}
+		docs = append(docs, noteDoc(n))
 	}
-	return r
-}
-
-// wiki resolves a [[target]] from the note at from. Among several notes
-// with the same title, the one closest to from wins.
-func (r *resolver) wiki(target, from string) string {
-	t := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(target), mdExt))
-	if t == "" {
-		return ""
-	}
-	if p, ok := r.paths[t]; ok {
-		return p
-	}
-	if strings.Contains(t, "/") {
-		for _, k := range r.ordered {
-			if strings.HasSuffix(k, "/"+t) {
-				return r.paths[k]
-			}
-		}
-		t = path.Base(t)
-	}
-	cands := r.titles[t]
-	if len(cands) == 0 {
-		return ""
-	}
-	best, bestShared := cands[0], -1
-	for _, c := range cands {
-		if s := sharedPrefix(path.Dir(c), path.Dir(from)); s > bestShared {
-			best, bestShared = c, s
-		}
-	}
-	return best
-}
-
-// relative resolves a relative .md link from the note at from.
-func (r *resolver) relative(target, from string) string {
-	p := path.Clean(path.Join(path.Dir(from), target))
-	key := strings.ToLower(strings.TrimSuffix(p, path.Ext(p)))
-	return r.paths[key]
-}
-
-func sharedPrefix(a, b string) int {
-	as, bs := strings.Split(a, "/"), strings.Split(b, "/")
-	n := 0
-	for n < len(as) && n < len(bs) && as[n] == bs[n] {
-		n++
-	}
-	return n
+	return docs
 }

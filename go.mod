@@ -5,7 +5,7 @@ go 1.26.10
 tool golang.org/x/vuln/cmd/govulncheck
 
 require (
-	charm.land/bubbletea/v2 v2.1.0
+	charm.land/bubbletea/v2 v2.1.1
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/IBM/watsonx-go v1.0.2
@@ -23,7 +23,7 @@ require (
 	github.com/go-telegram/bot v1.27.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/kdeps/kartographer v0.3.1-0.20261102163341-e580f4849dfd
+	github.com/kdeps/kartographer v0.3.1-0.20261103000421-e3efcc8bb0f5
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
@@ -36,7 +36,7 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.9.1
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/sijms/go-ora/v2 v2.9.0
-	github.com/slack-go/slack v0.30.1
+	github.com/slack-go/slack v0.33.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/fileflow v0.2.0

@@ -27,9 +27,12 @@ import (
 	"testing"
 	"time"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kartographer/codegraph"
 	kword "github.com/kdeps/kartographer/text"
 )
 
@@ -122,20 +125,20 @@ func TestBuild_GraphAndCache(t *testing.T) {
 }
 
 func TestResolver(t *testing.T) {
-	r := newResolver([]*Note{
+	r := kgknowledge.NewResolver(noteDocs([]*Note{
 		{Path: "A/Note.md", Title: "Note"},
 		{Path: "B/C/Note.md", Title: "Note", Aliases: []string{"alias"}},
 		{Path: "B/Other.md", Title: "Other"},
-	})
-	assert.Equal(t, "A/Note.md", r.wiki("A/Note", "x.md"))
-	assert.Equal(t, "B/C/Note.md", r.wiki("C/Note.md", "x.md"), "path suffix")
-	assert.Equal(t, "B/C/Note.md", r.wiki("Note", "B/C/x.md"), "closest")
-	assert.Equal(t, "B/C/Note.md", r.wiki("Alias", "x.md"))
-	assert.Equal(t, "B/Other.md", r.wiki("Z/Other", "x.md"), "unknown folder falls back to the title")
-	assert.Empty(t, r.wiki("", "x.md"))
-	assert.Empty(t, r.wiki("Missing", "x.md"))
-	assert.Equal(t, "B/Other.md", r.relative("../Other.md", "B/C/x.md"))
-	assert.Empty(t, r.relative("nope.md", "x.md"))
+	}))
+	assert.Equal(t, "A/Note.md", r.Wiki("A/Note", "x.md"))
+	assert.Equal(t, "B/C/Note.md", r.Wiki("C/Note.md", "x.md"), "path suffix")
+	assert.Equal(t, "B/C/Note.md", r.Wiki("Note", "B/C/x.md"), "closest")
+	assert.Equal(t, "B/C/Note.md", r.Wiki("Alias", "x.md"))
+	assert.Equal(t, "B/Other.md", r.Wiki("Z/Other", "x.md"), "unknown folder falls back to the title")
+	assert.Empty(t, r.Wiki("", "x.md"))
+	assert.Empty(t, r.Wiki("Missing", "x.md"))
+	assert.Equal(t, "B/Other.md", r.Relative("../Other.md", "B/C/x.md"))
+	assert.Empty(t, r.Relative("nope.md", "x.md"))
 }
 
 func TestRecall(t *testing.T) {
@@ -171,7 +174,7 @@ func TestRecall(t *testing.T) {
 }
 
 func TestRecall_ClampsHopsToTwo(t *testing.T) {
-	g := &Graph{
+	g := &Graph{Graph: kgknowledge.Graph{
 		Nodes: []*Node{
 			{ID: "a", Label: "alpha", Note: "a.md"},
 			{ID: "b", Label: "bravo", Note: "b.md"},
@@ -183,7 +186,7 @@ func TestRecall_ClampsHopsToTwo(t *testing.T) {
 			{From: "b", To: "c", Provenance: ProvExtracted, Confidence: 1},
 			{From: "c", To: "d", Provenance: ProvExtracted, Confidence: 1},
 		},
-	}
+	}}
 
 	r := NewIndex(g).Recall("alpha", 3, 1000)
 	var notes []string
@@ -197,30 +200,19 @@ func TestRecall_ClampsHopsToTwo(t *testing.T) {
 func TestRecall_EdgeWeights(t *testing.T) {
 	assert.InDelta(t, 1.0, edgeWeight(&Edge{Provenance: ProvExtracted}), 1e-9)
 	assert.InDelta(t, 0.4, edgeWeight(&Edge{Provenance: ProvInferred, Confidence: 0.4}), 1e-9)
-	assert.InDelta(t, ambiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
-	assert.InDelta(t, ambiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
-	assert.InDelta(t, tagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
+	assert.InDelta(t, policy().AmbiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
+	assert.InDelta(t, policy().AmbiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
+	assert.InDelta(t, policy().TagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
 	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "frontmatter")
 	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "recall")
 }
 
 func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
 	v, repo := sampleVault(t)
-	legacy := LegacyGraphDir(v.Root)
-	require.NoError(t, os.MkdirAll(legacy, 0o750))
-	_, _, err := Build(t.Context(), v, legacy, buildNow())
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(legacy, "keep.txt"), []byte("keep"), 0o600))
-	require.NoError(t, os.WriteFile(ReportPath(v.Root), []byte("# Knowledge graph report\nold\n"), 0o600))
-
 	dir := GraphDir(v.Root)
 	g, _, err := Build(t.Context(), v, dir, buildNow())
 	require.NoError(t, err)
 	assert.FileExists(t, GraphPath(dir))
-	assert.NoFileExists(t, filepath.Join(legacy, "graph.json"))
-	assert.FileExists(t, filepath.Join(legacy, "keep.txt"))
-	assert.NoFileExists(t, ReportPath(v.Root))
-	assert.NoFileExists(t, HTMLPath(v.Root))
 
 	var billing *Edge
 	for _, e := range g.Edges {
@@ -240,18 +232,23 @@ func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
 	text := Explain(g, "Stripe gotcha")
 	assert.Contains(t, text, "Billing decision.md:L5")
 
-	b := &builder{edges: map[string]*Edge{}}
+	b := &builder{kg: kgknowledge.NewBuilder()}
+	onlyEdge := func() *Edge {
+		edges := b.kg.Graph().Edges
+		if len(edges) != 1 {
+			t.Fatalf("want one edge, have %d", len(edges))
+		}
+		return edges[0]
+	}
 	b.inferred("a", "b", RelRelatesTo, 0.4, "low.md", "L1")
 	b.inferred("a", "b", RelRelatesTo, 0.8, "high.md", "L9")
-	got := b.edges["a\x00b\x00"+RelRelatesTo]
-	assert.Equal(t, "high.md", got.SourceFile)
-	assert.Equal(t, "L9", got.SourceLocation)
-	b.link("a", "b", RelRelatesTo, "note.md", "L2")
-	got = b.edges["a\x00b\x00"+RelRelatesTo]
-	assert.Equal(t, ProvExtracted, got.Provenance)
-	assert.Equal(t, "note.md", got.SourceFile)
-	b.link("a", "b", RelRelatesTo, "later.md", "L3")
-	assert.Equal(t, "note.md", b.edges["a\x00b\x00"+RelRelatesTo].SourceFile)
+	assert.Equal(t, "high.md", onlyEdge().SourceFile)
+	assert.Equal(t, "L9", onlyEdge().SourceLocation)
+	b.kg.Link("a", "b", RelRelatesTo, "note.md", "L2")
+	assert.Equal(t, ProvExtracted, onlyEdge().Provenance)
+	assert.Equal(t, "note.md", onlyEdge().SourceFile)
+	b.kg.Link("a", "b", RelRelatesTo, "later.md", "L3")
+	assert.Equal(t, "note.md", onlyEdge().SourceFile)
 }
 
 func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
@@ -269,8 +266,12 @@ func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
 		SourceFile: "mid.md", SourceLocation: "L3"}
 	direct := &Edge{From: "seed", To: "weak", Relation: RelRelatesTo, Provenance: ProvAmbiguous, Confidence: 0.1,
 		SourceFile: "seed.md", SourceLocation: "L9"}
-	r1 := NewIndex(&Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}).Recall("billing", 2, 5000)
-	r2 := NewIndex(&Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}).Recall("billing", 2, 5000)
+	r1 := NewIndex(
+		&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{weak, direct, a, b}}},
+	).Recall("billing", 2, 5000)
+	r2 := NewIndex(
+		&Graph{Graph: kgknowledge.Graph{Nodes: nodes, Edges: []*Edge{b, a, direct, weak}}},
+	).Recall("billing", 2, 5000)
 	assert.Equal(t, r1.Hits, r2.Hits)
 	var target Hit
 	for _, h := range r1.Hits {
@@ -443,7 +444,7 @@ func TestEnsureProject(t *testing.T) {
 	assert.Equal(t, "project", c.Type)
 	assert.Equal(t, "active", c.Status)
 	assert.Equal(t, "(none)", c.Next)
-	assert.Equal(t, []Link{{SourceFolder, plain}}, c.Links)
+	assert.Equal(t, []Link{{Layout().Sources.Folder, plain}}, c.Links)
 	findings, err := Check(v)
 	require.NoError(t, err)
 	assert.Empty(t, findings, "a created project passes the check")
@@ -459,7 +460,7 @@ func TestEnsureProject(t *testing.T) {
 	r, _, err := v.EnsureProject(filepath.Join(repo, "cmd", "x"), buildNow())
 	require.NoError(t, err)
 	assert.Equal(t, "svc", r.Name, "a git repository is named by its root")
-	assert.Equal(t, []Link{{SourceRepo, repo}}, r.Links)
+	assert.Equal(t, []Link{{Layout().Sources.Repo, repo}}, r.Links)
 
 	other := filepath.Join(t.TempDir(), "elsewhere", "svc")
 	require.NoError(t, os.MkdirAll(other, 0o750))
@@ -468,7 +469,7 @@ func TestEnsureProject(t *testing.T) {
 	assert.True(t, created)
 	assert.Equal(t, "elsewhere-svc", o.Name, "a taken name gets the parent folder in front")
 
-	require.NoError(t, v.SetStatus(r, StatusArchived, "", buildNow()))
+	require.NoError(t, v.SetStatus(r, Layout().Card.Archived, "", buildNow()))
 	assert.True(t, r.Archived())
 	assert.Equal(t, filepath.Join(v.Root, "archive", "svc", "svc.md"), r.File)
 	assert.NoDirExists(t, filepath.Join(v.Root, "projects", "svc"))
@@ -493,7 +494,7 @@ func TestEnsureProject(t *testing.T) {
 func TestAppendRun(t *testing.T) {
 	v := Vault{Root: t.TempDir()}
 	wf := t.TempDir()
-	card, _, err := v.CreateProject("invoices", SourceWorkflow, wf, buildNow())
+	card, _, err := v.CreateProject("invoices", Layout().Sources.Workflow, wf, buildNow())
 	require.NoError(t, err)
 	file, err := AppendRun(card, "summarize\nthe doc", "a summary", buildNow())
 	require.NoError(t, err)
@@ -537,19 +538,18 @@ func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
 		require.NoError(t, os.WriteFile(abs, []byte(c), 0o600))
 	}
 	require.NoError(t, exec.Command("git", "-C", repo, "init", "-q").Run())
-	files := gitGoFiles(t.Context(), repo)
+	files, err := codegraph.GoFiles(t.Context(), repo)
+	require.NoError(t, err)
 	var rel []string
 	for _, f := range files {
 		r, _ := filepath.Rel(repo, f)
 		rel = append(rel, filepath.ToSlash(r))
 	}
 	assert.ElementsMatch(t, []string{"main.go", "lib/lib.go"}, rel, "ignored and vendored files are skipped")
-	assert.Empty(t, gitGoFiles(t.Context(), t.TempDir()), "not a git work tree, or ignored by an enclosing one")
-	assert.Len(t, walkGoFiles(repo), 3, "without git: everything outside vendor")
 }
 
 func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
-	g := &Graph{Nodes: []*Node{
+	g := &Graph{Graph: kgknowledge.Graph{Nodes: []*Node{
 		{
 			ID: "note:projects/app/sessions/s1.md", Label: "why do we bill monthly",
 			Kind: "session", Note: "projects/app/sessions/s1.md",
@@ -562,7 +562,7 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 			ID: "note:projects/app/decisions/Billing decision.md", Label: "Billing decision",
 			Kind: "decision", Note: "projects/app/decisions/Billing decision.md", Summary: "Bill monthly, not per call",
 		},
-	}}
+	}}}
 	ix := NewIndex(g)
 	r := ix.Recall("why do we bill monthly", 1, 0)
 	var notes []string
@@ -592,7 +592,7 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 	for in, want := range map[string]string{
 		"billing": "bill", "invoices": "invoice", "deployed": "deploy", "bus": "bus", "process": "process", "notes": "note",
 	} {
-		assert.Equal(t, want, kword.Stem(in, recallRules.MinStemLength), in)
+		assert.Equal(t, want, kword.Stem(in, recallRules().MinStemLength), in)
 	}
 }
 
@@ -626,7 +626,7 @@ func TestCopyTree(t *testing.T) {
 func TestFullPathLinksAndCardRows(t *testing.T) {
 	v := Vault{Root: t.TempDir()}
 	place := t.TempDir()
-	card, _, err := v.CreateProject("svc", SourceFolder, place, buildNow())
+	card, _, err := v.CreateProject("svc", Layout().Sources.Folder, place, buildNow())
 	require.NoError(t, err)
 	assert.Equal(t, "[[projects/svc/svc]]", card.SelfLink())
 	assert.Equal(t, v.Root, card.VaultRoot())
@@ -634,9 +634,9 @@ func TestFullPathLinksAndCardRows(t *testing.T) {
 	assert.Equal(t, "[[y]]", WikiLink(v.Root, filepath.Join(t.TempDir(), "y.md")), "outside the vault: the title")
 	assert.Equal(t, []string{place}, card.Places())
 
-	require.NoError(t, card.AddLink(SourceIndex, "/data/index.db"))
-	require.NoError(t, card.AddLink(SourceIndex, "/data/index.db"), "a row is added once")
-	assert.Equal(t, []Link{{SourceFolder, place}, {SourceIndex, "/data/index.db"}}, card.Links)
+	require.NoError(t, card.AddLink(Layout().Sources.Index, "/data/index.db"))
+	require.NoError(t, card.AddLink(Layout().Sources.Index, "/data/index.db"), "a row is added once")
+	assert.Equal(t, []Link{{Layout().Sources.Folder, place}, {Layout().Sources.Index, "/data/index.db"}}, card.Links)
 	assert.Equal(t, []string{place}, card.Places(), "an index row is not a place")
 	findings, err := Check(v)
 	require.NoError(t, err)
@@ -647,14 +647,14 @@ func TestFullPathLinksAndCardRows(t *testing.T) {
 	require.NoError(t, os.WriteFile(bare, []byte("---\ntype: project\n---\n"), 0o600))
 	b, err := ReadCard(bare)
 	require.NoError(t, err)
-	require.NoError(t, b.AddLink(SourceRepo, "/r"))
-	assert.Equal(t, []Link{{SourceRepo, "/r"}}, b.Links, "a card without a table gets one")
+	require.NoError(t, b.AddLink(Layout().Sources.Repo, "/r"))
+	assert.Equal(t, []Link{{Layout().Sources.Repo, "/r"}}, b.Links, "a card without a table gets one")
 
-	r := newResolver([]*Note{{Path: "archive/svc/svc.md", Title: "svc"}})
+	r := kgknowledge.NewResolver(noteDocs([]*Note{{Path: "archive/svc/svc.md", Title: "svc"}}))
 	assert.Equal(
 		t,
 		"archive/svc/svc.md",
-		r.wiki("projects/svc/svc", "x.md"),
+		r.Wiki("projects/svc/svc", "x.md"),
 		"a moved project's links resolve by title",
 	)
 }

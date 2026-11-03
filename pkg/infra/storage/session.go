@@ -127,6 +127,7 @@ type SessionStorage struct {
 	SessionID       string
 	DefaultTTL      time.Duration
 	cleanupInterval time.Duration
+	clock           func() time.Time // source of "now" for every expiry check
 	ctx             context.Context
 	stopCh          chan struct{}
 }

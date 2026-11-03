@@ -26,12 +26,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	kgsearch "github.com/kdeps/kartographer/search"
+
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kartographer/graph"
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/index"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
@@ -68,10 +70,10 @@ func TestBoostByGraph_ReordersConnectedResults(t *testing.T) {
 
 	cfg := &domain.SearchLocalConfig{Path: dir}
 
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: hubPath}, Score: 10.0, MatchCount: 2},
-		{Document: &index.Document{Path: unrelatedPath}, Score: 1.0, MatchCount: 1},
-		{Document: &index.Document{Path: linkedPath}, Score: 0.9, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: hubPath}, Score: 10.0, MatchCount: 2},
+		{Document: &kgsearch.Document{Path: unrelatedPath}, Score: 1.0, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: linkedPath}, Score: 0.9, MatchCount: 1},
 	}
 
 	boosted := boostByGraph(t.Context(), cfg, results)
@@ -113,8 +115,8 @@ func TestBoostByGraph_MkdirErrorLeavesResultsUnchanged(t *testing.T) {
 	}
 
 	cfg := &domain.SearchLocalConfig{Path: blocker}
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: "/a"}, Score: 1.0, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: "/a"}, Score: 1.0, MatchCount: 1},
 	}
 
 	got := boostByGraph(t.Context(), cfg, results)
@@ -136,8 +138,8 @@ func TestBoostByGraph_NewIndexedGraphErrorLeavesResultsUnchanged(t *testing.T) {
 	}
 
 	cfg := &domain.SearchLocalConfig{Path: dir}
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: "/a"}, Score: 1.0, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: "/a"}, Score: 1.0, MatchCount: 1},
 	}
 
 	got := boostByGraph(t.Context(), cfg, results)
@@ -157,8 +159,8 @@ func TestBoostByGraph_IndexFolderErrorLeavesResultsUnchanged(t *testing.T) {
 	defer func() { AppFS = origFS }()
 
 	cfg := &domain.SearchLocalConfig{Path: dir}
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: "/a"}, Score: 1.0, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: "/a"}, Score: 1.0, MatchCount: 1},
 	}
 
 	got := boostByGraph(t.Context(), cfg, results)
@@ -188,8 +190,8 @@ func TestGraphConnectedSet_GraphFileErrorSkipsSeed(t *testing.T) {
 		t.Fatalf("Close: %v", closeErr)
 	}
 
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: filepath.Join(dir, "a.md")}, Score: 1.0, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: filepath.Join(dir, "a.md")}, Score: 1.0, MatchCount: 1},
 	}
 	connected := graphConnectedSet(ig, results)
 	if len(connected) != 0 {
@@ -214,10 +216,10 @@ func TestBoostByGraph_TopicBoost(t *testing.T) {
 	}
 
 	cfg := &domain.SearchLocalConfig{Path: dir}
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: seedPath}, Score: 10.0, MatchCount: 2},
-		{Document: &index.Document{Path: unrelatedPath}, Score: 1.0, MatchCount: 1},
-		{Document: &index.Document{Path: sharedPath}, Score: 0.9, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: seedPath}, Score: 10.0, MatchCount: 2},
+		{Document: &kgsearch.Document{Path: unrelatedPath}, Score: 1.0, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: sharedPath}, Score: 0.9, MatchCount: 1},
 	}
 
 	boosted := boostByGraph(t.Context(), cfg, results)
@@ -242,29 +244,31 @@ func TestBoostByGraph_VaultGraphWeightsAndSkipsKartographer(t *testing.T) {
 
 	g := knowledge.Graph{
 		Vault: vault,
-		Nodes: []*knowledge.Node{
-			{ID: "note:hub.md", Kind: "note", Note: "hub.md"},
-			{ID: "note:extracted.md", Kind: "note", Note: "extracted.md"},
-			{ID: "note:inferred.md", Kind: "note", Note: "inferred.md"},
-			{ID: "note:tagged.md", Kind: "note", Note: "tagged.md"},
-			{ID: "tag:billing", Kind: "tag", Label: "#billing"},
-		},
-		Edges: []*knowledge.Edge{
-			{
-				From: "note:hub.md", To: "note:extracted.md", Relation: "references",
-				Provenance: "extracted", Confidence: 1,
+		Graph: kgknowledge.Graph{
+			Nodes: []*knowledge.Node{
+				{ID: "note:hub.md", Kind: "note", Note: "hub.md"},
+				{ID: "note:extracted.md", Kind: "note", Note: "extracted.md"},
+				{ID: "note:inferred.md", Kind: "note", Note: "inferred.md"},
+				{ID: "note:tagged.md", Kind: "note", Note: "tagged.md"},
+				{ID: "tag:billing", Kind: "tag", Label: "#billing"},
 			},
-			{
-				From: "note:hub.md", To: "note:inferred.md", Relation: "mentions",
-				Provenance: "inferred", Confidence: 0.4,
-			},
-			{
-				From: "note:hub.md", To: "tag:billing", Relation: "tagged",
-				Provenance: "extracted", Confidence: 1,
-			},
-			{
-				From: "note:tagged.md", To: "tag:billing", Relation: "tagged",
-				Provenance: "extracted", Confidence: 1,
+			Edges: []*knowledge.Edge{
+				{
+					From: "note:hub.md", To: "note:extracted.md", Relation: "references",
+					Provenance: "extracted", Confidence: 1,
+				},
+				{
+					From: "note:hub.md", To: "note:inferred.md", Relation: "mentions",
+					Provenance: "inferred", Confidence: 0.4,
+				},
+				{
+					From: "note:hub.md", To: "tag:billing", Relation: "tagged",
+					Provenance: "extracted", Confidence: 1,
+				},
+				{
+					From: "note:tagged.md", To: "tag:billing", Relation: "tagged",
+					Provenance: "extracted", Confidence: 1,
+				},
 			},
 		},
 	}
@@ -285,12 +289,12 @@ func TestBoostByGraph_VaultGraphWeightsAndSkipsKartographer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: hub}, Score: 10, MatchCount: 2},
-		{Document: &index.Document{Path: unrelated}, Score: 1, MatchCount: 1},
-		{Document: &index.Document{Path: extracted}, Score: 0.95, MatchCount: 1},
-		{Document: &index.Document{Path: inferred}, Score: 0.9, MatchCount: 1},
-		{Document: &index.Document{Path: tagged}, Score: 0.8, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: hub}, Score: 10, MatchCount: 2},
+		{Document: &kgsearch.Document{Path: unrelated}, Score: 1, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: extracted}, Score: 0.95, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: inferred}, Score: 0.9, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: tagged}, Score: 0.8, MatchCount: 1},
 	}
 	boosted := boostByGraph(t.Context(), &domain.SearchLocalConfig{Path: vault}, results)
 	if _, statErr := os.Stat(graphDBPath(vault)); !os.IsNotExist(statErr) {
@@ -339,9 +343,9 @@ func TestBoostByGraph_VaultGraphBuiltOnSearch(t *testing.T) {
 		t.Fatalf("graph must not exist before the search, stat err=%v", err)
 	}
 
-	results := []index.SearchResult{
-		{Document: &index.Document{Path: hub}, Score: 10, MatchCount: 2},
-		{Document: &index.Document{Path: extracted}, Score: 0.95, MatchCount: 1},
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: hub}, Score: 10, MatchCount: 2},
+		{Document: &kgsearch.Document{Path: extracted}, Score: 0.95, MatchCount: 1},
 	}
 	boosted := boostByGraph(t.Context(), &domain.SearchLocalConfig{Path: vault}, results)
 	if _, statErr := os.Stat(graphDBPath(vault)); !os.IsNotExist(statErr) {

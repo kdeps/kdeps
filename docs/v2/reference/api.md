@@ -36,14 +36,14 @@ Users override a set by name under `~/.kdeps/` (see the agent reference). The lo
 
 ## Knowledge and code graph rules
 
-Two more asset sets hold business rules for the graph features. Each is one YAML file, and each is read once at start.
+Two more asset sets hold business rules for the graph features. Each file is read once, the first time it is needed.
 
 | Set | Read by | What it configures |
 |---|---|---|
-| `knowledge/` | `pkg/knowledge/recall.go` | The word lengths and stopwords a knowledge-graph recall query is matched on |
+| `knowledge/` | `pkg/knowledge/` | `recall.yaml`: the word lengths and stopwords a recall query is matched on, and the task words left out when kdeps decides whether a request continues the conversation thread. `policy.yaml`: the graph's limits, thresholds and recall weights. `vault.yaml`: the vault's folder names, a project card's front matter keys, the front matter keys read from every note (summary, tags, aliases, links, canonical id) and a card's link kinds. `check.yaml`: which notes `kdeps knowledge check` requires a summary of, and the wording of each finding. `notes.yaml`: the templates of the notes kdeps writes (card, session, decision, workflow run log) and the compaction summary sections that fill them. `extract.yaml`: the entity kinds and relations a model's extraction may name, the fallback for others, the notes never sent and the header the model reads. `search.yaml`: how the local search indexes split files and queries into terms (minimum length, stopwords, stem suffixes); rebuild an index after changing it |
 | `codegraph/` | `pkg/codegraph/codegraph.go` | The code graph's ranking weights, stopwords, result limits and path bounds, handed to Kartographer |
 
-If a set's file is missing or broken, the knowledge recall keeps every word and prints a warning. The code graph reports that it has no rules until the file loads.
+If a set's file is missing or broken, the knowledge recall keeps every word and prints a warning. Install rejects a `vault.yaml` that leaves any name empty, so a broken override never replaces a working one. The code graph reports that it has no rules until the file loads.
 ## Traceability: API to component to YAML
 
 Every YAML file that runs reaches the kdeps API. A workflow reaches a tool through a component, a slash command reaches the REPL through the commands group, and a loop data set is read directly by the agent loop:
@@ -216,6 +216,8 @@ The routes are published by the agent loop (`kdeps`, the desktop app). A `kdeps 
 ## Other calls
 
 `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `session_ops` (which also runs the agent-session tools `identity_get`, `judge_verdict`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `knowledge_recall`, `load_skill` and `session_handshake`), `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the asset-declared tools use the same call route. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
+
+The code-graph tools are the `code_` tools in the agent's tool list: `code_find_symbol`, `code_callers`, `code_callees`, `code_impact`, `code_tests_for`, `code_rank_files`, `code_query`, `code_file_neighbors`, `code_node`, `code_trace`, `code_shortest_path`, `code_expand`, `code_find_seeds`, `code_search`, `code_render_subgraph`, `code_references`, `code_imports_exports` and `code_stats`. They run on the working directory, and the index is built the first time one is called. Their names are listed in the `codegraph` asset set (`tools.yaml`); each is the Kartographer tool of the same name, with the `code_` prefix.
 
 An asset-declared tool (`calculator`, `clipboard_copy`, `cohere_rerank`, `edit_file`, `exa_search`, `file_ops`, `git_ops`, `google_cache_create`, `google_cache_delete`, `google_cache_list`, `hf_repo_files`, `hf_search`, `jina_rerank`, `list_files`, `md5_file`, `ocr_image`, `retrieve_context`, `sql_describe_table`, `sql_list_tables`, `sql_query`, `tail_file`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `web_scraper`, `web_search`, `wikipedia`, `wolfram_alpha`, `zapier_list_actions`, `zapier_run_action`) keeps its `http:`, `exec:` or `python:` block in its tool asset; the handler runs that block. The tool stays on this list when its API key is unset. A call then returns `<tool>: required environment variables are not set`. The agent registers it for the model only when the environment resolves. `ocr_image` takes `file` and `language`, and `transcribe_audio_offline` takes `file`, `language`, and `modelPath`; both run a local program, so a missing `tesseract` or `whisper-cli` is a `400`.
 

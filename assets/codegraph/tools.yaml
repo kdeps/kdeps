@@ -1,0 +1,23 @@
+version: 1.0.0
+# The code-graph tools the agent is offered. Each name is a Kartographer tool,
+# exposed as code_<name>. Memory, workspace and web tools are not listed: kdeps
+# has its own for those.
+tools:
+  - find_symbol
+  - callers
+  - callees
+  - impact
+  - tests_for
+  - rank_files
+  - query
+  - file_neighbors
+  - node
+  - trace
+  - shortest_path
+  - expand
+  - find_seeds
+  - search
+  - render_subgraph
+  - references
+  - imports_exports
+  - stats

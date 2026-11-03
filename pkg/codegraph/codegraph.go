@@ -37,7 +37,7 @@ func init() {
 			var v map[string]any
 			return yaml.Unmarshal(data, &v)
 		},
-		Required: []string{rulesItem},
+		Required: []string{rulesItem, toolsItem},
 	})
 	if err := Configure(); err != nil {
 		fmt.Fprintf(os.Stderr, "codegraph: rules: %v\n", err)

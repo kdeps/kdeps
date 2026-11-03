@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -65,7 +67,8 @@ func cliques() *Graph {
 
 func TestCommunities(t *testing.T) {
 	g := cliques()
-	q := Communities(g)
+	q, err := Communities(g)
+	require.NoError(t, err)
 	by := map[string]int{}
 	for _, n := range g.Nodes {
 		by[n.ID] = n.Community
@@ -81,20 +84,26 @@ func TestCommunities(t *testing.T) {
 	assert.Greater(t, q, 0.3)
 
 	again := cliques()
-	Communities(again)
+	_, err = Communities(again)
+	require.NoError(t, err)
 	for i, n := range again.Nodes {
 		assert.Equal(t, g.Nodes[i].Community, n.Community, "deterministic")
 	}
 
-	assert.Zero(t, Communities(&Graph{}))
-	solo := &Graph{Nodes: []*Node{{ID: "x"}, {ID: "y"}}}
-	assert.Zero(t, Communities(solo), "no edges, no modularity")
+	empty, err := Communities(&Graph{})
+	require.NoError(t, err)
+	assert.Zero(t, empty)
+	solo := &Graph{Graph: kgknowledge.Graph{Nodes: []*Node{{ID: "x"}, {ID: "y"}}}}
+	soloQ, err := Communities(solo)
+	require.NoError(t, err)
+	assert.Zero(t, soloQ, "no edges, no modularity")
 	assert.NotEqual(t, solo.Nodes[0].Community, solo.Nodes[1].Community)
 }
 
 func TestReport(t *testing.T) {
 	g := cliques()
-	q := Communities(g)
+	q, err := Communities(g)
+	require.NoError(t, err)
 	g.Missing = []string{"Gone"}
 	r := NewReport(g, q)
 	assert.Equal(t, 11, r.Notes)
@@ -108,13 +117,13 @@ func TestReport(t *testing.T) {
 	assert.Equal(t, 5, min(r.Surprising[0].FromSize, r.Surprising[0].ToSize))
 	assert.Len(t, r.Groups, 2, "single-node communities are left out")
 
-	md := r.Markdown("/v")
+	md := ReportMarkdown(r, "/v")
 	for _, want := range []string{"# Knowledge graph report", "| 11 |", "## God nodes", "[[a/0]]", "## Communities",
 		"**Community 0**", "## Surprising connections", "-[relates_to, inferred]->", "[[Gone]]"} {
 		assert.Contains(t, md, want)
 	}
 
-	empty := NewReport(&Graph{}, 0).Markdown("/v")
+	empty := ReportMarkdown(NewReport(&Graph{}, 0), "/v")
 	assert.Contains(
 		t,
 		empty,
@@ -150,7 +159,7 @@ func TestBuild_WritesReportAndExplorer(t *testing.T) {
 }
 
 func TestWriteReport_InstallsTheTemplateOnFirstUse(t *testing.T) {
-	g := &Graph{Vault: "/v", Nodes: []*Node{{ID: "a", Label: "a"}}}
+	g := &Graph{Vault: "/v", Graph: kgknowledge.Graph{Nodes: []*Node{{ID: "a", Label: "a"}}}}
 	dir := t.TempDir()
 	t.Setenv(assets.SourceEnv, t.TempDir()) // a release binary: nothing local
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
