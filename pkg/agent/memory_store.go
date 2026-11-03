@@ -520,13 +520,16 @@ func (m *MemoryStore) GetReverseRelated(key string) []MemoryEntry {
 		return nil
 	}
 
+	deps := make(map[string][]string, len(m.entries))
+	for k, e := range m.entries {
+		deps[k] = e.References
+	}
 	var results []MemoryEntry
-	for _, entry := range m.entries {
-		for _, ref := range entry.References {
-			if ref == key {
-				results = append(results, entry)
-				break
-			}
+	seen := map[string]bool{}
+	for _, k := range newDepGraph(deps).Reverse(key) {
+		if !seen[k] { // an entry that names key twice is listed once
+			seen[k] = true
+			results = append(results, m.entries[k])
 		}
 	}
 	return results
@@ -624,15 +627,14 @@ func capCheckpointEntries(entries []MemoryEntry, maxCheckpoints int) []MemoryEnt
 // References field holds its parent keys (see ancestryChain), so a leaf is
 // any key that never appears in another entry's References.
 func leafKeys(entries []MemoryEntry) map[string]bool {
-	referenced := make(map[string]bool, len(entries))
+	deps := make(map[string][]string, len(entries))
 	for _, e := range entries {
-		for _, p := range e.References {
-			referenced[p] = true
-		}
+		deps[e.Key] = e.References
 	}
+	dependents := newDepGraph(deps).InvertDependencies()
 	leaves := make(map[string]bool, len(entries))
 	for _, e := range entries {
-		if !referenced[e.Key] {
+		if len(dependents[e.Key]) == 0 {
 			leaves[e.Key] = true
 		}
 	}
