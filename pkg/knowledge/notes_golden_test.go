@@ -105,6 +105,7 @@ func TestNotesGolden_RecallBlock(t *testing.T) {
 		{Note: "shared/Pricing.md", Via: "Billing"},
 		{Note: "shared/Plain.md"},
 	}}
-	golden(t, "recall_block", FormatRecall(r, "/vault"))
+	// The vault path is joined with the OS separator; compare in slash form.
+	golden(t, "recall_block", filepath.ToSlash(FormatRecall(r, "/vault")))
 	assert.Empty(t, FormatRecall(Recall{}, "/vault"), "no hits, no block")
 }
