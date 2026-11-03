@@ -157,7 +157,7 @@ func TestRecall(t *testing.T) {
 	assert.Contains(t, notes, "shared/Stripe gotcha.md", "a linked gotcha comes along")
 	assert.Positive(t, r.Tokens)
 
-	text := r.Format(v.Root)
+	text := FormatRecall(r, v.Root)
 	assert.True(t, strings.HasPrefix(text, "<knowledge-recall>"))
 	assert.Contains(t, text, filepath.Join(v.Root, "projects", "app", "decisions", "Billing decision.md"))
 	assert.Contains(t, text, "Bill monthly, not per call.")
@@ -168,7 +168,7 @@ func TestRecall(t *testing.T) {
 
 	none := ix.Recall("the and for", 2, 100)
 	assert.Empty(t, none.Hits)
-	assert.Empty(t, none.Format(v.Root))
+	assert.Empty(t, FormatRecall(none, v.Root))
 
 	assert.NotEmpty(t, ix.Recall("tiers", 1, 100).Hits, "aliases match")
 }
@@ -284,7 +284,7 @@ func TestRecall_BestPathIgnoresEdgeOrder(t *testing.T) {
 	assert.Equal(t, "rationale_for", target.Path[1].Relation)
 	assert.Equal(t, "seed.md", target.Path[0].SourceFile)
 	assert.Equal(t, "L2", target.Path[0].SourceLocation)
-	assert.Contains(t, r1.Format("/v"), "seed --references--> mid --rationale_for--> target")
+	assert.Contains(t, FormatRecall(r1, "/v"), "seed --references--> mid --rationale_for--> target")
 	var one Hit
 	for _, h := range r1.Hits {
 		if h.Note == "weak.md" {
@@ -587,8 +587,8 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 		assert.NotEqual(t, "projects/app/sessions/s1.md", h.Note, "excluded notes are never recalled")
 	}
 	assert.InDelta(t, 1.0, sourceWeight(&Node{Kind: "decision", Note: "x.md"}), 1e-9)
-	assert.InDelta(t, sessionNoteWeight, sourceWeight(&Node{Kind: "session"}), 1e-9)
-	assert.InDelta(t, memoryNoteWeight, sourceWeight(&Node{Note: "projects/app/memory/x.md"}), 1e-9)
+	assert.InDelta(t, policy().SessionNoteWeight, sourceWeight(&Node{Kind: "session"}), 1e-9)
+	assert.InDelta(t, policy().MemoryNoteWeight, sourceWeight(&Node{Note: "projects/app/memory/x.md"}), 1e-9)
 	for in, want := range map[string]string{
 		"billing": "bill", "invoices": "invoice", "deployed": "deploy", "bus": "bus", "process": "process", "notes": "note",
 	} {

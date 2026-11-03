@@ -56,7 +56,7 @@ func knowledgeRecall(ctx context.Context, cfg *domain.ChatConfig, prompt string)
 	if ix == nil {
 		return ""
 	}
-	return ix.Recall(prompt, kc.Recall.Hops, kc.Recall.BudgetTokens).Format(vault)
+	return knowledge.FormatRecall(ix.Recall(prompt, kc.Recall.Hops, kc.Recall.BudgetTokens), vault)
 }
 
 // logWorkflowRun adds a chat call to its workflow's run note for the day

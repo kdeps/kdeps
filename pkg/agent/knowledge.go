@@ -294,7 +294,7 @@ func (l *Loop) knowledgeRecallItem(input string, w io.Writer) *domain.ScenarioIt
 	}
 	k := l.knowledge
 	r := k.recall(input)
-	text := r.Format(k.vault.Root)
+	text := knowledge.FormatRecall(r, k.vault.Root)
 	files := k.recallFiles(input)
 	if text == "" && files == "" {
 		return nil
@@ -767,7 +767,7 @@ func (l *Loop) registerKnowledgeTools() {
 			if strings.TrimSpace(q) == "" {
 				return "", errors.New("knowledge_recall: query is required")
 			}
-			if text := k.recall(q).Format(k.vault.Root); text != "" {
+			if text := knowledge.FormatRecall(k.recall(q), k.vault.Root); text != "" {
 				return text, nil
 			}
 			return "No notes in the knowledge vault relate to that query.", nil

@@ -319,11 +319,11 @@ func vaultSkillLinks(skills []Skill, nameByPath map[string]string) (map[string][
 	covered := map[string]bool{}
 	for _, sk := range skills {
 		src := filepath.Clean(sk.Source)
-		if !ix.HasNote(vault, src) {
+		if !knowledge.HasNote(ix, vault, src) {
 			continue
 		}
 		covered[src] = true
-		if names := namesFromVaultLinks(ix.LinksFrom(vault, src), nameByPath, sk.Name); len(names) > 0 {
+		if names := namesFromVaultLinks(knowledge.LinksFrom(ix, vault, src), nameByPath, sk.Name); len(names) > 0 {
 			related[sk.Name] = names
 		}
 	}

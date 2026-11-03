@@ -85,9 +85,10 @@ func TestRecall_LargeVault(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2003, st.Notes)
 	ix := knowledge.NewIndex(g)
+	hops, budget := knowledge.DefaultRecall()
 	vaultTokens := vaultBytes / 4
 	for q, want := range answers {
-		r := ix.Recall(q, knowledge.DefaultHops, knowledge.DefaultBudget)
+		r := ix.Recall(q, hops, budget)
 		var got []string
 		for _, h := range r.Hits {
 			got = append(got, h.Note)

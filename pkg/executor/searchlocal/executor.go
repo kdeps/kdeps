@@ -206,7 +206,7 @@ func boostByKnowledge(
 	}
 	weight := map[string]float64{}
 	for _, seed := range results[:seedCount] {
-		for _, link := range ix.LinksFrom(vault, seed.Document.Path) {
+		for _, link := range knowledge.LinksFrom(ix, vault, seed.Document.Path) {
 			if link.Weight > weight[link.Path] {
 				weight[link.Path] = link.Weight
 			}
