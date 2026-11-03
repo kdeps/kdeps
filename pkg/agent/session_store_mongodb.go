@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -156,8 +158,8 @@ type mongoSessionMsg struct {
 
 // NewMongoDBSessionStore connects to MongoDB and returns a session store.
 // uri is the MongoDB connection string (e.g. "mongodb://localhost:27017").
-// dbName is the database to use (defaults to "kdeps" if empty).
-// collName is the collection to use (defaults to "sessions" if empty).
+// dbName is the database to use (the executor defaults' session_store when empty).
+// collName is the collection to use (the executor defaults' session_store when empty).
 func NewMongoDBSessionStore(
 	ctx context.Context,
 	uri, dbName, collName string,
@@ -165,11 +167,12 @@ func NewMongoDBSessionStore(
 	if uri == "" {
 		return nil, errors.New("mongodb session store: uri is required")
 	}
+	d, _ := kdepsconfig.GetDefaults() // executor defaults session_store
 	if dbName == "" {
-		dbName = "kdeps"
+		dbName = d.SessionStore.MongoDBDatabase
 	}
 	if collName == "" {
-		collName = "sessions"
+		collName = d.SessionStore.MongoDBCollection
 	}
 
 	clientOpts := options.Client().ApplyURI(uri)
