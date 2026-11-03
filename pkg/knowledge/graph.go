@@ -237,7 +237,7 @@ func (b *builder) readNotes(v Vault) ([]*Note, error) {
 	}
 	for _, n := range notes {
 		b.st.Notes++
-		key := "note:" + n.Path
+		key := kgknowledge.NoteID(n.Path)
 		if e, ok := b.cache.Files[key]; !ok || e.Hash != n.Hash {
 			b.st.Changed++
 		}
