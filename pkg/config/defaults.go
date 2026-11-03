@@ -87,8 +87,10 @@ type EmbeddingDefaults struct {
 
 // VectorStoreDefaults holds default values for vector store execution.
 type VectorStoreDefaults struct {
-	TopK      int    `yaml:"top_k"`
-	ChromaURL string `yaml:"chroma_url"`
+	TopK            int    `yaml:"top_k"`
+	ChromaURL       string `yaml:"chroma_url"`
+	RedisURL        string `yaml:"redis_url"`
+	MongoDBDatabase string `yaml:"mongodb_database"`
 }
 
 //nolint:gochecknoglobals // package-level cache of the first successful load
