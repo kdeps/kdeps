@@ -23,8 +23,7 @@ require (
 	github.com/go-telegram/bot v1.27.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/kdeps/kartographer v0.3.1-0.20261103072014-cba25620c68c
-	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
+	github.com/kdeps/kartographer v0.3.1-0.20261103072737-b00691ce3265
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/microsoft/go-mssqldb v1.11.2
@@ -146,6 +145,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect

@@ -112,7 +112,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.2 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kdeps/kartographer v0.3.1-0.20261103072014-cba25620c68c // indirect
+	github.com/kdeps/kartographer v0.3.1-0.20261103072737-b00691ce3265 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/labstack/echo/v4 v4.16.1 // indirect
