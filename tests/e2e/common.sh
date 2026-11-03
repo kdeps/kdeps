@@ -516,3 +516,57 @@ test_skipped() {
 export -f test_passed
 export -f test_failed
 export -f test_skipped
+
+# On Windows a process a scenario leaves running is only killed when the CI job
+# ends, so nothing names the scenario. _win_procs counts the kdeps and python
+# processes; source_isolated reports a script after which the count went up.
+_win_procs() {
+    case "$(uname -s)" in
+        MINGW* | MSYS* | CYGWIN*)
+            tasklist //FO CSV //NH 2>/dev/null | grep -ciE '^"(kdeps|python)[0-9.]*\.exe"' || true ;;
+        *) echo 0 ;;
+    esac
+}
+
+# source_isolated FILE [LABEL] sources a test script into this shell, then runs
+# the EXIT trap it set (scripts share the shell, so that trap would otherwise
+# only run when the whole suite ends, replaced by the next script's: its servers
+# kept running through every later script) and puts back the caller's trap.
+# The cleanup can delete the script's temp folder, which the working directory,
+# HOME or the temp variables may still point at (a script's own TMP=$(mktemp -d)
+# is Windows' exported TMP), so they are put back too.
+source_isolated() {
+    local file="$1" label="${2:-$1}"
+    local outer inner _exit_cmd="" pwd0="$PWD" _v procs0 procs1
+    local _set_HOME="" _set_USERPROFILE="" _set_TMP="" _set_TEMP="" _set_TMPDIR=""
+    local _was_HOME="" _was_USERPROFILE="" _was_TMP="" _was_TEMP="" _was_TMPDIR=""
+    for _v in HOME USERPROFILE TMP TEMP TMPDIR; do
+        if [ -n "${!_v+x}" ]; then
+            printf -v "_set_$_v" '1'
+            printf -v "_was_$_v" '%s' "${!_v}"
+        fi
+    done
+    outer=$(trap -p EXIT)
+    procs0=$(_win_procs)
+    # shellcheck disable=SC1090
+    source "$file"
+    inner=$(trap -p EXIT)
+    if [ -n "$inner" ] && [ "$inner" != "$outer" ]; then
+        eval "$(printf '%s' "$inner" | sed -E "s/^trap -- (.*) EXIT$/_exit_cmd=\1/")"
+        eval "$_exit_cmd"
+    fi
+    if [ -n "$outer" ]; then eval "$outer"; else trap - EXIT; fi
+    cd "$pwd0" 2>/dev/null || cd "$PROJECT_ROOT" || true
+    procs1=$(_win_procs)
+    if [ "${procs1:-0}" -gt "${procs0:-0}" ]; then
+        echo "=== $label left $((procs1 - procs0)) kdeps/python process(es) running"
+    fi
+    for _v in HOME USERPROFILE TMP TEMP TMPDIR; do
+        local _set="_set_$_v" _was="_was_$_v"
+        if [ -n "${!_set:-}" ]; then
+            printf -v "$_v" '%s' "${!_was:-}"
+        else
+            unset "$_v"
+        fi
+    done
+}
