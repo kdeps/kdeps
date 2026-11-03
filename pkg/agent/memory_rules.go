@@ -3,9 +3,12 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"strings"
+
+	kgtext "github.com/kdeps/kartographer/text"
 
 	"gopkg.in/yaml.v3"
 
@@ -39,6 +42,7 @@ type MemoryRules struct {
 		FileVerbs   []string `yaml:"file_verbs"`
 	} `yaml:"reply_capture"`
 	FocusStopwords []string `yaml:"focus_stopwords"`
+	FocusMinStem   int      `yaml:"focus_min_stem"`
 	FocusWeights   struct {
 		KeyWeight       int `yaml:"key_weight"`
 		StructuralBonus int `yaml:"structural_bonus"`
@@ -87,7 +91,8 @@ func (r memoryTypeRule) match(key string) bool {
 
 func (m memoryMarkers) hit(value string) bool {
 	v := strings.ToLower(value)
-	toks := wordTokens(v)
+	// Whole words, any length, never stemmed: a marker matches as written.
+	toks := kgtext.Set(kgtext.Words(v, kgtext.Options{MinWordLength: 1, MinStemLength: math.MaxInt}))
 	for _, neg := range m.Not {
 		if markerHit(v, toks, neg) {
 			return false

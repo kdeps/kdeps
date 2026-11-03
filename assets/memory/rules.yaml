@@ -1,4 +1,4 @@
-version: 1.4.0
+version: 1.5.0
 # How the agent's memory store files what it saves: the type it gives an
 # entry, the entry it links each to, which tool results it captures, and
 # what it reads as a finished status or a resolved error.
@@ -86,6 +86,9 @@ reply_capture:
 
 # Prompt words that say nothing about what to recall: ignored when a prompt is
 # matched to memory (memory-focus-min-word sets the shortest word that counts).
+# A word of at least focus_min_stem letters once its ending (-ing, -ed, -s) is
+# removed is matched by that stem, so "billing" finds "bills".
+focus_min_stem: 3
 focus_stopwords: [this, that, with, from, have, what, when, where, which, would, could, should, about, your,
   please, into, then, the, and, for, are, was, you, can, how, why, who, has, had, but, not, its, out, all,
   any, one, two, now, see, off, per, via, let, did, our, "yes", too]
