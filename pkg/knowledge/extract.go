@@ -26,8 +26,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
-	"time"
 
 	kword "github.com/kdeps/kartographer/text"
 
@@ -48,15 +46,8 @@ type Entity = kgknowledge.Entity
 // Relation is a link between two entities a model found, from kartographer.
 type Relation = kgknowledge.Relation
 
-// Extraction is what a model found in one note version.
-type Extraction struct {
-	Hash      string     `json:"hash"`
-	Model     string     `json:"model,omitempty"`
-	At        time.Time  `json:"at,omitempty"`
-	Entities  []Entity   `json:"entities"`
-	Relations []Relation `json:"relations"`
-	Error     string     `json:"error,omitempty"`
-}
+// Extraction is what a model found in one note version (kartographer's cache entry).
+type Extraction = kgknowledge.Extraction
 
 type extractCache struct {
 	Notes map[string]Extraction `json:"notes"` // vault-relative note path
@@ -105,42 +96,16 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 	if workers <= 0 {
 		workers = policy().DefaultWorkers
 	}
-	var mu sync.Mutex
-	run := func(n *Note) {
-		ex := extractNote(ctx, n, ask, o, r)
-		mu.Lock()
-		defer mu.Unlock()
-		cache.Notes[n.Path] = ex
-		if ex.Error != "" {
-			st.Failed++
-		} else {
-			st.Done++
-		}
-	}
-	// The first note runs alone: it loads (or starts) a local model, which
-	// parallel first calls would each try to do.
-	if len(todo) > 0 && ctx.Err() == nil {
-		run(todo[0])
-		todo = todo[1:]
-	}
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, workers)
+	docs := make([]kgknowledge.ExtractDoc, 0, len(todo))
 	for _, n := range todo {
-		if ctx.Err() != nil {
-			break
-		}
-		wg.Go(func() {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			run(n)
-		})
+		pieces, chunkErr := chunks(n, r)
+		docs = append(docs, kgknowledge.ExtractDoc{Key: n.Path, Hash: n.Hash, Pieces: pieces, Err: chunkErr})
 	}
-	wg.Wait()
-	for p := range cache.Notes {
-		if !hasNote(notes, p) {
-			delete(cache.Notes, p)
-		}
-	}
+	st.Done, st.Failed = kgknowledge.RunExtraction(ctx, docs, cache.Notes, kgknowledge.RunOptions{
+		Model: o.Model, Workers: workers, MaxEntities: policy().MaxEntities, Parse: r.parseOptions(),
+		Ask: func(ctx context.Context, piece string) (string, error) { return ask(ctx, o.System, piece) },
+	})
+	kgknowledge.PruneCache(cache.Notes, func(p string) bool { return hasNote(notes, p) })
 	return st, kgstore.WriteJSON(filepath.Join(dir, extractFile), cache)
 }
 
@@ -165,7 +130,7 @@ func pendingNotes(notes []*Note, cache extractCache, r extractRules) []*Note {
 		if skipExtract(n, r) {
 			continue
 		}
-		if e, ok := cache.Notes[n.Path]; ok && e.Hash == n.Hash && e.Error == "" {
+		if !kgknowledge.NeedsExtraction(cache.Notes, n.Path, n.Hash) {
 			continue
 		}
 		todo = append(todo, n)
@@ -176,41 +141,6 @@ func pendingNotes(notes []*Note, cache extractCache, r extractRules) []*Note {
 func hasNote(notes []*Note, p string) bool {
 	i := sort.Search(len(notes), func(i int) bool { return notes[i].Path >= p })
 	return i < len(notes) && notes[i].Path == p
-}
-
-// extractNote runs the model over each chunk of a note and merges the
-// validated results.
-func extractNote(ctx context.Context, n *Note, ask ExtractFunc, o ExtractOptions, r extractRules) Extraction {
-	ex := Extraction{Hash: n.Hash, Model: o.Model}
-	pieces, err := chunks(n, r)
-	if err != nil {
-		ex.Error = err.Error()
-		return ex
-	}
-	seen := map[string]bool{}
-	for _, chunk := range pieces {
-		reply, askErr := ask(ctx, o.System, chunk)
-		if askErr != nil {
-			ex.Error = askErr.Error()
-			return ex
-		}
-		part, parseErr := parseFound(reply, r)
-		if parseErr != nil {
-			ex.Error = fmt.Sprintf("unusable reply (%v): %.200q", parseErr, reply)
-			return ex
-		}
-		for _, e := range part.Entities {
-			if key := strings.ToLower(e.Name); !seen[key] && len(ex.Entities) < policy().MaxEntities {
-				seen[key] = true
-				ex.Entities = append(ex.Entities, e)
-			}
-		}
-		ex.Relations = append(ex.Relations, part.Relations...)
-	}
-	if ex.Error == "" {
-		ex.At = time.Now().UTC()
-	}
-	return ex
 }
 
 // chunks splits a note for the model: extract.yaml's header (title and
