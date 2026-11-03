@@ -58,9 +58,17 @@ type ExecutorDefaults struct {
 
 // ChatExecutorDefaults holds default values for LLM chat execution.
 type ChatExecutorDefaults struct {
-	Timeout       string `yaml:"timeout"`
-	ContextLength int    `yaml:"context_length"`
-	Streaming     bool   `yaml:"streaming"`
+	Timeout         string           `yaml:"timeout"`
+	ContextLength   int              `yaml:"context_length"`
+	Streaming       bool             `yaml:"streaming"`
+	CloudContext    int              `yaml:"cloud_context"`
+	ContextByParams []ContextByParam `yaml:"context_by_params"`
+}
+
+// ContextByParam is the context window of a model of at least MinBillions parameters.
+type ContextByParam struct {
+	MinBillions float64 `yaml:"min_billions"`
+	Tokens      int     `yaml:"tokens"`
 }
 
 // HTTPExecutorDefaults holds default values for HTTP client execution.

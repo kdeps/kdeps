@@ -43,6 +43,8 @@ import (
 	"time"
 	"unicode"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+
 	"charm.land/lipgloss/v2"
 	"github.com/chzyer/readline"
 	"github.com/spf13/afero"
@@ -78,20 +80,6 @@ const (
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
 	replStatusWidth = 60    // minimum width for the REPL status separator line
-
-	contextLimitCloud   = 131072 // 128K tokens for cloud models
-	contextLimitGGUF    = 131072 // 128K for large models (>=30B)
-	contextLimit13B     = 65536  // 64K for 13B models
-	contextLimit7B      = 32768  // 32K for 7B models
-	contextLimit3B      = 16384  // 16K for 3B models
-	contextLimit1B      = 8192   // 8K for 1B models
-	contextLimitDefault = 4096   // fallback for unknown sizes
-
-	paramsThreshold30B = 30
-	paramsThreshold13B = 13
-	paramsThreshold7B  = 7
-	paramsThreshold3B  = 3
-	paramsThreshold1B  = 1
 
 	modelTypeLLamafile = "llamafile"
 	modelTypeGGUF      = "gguf"
@@ -2956,14 +2944,15 @@ func (r *REPL) contextLimitForModel(model string) int {
 	if ctx := ContextWindowForModel(bareModel); ctx > 0 {
 		return ctx
 	}
+	chat := chatDefaults()
 	if BackendForModel(bareModel) != "" {
-		return contextLimitCloud
+		return chat.CloudContext
 	}
 	// Derive from model parameter count (e.g., "7B" → 32768).
 	if n := contextFromParams(bareModel); n > 0 {
 		return n
 	}
-	return contextLimitDefault
+	return chat.ContextLength
 }
 
 // isLocalModel reports whether model runs on a local server (llamafile,
@@ -2991,20 +2980,19 @@ func contextFromParams(model string) int {
 // without depending on the model registry, whose contents change with the
 // nightly harvester.
 func contextForParamCount(params float64) int {
-	switch {
-	case params >= paramsThreshold30B:
-		return contextLimitGGUF
-	case params >= paramsThreshold13B:
-		return contextLimit13B
-	case params >= paramsThreshold7B:
-		return contextLimit7B
-	case params >= paramsThreshold3B:
-		return contextLimit3B
-	case params >= paramsThreshold1B:
-		return contextLimit1B
-	default:
-		return 0
+	for _, row := range chatDefaults().ContextByParams {
+		if params >= row.MinBillions {
+			return row.Tokens
+		}
 	}
+	return 0
+}
+
+// chatDefaults is the executor defaults' chat section: the context windows the
+// agent assumes when a model's own is unknown.
+func chatDefaults() kdepsconfig.ChatExecutorDefaults {
+	d, _ := kdepsconfig.GetDefaults()
+	return d.Chat
 }
 
 // paramsForModel extracts the parameter count (in billions) from a model alias
