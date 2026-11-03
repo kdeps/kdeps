@@ -3,9 +3,12 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"strings"
+
+	kgtext "github.com/kdeps/kartographer/text"
 
 	"gopkg.in/yaml.v3"
 
@@ -39,6 +42,12 @@ type MemoryRules struct {
 		FileVerbs   []string `yaml:"file_verbs"`
 	} `yaml:"reply_capture"`
 	FocusStopwords []string `yaml:"focus_stopwords"`
+	FocusMinStem   int      `yaml:"focus_min_stem"`
+	FocusWeights   struct {
+		KeyWeight       int `yaml:"key_weight"`
+		StructuralBonus int `yaml:"structural_bonus"`
+	} `yaml:"focus_weights"`
+	SearchMinWord int `yaml:"search_min_word"`
 
 	actionRe, fileRe *regexp.Regexp // built from ReplyCapture; nil captures nothing
 	focusStop        map[string]bool
@@ -82,7 +91,8 @@ func (r memoryTypeRule) match(key string) bool {
 
 func (m memoryMarkers) hit(value string) bool {
 	v := strings.ToLower(value)
-	toks := wordTokens(v)
+	// Whole words, any length, never stemmed: a marker matches as written.
+	toks := kgtext.Set(kgtext.Words(v, kgtext.Options{MinWordLength: 1, MinStemLength: math.MaxInt}))
 	for _, neg := range m.Not {
 		if markerHit(v, toks, neg) {
 			return false
@@ -108,6 +118,12 @@ func parseMemoryRules(data []byte) (MemoryRules, error) {
 	}
 	if r.DefaultType == "" {
 		return MemoryRules{}, errors.New("needs a default_type")
+	}
+	if w := r.FocusWeights; w.KeyWeight < 0 || w.StructuralBonus < 0 || r.SearchMinWord < 0 {
+		return MemoryRules{}, errors.New("focus_weights and search_min_word must not be negative")
+	}
+	if r.FocusWeights.KeyWeight == 0 {
+		r.FocusWeights.KeyWeight = 1 // a key hit counts at least as much as a value hit
 	}
 	if c := r.ReplyCapture; len(c.ActionVerbs) > 0 {
 		if c.ActionMin < 0 || c.ActionMax < c.ActionMin {

@@ -1322,9 +1322,9 @@ func TestResumeKeyFrom_DeterministicTiebreak(t *testing.T) {
 
 func TestWordTokens(t *testing.T) {
 	set := wordTokens("result:api_wiring wired REST")
-	assert.True(t, set["api"] && set["wiring"] && set["result"] && set["rest"],
-		"key/value split into whole tokens on punctuation and underscores")
-	assert.False(t, set["api_wiring"], "underscore delimits, not part of a token")
+	assert.True(t, set["api"] && set["wir"] && set["result"] && set["rest"],
+		"key/value split into stemmed words on punctuation and underscores")
+	assert.False(t, set["api_wiring"], "underscore delimits, not part of a word")
 }
 
 func TestMemoryStore_FormatForPrompt_FocusSurvivesTruncation(t *testing.T) {
