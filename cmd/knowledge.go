@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -245,7 +246,9 @@ func runKnowledgeExtract(
 	}
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Reading changed notes with %s...\n", model)
-	ask := agent.KnowledgeAsk(func() *executor.Engine { return setupEngine(nil, false) }, model, backend, baseURL)
+	ask := agent.KnowledgeAsk(func() *executor.Engine {
+		return setupEngineAt(slog.LevelWarn, false)
+	}, model, backend, baseURL)
 	st, err := knowledge.Extract(cmd.Context(), v, dir, ask, knowledge.ExtractOptions{
 		Model: model, Workers: kc.Extract.Workers, Limit: limit, System: agent.HarnessText("knowledge-extract-system"),
 	})

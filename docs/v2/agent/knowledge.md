@@ -267,7 +267,7 @@ build: "graph build\ninferred / ambiguous edges"
 changed -> first -> rest -> cache -> build
 ```
 
-- **In agent sessions** the model pass is `manual` until you change it. `manual` runs only when you ask (`/knowledge extract`, `kdeps knowledge build --extract`). `auto` also runs it at session end, after the session note, up to `per_session` changed notes, and before a background graph build. `off` does not run it. The call uses the [auxiliary channel](/agent/auxiliary): the session model unless `/aux` or `llm.aux` names another model. `free` picks a large OpenRouter free model. `knowledge.extract.model` is used only while the channel is `current`. An unserved local model is skipped.
+- **In agent sessions** the model pass is `manual` until you change it. `manual` runs only when you ask (`/knowledge extract`, `kdeps knowledge build --extract`). `auto` also runs it at session end, after the session note, up to `per_session` changed notes, and before a background graph build. That pass keeps running after the prompt returns. Recall waits for the link graph, not for the model. `off` does not run it. The call uses the [auxiliary channel](/agent/auxiliary): the session model unless `/aux` or `llm.aux` names another model. `free` picks a large OpenRouter free model. `knowledge.extract.model` is used only while the channel is `current`. An unserved local model is skipped.
 - **From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.aux`, then `knowledge.extract.model`, then the current model.
 - A note is read again only when it changes; a failed note is retried on the next run.
 

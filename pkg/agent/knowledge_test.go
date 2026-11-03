@@ -66,7 +66,10 @@ func knowledgeLoop(t *testing.T) (*Loop, string) {
 	require.NotNil(t, l.knowledge)
 	require.NoError(t, l.knowledge.build())
 	l.registerKnowledgeTools()
-	t.Cleanup(l.knowledge.waitBuilds)
+	t.Cleanup(func() {
+		l.knowledge.waitBuilds()
+		l.knowledge.extracts.Wait()
+	})
 	return l, vault
 }
 
@@ -443,7 +446,45 @@ func TestExtractBackground_OnlyWhenAutomatic(t *testing.T) {
 
 	l.knowledge.cfg.Build = KnowledgeBuildAuto
 	l.extractBackground()
+	l.knowledge.extracts.Wait()
 	assert.NotEmpty(t, seen)
+}
+
+func TestExtractBackground_LeavesTheTurn(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	l.knowledge.cfg.Build = KnowledgeBuildAuto
+	l.config.Backend, l.config.Model = "openai", "gpt"
+	started := make(chan struct{})
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	var once sync.Once
+	l.config.KnowledgeEngine = func() *executor.Engine {
+		eng := executor.NewEngine(t.Context(), nil)
+		eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+			once.Do(func() { close(started) })
+			<-ctx.Done()
+			return `{"entities":[],"relations":[]}`, nil
+		})
+		return eng
+	}
+	l.extractBackground()
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("model pass did not start")
+	}
+	done := make(chan struct{})
+	go func() {
+		_ = l.knowledge.refresh()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("recall waited on the model pass")
+	}
+	cancel()
+	l.knowledge.extracts.Wait()
 }
 
 func TestKnowledgeAsk(t *testing.T) {

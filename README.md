@@ -291,7 +291,7 @@ Choose a model:
 kdeps ./my-agent/ --model llama3.2
 ```
 
-Knowledge-graph extraction, prompt refinement, and judges use that model. `/aux free` sends those calls to a large OpenRouter free model instead, and `/aux <model>` pins any model. The turn stays on the model you chose. `/knowledge build manual` (the default) runs extraction only when you ask; `auto` also runs it at session end and before a background graph build; `off` skips it. The link graph still rebuilds without a model.
+Knowledge-graph extraction, prompt refinement, and judges use that model. `/aux free` sends those calls to a large OpenRouter free model instead, and `/aux <model>` pins any model. The turn stays on the model you chose. `/knowledge build manual` (the default) runs extraction only when you ask; `auto` also runs it at session end and before a background graph build, and that pass does not hold the prompt; `off` skips it. The link graph still rebuilds without a model.
 
 Agent mode is less predictable than a fixed workflow because the AI chooses its actions. Limit its permissions and review important changes. File tools may always use `~/.kdeps` and `/tmp`. Any other path outside the working directory asks first, and the filesystem root stays blocked.
 
