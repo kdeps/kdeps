@@ -233,7 +233,9 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 			b.missing[m] = true
 		}
 	}
-	b.addExtracted(v.Root, dir, notes, resolve)
+	if err = b.addExtracted(v.Root, dir, notes, resolve); err != nil {
+		return nil, st, err
+	}
 	b.addCode(ctx, v)
 	g := &Graph{Graph: *b.kg.Graph(), Vault: v.Root, Built: now.UTC()}
 	for m := range b.missing {
@@ -241,7 +243,11 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 	}
 	sortGraph(g)
 	applyExtractMeta(g, dir)
-	g.Modularity = Communities(g)
+	q, err := Communities(g)
+	if err != nil {
+		return nil, st, err
+	}
+	g.Modularity = q
 	st.Nodes, st.Edges, st.Communities = len(g.Nodes), len(g.Edges), g.Communities
 	if innerErr := kgstore.WriteJSON(filepath.Join(dir, cacheFile), next); innerErr != nil {
 		return nil, st, innerErr

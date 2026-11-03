@@ -33,6 +33,8 @@ import (
 	"testing"
 	"time"
 
+	kgnotes "github.com/kdeps/kartographer/notes"
+
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/yaml.v3"
 
@@ -199,7 +201,7 @@ func (m *MemoryStore) loadNotes() error {
 }
 
 func parseMemoryNote(file string, data []byte) MemoryEntry {
-	meta, body := knowledge.SplitFrontmatter(data)
+	meta, body := kgnotes.SplitFrontmatter(data)
 	raw, _ := yaml.Marshal(meta)
 	var n memoryNote
 	_ = yaml.Unmarshal(raw, &n)

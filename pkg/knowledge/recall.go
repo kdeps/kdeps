@@ -61,6 +61,7 @@ type recallRulesFile struct {
 	MinWordLength int      `yaml:"min_word_length"`
 	MinStemLength int      `yaml:"min_stem_length"`
 	Stopwords     []string `yaml:"stopwords"`
+	TaskWords     []string `yaml:"task_words"`
 }
 
 // recallRules and stopWords are read once from the knowledge asset set.
@@ -102,14 +103,27 @@ func init() {
 func knowledgeSpec() assets.Spec {
 	return assets.Spec{
 		Validate: func(data []byte, name string) error {
-			if name == vaultItem {
+			switch name {
+			case vaultItem:
 				_, err := parseLayout(data)
+				return err
+			case checkItem:
+				_, err := parseCheckRules(data)
+				return err
+			case notesItem:
+				_, err := parseNoteRules(data)
+				return err
+			case extractItem:
+				_, err := parseExtractRules(data)
+				return err
+			case searchItem:
+				_, err := parseSearchRules(data)
 				return err
 			}
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem, policyItem, vaultItem},
+		Required: []string{recallItem, policyItem, vaultItem, checkItem, notesItem, extractItem, searchItem},
 	}
 }
 
@@ -350,12 +364,18 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 // both would otherwise out-match a decision or gotcha on the same words.
 func sourceWeight(n *Node) float64 {
 	switch {
-	case n.Kind == "session":
+	case isSessionKind(n.Kind):
 		return sessionNoteWeight
 	case isMemoryNote(n.Note):
 		return memoryNoteWeight
 	}
 	return 1
+}
+
+// isSessionKind reports a node of the kind notes.yaml gives session notes.
+func isSessionKind(kind string) bool {
+	r, err := notesRules()
+	return err == nil && kind == r.Session.Kind
 }
 
 // walk spreads score from a seed, strongest edge first. A node is expanded

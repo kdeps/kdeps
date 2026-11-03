@@ -19,13 +19,13 @@
 package knowledge
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/kdeps/kdeps/v2/pkg/assets"
 )
 
 // vaultItem is the layout item of the knowledge asset set (vault.yaml).
@@ -49,12 +49,22 @@ type VaultLayout struct {
 		Auto      string `yaml:"auto"`
 	} `yaml:"project"`
 	Card struct {
-		Type     string `yaml:"type"`
-		Status   string `yaml:"status"`
-		Next     string `yaml:"next"`
-		Updated  string `yaml:"updated"`
-		Archived string `yaml:"archived"`
+		Type        string   `yaml:"type"`
+		Status      string   `yaml:"status"`
+		Next        string   `yaml:"next"`
+		Updated     string   `yaml:"updated"`
+		Archived    string   `yaml:"archived"`
+		LinksHeader []string `yaml:"links_header"`
 	} `yaml:"card"`
+	Note struct {
+		Type      string   `yaml:"type"`
+		Status    string   `yaml:"status"`
+		Summary   string   `yaml:"summary"`
+		Tags      string   `yaml:"tags"`
+		Aliases   string   `yaml:"aliases"`
+		Links     string   `yaml:"links"`
+		Canonical []string `yaml:"canonical"`
+	} `yaml:"note"`
 	Sources struct {
 		Repo     string `yaml:"repo"`
 		Folder   string `yaml:"folder"`
@@ -79,6 +89,8 @@ func (l VaultLayout) validate() error {
 		{"project.auto", l.Project.Auto},
 		{"card.type", l.Card.Type}, {"card.status", l.Card.Status}, {"card.next", l.Card.Next},
 		{"card.updated", l.Card.Updated}, {"card.archived", l.Card.Archived},
+		{"note.type", l.Note.Type}, {"note.status", l.Note.Status}, {"note.summary", l.Note.Summary},
+		{"note.tags", l.Note.Tags}, {"note.aliases", l.Note.Aliases}, {"note.links", l.Note.Links},
 		{"sources.repo", l.Sources.Repo}, {"sources.folder", l.Sources.Folder},
 		{"sources.workflow", l.Sources.Workflow}, {"sources.index", l.Sources.Index},
 		{"sources.search", l.Sources.Search},
@@ -86,6 +98,12 @@ func (l VaultLayout) validate() error {
 		if f.value == "" {
 			return fmt.Errorf("%s is not set", f.key)
 		}
+	}
+	if len(l.Card.LinksHeader) != 2 || slices.Contains(l.Card.LinksHeader, "") {
+		return errors.New("card.links_header must name two columns: a link kind and a path")
+	}
+	if len(l.Note.Canonical) == 0 || slices.Contains(l.Note.Canonical, "") {
+		return errors.New("note.canonical must list at least one key, none empty")
 	}
 	return nil
 }
@@ -101,32 +119,26 @@ func parseLayout(data []byte) (VaultLayout, error) {
 
 //nolint:gochecknoglobals // loaded once from the knowledge asset set
 var (
-	layoutMu       sync.Mutex
-	layoutCache    *VaultLayout
-	layoutReported bool
+	layoutItem     = &yamlItem[VaultLayout]{name: vaultItem, parse: parseLayout}
+	layoutReported sync.Once
 )
 
 // Layout returns the vault layout. The knowledge asset set installs vault.yaml
 // before any command that uses the vault, and install rejects a file with an
 // empty name, so a failed load is reported once and the empty layout returned.
 func Layout() VaultLayout {
-	layoutMu.Lock()
-	defer layoutMu.Unlock()
-	if layoutCache != nil {
-		return *layoutCache
-	}
-	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + vaultItem + ".yaml")
-	var l VaultLayout
-	if err == nil {
-		l, err = parseLayout(data)
-	}
+	l, err := layoutItem.get()
 	if err != nil {
-		if !layoutReported {
-			fmt.Fprintf(os.Stderr, "knowledge: vault layout: %v\n", err)
-			layoutReported = true
-		}
+		layoutReported.Do(func() { fmt.Fprintf(os.Stderr, "knowledge: vault layout: %v\n", err) })
 		return VaultLayout{}
 	}
-	layoutCache = &l
 	return l
+}
+
+// Parts maps each project part key of vault.yaml to its folder name.
+func (l VaultLayout) Parts() map[string]string {
+	return map[string]string{
+		"sessions": l.Project.Sessions, "memory": l.Project.Memory, "decisions": l.Project.Decisions,
+		"notes": l.Project.Notes, "auto": l.Project.Auto,
+	}
 }
