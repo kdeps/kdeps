@@ -1,4 +1,4 @@
-version: 1.3.0
+version: 1.4.0
 # How the agent's memory store files what it saves: the type it gives an
 # entry, the entry it links each to, which tool results it captures, and
 # what it reads as a finished status or a resolved error.
@@ -89,3 +89,14 @@ reply_capture:
 focus_stopwords: [this, that, with, from, have, what, when, where, which, would, could, should, about, your,
   please, into, then, the, and, for, are, was, you, can, how, why, who, has, had, but, not, its, out, all,
   any, one, two, now, see, off, per, via, let, did, our, "yes", too]
+
+# How an entry is ranked against the prompt for the memory block: a prompt word
+# found in the key scores key_weight, one found only in the value scores 1, and
+# a match on a type outside low_signal adds structural_bonus.
+focus_weights:
+  key_weight: 2
+  structural_bonus: 1
+
+# memory_search drops the extra words of a many-word query shorter than this
+# many characters; a one-character word matches almost every entry.
+search_min_word: 2

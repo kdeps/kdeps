@@ -395,7 +395,7 @@ func memoryQueryTerms(query string) []string {
 	}
 	terms := make([]string, 0, len(fields))
 	for _, field := range fields {
-		if utf8.RuneCountInString(field) >= minMemoryQueryWordRunes {
+		if utf8.RuneCountInString(field) >= memoryRules.SearchMinWord {
 			terms = append(terms, field)
 		}
 	}
@@ -404,10 +404,6 @@ func memoryQueryTerms(query string) []string {
 	}
 	return terms
 }
-
-// minMemoryQueryWordRunes is the shortest extra word kept when a query has
-// more than one word. A one-character word would match almost every entry.
-const minMemoryQueryWordRunes = 2
 
 // memorySearchRank scores one entry against query words. The first result is
 // how many words appear in the key. The second is how many appear in the key
@@ -951,15 +947,6 @@ func memoryMinTokenLen() int { return itemsOr(eventMemoryFocusMinWord, defaultMe
 // memoryMaxTokens() is the memory token budget when a caller sets none (memory-format-tokens).
 func memoryMaxTokens() int { return itemsOr(eventMemoryFormatTokens, defaultMemoryFormatTokens) }
 
-// focusKeyWeight is how much a focus token matching the entry's key counts versus
-// matching its value (T): the key names the concept, so a key hit is the stronger
-// signal.
-const focusKeyWeight = 2
-
-// focusStructuralBonus lifts a matching structural entry above a low-signal
-// note/fact that merely mentions the same term (U).
-const focusStructuralBonus = 1
-
 // focusScore rates how strongly an entry answers the focus tokens (T): each token
 // scores once, weighted higher on a key match than a value match. Word-boundary
 // matched (S) via wordTokens/prefixInSet. A matching structural (non note/fact)
@@ -968,17 +955,18 @@ const focusStructuralBonus = 1
 func focusScore(e MemoryEntry, toks []string) int {
 	keyTok := wordTokens(e.Key)
 	valTok := wordTokens(e.Value)
+	w := memoryRules.FocusWeights
 	score := 0
 	for _, t := range toks {
 		switch {
 		case prefixInSet(keyTok, t):
-			score += focusKeyWeight
+			score += w.KeyWeight
 		case prefixInSet(valTok, t):
 			score++
 		}
 	}
 	if score > 0 && e.Type != "" && !slices.Contains(memoryRules.LowSignal, e.Type) {
-		score += focusStructuralBonus
+		score += w.StructuralBonus
 	}
 	return score
 }
