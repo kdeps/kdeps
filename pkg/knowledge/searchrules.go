@@ -21,6 +21,7 @@ package knowledge
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	kgsearch "github.com/kdeps/kartographer/search"
@@ -57,6 +58,13 @@ type SearchLimits struct {
 	SnippetReadBytes int     `yaml:"snippet_read_bytes"`
 	GraphBoost       float64 `yaml:"graph_boost"`
 	GraphBoostSeeds  int     `yaml:"graph_boost_seeds"`
+	RecallMatchShare float64 `yaml:"recall_match_share"`
+}
+
+// RecallMatches is how many of n request words a file must contain to join
+// recall: recall_match_share of n, rounded up, and at least 1.
+func (l SearchLimits) RecallMatches(n int) int {
+	return max(1, int(math.Ceil(l.RecallMatchShare*float64(n))))
 }
 
 // parseSearchRules reads search.yaml. The minimum word length must be at
@@ -73,8 +81,11 @@ func parseSearchRules(data []byte) (searchRules, error) {
 		return r, errors.New("stem_keep must not be negative")
 	}
 	if l := r.Limits; l.MaxFileSize <= 0 || l.PreviewChars <= 0 || l.SnippetContext <= 0 ||
-		l.SnippetReadBytes <= 0 || l.GraphBoost < 1 || l.GraphBoostSeeds <= 0 {
-		return r, errors.New("limits: sizes and counts must be above 0 and graph_boost at least 1")
+		l.SnippetReadBytes <= 0 || l.GraphBoost < 1 || l.GraphBoostSeeds <= 0 ||
+		l.RecallMatchShare <= 0 || l.RecallMatchShare > 1 {
+		return r, errors.New(
+			"limits: sizes and counts must be above 0, graph_boost at least 1 and recall_match_share in (0, 1]",
+		)
 	}
 	if len(r.Extensions) == 0 || len(r.SecretNames) == 0 || len(r.SecretDirs) == 0 {
 		return r, errors.New("extensions, secret_names and secret_dirs must be set")
