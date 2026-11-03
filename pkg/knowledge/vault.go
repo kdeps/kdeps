@@ -25,7 +25,6 @@
 package knowledge
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -36,9 +35,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
-
-	"gopkg.in/yaml.v3"
 
 	kgnotes "github.com/kdeps/kartographer/notes"
 
@@ -123,103 +119,29 @@ func (v Vault) Walk() ([]*Note, error) {
 	return notes, err
 }
 
-// ParseNote parses a note's frontmatter and links.
+// ParseNote parses a note with kartographer's markdown parser, reading the
+// front matter keys vault.yaml names.
 func ParseNote(rel string, data []byte) *Note {
+	k := Layout().Note
+	md := kgnotes.ParseMarkdown(data, kgnotes.FrontmatterKeys{Tags: k.Tags, Links: k.Links})
 	n := &Note{
 		Path:  rel,
 		Title: strings.TrimSuffix(path.Base(rel), path.Ext(rel)),
 		Hash:  hashBytes(data),
+		Meta:  md.Meta, Body: md.Body, Tags: md.Tags,
+		Links: md.Links, MetaLinks: md.MetaLinks, MDLinks: md.MDLinks,
+		LinkLine: md.LinkLine, MetaLine: md.MetaLine, MDLine: md.MDLine, TagLine: md.TagLine,
 	}
-	meta, body := SplitFrontmatter(data)
-	n.Meta, n.Body = meta, body
-	n.Type = metaString(meta, "type")
-	n.Status = metaString(meta, "status")
-	n.Summary = metaString(meta, "summary")
-	n.Tags = metaList(meta, "tags")
-	n.Aliases = metaList(meta, "aliases")
-	if n.Canonical = metaString(meta, "canonical"); n.Canonical == "" {
-		n.Canonical = metaString(meta, "fact_id")
-	}
-	for _, l := range metaList(meta, "links") {
-		if m := kgnotes.WikiLinkTargets(l); len(m) > 0 {
-			n.MetaLinks = append(n.MetaLinks, m...)
-		} else if l = strings.TrimSpace(l); l != "" {
-			n.MetaLinks = append(n.MetaLinks, l)
+	n.Type = kgnotes.MetaString(md.Meta, k.Type)
+	n.Status = kgnotes.MetaString(md.Meta, k.Status)
+	n.Summary = kgnotes.MetaString(md.Meta, k.Summary)
+	n.Aliases = kgnotes.MetaList(md.Meta, k.Aliases)
+	for _, key := range k.Canonical {
+		if n.Canonical = kgnotes.MetaString(md.Meta, key); n.Canonical != "" {
+			break
 		}
 	}
-	prose := stripCode(body)
-	n.Links = append(n.Links, kgnotes.WikiLinkTargets(prose)...)
-	n.MDLinks = append(n.MDLinks, kgnotes.MarkdownNoteLinks(prose)...)
-	n.indexLines(data)
 	return n
-}
-
-// indexLines records the file line of each link and tag, skipping fenced
-// code the way the link scan does.
-func (n *Note) indexLines(data []byte) {
-	n.LinkLine = map[string]int{}
-	n.MetaLine = map[string]int{}
-	n.MDLine = map[string]int{}
-	n.TagLine = map[string]int{}
-	inFM := false
-	seenFM := 0
-	fence := ""
-	for i, line := range strings.Split(string(data), "\n") {
-		num := i + 1
-		t := strings.TrimSpace(line)
-		if seenFM < 2 && t == frontDelim {
-			if !inFM {
-				inFM = true
-				seenFM = 1
-			} else {
-				inFM = false
-				seenFM = 2
-			}
-			continue
-		}
-		if inFM {
-			n.indexFrontmatterLine(line, num)
-			continue
-		}
-		if fence == "" && len(t) >= 3 && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
-			fence = t[:3]
-			continue
-		}
-		if fence != "" {
-			if strings.HasPrefix(t, fence) {
-				fence = ""
-			}
-			continue
-		}
-		n.indexBodyLine(kgnotes.StripInlineCode(line), num)
-	}
-}
-
-func (n *Note) indexFrontmatterLine(line string, num int) {
-	for _, target := range kgnotes.WikiLinkTargets(line) {
-		if _, ok := n.MetaLine[target]; !ok {
-			n.MetaLine[target] = num
-		}
-	}
-	low := strings.ToLower(line)
-	for _, tag := range n.Tags {
-		if n.TagLine[tag] == 0 && strings.Contains(low, strings.ToLower(tag)) {
-			n.TagLine[tag] = num
-		}
-	}
-}
-
-func (n *Note) indexBodyLine(line string, num int) {
-	for _, target := range kgnotes.WikiLinkTargets(line) {
-		if _, ok := n.LinkLine[target]; !ok {
-			n.LinkLine[target] = num
-		}
-	}
-	for _, target := range kgnotes.MarkdownNoteLinks(line) {
-		if _, ok := n.MDLine[target]; !ok {
-			n.MDLine[target] = num
-		}
-	}
 }
 
 // lineRef is a 1-based line as stored on an edge. Zero is unknown.
@@ -240,101 +162,10 @@ func lineInFile(path, needle string) int {
 	return 0
 }
 
-// stripCode blanks fenced code blocks and inline code spans: a link inside
-// an example is not a link.
-func stripCode(body string) string {
-	var b strings.Builder
-	fence := ""
-	for _, line := range strings.SplitAfter(body, "\n") {
-		t := strings.TrimSpace(line)
-		if fence == "" && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
-			fence = t[:3]
-			continue
-		}
-		if fence != "" {
-			if strings.HasPrefix(t, fence) {
-				fence = ""
-			}
-			continue
-		}
-		b.WriteString(kgnotes.StripInlineCode(line))
-	}
-	return b.String()
-}
-
 // hashBytes is a short content hash, for change detection.
 func hashBytes(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])[:hashPrefix*2]
-}
-
-// SplitFrontmatter separates a leading "---" YAML block from the body. A
-// note without one (or with invalid YAML) has empty metadata.
-func SplitFrontmatter(data []byte) (map[string]any, string) {
-	text := string(bytes.TrimPrefix(data, []byte("\ufeff")))
-	if !strings.HasPrefix(text, frontDelim+"\n") && !strings.HasPrefix(text, frontDelim+"\r\n") {
-		return map[string]any{}, text
-	}
-	rest := text[strings.Index(text, "\n")+1:]
-	end := -1
-	for i, line := range strings.SplitAfter(rest, "\n") {
-		if strings.TrimRight(line, "\r\n") == frontDelim {
-			end = i
-			break
-		}
-	}
-	if end < 0 {
-		return map[string]any{}, text
-	}
-	lines := strings.SplitAfter(rest, "\n")
-	head := strings.Join(lines[:end], "")
-	body := strings.Join(lines[end+1:], "")
-	meta := map[string]any{}
-	if err := yaml.Unmarshal([]byte(head), &meta); err != nil || meta == nil {
-		return map[string]any{}, body
-	}
-	return meta, body
-}
-
-func metaString(meta map[string]any, key string) string {
-	switch v := meta[key].(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case nil:
-		return ""
-	case time.Time:
-		if v.Hour() == 0 && v.Minute() == 0 && v.Second() == 0 {
-			return v.Format(time.DateOnly)
-		}
-		return v.Format(time.RFC3339)
-	default:
-		b, _ := yaml.Marshal(v)
-		return strings.TrimSpace(string(b))
-	}
-}
-
-func metaList(meta map[string]any, key string) []string {
-	switch v := meta[key].(type) {
-	case string:
-		var out []string
-		for _, s := range strings.Split(v, ",") {
-			if s = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(s), "#")); s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, x := range v {
-			if s, ok := x.(string); ok {
-				if s = strings.TrimSpace(strings.TrimPrefix(s, "#")); s != "" {
-					out = append(out, s)
-				}
-			}
-		}
-		return out
-	}
-	return nil
 }
 
 // DefaultVault is the vault kdeps uses when none is configured:

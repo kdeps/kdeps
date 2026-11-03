@@ -69,7 +69,7 @@ func TestProjectLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, findings, "everything kdeps wrote has one home")
 
-	require.NoError(t, v.SetStatus(card, knowledge.StatusArchived, "", now))
+	require.NoError(t, v.SetStatus(card, knowledge.Layout().Card.Archived, "", now))
 	ms.Rebase()
 	require.NoError(t, ms.Set("fact:late", "written after archiving"))
 	assert.FileExists(t, filepath.Join(vault, "archive", "billing-svc", "memory", "fact-late.md"))

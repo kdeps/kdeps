@@ -34,7 +34,12 @@ const workspaceTemplate = "templates/knowledge"
 // vaultDirs are the top-level folders Init creates.
 //
 //nolint:gochecknoglobals // fixed list
-var vaultDirs = []string{ProjectsFolder, SharedFolder, InboxFolder, ArchiveFolder}
+var vaultDirs = []string{
+	Layout().Folders.Projects,
+	Layout().Folders.Shared,
+	Layout().Folders.Inbox,
+	Layout().Folders.Archive,
+}
 
 // Init prepares a vault: its top-level folders, and KDEPS.md and schema.md
 // from the templates asset. Existing files and folders are never changed.

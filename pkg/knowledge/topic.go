@@ -18,33 +18,21 @@
 
 package knowledge
 
+import kword "github.com/kdeps/kartographer/text"
+
 // Topic is the words of one conversation thread, to tell a request that
-// continues it from one that starts something new. No model is involved:
-// a request shares enough of the thread's words, or is a short follow-up
-// ("yes", "go on", "fix that"), or it starts a new topic.
+// continues it from one that starts something new. No model is involved: the
+// thread is kartographer's text.Topic, the words come from the recall rules,
+// and the thresholds from the policy.
 type Topic struct {
-	words map[string]bool
+	t kword.Topic
 }
 
-// Topic detection thresholds.
-const (
-// followUpWords: a request with fewer content words is a follow-up.
-// relatedShare: the share of a request's words the thread must already
-// have for the request to continue it.
-)
-
-// taskWords are verbs and fillers any request may use; they say nothing
-// about its topic.
+// taskWords are the recall rules' task words: verbs and fillers any request
+// may use, which say nothing about its topic.
 //
-//nolint:gochecknoglobals // fixed set
-var taskWords = map[string]bool{
-	"add": true, "make": true, "fix": true, "use": true, "please": true, "now": true, "also": true,
-	"need": true, "want": true, "show": true, "tell": true, "help": true, "let": true, "get": true,
-	"set": true, "run": true, "check": true, "update": true, "change": true, "create": true, "write": true,
-	"look": true, "find": true, "try": true, "work": true, "thing": true, "just": true, "again": true,
-	"continue": true, "next": true, "same": true, "more": true, "some": true, "should": true, "would": true,
-	"could": true, "will": true, "there": true, "here": true, "then": true, "about": true, "like": true,
-}
+//nolint:gochecknoglobals // loaded from the knowledge asset set
+var taskWords = kword.Set(recallRules.TaskWords)
 
 // topicWords are text's content words: stemmed, without stopwords or task words.
 func topicWords(text string) []string {
@@ -60,31 +48,15 @@ func topicWords(text string) []string {
 }
 
 // Empty reports whether the thread has no words yet.
-func (t *Topic) Empty() bool { return len(t.words) == 0 }
+func (t *Topic) Empty() bool { return t.t.Empty() }
 
-// Related reports whether text continues the thread: a short follow-up, or
-// a request whose words the thread already has enough of. Any request
-// continues an empty thread.
+// Related reports whether text continues the thread: a short follow-up, or a
+// request whose words the thread already has enough of. Any request continues
+// an empty thread.
 func (t *Topic) Related(text string) bool {
-	ws := topicWords(text)
-	if t.Empty() || len(ws) < policy().FollowUpWords {
-		return true
-	}
-	shared := 0
-	for _, w := range ws {
-		if t.words[w] {
-			shared++
-		}
-	}
-	return float64(shared)/float64(len(ws)) >= policy().RelatedShare
+	p := policy()
+	return t.t.Related(topicWords(text), p.FollowUpWords, p.RelatedShare)
 }
 
 // Add adds text's words to the thread.
-func (t *Topic) Add(text string) {
-	if t.words == nil {
-		t.words = map[string]bool{}
-	}
-	for _, w := range topicWords(text) {
-		t.words[w] = true
-	}
-}
+func (t *Topic) Add(text string) { t.t.Add(topicWords(text)) }

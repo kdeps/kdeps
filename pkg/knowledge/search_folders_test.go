@@ -100,7 +100,7 @@ func TestRemoveSearchFolder_DropsTheRowAndItsIndexRow(t *testing.T) {
 	t.Cleanup(func() { indexOf = orig })
 	_, err := v.AddSearchFolder(card, docs)
 	require.NoError(t, err)
-	require.NoError(t, card.AddLink(SourceIndex, indexOf(docs)))
+	require.NoError(t, card.AddLink(Layout().Sources.Index, indexOf(docs)))
 
 	got, err := v.RemoveSearchFolder(card, docs)
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestRemoveSearchFolder_DropsTheRowAndItsIndexRow(t *testing.T) {
 
 	_, err = v.RemoveSearchFolder(card, docs)
 	assert.ErrorContains(t, err, "is not a search folder")
-	assert.ErrorContains(t, card.RemoveLink(SourceSearch, "/nowhere"), "no such link")
+	assert.ErrorContains(t, card.RemoveLink(Layout().Sources.Search, "/nowhere"), "no such link")
 }
 
 func TestCheck_FlagsASearchFolderThatIsGone(t *testing.T) {
@@ -149,9 +149,12 @@ func TestLinkRow(t *testing.T) {
 
 func TestCheck_LinkToAnAutoCaptureIsNotDangling(t *testing.T) {
 	v, card, _ := searchFixture(t)
-	mem := filepath.Join(card.Dir(), MemoryFolder)
-	require.NoError(t, os.MkdirAll(filepath.Join(mem, AutoFolder), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(mem, AutoFolder, "tool-x-output.md"), []byte("captured"), 0o600))
+	mem := filepath.Join(card.Dir(), Layout().Project.Memory)
+	require.NoError(t, os.MkdirAll(filepath.Join(mem, Layout().Project.Auto), 0o750))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(mem, Layout().Project.Auto, "tool-x-output.md"), []byte("captured"), 0o600),
+	)
 	link := "projects/" + card.Name + "/memory/.auto/tool-x-output"
 	require.NoError(t, os.WriteFile(
 		filepath.Join(mem, "status-x.md"),

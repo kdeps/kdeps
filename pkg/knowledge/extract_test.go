@@ -130,43 +130,47 @@ func TestExtractAndBuild(t *testing.T) {
 }
 
 func TestChunksAndParse(t *testing.T) {
+	r, err := loadExtractRules()
+	require.NoError(t, err)
 	long := &Note{Title: "Big", Summary: "s", Body: strings.Repeat("para one.\n\n", 1200)}
-	cs := chunks(long)
+	cs, err := chunks(long, r)
+	require.NoError(t, err)
 	require.Greater(t, len(cs), 1)
 	for _, c := range cs {
 		assert.True(t, strings.HasPrefix(c, "Note: Big\nSummary: s\n"))
 		assert.LessOrEqual(t, len(c), policy().ChunkChars+40)
 	}
-	assert.Equal(t, []string{"Note: Empty\n"}, chunks(&Note{Title: "Empty"}))
+	empty, err := chunks(&Note{Title: "Empty"}, r)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Note: Empty\n"}, empty)
 
-	_, err := parseExtraction("no braces")
+	_, err = parseFound("no braces", r)
 	require.Error(t, err)
-	_, err = parseExtraction("{bad json}")
+	_, err = parseFound("{bad json}", r)
 	require.Error(t, err)
-	two, err := parseExtraction(
-		"```\n{\"entities\":[{\"name\":\"A\",\"kind\":\"tool\"}]}\n\n{\"entities\":[]}\n```\nNote: echo",
-	)
+	two, err := parseFound(
+		"```\n{\"entities\":[{\"name\":\"A\",\"kind\":\"tool\"}]}\n\n{\"entities\":[]}\n```\nNote: echo", r)
 	require.NoError(t, err, "the first object wins over trailing text")
 	assert.Len(t, two.Entities, 1)
-	cut, err := parseExtraction(`{"entities":[{"name":"A","kind":"tool"},{"name":"B","kind":"tool"}],` +
-		`"relations":[{"from":"A","to":"B","relation":"depends_on","confidence":0.8},{"from":"B","to":"per-ca`)
+	cut, err := parseFound(`{"entities":[{"name":"A","kind":"tool"},{"name":"B","kind":"tool"}],`+
+		`"relations":[{"from":"A","to":"B","relation":"depends_on","confidence":0.8},{"from":"B","to":"per-ca`, r)
 	require.NoError(t, err, "a reply cut off mid-list keeps its complete items")
 	assert.Len(t, cut.Relations, 1)
-	_, err = parseExtraction(`{"entities":[{"name":"A`)
+	_, err = parseFound(`{"entities":[{"name":"A`, r)
 	require.Error(t, err)
-	ex, err := parseExtraction(
-		`{"entities":[{"name":"A","kind":"TOOL"},{"name":"` + strings.Repeat("x", 200) + `","kind":"tool"}],
-		"relations":[{"from":"A","to":"A","relation":"depends_on","confidence":2}]}`,
-	)
+	ex, err := parseFound(
+		`{"entities":[{"name":"A","kind":"TOOL"},{"name":"`+strings.Repeat("x", 200)+`","kind":"tool"}],
+		"relations":[{"from":"A","to":"A","relation":"depends_on","confidence":2}]}`, r)
 	require.NoError(t, err)
-	assert.Equal(t, []Entity{{"A", "tool"}}, ex.Entities)
+	assert.Equal(t, []Entity{{Name: "A", Kind: "tool"}}, ex.Entities)
 	assert.Empty(t, ex.Relations, "self relations are dropped")
-	ex, _ = parseExtraction(`{"entities":[{"name":"A","kind":"tool"},{"name":"B","kind":"tool"}],
-		"relations":[{"from":"a","to":"b","relation":"Depends_On","confidence":7}]}`)
+	ex, _ = parseFound(`{"entities":[{"name":"A","kind":"tool"},{"name":"B","kind":"tool"}],
+		"relations":[{"from":"a","to":"b","relation":"Depends_On","confidence":7}]}`, r)
 	assert.Equal(t, 1.0, ex.Relations[0].Confidence, "clamped")
 	assert.Equal(t, RelDependsOn, ex.Relations[0].Relation)
 
-	assert.True(t, skipExtract(&Note{Path: "projects/x/x.md"}))
-	assert.True(t, skipExtract(&Note{Path: RoutingFile}))
-	assert.False(t, skipExtract(&Note{Path: "shared/x.md"}))
+	assert.True(t, skipExtract(&Note{Path: "projects/x/x.md"}, r))
+	assert.True(t, skipExtract(&Note{Path: RoutingFile}, r))
+	assert.False(t, skipExtract(&Note{Path: "shared/x.md"}, r))
+	assert.True(t, skipExtract(&Note{Path: "schema.md"}, r), "extract.yaml's skip list")
 }

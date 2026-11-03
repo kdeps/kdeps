@@ -38,6 +38,7 @@ type policyFile struct {
 	MarkerWindow      int     `yaml:"marker_window"`      // Bytes read around a report marker.
 	TagEdgeWeight     float64 `yaml:"tag_edge_weight"`    // weight of a tag edge in recall, against 1 for a link
 	AmbiguousWeight   float64 `yaml:"ambiguous_weight"`   // weight of an ambiguous edge in recall, times its confidence
+	CommunityMethod   string  `yaml:"community_method"`   // louvain, or leiden
 }
 
 // policyValues loads the policy once; a missing or broken item is reported and

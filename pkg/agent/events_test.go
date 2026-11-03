@@ -165,6 +165,8 @@ func TestLoadBuiltinEvents_HasMemoryCluster(t *testing.T) {
 }
 
 func TestMemoryPromptLimit_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 500, memoryPromptLimit())
 }
 
@@ -179,18 +181,26 @@ func TestLoadBuiltinEvents_HasSideCallMaxTokens(t *testing.T) {
 }
 
 func TestMemoryKeysLimit_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 100, memoryKeysLimit())
 }
 
 func TestMemoryFocusMax_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 5, memoryFocusMax())
 }
 
 func TestMemoryChainMax_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 8, memoryChainMax())
 }
 
 func TestRelMemoryLimit_ReadsEvent(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
 	assert.Equal(t, 500, relMemoryLimit())
 }
 
@@ -474,4 +484,12 @@ func TestThinkingBudget_ReadsEvents(t *testing.T) {
 
 	assert.Equal(t, 24000, thinkingConfigForMode(domain.ThinkingModeHigh).BudgetTokens)
 	assert.Equal(t, 10000, thinkingBudget("no-such-mode"), "a missing event falls back")
+}
+
+func TestLiveNoteLimits_ReadEvents(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	assert.Equal(t, 8, liveNotePrompts())
+	assert.Equal(t, 15, liveNoteItems())
+	assert.Equal(t, 160, liveNoteLineChars())
 }
