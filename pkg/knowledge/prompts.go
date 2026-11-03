@@ -36,6 +36,8 @@ const (
 	PromptVault  = "vault"
 	PromptRecall = "recall"
 	PromptFiles  = "files"
+	// PromptOverview is the status overview of the active project cards.
+	PromptOverview = "overview"
 
 	PromptCard          = "card"
 	PromptRecallNone    = "recall_none"
@@ -56,7 +58,7 @@ func parsePrompts(data []byte) (knowledgePrompts, error) {
 	}
 	out := knowledgePrompts{}
 	for _, name := range []string{
-		PromptVault, PromptRecall, PromptFiles, PromptCard, PromptRecallNone, PromptNoteSaved,
+		PromptVault, PromptRecall, PromptFiles, PromptOverview, PromptCard, PromptRecallNone, PromptNoteSaved,
 		PromptCardUpdated, PromptFolderRemoved, PromptFolderAdded,
 	} {
 		text := raw[name]

@@ -212,24 +212,22 @@ func (k *knowledgeState) overview() string {
 	if err != nil {
 		return ""
 	}
-	var b strings.Builder
+	var active []*knowledge.Card
 	for _, c := range cards {
-		if c.Archived() {
-			continue
+		if !c.Archived() {
+			active = append(active, c)
 		}
-		if b.Len() == 0 {
-			b.WriteString("## Status overview (from the project cards in " +
-				filepath.Join(k.vault.Root, knowledge.Layout().Folders.Projects) +
-				")\n\n| Card | Type | Status | Next | Updated |\n|---|---|---|---|---|\n")
-		}
-		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", c.Name, c.Type, c.Status, c.Next, c.Updated)
 	}
+	var here *knowledge.Card
 	if wd, innerErr := os.Getwd(); innerErr == nil {
-		if c := k.vault.CardForDir(wd); c != nil {
-			fmt.Fprintf(&b, "\nThe working directory is project %q (%s).\n", c.Name, c.File)
-		}
+		here = k.vault.CardForDir(wd)
 	}
-	return b.String()
+	if len(active) == 0 && here == nil {
+		return ""
+	}
+	return knowledge.Prompt(knowledge.PromptOverview, map[string]any{
+		"Projects": filepath.Join(k.vault.Root, knowledge.Layout().Folders.Projects), "Cards": active, "Here": here,
+	})
 }
 
 // project is the working directory's project, created on first use.
