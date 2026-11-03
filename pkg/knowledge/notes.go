@@ -40,10 +40,11 @@ const (
 	tmplRunsHead = "runs_head"
 	tmplRunEntry = "run_entry"
 	tmplRunsFile = "runs_file"
+	tmplReport   = "report"
 )
 
 func noteTemplateNames() []string {
-	return []string{tmplCard, tmplSession, tmplDecision, tmplRunsHead, tmplRunEntry, tmplRunsFile}
+	return []string{tmplCard, tmplSession, tmplDecision, tmplRunsHead, tmplRunEntry, tmplRunsFile, tmplReport}
 }
 
 // sessionSection is one heading of a session note and the summary sections that fill it.
@@ -76,7 +77,10 @@ type noteRules struct {
 
 // noteFuncs are the functions a note template can call.
 func noteFuncs() template.FuncMap {
-	return template.FuncMap{"scalar": kgnotes.Scalar, "quote": strconv.Quote}
+	return template.FuncMap{
+		"scalar": kgnotes.Scalar, "quote": strconv.Quote,
+		"ref": nodeRef, "refs": nodeRefs, "evidence": evidenceSuffix,
+	}
 }
 
 // parseNoteRules reads notes.yaml. Every summary section, heading and template
