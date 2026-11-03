@@ -1,4 +1,4 @@
-version: 1.4.0
+version: 1.5.0
 # The notes kdeps writes into the vault: a project's card, a session note, a
 # decision note and a workflow's daily run log. Section names are a compaction
 # summary's headings, lowercased; they must match the compaction prompt.
@@ -192,3 +192,23 @@ templates:
   explain: |-
     {{range .Edges}}{{.From}} -[{{.Relation}}, {{.Provenance}}, {{printf "%.2f" .Confidence}}]-> {{.To}}{{evidence .}}
     {{end}}
+
+  # .Base (the last model summary's sections, by lower-cased heading), .Prompts
+  # (the requests since), .Files (files modified since), .Decisions (decisions
+  # saved to memory since), .Failed (tool calls that failed since), .None: the
+  # session so far in the compaction summary's format, built without a model.
+  # lines joins a first text and more lines, trimmed.
+  live_summary: |
+    ## Goal
+    {{lines (index .Base "goal") .Prompts}}
+    ## Progress
+    ### Done
+    {{lines (index .Base "done") .Files}}
+    ## Key Decisions
+    {{or (lines (index .Base "key decisions") .Decisions) .None}}
+    ## Mistakes
+    {{or (lines (index .Base "mistakes") .Failed) .None}}
+    ## Wins
+    {{or (lines (index .Base "wins") nil) .None}}
+    ## Next Steps
+    {{or (lines (index .Base "next steps") nil) .None}}
