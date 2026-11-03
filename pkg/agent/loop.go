@@ -1861,7 +1861,7 @@ func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
 	if l.config.AutoToolAllocation {
 		increment := l.config.AutoToolAllocationIncrement
 		if increment <= 0 {
-			increment = 100
+			increment = itemsOr(eventToolAllocationIncrement, defaultToolAllocationIncrement)
 		}
 		l.config.MaxToolRounds += increment
 		if remaining > 0 {
@@ -3435,10 +3435,16 @@ func (l *Loop) preambleLimit() int {
 		limit = l.config.AutoCompactThreshold
 	}
 	if limit <= 0 {
-		limit = 40000
+		limit = itemsOr(eventPreambleTokenLimit, defaultPreambleTokenLimit)
 	}
 	return limit
 }
+
+// Loop limits read from their events; each default applies when its event is off.
+const (
+	defaultToolAllocationIncrement = 100   // tool-allocation-increment
+	defaultPreambleTokenLimit      = 40000 // preamble-token-limit
+)
 
 // commitTrailerPreamble returns the git commit trailer instruction.
 func (l *Loop) commitTrailerPreamble() string {
