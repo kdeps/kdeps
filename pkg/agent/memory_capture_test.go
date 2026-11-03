@@ -47,7 +47,7 @@ func TestReplyCapture_FollowsTheMemoryRules(t *testing.T) {
 func TestFocusWeights_FollowTheMemoryRules(t *testing.T) {
 	keyHit := MemoryEntry{Key: "billing_retry", Value: "x", Type: "decision"}
 	valHit := MemoryEntry{Key: "other", Value: "billing", Type: "note"}
-	toks := []string{"billing"}
+	toks := significantTokens("billing")
 	assert.Equal(t, 3, focusScore(keyHit, toks), "key_weight 2 plus structural_bonus 1")
 	assert.Equal(t, 1, focusScore(valHit, toks), "a value hit on a low-signal type")
 
@@ -56,4 +56,11 @@ func TestFocusWeights_FollowTheMemoryRules(t *testing.T) {
 	assert.Equal(t, 1, r.FocusWeights.KeyWeight, "no weights: a key hit counts like a value hit")
 	_, err = parseMemoryRules([]byte("default_type: note\nfocus_weights: {structural_bonus: -1}\n"))
 	require.Error(t, err)
+}
+
+func TestFocusWords_MatchWordForms(t *testing.T) {
+	billing := MemoryEntry{Key: "decision:payments", Value: "bills go through Stripe", Type: "decision"}
+	assert.Positive(t, focusScore(billing, significantTokens("Fix billing")), "billing finds bills by stem")
+	assert.Equal(t, []string{"deploy"}, significantTokens("deploy the deployed"), "distinct stems; stopwords dropped")
+	assert.True(t, errorIsResolved("Resolved: stale cache"), "markers match whole unstemmed words")
 }
