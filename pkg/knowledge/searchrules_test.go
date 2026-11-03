@@ -82,14 +82,20 @@ func TestParseSearchRules_RequiresTheSecretRules(t *testing.T) {
 func TestSearchLimits_KeepTheOldValues(t *testing.T) {
 	assert.Equal(t, SearchLimits{
 		MaxFileSize: 1 << 20, PreviewChars: 240, SnippetContext: 120, SnippetReadBytes: 512 << 10,
-		GraphBoost: 1.25, GraphBoostSeeds: 5,
+		GraphBoost: 1.25, GraphBoostSeeds: 5, RecallMatchShare: 0.5,
 	}, SearchLimitsNow())
+	for n, want := range map[int]int{1: 1, 2: 1, 3: 2, 4: 2, 5: 3} {
+		assert.Equal(t, want, SearchLimitsNow().RecallMatches(n), "the old (n+1)/2 for %d words", n)
+	}
 	data, err := os.ReadFile(filepath.Join("..", "..", "assets", knowledgeSet, searchItem+".yaml"))
 	require.NoError(t, err)
 	for name, from := range map[string]string{
 		"zero preview": "preview_chars: 240", "boost below 1": "graph_boost: 1.25",
+		"share above 1": "recall_match_share: 0.5",
 	} {
-		to := map[string]string{"zero preview": "preview_chars: 0", "boost below 1": "graph_boost: 0.5"}[name]
+		to := map[string]string{
+			"zero preview": "preview_chars: 0", "boost below 1": "graph_boost: 0.5", "share above 1": "recall_match_share: 1.5",
+		}[name]
 		_, caseErr := parseSearchRules([]byte(strings.Replace(string(data), from, to, 1)))
 		assert.Error(t, caseErr, name)
 	}
