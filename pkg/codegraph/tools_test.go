@@ -79,3 +79,15 @@ func TestRegisterOffersTheChangeImpactTools(t *testing.T) {
 		assert.NotEmpty(t, tool.Parameters, name)
 	}
 }
+
+func TestRegisteredToolIgnoresTheLoopsOwnArguments(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	require.NoError(t, Register(reg, t.TempDir()))
+	tool := reg.Get(ToolPrefix + "search")
+	require.NotNil(t, tool)
+	bg := make(chan struct{})
+	_, err := tool.Execute(map[string]any{"query": "x", "_ctx": t.Context(), "_bg_ch": (<-chan struct{})(bg)})
+	if err != nil {
+		assert.NotContains(t, err.Error(), "unsupported type", "the loop's _ctx and _bg_ch are not sent to the tool")
+	}
+}

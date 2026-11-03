@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -80,13 +81,21 @@ func memoryRelation(ms *MemoryStore) []relRow {
 }
 
 // toolCallRelation converts a ToolCallLog into a relation. Already capped by
-// maxToolCallLog at the source (Loop.recordToolCall).
+// maxToolCallLog at the source (Loop.recordToolCall). args is the call's
+// arguments as an object when they are a JSON object, so a query can read
+// .args.command; args_json is always the raw text.
 func toolCallRelation(toolLog []ToolCallRecord) []relRow {
 	rows := make([]relRow, len(toolLog))
 	for i, t := range toolLog {
+		var args any = t.Args
+		var obj map[string]any
+		if json.Unmarshal([]byte(t.Args), &obj) == nil && obj != nil {
+			args = obj
+		}
 		rows[i] = relRow{
 			"name":      t.Name,
-			"args":      t.Args,
+			"args":      args,
+			"args_json": t.Args,
 			"result":    t.Result,
 			"timestamp": t.Timestamp,
 		}

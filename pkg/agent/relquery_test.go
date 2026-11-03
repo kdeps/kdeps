@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/expr-lang/expr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -154,11 +155,26 @@ func TestToolCallRelation_ConvertsRecords(t *testing.T) {
 	rows := toolCallRelation(log)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "bash_exec", rows[0]["name"])
-	assert.Equal(t, `{"command":"ls"}`, rows[0]["args"])
+	assert.Equal(t, map[string]any{"command": "ls"}, rows[0]["args"], "JSON-object arguments are an object")
+	assert.Equal(t, `{"command":"ls"}`, rows[0]["args_json"])
 	assert.Equal(t, "ok", rows[0]["result"])
 	assert.Equal(t, int64(100), rows[0]["timestamp"])
 }
 
 func TestToolCallRelation_EmptyLog(t *testing.T) {
 	assert.Equal(t, []relRow{}, toolCallRelation(nil))
+}
+
+func TestMemoryQuery_FiltersOnAToolArgument(t *testing.T) {
+	log := []ToolCallRecord{
+		{Name: "bash_exec", Args: `{"command":"git status --short"}`, Timestamp: 1},
+		{Name: "bash_exec", Args: `{"command":"ls"}`, Timestamp: 2},
+		{Name: "read_file", Args: `not json`, Timestamp: 3},
+	}
+	out, err := expr.Eval(`filter(tool_calls, .name == "bash_exec" && .args.command == "git status --short")`,
+		buildQueryEnv(nil, log))
+	require.NoError(t, err, "the bug-hunt query from #1437")
+	assert.Len(t, out, 1)
+	rows := toolCallRelation(log)
+	assert.Equal(t, "not json", rows[2]["args"], "arguments that are not a JSON object stay text")
 }

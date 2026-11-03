@@ -80,7 +80,7 @@ func Register(reg *kdepstools.Registry, dir string) error {
 				if lerr := load(); lerr != nil {
 					return "", lerr
 				}
-				raw, merr := json.Marshal(args)
+				raw, merr := json.Marshal(kdepstools.ModelArgs(args))
 				if merr != nil {
 					return "", merr
 				}

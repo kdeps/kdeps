@@ -465,23 +465,7 @@ func registerAPITool(
 	reg.Register(tool)
 }
 
-func jsonArgs(args map[string]any) map[string]any {
-	out := map[string]any{}
-	for k, v := range args {
-		// Loop-injected keys never travel to the API: _ctx is a context and
-		// _bg_ch is a <-chan struct{} (both JSON-incompatible); _interactive is
-		// terminal-only. Sending _bg_ch made every API-routed tool fail with
-		// "json: unsupported type: <-chan struct {}".
-		if k == "_ctx" || k == "_bg_ch" || k == "_interactive" {
-			continue
-		}
-		if _, isCtx := v.(context.Context); isCtx {
-			continue
-		}
-		out[k] = v
-	}
-	return out
-}
+func jsonArgs(args map[string]any) map[string]any { return kdepstools.ModelArgs(args) }
 
 // toolCallCtx returns the per-turn context injected by the Loop dispatcher
 // ("_ctx", canceled by Ctrl+C), falling back to the registration context.
