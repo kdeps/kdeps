@@ -646,8 +646,8 @@ func samplePDFWithText(t *testing.T, text string) []byte {
 }
 
 // writeZipMember builds a minimal ZIP archive containing one named member
-// with the given content -- enough to exercise extractZippedXMLText and
-// extractPptxText against docx/xlsx/pptx/odt/ods/odp, all of which are ZIP
+// with the given content -- enough to exercise kartographer search.ReadText
+// against docx/xlsx/pptx/odt/ods/odp, all of which are ZIP
 // archives of XML under the hood.
 func writeZipMember(t *testing.T, path, memberName, content string) {
 	t.Helper()
@@ -681,8 +681,8 @@ func searchForMarker(t *testing.T, e *Executor, dir, query string) {
 }
 
 // Office document formats (Word/Excel/PowerPoint OOXML, and LibreOffice/
-// OpenOffice ODF) are ZIP archives of XML -- extractZippedXMLText/
-// extractPptxText must pull the real document text out of the right member
+// OpenOffice ODF) are ZIP archives of XML -- indexing (kartographer search.ReadText)
+// must pull the real document text out of the right member
 // file(s), not index the ZIP's raw compressed bytes as garbage tokens.
 func TestOfficeDocumentIndexing(t *testing.T) {
 	docXML := `<w:document xmlns:w="ns"><w:body><w:p><w:r>` +
