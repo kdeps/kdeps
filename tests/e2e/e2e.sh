@@ -198,6 +198,16 @@ scenario test_llamafile_e2e.sh
 scenario test_ollama_e2e.sh
 scenario test_local_ollama_e2e.sh
 
+# On Windows, list the kdeps and python processes still running once every
+# scenario has cleaned up (the mock servers are expected; anything else is a
+# leak the CI runner would kill at the end of the job).
+case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*)
+        echo "=== processes still running after the scenarios:"
+        powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.Name -match '^(kdeps|python)' } | ForEach-Object { '{0} {1}' -f \$_.ProcessId, \$_.CommandLine }" 2>/dev/null || true
+        ;;
+esac
+
 # Summary
 echo "=========================================="
 echo "Test Summary"
