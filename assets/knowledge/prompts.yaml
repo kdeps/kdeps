@@ -1,0 +1,43 @@
+version: 1.1.0
+# What the model reads about the knowledge vault, in both modes: the vault's
+# description at the start of a session, the notes recall found for a request,
+# and the files the project's search indexes matched. Go templates.
+
+# .Root (the vault), .Layout (vault.yaml): sent once, at the start of an agent session
+vault: |-
+  <knowledge-vault>
+  The knowledge vault is {{.Root}}; each project has one folder in {{.Layout.Folders.Projects}}/ (card <name>.md, {{.Layout.Project.Sessions}}/, {{.Layout.Project.Memory}}/, {{.Layout.Project.Decisions}}/, {{.Layout.Project.Notes}}/), knowledge across projects is in {{.Layout.Folders.Shared}}/. Each turn includes the cards' current status and may include a <knowledge-recall> list of the notes related to the request: read only those you need. Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea). A <knowledge-files> list names files from the project's search index (built by /search index; the card's index rows give its path): open them with read_file, or search the project further with search_local, path set to the project's folder.
+  </knowledge-vault>
+
+# .Hits, each .Path (absolute), .Summary, .Chain (the relation path), .Via (the seed it came from)
+recall: |-
+  <knowledge-recall>
+  Notes in the knowledge vault related to this request, from its link graph (best first). Read only the ones you need with read_file; status lives in the project card, the story in these notes.
+  {{range .Hits}}- {{.Path}}{{if .Summary}} - {{.Summary}}{{end}}{{if .Chain}} ({{.Chain}}){{else if .Via}} (linked from {{.Via}}){{end}}
+  {{end}}</knowledge-recall>
+
+# .Body: the matched folders and files, each folder's lines starting on a new line
+files: |-
+  <knowledge-files>
+  Files in this project's search index that match the request (best first). Open the ones you need with read_file; search further with search_local, path set to the folder (or no path to search all of the project's folders).{{.Body}}
+  </knowledge-files>
+
+# The knowledge tools' replies.
+# .Card (.Name .File .Type .Status .Next .Updated .Links, each .Source .Path): knowledge_card_get and _update
+card: |-
+  card: {{.Card.Name}} ({{.Card.File}})
+  type: {{.Card.Type}}
+  status: {{.Card.Status}}
+  next: {{.Card.Next}}
+  updated: {{.Card.Updated}}
+  {{range .Card.Links}}{{.Source}}: {{.Path}}
+  {{end}}
+# no fields: knowledge_recall found nothing
+recall_none: No notes in the knowledge vault relate to that query.
+# .File: knowledge_note_save wrote it
+note_saved: Saved note {{.File}}
+# .Message (what changed with the search folders, or empty): knowledge_card_update
+card_updated: Updated card. {{.Message}}
+# .Project, .Path: a search folder was removed from, or added to, a project
+folder_removed: Stopped searching {{.Path}} with project {{.Project}}.
+folder_added: Project {{.Project}} now searches {{.Path}} (indexing it in the background).

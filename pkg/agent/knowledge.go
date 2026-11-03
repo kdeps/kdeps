@@ -257,16 +257,9 @@ func (l *Loop) knowledgePreamble() string {
 	if !l.knowledgeOn() {
 		return ""
 	}
-	k := l.knowledge
-	return fmt.Sprintf("<knowledge-vault>\nThe knowledge vault is %s; each project has one folder in projects/ "+
-		"(card <name>.md, sessions/, memory/, decisions/, notes/), knowledge across projects is in shared/. "+
-		"Each turn includes the cards' current status and may include a <knowledge-recall> list of the notes "+
-		"related to the request: read only those you need. "+
-		"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea). "+
-		"A <knowledge-files> list names files from the project's search index (built by /search index; the card's "+
-		"index rows give its path): open them with read_file, or search the project further with search_local, "+
-		"path set to the project's folder.\n"+
-		"</knowledge-vault>", k.vault.Root)
+	return knowledge.Prompt(knowledge.PromptVault, map[string]any{
+		"Root": l.knowledge.vault.Root, "Layout": knowledge.Layout(),
+	})
 }
 
 // instructionParts are the discovered instruction files (with the
@@ -350,10 +343,7 @@ func (k *knowledgeState) recallFiles(text string) string {
 	if b.Len() == 0 {
 		return ""
 	}
-	return "<knowledge-files>\nFiles in this project's search index that match the request (best first). " +
-		"Open the ones you need with read_file; search further with search_local, path set to the folder " +
-		"(or no path to search all of the project's folders)." +
-		b.String() + "\n</knowledge-files>"
+	return knowledge.Prompt(knowledge.PromptFiles, map[string]any{"Body": b.String()})
 }
 
 // defaultKnowledgeRecallFiles is the per-index recall count when the event is off.
@@ -770,7 +760,7 @@ func (l *Loop) registerKnowledgeTools() {
 			if text := knowledge.FormatRecall(k.recall(q), k.vault.Root); text != "" {
 				return text, nil
 			}
-			return "No notes in the knowledge vault relate to that query.", nil
+			return knowledge.Prompt(knowledge.PromptRecallNone, nil), nil
 		}),
 	}))
 	l.registry.Register(defined(&kdepstools.Tool{
@@ -795,7 +785,7 @@ func (l *Loop) registerKnowledgeTools() {
 				return "", err
 			}
 			k.buildAsync()
-			return "Saved note " + file, nil
+			return knowledge.Prompt(knowledge.PromptNoteSaved, map[string]any{"File": file}), nil
 		}),
 	}))
 }
@@ -827,7 +817,8 @@ func (l *Loop) updateCard(args map[string]any) (string, error) {
 		}
 	}
 	l.InvalidateSystemPreamble()
-	return strings.TrimSpace("Updated card. "+folderMsg) + "\n" + formatCard(c), nil
+	updated := knowledge.Prompt(knowledge.PromptCardUpdated, map[string]any{"Message": folderMsg})
+	return strings.TrimSpace(updated) + "\n" + formatCard(c), nil
 }
 
 // whenKnowledgeOn makes a knowledge tool refuse while /knowledge off.
@@ -849,7 +840,8 @@ func (k *knowledgeState) changeSearchFolders(card *knowledge.Card, add, remove s
 		if err != nil {
 			return "", err
 		}
-		msgs = append(msgs, "Stopped searching "+p+" with project "+card.Name+".")
+		msgs = append(msgs, knowledge.Prompt(knowledge.PromptFolderRemoved,
+			map[string]any{"Path": p, "Project": card.Name}))
 	}
 	if strings.TrimSpace(add) != "" {
 		p, err := k.vault.AddSearchFolder(card, add)
@@ -860,7 +852,8 @@ func (k *knowledgeState) changeSearchFolders(card *knowledge.Card, add, remove s
 			searchlocal.NewExecutor().StartIndex(p)
 			recordIndexes(card)
 		})
-		msgs = append(msgs, "Project "+card.Name+" now searches "+p+" (indexing it in the background).")
+		msgs = append(msgs, knowledge.Prompt(knowledge.PromptFolderAdded,
+			map[string]any{"Path": p, "Project": card.Name}))
 	}
 	return strings.Join(msgs, " "), nil
 }
@@ -874,21 +867,7 @@ func (k *knowledgeState) card(args map[string]any) (*knowledge.Card, error) {
 }
 
 func formatCard(c *knowledge.Card) string {
-	var b strings.Builder
-	fmt.Fprintf(
-		&b,
-		"card: %s (%s)\ntype: %s\nstatus: %s\nnext: %s\nupdated: %s\n",
-		c.Name,
-		c.File,
-		c.Type,
-		c.Status,
-		c.Next,
-		c.Updated,
-	)
-	for _, l := range c.Links {
-		fmt.Fprintf(&b, "%s: %s\n", l.Source, l.Path)
-	}
-	return b.String()
+	return knowledge.Prompt(knowledge.PromptCard, map[string]any{"Card": c})
 }
 
 // saveNote writes a new one-idea note with frontmatter. It refuses a title
