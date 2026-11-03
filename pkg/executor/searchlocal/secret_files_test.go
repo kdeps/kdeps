@@ -67,3 +67,14 @@ func TestIndexFiles_KeepsEachFolderToItsOwnIndex(t *testing.T) {
 	require.Len(t, hits, 1, "b.md is outside a: it stays out of a's index")
 	assert.Equal(t, fa, hits[0].Path)
 }
+
+func TestIndexFiles_ReadsOfficeDocumentsAsText(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "plan.docx")
+	writeZipMember(t, doc, "word/document.xml", "<w:document><w:t>quokkaplan</w:t></w:document>")
+	NewExecutor().IndexFiles(dir, []string{doc})
+	hits := QueryIndex(dir, "quokkaplan", 10)
+	require.Len(t, hits, 1, "a changed docx is indexed by its text, as a folder index reads it")
+	assert.Equal(t, doc, hits[0].Path)
+}

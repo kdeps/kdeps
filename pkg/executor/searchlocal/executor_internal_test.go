@@ -171,7 +171,7 @@ func TestOpenOrCreateIndex_New(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := datadir.File(dir, "index.db")
 
-	idx, existed, err := openOrCreateIndex(dbPath)
+	idx, existed, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	defer idx.Close()
 
@@ -187,13 +187,13 @@ func TestOpenOrCreateIndex_Existing(t *testing.T) {
 	dbPath := datadir.File(dir, "index.db")
 
 	// Create the index first
-	idx1, existed1, err := openOrCreateIndex(dbPath)
+	idx1, existed1, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	assert.False(t, existed1)
 	idx1.Close()
 
 	// Reopen — should report existing
-	idx2, existed2, err := openOrCreateIndex(dbPath)
+	idx2, existed2, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	assert.True(t, existed2)
 	idx2.Close()
@@ -208,13 +208,13 @@ func TestOpenOrCreateIndex_CorruptDB(t *testing.T) {
 	require.NoError(t, os.WriteFile(dbPath, []byte("not a bbolt database"), 0600))
 
 	// Should auto-delete the corrupt file and recreate.
-	idx, existed, err := openOrCreateIndex(dbPath)
+	idx, existed, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	assert.False(t, existed)
 	idx.Close()
 
 	// Verify the file is now a valid bbolt DB.
-	idx2, existed2, err := openOrCreateIndex(dbPath)
+	idx2, existed2, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	assert.True(t, existed2)
 	idx2.Close()
@@ -495,7 +495,7 @@ func TestWalkIndex_IncrementalSkipsUnchanged(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world"), 0600))
 
-	idx, _, err := openOrCreateIndex(dbPath)
+	idx, _, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	defer idx.Close()
 
@@ -526,7 +526,7 @@ func TestWalkIndex_IncrementalDetectsModified(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
 
-	idx, _, err := openOrCreateIndex(dbPath)
+	idx, _, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	defer idx.Close()
 
@@ -560,7 +560,7 @@ func TestWalkIndex_IncrementalCleansUpDeleted(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world"), 0600))
 
-	idx, _, err := openOrCreateIndex(dbPath)
+	idx, _, err := kgsearch.OpenOrCreate(dbPath)
 	require.NoError(t, err)
 	defer idx.Close()
 
@@ -769,21 +769,6 @@ func TestPDFIndexingExtractsText(t *testing.T) {
 	count, _ := rm["count"].(int)
 	if count != 1 {
 		t.Errorf("search found %d results for the PDF's text content, want 1: %+v", count, rm)
-	}
-}
-
-func TestMatchGlob(t *testing.T) {
-	if !matchGlob("", "anything.go") {
-		t.Error(`matchGlob("", ...) must match everything`)
-	}
-	if !matchGlob("*.go", "main.go") {
-		t.Error("*.go should match main.go")
-	}
-	if matchGlob("*.go", "main.py") {
-		t.Error("*.go should not match main.py")
-	}
-	if matchGlob("[", "x") {
-		t.Error("an invalid pattern must not match (and must not panic)")
 	}
 }
 

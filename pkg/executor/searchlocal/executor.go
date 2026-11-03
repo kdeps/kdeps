@@ -27,13 +27,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	kgsearch "github.com/kdeps/kartographer/search"
@@ -275,199 +272,55 @@ func IsSecretFile(path string) bool {
 	return err != nil || f.Secret(path)
 }
 
-const indexBatchSize = 2000
-
-// indexWorkers is the number of parallel file readers. Defaults to GOMAXPROCS.
-var indexWorkers = runtime.GOMAXPROCS(0) //nolint:gochecknoglobals // parallel file readers
-
-// fileJob is a file to be read and indexed by a worker.
-type fileJob struct {
-	path string
-	d    os.DirEntry
+// docOptions is how a file becomes a search document: search.yaml's tokenizer,
+// size limit and preview, with PDF and office documents read as text.
+func docOptions() (kgsearch.DocOptions, error) {
+	tok, err := knowledge.SearchTokenizer()
+	if err != nil {
+		return kgsearch.DocOptions{}, err
+	}
+	return kgsearch.DocOptions{
+		Tokenizer: tok,
+		MaxSize:   maxFileSize(),
+		Preview:   previewMax(),
+		Read:      readIndexableText,
+	}, nil
 }
 
-// walkIndex walks the directory tree and adds documents to the index.
-// File reading and tokenization runs in parallel across indexWorkers goroutines;
-// bbolt writes are serialized in a single goroutine, batched every indexBatchSize.
-// Incremental: files with unchanged ModTime are skipped; deleted files are purged.
+// indexProgressEvery is how often (files read) indexing reports progress;
+// kartographer reports unchanged files ten times less often.
+const (
+	indexProgressEvery  = 100
+	indexUnchangedEvery = indexProgressEvery * 10
+)
+
+// walkIndex brings idx up to date with root through kartographer's
+// search.IndexFolder (search.yaml's filter, tokenizer and limits), printing
+// progress to ProgressWriter.
 func (e *Executor) walkIndex(root string, glob string, idx *kgsearch.InvertedIndex) (int, error) {
-	tok, tokErr := knowledge.SearchTokenizer()
-	if tokErr != nil {
-		return 0, tokErr
+	opts, err := docOptions()
+	if err != nil {
+		return 0, err
 	}
-	jobs := make(chan fileJob, indexBatchSize)
-	results := make(chan kgsearch.DocWithTokens, indexBatchSize)
-	done := make(chan error, 1)
-
-	// Track seen docIDs for stale-document cleanup after the walk.
-	seenDocIDs := make(map[string]bool)
-	var seenMu sync.Mutex
-
-	// Single writer: batches results and flushes to bbolt.
-	var indexedCount int
-	go func() {
-		batch := make([]kgsearch.DocWithTokens, 0, indexBatchSize)
-		for doc := range results {
-			batch = append(batch, doc)
-			indexedCount++
-			if len(batch) >= indexBatchSize {
-				idx.BatchAddDocuments(batch)
-				batch = batch[:0]
+	filter, err := knowledge.SearchFilter()
+	if err != nil {
+		return 0, err
+	}
+	var read, unchanged int
+	return kgsearch.IndexFolder(idx, root, kgsearch.FolderOptions{
+		DocOptions: opts, Filter: filter, Glob: glob, ProgressEvery: indexProgressEvery,
+		Progress: func(p kgsearch.FolderProgress) {
+			switch {
+			case p.Read != read && p.Read%indexProgressEvery == 0:
+				fmt.Fprintf(ProgressWriter, "\rsearchLocal: indexed %d files ...", p.Read)
+			case p.Unchanged != unchanged && p.Unchanged%indexUnchangedEvery == 0:
+				fmt.Fprintf(ProgressWriter, "\rsearchLocal: %d files unchanged, skipped ...", p.Unchanged)
+			case p.Purged > 0:
+				fmt.Fprintf(ProgressWriter, "\rsearchLocal: removed %d stale docs from index\n", p.Purged)
 			}
-			if indexedCount%100 == 0 {
-				fmt.Fprintf(ProgressWriter, "\rsearchLocal: indexed %d files ...", indexedCount)
-			}
-		}
-		if len(batch) > 0 {
-			idx.BatchAddDocuments(batch)
-		}
-		done <- nil
-	}()
-
-	// Worker pool: reads and tokenizes files in parallel.
-	var wg sync.WaitGroup
-	for range indexWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for job := range jobs {
-				if doc, tokens, positions := e.prepareDoc(job.path, job.d, tok); doc != nil {
-					results <- kgsearch.DocWithTokens{Doc: doc, Tokens: tokens, Positions: positions}
-				}
-			}
-		}()
-	}
-
-	// Walk the directory tree and feed jobs.
-	var skippedIncremental int
-	walkErr := filepath.WalkDir(root,
-		e.makeWalkCallback(root, glob, idx, jobs, &seenDocIDs, &seenMu, &skippedIncremental))
-	close(jobs)
-	wg.Wait()
-	close(results)
-	<-done
-
-	// Clean up stale documents (files that were deleted since last index).
-	staleRemoved := idx.PurgeDocs(seenDocIDs)
-	if staleRemoved > 0 {
-		fmt.Fprintf(ProgressWriter, "\rsearchLocal: removed %d stale docs from index\n", staleRemoved)
-	}
-
-	return indexedCount, walkErr
-}
-
-// walkCallback is the signature for filepath.WalkDir callbacks.
-type walkCallback = func(string, os.DirEntry, error) error
-
-// makeWalkCallback returns a WalkDir callback that feeds indexable files into the jobs channel.
-func (e *Executor) makeWalkCallback(
-	_ string, glob string, idx *kgsearch.InvertedIndex,
-	jobs chan<- fileJob,
-	seenDocIDs *map[string]bool, seenMu *sync.Mutex,
-	skippedIncremental *int,
-) walkCallback {
-	return func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil //nolint:nilerr // skip unreadable entries during walk
-		}
-		if d.IsDir() {
-			if skipWalkEntry(d) {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if skipWalkEntry(d) || !isIndexableExt(d.Name()) {
-			return nil
-		}
-		if !matchGlob(glob, d.Name()) {
-			return nil
-		}
-
-		docID := fmt.Sprintf("%x", p)
-		seenMu.Lock()
-		(*seenDocIDs)[docID] = true
-		seenMu.Unlock()
-
-		if e.skipUnchanged(d, docID, idx, skippedIncremental) {
-			return nil
-		}
-
-		jobs <- fileJob{path: p, d: d}
-		return nil
-	}
-}
-
-// matchGlob returns true if the filename matches the glob pattern.
-// An empty glob matches everything.
-func matchGlob(glob, name string) bool {
-	if glob == "" {
-		return true
-	}
-	matched, err := filepath.Match(glob, name)
-	return err == nil && matched
-}
-
-// skipUnchanged returns true if the file's ModTime matches the index, meaning it hasn't changed.
-func (e *Executor) skipUnchanged(
-	d os.DirEntry,
-	docID string,
-	idx *kgsearch.InvertedIndex,
-	skippedIncremental *int,
-) bool {
-	info, statErr := d.Info()
-	if statErr != nil {
-		return true
-	}
-	if info.ModTime().Unix() == idx.LookupModTime(docID) {
-		*skippedIncremental++
-		if *skippedIncremental%1000 == 0 {
-			fmt.Fprintf(ProgressWriter, "\rsearchLocal: %d files unchanged, skipped ...", *skippedIncremental)
-		}
-		return true
-	}
-	return false
-}
-
-// prepareDoc reads and tokenizes a file, returning a ready-to-index document or nil.
-// Files larger than maxFileSize are skipped. The first ~240 chars of content are
-// captured as a preview so snippet generation never re-reads files from disk.
-func (e *Executor) prepareDoc(
-	p string, d os.DirEntry, tok *kgsearch.Tokenizer,
-) (*kgsearch.Document, []string, []int) {
-	info, statErr := d.Info()
-	if statErr != nil {
-		return nil, nil, nil
-	}
-	if info.Size() > maxFileSize() {
-		return nil, nil, nil
-	}
-
-	text, readErr := readIndexableText(p)
-	if readErr != nil {
-		return nil, nil, nil
-	}
-
-	docID := fmt.Sprintf("%x", p)
-	tokens := tok.Tokenize(text)
-	tokenStrings := make([]string, len(tokens))
-	positions := make([]int, len(tokens))
-	for i, token := range tokens {
-		tokenStrings[i] = token.Text
-		positions[i] = token.Position
-	}
-
-	preview := text
-	if len(preview) > previewMax() {
-		preview = preview[:previewMax()]
-	}
-
-	return &kgsearch.Document{
-		ID:      docID,
-		Path:    p,
-		ModTime: info.ModTime().Unix(),
-		Size:    info.Size(),
-		Preview: preview,
-	}, tokenStrings, positions
+			read, unchanged = p.Read, p.Unchanged
+		},
+	})
 }
 
 // readIndexableText returns a file's indexable text content. PDFs and
@@ -614,33 +467,6 @@ func extractPDFText(p string) (string, error) {
 	return sb.String(), nil
 }
 
-// openOrCreateIndex opens an existing bbolt index or creates a new one,
-// ensuring the parent directory exists. If the file exists but is not a
-// valid bbolt database (e.g. a leftover gob-format index or corrupted file),
-// it is removed and a fresh database is created. Returns the index and
-// whether a valid database already existed.
-func openOrCreateIndex(dbPath string) (*kgsearch.InvertedIndex, bool, error) {
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
-		return nil, false, err
-	}
-
-	existed := fileExists(dbPath)
-
-	idx, err := kgsearch.NewInvertedIndex(dbPath)
-	if err == nil {
-		return idx, existed, nil
-	}
-
-	// Remove the invalid/corrupt file and create a fresh database.
-	_ = os.Remove(dbPath)
-	idx, createErr := kgsearch.NewInvertedIndex(dbPath)
-	if createErr != nil {
-		return nil, false, createErr
-	}
-	return idx, false, nil
-}
-
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
@@ -668,7 +494,7 @@ func (e *Executor) StartIndex(path string) int {
 	}
 
 	dbPath := indexDBPath(path)
-	idx, existed, err := openOrCreateIndex(dbPath)
+	idx, existed, err := kgsearch.OpenOrCreate(dbPath)
 	if err != nil {
 		kdeps_debug.Log("searchLocal: failed to open index: " + err.Error())
 		fmt.Fprintf(ProgressWriter, "searchLocal: failed to open index: %v\n", err)
@@ -781,55 +607,9 @@ func (e *Executor) IndexFile(path string) {
 	if err != nil {
 		return
 	}
-	dbPath := indexDBPath(wd)
-	idx, _, openErr := openOrCreateIndex(dbPath)
-	if openErr != nil {
-		return
+	if abs, absErr := filepath.Abs(path); absErr == nil {
+		e.indexInto(wd, []string{abs}, false)
 	}
-	defer idx.Close()
-
-	info, statErr := os.Stat(path)
-	if statErr != nil || info.IsDir() || info.Size() > maxFileSize() {
-		return
-	}
-	if !isIndexableExt(filepath.Base(path)) {
-		return
-	}
-
-	content, readErr := os.ReadFile(path)
-	if readErr != nil {
-		return
-	}
-
-	docID := fmt.Sprintf("%x", path)
-	tok, tokErr := knowledge.SearchTokenizer()
-	if tokErr != nil {
-		return
-	}
-	tokens := tok.Tokenize(string(content))
-	tokenStrings := make([]string, len(tokens))
-	positions := make([]int, len(tokens))
-	for i, token := range tokens {
-		tokenStrings[i] = token.Text
-		positions[i] = token.Position
-	}
-
-	preview := content
-	if len(preview) > previewMax() {
-		preview = preview[:previewMax()]
-	}
-
-	idx.BatchAddDocuments([]kgsearch.DocWithTokens{{
-		Doc: &kgsearch.Document{
-			ID:      docID,
-			Path:    path,
-			ModTime: info.ModTime().Unix(),
-			Size:    info.Size(),
-			Preview: string(preview),
-		},
-		Tokens:    tokenStrings,
-		Positions: positions,
-	}})
 }
 
 // IndexFiles indexes multiple files into root's search index in a single
@@ -843,63 +623,31 @@ func (e *Executor) IndexFiles(root string, paths []string) {
 		}
 		root = wd
 	}
-	root = filepath.Clean(root)
-	dbPath := indexDBPath(root)
-	idx, _, openErr := openOrCreateIndex(dbPath)
-	if openErr != nil {
+	e.indexInto(filepath.Clean(root), paths, true)
+}
+
+// indexInto adds paths to root's search index in one batch through
+// kartographer's search.IndexFiles. inRootOnly leaves out files outside root;
+// IndexFile's working-directory index takes any path.
+func (e *Executor) indexInto(root string, paths []string, inRootOnly bool) {
+	idx, _, err := kgsearch.OpenOrCreate(indexDBPath(root))
+	if err != nil {
 		return
 	}
 	defer idx.Close()
-
-	tok, tokErr := knowledge.SearchTokenizer()
-	if tokErr != nil {
+	opts, err := docOptions()
+	if err != nil {
 		return
 	}
-	docs := make([]kgsearch.DocWithTokens, 0, len(paths))
-	for _, path := range paths {
-		if rel, relErr := filepath.Rel(root, path); relErr != nil || strings.HasPrefix(rel, "..") {
-			continue
-		}
-		info, statErr := os.Stat(path)
-		if statErr != nil || info.IsDir() || info.Size() > maxFileSize() {
-			continue
-		}
-		if !isIndexableExt(filepath.Base(path)) {
-			continue
-		}
-
-		content, readErr := os.ReadFile(path)
-		if readErr != nil {
-			continue
-		}
-
-		docID := fmt.Sprintf("%x", path)
-		tokens := tok.Tokenize(string(content))
-		tokenStrings := make([]string, len(tokens))
-		positions := make([]int, len(tokens))
-		for i, token := range tokens {
-			tokenStrings[i] = token.Text
-			positions[i] = token.Position
-		}
-
-		preview := content
-		if len(preview) > previewMax() {
-			preview = preview[:previewMax()]
-		}
-
-		docs = append(docs, kgsearch.DocWithTokens{
-			Doc: &kgsearch.Document{
-				ID:      docID,
-				Path:    path,
-				ModTime: info.ModTime().Unix(),
-				Size:    info.Size(),
-				Preview: string(preview),
-			},
-			Tokens:    tokenStrings,
-			Positions: positions,
-		})
-		idx.BatchAddDocuments(docs)
+	filter, err := knowledge.SearchFilter()
+	if err != nil {
+		return
 	}
+	within := root
+	if !inRootOnly {
+		within = filepath.VolumeName(root) + string(filepath.Separator)
+	}
+	kgsearch.IndexFiles(idx, within, paths, filter, opts)
 }
 
 func buildSearchResult(path string, results []map[string]interface{}) map[string]interface{} {
@@ -967,7 +715,7 @@ func (e *Executor) executeIndexed(
 		dbPath = indexDBPath(config.Path)
 	}
 
-	idx, _, err := openOrCreateIndex(dbPath)
+	idx, _, err := kgsearch.OpenOrCreate(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("searchLocal: failed to open index: %w", err)
 	}
