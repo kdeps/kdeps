@@ -37,6 +37,9 @@ type CloudModel struct {
 	ContextWindow    int     `yaml:"contextWindow,omitempty"`   // input token context window (0 = unknown)
 	MaxOutputTokens  int     `yaml:"maxOutputTokens,omitempty"` // max output tokens per call (0 = provider default)
 	Params           float64 `yaml:"params,omitempty"`          // parameter count in billions, from the id (0 = unknown)
+	// ModelID is a short hexadecimal id for this exact model (backend + API
+	// id). Derived when the catalog loads. It is not written in the asset.
+	ModelID string `yaml:"-"`
 }
 
 // cloudRegistryItem is the models asset holding the cloud model catalog.
@@ -66,10 +69,11 @@ func loadCloudModels() []CloudModel {
 		return nil
 	}
 	extra, err := parseCloudCatalog(readModelRegistry(openrouterRegistryItem))
-	if err != nil {
-		return cloud.Models
+	if err == nil {
+		cloud.Models = append(cloud.Models, extra.Models...)
 	}
-	return append(cloud.Models, extra.Models...)
+	assignModelIDs(cloud.Models)
+	return cloud.Models
 }
 
 // parseCloudCatalog decodes a models/cloud file; every model needs an id

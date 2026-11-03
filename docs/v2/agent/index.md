@@ -118,6 +118,7 @@ kdeps --resume abc123def456                      # resume a session
 | Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
 | Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
 | Rewriting each prompt for clarity before the turn | [Prompt refinement](/agent/refine) |
+| Model for extraction, refinement, and judges | [Auxiliary model channel](/agent/aux) |
 | Independent review of the final answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |

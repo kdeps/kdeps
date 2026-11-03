@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -48,8 +49,9 @@ knowledge.enabled: false in config.yaml, or /knowledge off in a session.
 
 The structural graph stays current on its own: an agent session, a workflow
 chat call, a search inside the vault, and skill linking when a skill file
-is a vault note. kdeps knowledge build runs that same build by hand. Model
-extraction stays off unless you ask for it.
+is a vault note. kdeps knowledge build runs that same build by hand. The
+model pass is knowledge.build: manual (the default, only when you ask),
+auto (also at session end and before a background build), or off.
 
   kdeps knowledge init [folder]     scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
   kdeps knowledge build             (re)build the link graph, changed notes only
@@ -159,17 +161,19 @@ func newKnowledgeBuildCmd() *cobra.Command {
 		Short: "Build the vault's link graph (only changed notes and code files are re-read)",
 		Long: `Builds the vault's graph from what the notes and code write down (links,
 tags, imports), groups it into communities (deterministic; the knowledge
-policy's community_method, louvain or leiden) and writes the report next to the graph, under ~/.kdeps/knowledge/<vault-id>.
+policy's community_method, louvain or leiden) and writes the report
+next to the graph, under ~/.kdeps/knowledge/<vault-id>.
 
-With --extract, a local model first reads every note that changed since its
+With --extract, a model first reads every note that changed since its
 last extraction and lists what it is about; its findings join the graph as
 inferred edges (with the model's confidence) or ambiguous ones (below the
-knowledge policy's ambiguous_below).
+knowledge policy's ambiguous_below). The model is --model, or llm.aux
+when that names a model, or knowledge.extract.model, or the current
+model. A slash id outside the catalog goes to OpenRouter. Any other
+name uses the session backend. knowledge.build: off refuses --extract.
+auto runs that pass in an agent session without this flag.
 --export also copies GRAPH_REPORT.md and graph.html into the vault. A file
-of yours there is never replaced.
-
-Set knowledge.extract.on_background_build to run that pending-only pass
-before a background build in an agent session.`,
+of yours there is never replaced.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			v, kc, err := knowledgeTarget(cmd)
 			if err != nil {
@@ -190,12 +194,34 @@ before a background build in an agent session.`,
 			return printKnowledgeBuild(out, v, dir, g, st, start, export, extract)
 		},
 	}
-	c.Flags().BoolVar(&extract, "extract", false, "have a local model read changed notes first (inferred edges)")
+	c.Flags().BoolVar(&extract, "extract", false, "have a model read changed notes first (inferred edges)")
 	c.Flags().BoolVar(&export, "export", false, "also copy GRAPH_REPORT.md and graph.html into the vault")
-	c.Flags().
-		StringVar(&model, "model", "", "model for --extract (default: knowledge.extract.model, else the detected local model)")
+	c.Flags().StringVar(&model, "model", "",
+		"model for --extract (default: llm.aux, else knowledge.extract.model, else the current model)")
 	c.Flags().IntVar(&limit, "limit", 0, "most notes --extract reads (0: all changed)")
 	return c
+}
+
+// resolveExtractModel picks the model for --extract. --model wins. Then
+// llm.aux when it names a model or the large-random pool. Then
+// knowledge.extract.model. Then the current model.
+func resolveExtractModel(
+	ctx context.Context, flag string, kc *config.KnowledgeConfig,
+) (string, string, string) {
+	if flag != "" {
+		return flag, agent.BackendForModel(flag), ""
+	}
+	if cfg, err := config.LoadStruct(); err == nil {
+		m, b, base, over := agent.ResolveAux(cfg.LLM.Aux, "", cfg.LLM.Backend, cfg.LLM.BaseURL)
+		if over {
+			return m, b, base
+		}
+	}
+	if kc != nil && kc.Extract.Model != "" {
+		return kc.Extract.Model, kc.Extract.Backend, ""
+	}
+	model, backend := agent.ResolveModelAndBackend(ctx, "", "")
+	return model, backend, ""
 }
 
 // runKnowledgeExtract runs the model pass with a fresh engine per call.
@@ -207,22 +233,19 @@ func runKnowledgeExtract(
 	model string,
 	limit int,
 ) error {
-	backend := ""
-	if model == "" {
-		model, backend = kc.Extract.Model, kc.Extract.Backend
+	if kc != nil && agent.KnowledgeBuildMode(kc.Build) == agent.KnowledgeBuildOff {
+		return errors.New("knowledge build is off (knowledge.build: off)")
 	}
+	model, backend, baseURL := resolveExtractModel(cmd.Context(), model, kc)
 	if model == "" {
-		model, backend = agent.ResolveModelAndBackend(cmd.Context(), "", "")
-	}
-	if model == "" {
-		return errors.New("no model for --extract: pass --model or set knowledge.extract.model")
+		return errors.New("no model for --extract: pass --model, set llm.aux, or set knowledge.extract.model")
 	}
 	if backend == "" {
 		backend = agent.BackendForModel(model)
 	}
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Reading changed notes with %s...\n", model)
-	ask := agent.KnowledgeAsk(func() *executor.Engine { return setupEngine(nil, false) }, model, backend, "")
+	ask := agent.KnowledgeAsk(func() *executor.Engine { return setupEngine(nil, false) }, model, backend, baseURL)
 	st, err := knowledge.Extract(cmd.Context(), v, dir, ask, knowledge.ExtractOptions{
 		Model: model, Workers: kc.Extract.Workers, Limit: limit, System: agent.HarnessText("knowledge-extract-system"),
 	})
@@ -312,7 +335,7 @@ func printPendingExtraction(w io.Writer, v knowledge.Vault, dir string) {
 		return
 	}
 	fmt.Fprintf(w, "%d notes waiting for extraction "+
-		"(kdeps knowledge build --extract, or knowledge.extract.on_background_build: true)\n", n)
+		"(kdeps knowledge build --extract, or /knowledge build auto)\n", n)
 }
 
 func newKnowledgeCheckCmd() *cobra.Command {

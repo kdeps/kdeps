@@ -177,11 +177,11 @@ defaults:
 #   recall:
 #     hops: 2                    # how far from the matched notes to walk
 #     budget_tokens: 1500        # most tokens of recalled paths and summaries per turn
-#   extract:                     # local-model pass: what each note is about (inferred edges)
-#     enabled: true
-#     model: ""                  # empty: the session's model when it is local, else skipped
+#   build: manual                # manual (default) | auto | off. auto also runs at session end
+#   extract:                     # model pass: what each note is about (inferred edges)
+#     model: ""                  # used when llm.aux is current; empty: the session model
 #     workers: 2                 # parallel model calls
-#     per_session: 20            # changed notes read at each session end
+#     per_session: 20            # changed notes read on an automatic run
 
 # ── Agent identity — who the agent is, for attribution and authenticated tools ──
 # Used for git commit trailers, outbound email "from", and the identity_get

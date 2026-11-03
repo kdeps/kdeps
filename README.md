@@ -291,6 +291,8 @@ Choose a model:
 kdeps ./my-agent/ --model llama3.2
 ```
 
+Knowledge-graph extraction, prompt refinement, and judges use that model. `/aux free` sends those calls to a large OpenRouter free model instead, and `/aux <model>` pins any model. The turn stays on the model you chose. `/knowledge build manual` (the default) runs extraction only when you ask; `auto` also runs it at session end and before a background graph build; `off` skips it. The link graph still rebuilds without a model.
+
 Agent mode is less predictable than a fixed workflow because the AI chooses its actions. Limit its permissions and review important changes. File tools may always use `~/.kdeps` and `/tmp`. Any other path outside the working directory asks first, and the filesystem root stays blocked.
 
 In this repository, `/auto-improve` runs an instrumented session and reports product bugs the log shows, without editing code. On OpenRouter it jumps to another free model at random before each task and each evaluate turn, and a provider 429 during that session does the same. The command files one GitHub issue as each report arrives, skipping any open issue with the same title. A daily workflow runs one task per process, files the issue if the process dies first, and never opens a pull request. Free-model requests wait so they stay under the account per-minute cap. Outside this command, a provider 429 moves to the next free id and the turn continues. An account 429 waits out the minute and retries the same id.

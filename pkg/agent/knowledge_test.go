@@ -373,6 +373,17 @@ func TestCmdKnowledge(t *testing.T) {
 	out, _ = run("/knowledge on")
 	assert.Contains(t, out, "knowledge vault on")
 	assert.False(t, saved.KnowledgeOff)
+	out, _ = run("/knowledge")
+	assert.Contains(t, out, "build: manual")
+	out, _ = run("/knowledge build auto")
+	assert.Contains(t, out, "automatic")
+	assert.Equal(t, KnowledgeBuildAuto, l.knowledgeBuildMode())
+	assert.True(t, saved.KnowledgeBuildSet)
+	assert.Equal(t, KnowledgeBuildAuto, saved.KnowledgeBuild)
+	out, err = run("/knowledge build nope")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Usage: /knowledge build")
+	assert.Equal(t, KnowledgeBuildAuto, l.knowledgeBuildMode())
 	_, err = run("/knowledge bogus")
 	require.ErrorContains(t, err, "unknown /knowledge subcommand")
 
@@ -399,6 +410,40 @@ func stubEngines(reply string, seen *[]string) func() *executor.Engine {
 		})
 		return eng
 	}
+}
+
+func TestKnowledgeBuildMode(t *testing.T) {
+	assert.Equal(t, KnowledgeBuildManual, KnowledgeBuildMode(""))
+	assert.Equal(t, KnowledgeBuildManual, KnowledgeBuildMode("nope"))
+	assert.Equal(t, KnowledgeBuildAuto, KnowledgeBuildMode("AUTO"))
+
+	l := &Loop{knowledge: &knowledgeState{cfg: config.KnowledgeConfig{Build: "auto"}}}
+	assert.Equal(t, KnowledgeBuildAuto, l.knowledgeBuildMode())
+	require.NoError(t, l.SetKnowledgeBuild("off"))
+	assert.Equal(t, KnowledgeBuildOff, l.knowledgeBuildMode())
+	require.Error(t, l.SetKnowledgeBuild("nope"))
+	assert.Equal(t, KnowledgeBuildOff, l.knowledgeBuildMode())
+	require.Error(t, (*Loop)(nil).SetKnowledgeBuild("manual"))
+
+	r := &REPL{loop: l}
+	r.applyToolTuning(ToolTuning{})
+	assert.Equal(t, KnowledgeBuildOff, l.knowledgeBuildMode(), "an old snapshot leaves the saved mode")
+	r.applyToolTuning(ToolTuning{KnowledgeBuild: KnowledgeBuildManual, KnowledgeBuildSet: true})
+	assert.Equal(t, KnowledgeBuildManual, l.knowledgeBuildMode())
+	assert.Equal(t, KnowledgeBuildManual, r.toolTuningSnapshot().KnowledgeBuild)
+}
+
+func TestExtractBackground_OnlyWhenAutomatic(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	var seen []string
+	l.config.KnowledgeEngine = stubEngines(`{"entities":[],"relations":[]}`, &seen)
+	l.config.Backend, l.config.Model = "openai", "gpt"
+	l.extractBackground()
+	assert.Empty(t, seen, "manual is the default")
+
+	l.knowledge.cfg.Build = KnowledgeBuildAuto
+	l.extractBackground()
+	assert.NotEmpty(t, seen)
 }
 
 func TestKnowledgeAsk(t *testing.T) {
@@ -435,13 +480,18 @@ func TestExtractKnowledge(t *testing.T) {
 
 	l.config.KnowledgeEngine = stubEngines(reply, &seen)
 	l.config.Backend, l.config.Model = "openai", "gpt"
-	l.ExtractKnowledge(t.Context(), &out, true)
-	assert.Contains(t, out.String(), "no local model", "a cloud session model is not used")
-	l.ExtractKnowledge(t.Context(), &out, false)
+	gotM, gotB, gotU := l.extractModel()
+	assert.Equal(t, "gpt", gotM, "the session model is the auxiliary channel by default")
+	assert.Equal(t, "openai", gotB)
+	assert.Empty(t, gotU)
 
 	out.Reset()
 	l.config.Backend, l.config.Model, l.config.BaseURL = "file", "llama3.2:1b", "http://127.0.0.1:1"
 	l.ExtractKnowledge(t.Context(), &out, false)
+	assert.Empty(t, out.String(), "manual mode does not extract at session end")
+	assert.Empty(t, seen)
+
+	l.ExtractKnowledge(t.Context(), &out, true)
 	assert.Contains(t, out.String(), "llama3.2:1b read 2 notes (0 failed, 0 still pending)")
 	assert.Len(t, seen, 2)
 	g, err := knowledge.Load(l.knowledge.dir)
@@ -453,7 +503,7 @@ func TestExtractKnowledge(t *testing.T) {
 	assert.True(t, found, "the graph is rebuilt with the findings")
 
 	out.Reset()
-	l.ExtractKnowledge(t.Context(), &out, false)
+	l.ExtractKnowledge(t.Context(), &out, true)
 	assert.Empty(t, out.String(), "nothing changed: no model calls")
 
 	l.knowledge.cfg.Extract.Model, l.knowledge.cfg.Extract.Backend = "qwen", "ollama"
@@ -467,13 +517,14 @@ func TestExtractKnowledge(t *testing.T) {
 	m, _, _ = l.extractModel()
 	assert.Equal(t, "llama3.2:1b", m)
 
-	off := false
-	l.knowledge.cfg.Extract.Enabled = &off
+	l.knowledge.cfg.Build = KnowledgeBuildOff
 	seen = nil
+	out.Reset()
 	l.ExtractKnowledge(t.Context(), &out, true)
 	assert.Empty(t, seen)
+	assert.Contains(t, out.String(), "model build is off")
 
-	l.knowledge.cfg.Extract.Enabled = nil
+	l.knowledge.cfg.Build = ""
 	_, run := knowledgeREPL(t, l)
 	outStr, err := run("/knowledge extract")
 	require.NoError(t, err)

@@ -1,6 +1,6 @@
 # Judge panel
 
-The judge panel is the eval. It reviews a turn's answer on its own.
+The judge panel is the eval. It reviews a turn's answer on its own. Roster generation and each judge use the [auxiliary channel](/agent/aux). That is the session model unless you point it at another model.
 
 Goal enforcement checks that the loop keeps moving; it says nothing about whether
 the final answer is actually right. The panel is an independent review of

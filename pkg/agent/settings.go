@@ -73,6 +73,11 @@ var sessionSettings = map[string]sessionSetting{
 		get: func(r *REPL) map[string]any { return onOffState(r.loop.PromptRefineEnabled()) },
 		set: func(r *REPL, v string) error { r.loop.SetPromptRefine(v == toggleOn); return nil },
 	},
+	"aux": {
+		get:     func(r *REPL) map[string]any { return auxSettingState(r.loop) },
+		set:     func(r *REPL, v string) error { return r.loop.SetAux(v) },
+		accepts: func(v string) bool { return strings.TrimSpace(v) != "" },
+	},
 	"handshake": {
 		get: func(r *REPL) map[string]any { return onOffState(r.loop.HandshakeEnabled()) },
 		set: func(r *REPL, v string) error { r.loop.SetHandshakeEnabled(v == toggleOn); return nil },
@@ -199,6 +204,11 @@ var sessionSettings = map[string]sessionSetting{
 			}
 			return nil
 		},
+	},
+	// /knowledge build: the model pass that adds inferred edges.
+	"knowledge-build": {
+		get: func(r *REPL) map[string]any { return map[string]any{"value": r.loop.knowledgeBuildMode()} },
+		set: func(r *REPL, v string) error { return r.loop.SetKnowledgeBuild(v) },
 	},
 	// /efficiency on|off, verbose and prompt mode.
 	"efficiency": {

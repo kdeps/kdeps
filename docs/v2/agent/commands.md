@@ -24,7 +24,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
-| `/knowledge [on\|off\|extract]` | Show whether the knowledge vault is on and where it is; `extract` has the local model read every changed note now; or turn per-turn recall, session notes and the knowledge tools on or off (remembered across sessions). See [Knowledge vault](/agent/knowledge) |
+| `/knowledge [on\|off\|build\|extract]` | Show whether the knowledge vault is on and where it is. `build` sets model graph building to `auto`, `manual`, or `off`. `extract` reads changed notes with the auxiliary model now. `on` and `off` turn per-turn recall, session notes and the knowledge tools on or off (remembered). See [Knowledge vault](/agent/knowledge) |
 | `/recall [words]` | Show the knowledge vault notes recalled for the last turn and why (score, hops, linked from); with words, recall for those instead. See [Knowledge vault](/agent/knowledge) |
 | `/compact` | Summarize older turns now, keeping the last few verbatim. Unlike auto-compaction it runs regardless of how large the session is; it only shrinks the saved conversation, not a single turn's own tool output |
 | `/history` | Show conversation history |
@@ -46,6 +46,8 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/auto-improve` | In the kdeps repo, record a session, jump across OpenRouter free models, report product bugs the event log shows, and file one GitHub issue as each report arrives |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; off by default, persists across sessions. A session that already stored refine-on stays on |
+| `/aux` | Show the model used for knowledge extraction, prompt refinement, and judges (see [Auxiliary model channel](/agent/aux)) |
+| `/aux current\|free\|<model>` | Use the session model, a large OpenRouter free model chosen per call, or any model. The session model is the default. Persists, and wins over `llm.aux` |
 | `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
 | `/efficiency on\|off` | Enable or disable soft-stopping read-only exploration loops; on by default, persists |
 | `/efficiency verbose on\|off` | Reveal the hidden model-facing channel for debugging; off by default, persists |
@@ -308,7 +310,7 @@ run:
 | `efficiency_limit` | `setting`, `value` (a count or `off`) | `setting`, `value`; saved to that limit's event |
 | `efficiency_reset` | - | `reset`: every efficiency event back to its shipped default |
 | `recall` | `query` (optional: the last turn's recall without it) | `seeds`, `hits` (`path`, `score`, `hops`, `via`, `summary`), `tokens`: behind `/recall` |
-| `knowledge` | - | `value` (on/off), `vault`, `graph`: behind `/knowledge` |
+| `knowledge` | - | `value` (on/off), `vault`, `graph`, `build` (`manual`, `auto`, or `off`): behind `/knowledge` |
 | `knowledge_extract` | - | `output`: the local model reads the changed notes and the graph is rebuilt |
 | `last_request` | `raw` (`true` for the request as JSON) | `messages` (`index`, `role`, `tokens`, `content`), `tools` (`name`, `tokens`, `description`), `tool_tokens`, `tokens`; or `raw`: behind `/prompt` |
 | `search_index` | - | `output`: the working project's folder indexes brought up to date |
@@ -396,7 +398,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (off by default)
 setting:
-  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt, knowledge or context
+  key: refine        # the session setting: refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt, knowledge, knowledge-build, context or aux
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}
@@ -409,6 +411,8 @@ setting:
 | Shipped setting command | Setting | Values | Extra template fields |
 |---|---|---|---|
 | `/refine` | `refine` | `on`, `off` | - |
+| `/aux` | `aux` | `current`, `free`, or any model id | `.model` (the session model, the pinned API id, or empty while the value is `free`), `.backend` |
+| `/knowledge build` | `knowledge-build` | `manual`, `auto`, `off` | - |
 | `/handshake` | `handshake` | `on`, `off` | - |
 | `/autocontext` | `autocontext` | `on`, `off` | - |
 | `/permission` (alias `/permissions`) | `permission` | `read-only`, `workspace-write`, `danger-full-access`, `ask` | - |

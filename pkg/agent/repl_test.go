@@ -5291,6 +5291,7 @@ func TestModelList_CloudRows(t *testing.T) {
 	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/model list")) })
 	assert.Regexp(t, m.Backend+`.*\[READY\]`, out)
 	assert.Regexp(t, regexp.QuoteMeta(m.ID)+`.*<-- current`, out)
+	assert.NotContains(t, out, m.ModelID)
 	assert.Contains(t, out, "[NO KEY - set ", "a backend without its key names the variable")
 }
 

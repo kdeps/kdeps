@@ -35,7 +35,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
@@ -1007,33 +1006,81 @@ func KnowledgeAsk(newEngine func() *executor.Engine, model, backend, baseURL str
 	}
 }
 
-// extractModel is the model extraction uses: the session's when it is a
-// local model being served, else the configured one; "" skips extraction.
+// extractModel is the model extraction uses. The auxiliary channel wins
+// when it names a model or the large-random pool. Otherwise an
+// explicit knowledge.extract.model is used, then the session model.
+// An unserved local session model is skipped. "" skips extraction.
 func (l *Loop) extractModel() (string, string, string) {
-	k := l.knowledge
-	if k.cfg.Extract.Model != "" {
-		return k.cfg.Extract.Model, k.cfg.Extract.Backend, ""
+	if l == nil {
+		return "", "", ""
 	}
-	switch l.config.Backend {
-	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
-		if l.config.Backend == "ollama" || l.config.BaseURL != "" {
-			return l.config.Model, l.config.Backend, l.config.BaseURL
-		}
+	if !l.auxOverrides() && l.knowledge != nil && l.knowledge.cfg.Extract.Model != "" {
+		return l.knowledge.cfg.Extract.Model, l.knowledge.cfg.Extract.Backend, ""
 	}
-	return "", "", ""
+	model, backend, baseURL := l.auxChat()
+	if model == "" {
+		return "", "", ""
+	}
+	if !l.auxOverrides() && localExtractUnserved(backend, baseURL) {
+		return "", "", ""
+	}
+	return model, backend, baseURL
+}
+
+const (
+	// KnowledgeBuildManual runs the model pass only when asked.
+	KnowledgeBuildManual = "manual"
+	// KnowledgeBuildAuto also runs it at session end and before a background build.
+	KnowledgeBuildAuto = "auto"
+	// KnowledgeBuildOff does not run the model pass.
+	KnowledgeBuildOff = "off"
+)
+
+// KnowledgeBuildMode normalizes knowledge.build. Empty and unknown values
+// are manual.
+func KnowledgeBuildMode(build string) string {
+	switch strings.ToLower(strings.TrimSpace(build)) {
+	case KnowledgeBuildAuto:
+		return KnowledgeBuildAuto
+	case KnowledgeBuildOff:
+		return KnowledgeBuildOff
+	default:
+		return KnowledgeBuildManual
+	}
+}
+
+// knowledgeBuildMode is the model-pass mode for this session. A saved
+// /knowledge build wins over knowledge.build.
+func (l *Loop) knowledgeBuildMode() string {
+	if l != nil && l.knowledgeBuildSet {
+		return KnowledgeBuildMode(l.knowledgeBuild)
+	}
+	if l != nil && l.knowledge != nil {
+		return KnowledgeBuildMode(l.knowledge.cfg.Build)
+	}
+	return KnowledgeBuildManual
+}
+
+// SetKnowledgeBuild stores manual, auto, or off.
+func (l *Loop) SetKnowledgeBuild(v string) error {
+	if l == nil {
+		return errors.New("no session")
+	}
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case KnowledgeBuildManual, KnowledgeBuildAuto, KnowledgeBuildOff:
+		l.knowledgeBuild = strings.ToLower(strings.TrimSpace(v))
+		l.knowledgeBuildSet = true
+		return nil
+	default:
+		return fmt.Errorf("%s is not a knowledge build mode", v)
+	}
 }
 
 // extractBackground runs a bounded pending-only extraction before a graph
-// build when knowledge.extract.on_background_build is set.
+// build when model graph building is automatic.
 func (l *Loop) extractBackground() {
 	k := l.knowledge
-	if k == nil || k.cfg.Extract.OnBackgroundBuild == nil || !*k.cfg.Extract.OnBackgroundBuild {
-		return
-	}
-	if k.cfg.Extract.Enabled != nil && !*k.cfg.Extract.Enabled {
-		return
-	}
-	if l.config.KnowledgeEngine == nil {
+	if k == nil || l.knowledgeBuildMode() != KnowledgeBuildAuto || l.config.KnowledgeEngine == nil {
 		return
 	}
 	model, backend, baseURL := l.extractModel()
@@ -1053,19 +1100,35 @@ func (l *Loop) extractBackground() {
 		})
 }
 
+// knowledgeExtractRuns reports whether this call should read notes.
+// Session end passes all=false and runs only in automatic mode. An explicit
+// request prints why a disabled mode did not run.
+func (l *Loop) knowledgeExtractRuns(w io.Writer, all bool) bool {
+	if !l.knowledgeOn() || l.config.KnowledgeEngine == nil {
+		return false
+	}
+	mode := l.knowledgeBuildMode()
+	if mode == KnowledgeBuildOff {
+		if all && w != nil {
+			fmt.Fprintln(w, "knowledge: model build is off (/knowledge build manual, or knowledge.build)")
+		}
+		return false
+	}
+	return all || mode == KnowledgeBuildAuto
+}
+
 // ExtractKnowledge runs the model pass over notes that changed since their
 // last extraction (at most per_session of them, unless all is set) and
 // rebuilds the graph with what it found. It reports on w.
 func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
 	k := l.knowledge
-	if !l.knowledgeOn() || (k.cfg.Extract.Enabled != nil && !*k.cfg.Extract.Enabled) ||
-		l.config.KnowledgeEngine == nil {
+	if !l.knowledgeExtractRuns(w, all) {
 		return
 	}
 	model, backend, baseURL := l.extractModel()
 	if model == "" {
 		if all && w != nil {
-			fmt.Fprintln(w, "knowledge: no local model for extraction (set knowledge.extract.model)")
+			fmt.Fprintln(w, "knowledge: no model for extraction (/aux, llm.aux, or knowledge.extract.model)")
 		}
 		return
 	}

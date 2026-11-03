@@ -242,6 +242,14 @@ type Config struct {
 	// Off by default in the REPL; /refine on enables it. Persisted via
 	// ToolTuning. A saved session that already stored refine-on stays on.
 	PromptRefine bool
+	// Aux is the model for auxiliary calls: knowledge-graph extraction,
+	// prompt refinement, and judges. Empty or "current" uses this loop's
+	// model. "free" picks a large OpenRouter free model for each call.
+	// Any other value is a model name, or the catalog model_id stored for one.
+	// AuxSet is true once /aux stored a
+	// choice, so the saved setting wins over llm.aux.
+	Aux    string
+	AuxSet bool
 	// OutputTokenCap, when positive, is max_tokens for this loop's model
 	// calls. Side loops set it from the side-call-max-tokens event. Zero
 	// uses the model output ceiling.
@@ -309,24 +317,26 @@ var activeLoop *Loop
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
-	ctx           context.Context
-	knowledge     *knowledgeState // nil when no vault is configured
-	knowledgeOff  bool            // /knowledge off
-	noteID        string          // session note id before the session is saved
-	engine        *executor.Engine
-	registry      *tools.Registry
-	workflow      *domain.Workflow
-	config        Config
-	session       SessionReadWriter
-	skills        string              // pre-formatted skill XML block for the system prompt
-	skillList     []Skill             // raw skill structs for name lookup (/skill-name invocation)
-	relatedSkills map[string][]string // skill name -> related skill names (vault graph, else kartographer)
-	prompts       []PromptTemplate    // loaded prompt templates
-	onAutoCompact func(summary string)
-	store         *SessionStore // optional persistence
-	sessionID     string        // store id for the current session (continuity across turns/exit)
-	memoryStore   *MemoryStore  // optional memory persistence
-	streamer      Streamer      // optional streaming LLM caller
+	ctx               context.Context
+	knowledge         *knowledgeState // nil when no vault is configured
+	knowledgeOff      bool            // /knowledge off
+	knowledgeBuild    string          // /knowledge build; empty until that command is saved
+	knowledgeBuildSet bool
+	noteID            string // session note id before the session is saved
+	engine            *executor.Engine
+	registry          *tools.Registry
+	workflow          *domain.Workflow
+	config            Config
+	session           SessionReadWriter
+	skills            string              // pre-formatted skill XML block for the system prompt
+	skillList         []Skill             // raw skill structs for name lookup (/skill-name invocation)
+	relatedSkills     map[string][]string // skill name -> related skill names (vault graph, else kartographer)
+	prompts           []PromptTemplate    // loaded prompt templates
+	onAutoCompact     func(summary string)
+	store             *SessionStore // optional persistence
+	sessionID         string        // store id for the current session (continuity across turns/exit)
+	memoryStore       *MemoryStore  // optional memory persistence
+	streamer          Streamer      // optional streaming LLM caller
 	// modelNotes are loop-generated notices (goal transitions, budget changes,
 	// forced task failures) queued to be injected into the model's next request
 	// as a [kdeps] system message. The human sees them on the terminal; the

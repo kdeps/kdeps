@@ -3,7 +3,7 @@
 A terse or under-specified prompt ("fix that", "add the flag") makes the model
 guess, which wastes the first few tool rounds. Prompt refinement runs one
 cheap LLM call before the turn starts that rewrites your prompt into a clearer,
-self-contained version, then runs the turn on the rewrite.
+self-contained version, then runs the turn on the rewrite. The refine call uses the [auxiliary channel](/agent/aux), which is the session model unless you point it at another model.
 
 ```text
 your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, judges)

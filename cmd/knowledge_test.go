@@ -144,3 +144,44 @@ func TestKnowledgeBuild_Extract(t *testing.T) {
 	assert.Contains(t, out, "1 notes read (1 failed)", "an unreachable model fails the note, not the build")
 	assert.Contains(t, out, "1 notes (1 changed)")
 }
+
+func TestResolveExtractModel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  aux: current\n"), 0o600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	kc := &config.KnowledgeConfig{Extract: config.KnowledgeExtractConfig{Model: "qwen", Backend: "ollama"}}
+
+	m, b, u := resolveExtractModel(t.Context(), "pinned", kc)
+	assert.Equal(t, []string{"pinned", "", ""}, []string{m, b, u})
+
+	m, b, u = resolveExtractModel(t.Context(), "", kc)
+	assert.Equal(t, []string{"qwen", "ollama", ""}, []string{m, b, u})
+
+	require.NoError(t, os.WriteFile(path, []byte(
+		"llm:\n  backend: ollama\n  base_url: http://127.0.0.1:11434\n  aux: not-a-free-model\n"), 0o600))
+	m, b, u = resolveExtractModel(t.Context(), "", kc)
+	assert.Equal(t, []string{"not-a-free-model", "ollama", "http://127.0.0.1:11434"}, []string{m, b, u})
+
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  aux: acme/paid-model\n"), 0o600))
+	m, b, u = resolveExtractModel(t.Context(), "", kc)
+	assert.Equal(t, []string{"acme/paid-model", "openrouter", ""}, []string{m, b, u})
+
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  aux: free\n"), 0o600))
+	m, b, u = resolveExtractModel(t.Context(), "", kc)
+	if m == "" || m == "qwen" {
+		t.Fatalf("free aux = %q %q, want an OpenRouter free id", m, b)
+	}
+	assert.Equal(t, "openrouter", b)
+	assert.Empty(t, u)
+}
+
+func TestKnowledgeBuild_ExtractOff(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("knowledge:\n  build: off\n"), 0o600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	vault := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(vault, "Note.md"), []byte("body\n"), 0o600))
+	_, err := runKnowledge(t, "build", "--vault", vault, "--extract")
+	require.ErrorContains(t, err, "knowledge build is off")
+}

@@ -380,7 +380,7 @@ Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown note
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
 kdeps knowledge build               # graph under ~/.kdeps/knowledge/<vault-id>; changed notes only
-kdeps knowledge build --extract     # a local model reads changed notes first: inferred edges with confidence
+kdeps knowledge build --extract     # the auxiliary model reads changed notes first: inferred edges with confidence
 kdeps knowledge build --export      # also copy GRAPH_REPORT.md and graph.html into the vault
 kdeps knowledge check-update        # rebuild only when notes changed outside kdeps
 kdeps knowledge check               # structural one-home: duplicate summaries, canonical ids, dangling links
@@ -394,9 +394,9 @@ The graph, `GRAPH_REPORT.md` and `graph.html` are written under `~/.kdeps/knowle
 | Flag | Description | Default |
 |---|---|---|
 | `--vault` | Vault folder | `knowledge.vault` in `~/.kdeps/config.yaml`, else `~/.kdeps/notes` |
-| `--extract` (build) | Have a local model read changed notes first | `false` |
+| `--extract` (build) | Have the auxiliary model read changed notes first | `false` |
 | `--export` (build) | Copy the report and the explorer page into the vault | `false` |
-| `--model` (build) | Model for `--extract` | `knowledge.extract.model`, else the detected local model |
+| `--model` (build) | Model for `--extract` | `llm.aux` when it names a model, else `knowledge.extract.model`, else the current model |
 | `--limit` (build) | Most notes `--extract` reads | `0` (all changed) |
 
 `check` exits non-zero when it reports anything. It reports structural duplicates. It does not decide that two different wordings are the same fact.
