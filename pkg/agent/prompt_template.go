@@ -26,6 +26,8 @@ import (
 	"strings"
 	"unicode"
 
+	kgnotes "github.com/kdeps/kartographer/notes"
+
 	"github.com/spf13/afero"
 )
 
@@ -108,11 +110,12 @@ func loadPromptTemplateFromFile(path string) *PromptTemplate {
 	if err != nil {
 		return nil
 	}
-	frontmatter, body := splitFrontmatter(string(data))
+	meta, body := kgnotes.SplitFrontmatter(data)
+	body = strings.TrimLeftFunc(strings.ReplaceAll(body, "\r\n", "\n"), unicode.IsSpace)
 
 	name := strings.TrimSuffix(filepath.Base(path), promptTemplateExt)
 
-	description := frontmatter["description"]
+	description := kgnotes.MetaString(meta, "description")
 	if description == "" {
 		for _, line := range strings.Split(body, "\n") {
 			line = strings.TrimSpace(line)
@@ -130,40 +133,10 @@ func loadPromptTemplateFromFile(path string) *PromptTemplate {
 	return &PromptTemplate{
 		Name:         name,
 		Description:  description,
-		ArgumentHint: frontmatter["argument-hint"],
+		ArgumentHint: kgnotes.MetaString(meta, "argument-hint"),
 		Content:      body,
 		Source:       path,
 	}
-}
-
-// splitFrontmatter parses optional YAML-like frontmatter delimited by "---".
-// Returns a flat map of string key->value pairs and the body after the block.
-// Only simple "key: value" lines are extracted; nested YAML is not supported.
-func splitFrontmatter(content string) (map[string]string, string) {
-	content = strings.ReplaceAll(content, "\r\n", "\n")
-	if !strings.HasPrefix(content, "---") {
-		return nil, content
-	}
-	end := strings.Index(content[3:], "\n---")
-	if end == -1 {
-		return nil, content
-	}
-	yamlBlock := content[4 : end+3]
-	body := strings.TrimLeftFunc(content[end+7:], unicode.IsSpace)
-
-	fm := make(map[string]string)
-	for _, line := range strings.Split(yamlBlock, "\n") {
-		idx := strings.IndexByte(line, ':')
-		if idx < 0 {
-			continue
-		}
-		key := strings.TrimSpace(line[:idx])
-		val := strings.TrimSpace(line[idx+1:])
-		if key != "" {
-			fm[key] = val
-		}
-	}
-	return fm, body
 }
 
 var (
