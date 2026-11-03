@@ -19,10 +19,15 @@
 package agent
 
 import (
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
 // wantVaultPreamble is the vault preamble kdeps sent before its text moved to
@@ -55,4 +60,16 @@ func TestRecallFiles_KeepsItsFrame(t *testing.T) {
 		"the request (best first). Open the ones you need with read_file; search further with search_local, path "+
 		"set to the folder (or no path to search all of the project's folders).\nFolder "), files)
 	assert.True(t, strings.HasSuffix(files, "\n</knowledge-files>"), files)
+}
+
+func TestOverview_RendersTheCardTable(t *testing.T) {
+	l, _ := knowledgeLoop(t)
+	c, err := l.knowledge.project()
+	require.NoError(t, err)
+	want := "## Status overview (from the project cards in " +
+		filepath.Join(l.knowledge.vault.Root, knowledge.Layout().Folders.Projects) + ")\n\n" +
+		"| Card | Type | Status | Next | Updated |\n|---|---|---|---|---|\n" +
+		"| " + c.Name + " | " + c.Type + " | " + c.Status + " | " + c.Next + " | " + c.Updated + " |\n" +
+		"\nThe working directory is project " + strconv.Quote(c.Name) + " (" + c.File + ").\n"
+	assert.Equal(t, want, l.knowledge.overview())
 }
