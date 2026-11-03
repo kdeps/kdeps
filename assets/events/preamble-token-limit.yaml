@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: preamble-token-limit
+# Tokens of the system preamble kept when neither the compact token budget nor
+# the auto-compact threshold is set. Turning the event off keeps the default.
+items: 40000
+run: cap

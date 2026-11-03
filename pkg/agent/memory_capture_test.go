@@ -108,3 +108,13 @@ func TestReplyLines_FollowTheMemoryRules(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, r.toolLineRe, "no pattern captures no lines")
 }
+
+func TestLoopBudgets_ComeFromTheirEvents(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	l := &Loop{}
+	assert.Equal(t, 40000, l.preambleLimit(), "preamble-token-limit")
+	l.config.CompactTokenBudget = 123
+	assert.Equal(t, 123, l.preambleLimit(), "the config wins")
+	assert.Equal(t, 100, itemsOr(eventToolAllocationIncrement, 1), "tool-allocation-increment")
+}
