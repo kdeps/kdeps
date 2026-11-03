@@ -24,17 +24,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"mime"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync/atomic"
 	"text/template"
 	"time"
 
 	wx "github.com/IBM/watsonx-go/pkg/models"
+	kgsearch "github.com/kdeps/kartographer/search"
+	kgtext "github.com/kdeps/kartographer/text"
 	"github.com/spf13/afero"
 	lcemb "github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms"
@@ -381,43 +381,16 @@ func selectFewShotExamples(pool []domain.ScenarioItem, prompt string, k int) []d
 		return pool
 	}
 
-	promptWords := wordSet(strings.ToLower(prompt))
-
-	type scored struct {
-		idx   int
-		score float64
-	}
-	var candidates []scored
+	promptWords := wordSet(prompt)
+	var users []int
+	var scores []float64
 	for i, item := range pool {
 		if strings.EqualFold(item.Role, roleUser) || item.Role == "" {
-			candidates = append(candidates, scored{
-				idx:   i,
-				score: jaccardSimilarity(promptWords, wordSet(strings.ToLower(item.Prompt))),
-			})
+			users = append(users, i)
+			scores = append(scores, kgsearch.Jaccard(promptWords, wordSet(item.Prompt)))
 		}
 	}
-
-	// Sort descending by score, stable so equal scores keep insertion order.
-	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].score > candidates[j].score
-	})
-	if k < len(candidates) {
-		candidates = candidates[:k]
-	}
-	// Re-sort by original index to preserve authoring order.
-	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].idx < candidates[j].idx
-	})
-
-	var result []domain.ScenarioItem
-	for _, c := range candidates {
-		result = append(result, pool[c.idx])
-		// Include the immediately following assistant item if present.
-		if c.idx+1 < len(pool) && strings.EqualFold(pool[c.idx+1].Role, roleAssistant) {
-			result = append(result, pool[c.idx+1])
-		}
-	}
-	return result
+	return fewShotPairs(pool, users, kgsearch.TopK(scores, k))
 }
 
 // pruneFewShotByTokens trims examples from the end of pool until the total token
@@ -460,49 +433,23 @@ func pruneFewShotByTokens(pool []domain.ScenarioItem, model string, maxTokens in
 	return result
 }
 
-func wordSet(s string) map[string]struct{} {
-	set := make(map[string]struct{})
-	for w := range strings.FieldsSeq(s) {
-		set[w] = struct{}{}
-	}
-	return set
+// wordSet is the lower-cased whitespace-separated words of s.
+func wordSet(s string) map[string]bool {
+	return kgtext.Set(strings.Fields(strings.ToLower(s)))
 }
 
-func jaccardSimilarity(a, b map[string]struct{}) float64 {
-	if len(a) == 0 || len(b) == 0 {
-		return 0
-	}
-	intersection := 0
-	for w := range a {
-		if _, ok := b[w]; ok {
-			intersection++
+// fewShotPairs is the user items users[i] for each i in picked, in order,
+// each followed by the assistant item right after it when there is one.
+func fewShotPairs(pool []domain.ScenarioItem, users, picked []int) []domain.ScenarioItem {
+	var result []domain.ScenarioItem
+	for _, i := range picked {
+		idx := users[i]
+		result = append(result, pool[idx])
+		if idx+1 < len(pool) && strings.EqualFold(pool[idx+1].Role, roleAssistant) {
+			result = append(result, pool[idx+1])
 		}
 	}
-	union := len(a) + len(b) - intersection
-	if union == 0 {
-		return 0
-	}
-	return float64(intersection) / float64(union)
-}
-
-// cosineSimilarity returns the cosine similarity between two float32 vectors.
-// Returns 0 when either vector is zero-length or has zero norm.
-func cosineSimilarity(a, b []float32) float64 {
-	if len(a) == 0 || len(b) != len(a) {
-		return 0
-	}
-	var dot, normA, normB float64
-	for i := range a {
-		ai, bi := float64(a[i]), float64(b[i])
-		dot += ai * bi
-		normA += ai * ai
-		normB += bi * bi
-	}
-	denom := math.Sqrt(normA) * math.Sqrt(normB)
-	if denom == 0 {
-		return 0
-	}
-	return dot / denom
+	return result
 }
 
 // buildFewShotEmbedder creates an openai-compat embedder for embedding-based
@@ -575,37 +522,13 @@ func selectFewShotByEmbedding(
 		return pool
 	}
 
-	promptVec := vecs[0]
-	type scored struct {
-		idx   int
-		score float64
-	}
-	scoredCandidates := make([]scored, len(candidates))
+	users := make([]int, len(candidates))
+	scores := make([]float64, len(candidates))
 	for i, c := range candidates {
-		scoredCandidates[i] = scored{
-			idx:   c.idx,
-			score: cosineSimilarity(promptVec, vecs[i+1]),
-		}
+		users[i] = c.idx
+		scores[i] = kgsearch.Cosine(vecs[0], vecs[i+1])
 	}
-
-	sort.SliceStable(scoredCandidates, func(i, j int) bool {
-		return scoredCandidates[i].score > scoredCandidates[j].score
-	})
-	if k < len(scoredCandidates) {
-		scoredCandidates = scoredCandidates[:k]
-	}
-	sort.SliceStable(scoredCandidates, func(i, j int) bool {
-		return scoredCandidates[i].idx < scoredCandidates[j].idx
-	})
-
-	var result []domain.ScenarioItem
-	for _, s := range scoredCandidates {
-		result = append(result, pool[s.idx])
-		if s.idx+1 < len(pool) && strings.EqualFold(pool[s.idx+1].Role, roleAssistant) {
-			result = append(result, pool[s.idx+1])
-		}
-	}
-	return result
+	return fewShotPairs(pool, users, kgsearch.TopK(scores, k))
 }
 
 // compressRetrieverContext returns up to topK chunks from chunks that are most
@@ -615,27 +538,15 @@ func compressRetrieverContext(chunks []string, prompt string, topK int) []string
 	if topK <= 0 || len(chunks) == 0 {
 		return chunks
 	}
-	promptWords := wordSet(strings.ToLower(prompt))
-	type scored struct {
-		idx   int
-		score float64
-	}
-	scores := make([]scored, len(chunks))
+	promptWords := wordSet(prompt)
+	scores := make([]float64, len(chunks))
 	for i, c := range chunks {
-		scores[i] = scored{idx: i, score: jaccardSimilarity(promptWords, wordSet(strings.ToLower(c)))}
+		scores[i] = kgsearch.Jaccard(promptWords, wordSet(c))
 	}
-	sort.SliceStable(scores, func(i, j int) bool {
-		return scores[i].score > scores[j].score
-	})
-	if topK < len(scores) {
-		scores = scores[:topK]
-	}
-	sort.SliceStable(scores, func(i, j int) bool {
-		return scores[i].idx < scores[j].idx
-	})
-	result := make([]string, len(scores))
-	for i, s := range scores {
-		result[i] = chunks[s.idx]
+	picked := kgsearch.TopK(scores, topK)
+	result := make([]string, len(picked))
+	for i, idx := range picked {
+		result[i] = chunks[idx]
 	}
 	return result
 }

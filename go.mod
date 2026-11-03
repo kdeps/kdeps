@@ -23,7 +23,7 @@ require (
 	github.com/go-telegram/bot v1.27.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/kdeps/kartographer v0.3.1-0.20261103032028-50981360d27a
+	github.com/kdeps/kartographer v0.3.1-0.20261103053938-50d333f0b123
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
