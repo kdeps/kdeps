@@ -217,6 +217,17 @@ echo -e "${RED}Failed:${NC} $FAILED"
 echo -e "${YELLOW}Skipped:${NC} $SKIPPED"
 echo ""
 
+# Stop the run-wide mock servers here as well as in the EXIT trap: on Windows
+# the trap alone left both running for the CI runner to kill.
+if declare -F _stop_mocks >/dev/null; then
+    _stop_mocks
+    case "$(uname -s)" in
+        MINGW* | MSYS* | CYGWIN*)
+            echo "=== mock processes still running after stopping them: $(powershell -NoProfile -Command "@(Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -match 'mock_llm\.py|mock_registry_' }).Count" 2>/dev/null | tr -d '\r')"
+            ;;
+    esac
+fi
+
 if [ $FAILED -eq 0 ]; then
     echo -e "${GREEN}All tests passed!${NC}"
     exit 0
