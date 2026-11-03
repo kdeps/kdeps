@@ -563,3 +563,28 @@ func TestExecute_Delete_JSONField(t *testing.T) {
 	assert.Equal(t, "delete", parsed["operation"])
 	assert.Equal(t, true, parsed["success"])
 }
+
+func TestSearch_MatchesEveryWordByStemBestFirst(t *testing.T) {
+	db := newTestDB(t)
+	e := embeddingexec.NewExecutor()
+	for _, text := range []string{
+		"Vector embeddings enable semantic search.",
+		"KDeps is a declarative YAML workflow framework.",
+		"Workflow frameworks orchestrate YAML.",
+	} {
+		_, err := e.Execute(newEmbeddingCtx(t), &domain.EmbeddingConfig{Operation: "index", Text: text, DBPath: db})
+		require.NoError(t, err)
+	}
+	out, err := e.Execute(
+		newEmbeddingCtx(t),
+		&domain.EmbeddingConfig{Operation: "search", Text: "yaml frameworks", DBPath: db},
+	)
+	require.NoError(t, err)
+	res := out.(map[string]interface{})
+	assert.Equal(
+		t,
+		[]string{"Workflow frameworks orchestrate YAML.", "KDeps is a declarative YAML workflow framework."},
+		res["results"],
+		"every query word, by stem; the closer overlap first",
+	)
+}

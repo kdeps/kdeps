@@ -62,7 +62,7 @@ component:
 |-----------|---------|-------------|
 | `index` | SQLite | Insert text (ignored if duplicate) |
 | `upsert` | SQLite | Insert or replace text |
-| `search` | SQLite | Case-insensitive keyword search via `LIKE` |
+| `search` | SQLite | Texts holding every query word, matched by stem with the local search tokenizer (`search.yaml`), closest word overlap first |
 | `delete` | SQLite | Delete by text, or the whole collection when `text` is empty |
 | `vectorize` | embedding backend | Convert `inputs` into vectors |
 | `embed_query` | embedding backend | Convert `text` into a query vector |
@@ -191,7 +191,7 @@ component:
 
 ---
 
-> **Note**: `index`, `search`, `upsert`, and `delete` use keyword (`LIKE`) matching, not vector similarity. Use `vectorize` and `embed_query` with a backend for vector embeddings.
+> **Note**: `index`, `search`, `upsert`, and `delete` use keyword matching (every query word, by stem), not vector similarity. Use `vectorize` and `embed_query` with a backend for vector embeddings.
 
 ## See also
 
