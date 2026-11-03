@@ -1,4 +1,4 @@
-version: 1.3.0
+version: 1.4.0
 # The notes kdeps writes into the vault: a project's card, a session note, a
 # decision note and a workflow's daily run log. Section names are a compaction
 # summary's headings, lowercased; they must match the compaction prompt.
@@ -185,4 +185,10 @@ templates:
 
     {{if not .R.Missing}}(none)
     {{end}}{{range .R.Missing}}- [[{{.}}]]
+    {{end}}
+
+  # .Edges (each .From .Relation .Provenance .Confidence .To): kdeps knowledge
+  # explain, one edge per line with the file and line it came from
+  explain: |-
+    {{range .Edges}}{{.From}} -[{{.Relation}}, {{.Provenance}}, {{printf "%.2f" .Confidence}}]-> {{.To}}{{evidence .}}
     {{end}}

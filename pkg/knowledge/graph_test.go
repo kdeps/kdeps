@@ -229,8 +229,14 @@ func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
 	assert.Equal(t, "projects/app/decisions/Billing decision.md", billing.SourceFile)
 	assert.Equal(t, "L5", billing.SourceLocation)
 
-	text := Explain(g, "Stripe gotcha")
+	text, err := Explain(g, "Stripe gotcha")
+	require.NoError(t, err)
 	assert.Contains(t, text, "Billing decision.md:L5")
+	assert.Regexp(t, `(?m)^note:.+ -\[relates_to, extracted, 1\.00\]-> note:.+ \(.+:L5\)$`, text,
+		"from -[relation, provenance, confidence]-> to (source)")
+	none, err := Explain(g, "no edge matches this")
+	require.NoError(t, err)
+	assert.Empty(t, none)
 
 	b := &builder{kg: kgknowledge.NewBuilder()}
 	onlyEdge := func() *Edge {
