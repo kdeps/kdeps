@@ -548,11 +548,11 @@ func TestNormalizeTopK_Positive(t *testing.T) {
 }
 
 func TestNormalizeTopK_Zero(t *testing.T) {
-	assert.Equal(t, defaultTopK, normalizeTopK(0))
+	assert.Equal(t, 5, normalizeTopK(0), "executor defaults vector_store.top_k")
 }
 
 func TestNormalizeTopK_Negative(t *testing.T) {
-	assert.Equal(t, defaultTopK, normalizeTopK(-1))
+	assert.Equal(t, 5, normalizeTopK(-1))
 }
 
 // ---- embedQuery ----

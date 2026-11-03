@@ -59,7 +59,6 @@ const (
 	opAddDocuments      = "add_documents"
 	providerAzureAI     = "azureaisearch"
 	providerChroma      = "chroma"
-	defaultChromaURL    = "http://localhost:8000"
 	providerDolt        = "dolt"
 	providerAlloyDB     = "alloydb"
 	providerGoogle      = "google"
@@ -269,7 +268,8 @@ func buildChromaStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvec
 	}
 	url := cfg.URL
 	if url == "" {
-		url = defaultChromaURL
+		d, _ := kdepsconfig.GetDefaults()
+		url = d.VectorStore.ChromaURL // executor defaults vector_store.chroma_url
 	}
 	store, err := lcchroma.New(
 		lcchroma.WithChromaURL(url),
