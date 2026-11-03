@@ -25,26 +25,9 @@ import (
 // GetTransitiveDependencies gets all dependencies (including transitive) of a resource.
 func (g *Graph) GetTransitiveDependencies(actionID string) map[string]bool {
 	kdeps_debug.Log("enter: GetTransitiveDependencies")
-	deps := make(map[string]bool)
-	visited := make(map[string]bool)
-
-	g.collectDependencies(actionID, deps, visited)
-
+	deps := map[string]bool{}
+	for _, d := range g.dependencies().Recursive(actionID) {
+		deps[d] = true
+	}
 	return deps
-}
-
-// collectDependencies recursively collects dependencies.
-func (g *Graph) collectDependencies(actionID string, deps, visited map[string]bool) {
-	kdeps_debug.Log("enter: collectDependencies")
-	if visited[actionID] {
-		return
-	}
-
-	visited[actionID] = true
-
-	// Add direct dependencies.
-	for _, dep := range g.Edges[actionID] {
-		deps[dep] = true
-		g.collectDependencies(dep, deps, visited)
-	}
 }

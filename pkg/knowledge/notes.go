@@ -62,7 +62,13 @@ type noteRules struct {
 		Progress     string   `yaml:"progress"`
 		ProgressFrom []string `yaml:"progress_from"`
 	} `yaml:"summary"`
-	None      string            `yaml:"none"`
+	None    string `yaml:"none"`
+	Session struct {
+		Kind       string `yaml:"kind"`
+		IDKey      string `yaml:"id_key"`
+		CommitsKey string `yaml:"commits_key"`
+		Untitled   string `yaml:"untitled"`
+	} `yaml:"session"`
 	Sections  []sessionSection  `yaml:"session_sections"`
 	Templates map[string]string `yaml:"templates"`
 	tmpl      map[string]*template.Template
@@ -83,6 +89,9 @@ func parseNoteRules(data []byte) (noteRules, error) {
 	s := r.Summary
 	if len(s.Focus) == 0 || s.Next == "" || s.Decisions == "" || s.Progress == "" || r.None == "" {
 		return r, errors.New("summary.focus, summary.next, summary.decisions, summary.progress and none must be set")
+	}
+	if r.Session.Kind == "" || r.Session.IDKey == "" || r.Session.CommitsKey == "" || r.Session.Untitled == "" {
+		return r, errors.New("session.kind, session.id_key, session.commits_key and session.untitled must be set")
 	}
 	if len(r.Sections) == 0 {
 		return r, errors.New("session_sections is empty")

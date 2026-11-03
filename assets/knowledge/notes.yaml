@@ -12,6 +12,12 @@ summary:
 
 none: "(none)"  # the text of an empty section; a summary item of only this is no item
 
+session:  # what the session and run log templates write, and kdeps reads back
+  kind: session  # their type; recall ranks this kind below the notes people curate
+  id_key: session  # front matter key of the session id; a rewrite finds its note by it
+  commits_key: commits  # front matter key of the commit range ("from..to", or one commit)
+  untitled: session  # a note's file name when its title has no usable characters
+
 session_sections:  # a session note's headings in order, each filled by the first summary section that is set
   - heading: Focus
     from: [goal]
@@ -35,17 +41,18 @@ templates:
     {{.Keys.Next}}: {{scalar .None}}
     {{.Keys.Updated}}: {{.Updated}}
     ---
-    | Source | Path |
+    | {{index .Keys.LinksHeader 0}} | {{index .Keys.LinksHeader 1}} |
     |---|---|
     | {{.Source}} | {{.Place}} |
 
-  # .ID, .Project, .Created, .Summary, .CardLink, .Commits, .Git (.Branch, .From, .To), .Sections (.Heading, .Text)
+  # .Session (the session block above), .ID, .Project, .Created, .Summary, .CardLink, .Commits,
+  # .Git (.Branch, .From, .To), .Sections (.Heading, .Text)
   session: |-
     ---
-    type: session
+    type: {{.Session.Kind}}
     status: done
     project: {{scalar .Project}}
-    session: {{scalar .ID}}
+    {{.Session.IDKey}}: {{scalar .ID}}
     created: {{.Created}}
     summary: {{scalar .Summary}}
     tags: [session, {{scalar .Project}}]
@@ -54,7 +61,7 @@ templates:
     {{- if .Git.Branch}}
     branch: {{scalar .Git.Branch}}
     {{- end}}
-    commits: {{scalar .Commits}}
+    {{.Session.CommitsKey}}: {{scalar .Commits}}
     {{- end}}
     ---
     {{range .Sections}}
@@ -86,13 +93,13 @@ templates:
 
     {{.Body}}
 
-  # .Project, .Created, .CardLink: the top of a workflow's run log for the day
+  # .Session, .Project, .Created, .CardLink: the top of a workflow's run log for the day
   runs_head: |
     ---
-    type: session
+    type: {{.Session.Kind}}
     status: done
     project: {{scalar .Project}}
-    session: {{scalar (printf "runs-%s" .Created)}}
+    {{.Session.IDKey}}: {{scalar (printf "runs-%s" .Created)}}
     created: {{.Created}}
     summary: {{scalar (printf "%s workflow runs on %s" .Project .Created)}}
     tags: [session, workflow, {{scalar .Project}}]

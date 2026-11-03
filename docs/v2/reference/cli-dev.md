@@ -386,7 +386,7 @@ kdeps knowledge check-update        # rebuild only when notes changed outside kd
 kdeps knowledge check               # structural one-home: duplicate summaries, canonical ids, dangling links
 kdeps knowledge recall "why monthly billing"   # what recall would hand the agent, with the relation chain
 kdeps knowledge explain "billing"   # matching edges, with the file and line each one came from
-kdeps knowledge report              # print GRAPH_REPORT.md (deterministic Louvain communities)
+kdeps knowledge report              # print GRAPH_REPORT.md (deterministic communities)
 ```
 
 The graph, `GRAPH_REPORT.md` and `graph.html` are written under `~/.kdeps/knowledge/<vault-id>/`. `<vault-id>` is a hash of the vault path.
