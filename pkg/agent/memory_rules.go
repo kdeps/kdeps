@@ -39,6 +39,11 @@ type MemoryRules struct {
 		FileVerbs   []string `yaml:"file_verbs"`
 	} `yaml:"reply_capture"`
 	FocusStopwords []string `yaml:"focus_stopwords"`
+	FocusWeights   struct {
+		KeyWeight       int `yaml:"key_weight"`
+		StructuralBonus int `yaml:"structural_bonus"`
+	} `yaml:"focus_weights"`
+	SearchMinWord int `yaml:"search_min_word"`
 
 	actionRe, fileRe *regexp.Regexp // built from ReplyCapture; nil captures nothing
 	focusStop        map[string]bool
@@ -108,6 +113,12 @@ func parseMemoryRules(data []byte) (MemoryRules, error) {
 	}
 	if r.DefaultType == "" {
 		return MemoryRules{}, errors.New("needs a default_type")
+	}
+	if w := r.FocusWeights; w.KeyWeight < 0 || w.StructuralBonus < 0 || r.SearchMinWord < 0 {
+		return MemoryRules{}, errors.New("focus_weights and search_min_word must not be negative")
+	}
+	if r.FocusWeights.KeyWeight == 0 {
+		r.FocusWeights.KeyWeight = 1 // a key hit counts at least as much as a value hit
 	}
 	if c := r.ReplyCapture; len(c.ActionVerbs) > 0 {
 		if c.ActionMin < 0 || c.ActionMax < c.ActionMin {
