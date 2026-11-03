@@ -53,6 +53,7 @@ const (
 	eventMemoryKeysLimit            = "memory-keys-limit"
 	eventMemoryLowSignalLimit       = "memory-low-signal-limit"
 	eventMemoryPromptLimit          = "memory-prompt-limit"
+	eventMemoryQueryRowsMax         = "memory-query-rows-max"
 	eventMemorySearchLimit          = "memory-search-limit"
 	eventMemoryStatusLimit          = "memory-status-limit"
 	eventMemorySummaryChars         = "memory-summary-chars"

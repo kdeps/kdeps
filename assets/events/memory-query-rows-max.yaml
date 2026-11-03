@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: memory-query-rows-max
+# Rows memory_query returns at most for a relation, whatever limit the model
+# asks for; keeps the result under the tool result size cap so it is never cut
+# mid-JSON.
+items: 500
+run: cap
