@@ -69,7 +69,9 @@ scenario() {
     # next scenario's): its servers kept running through every later scenario.
     # Run the scenario's own EXIT cleanup when it finishes, then put back the
     # run-wide trap (the mock servers' cleanup from common.sh).
-    local outer inner _scenario_exit=""
+    # The cleanup can delete a scenario's temp folder, which the shell's working
+    # directory or HOME may still point at, so both are put back afterwards.
+    local outer inner _scenario_exit="" pwd0="$PWD" home0="${HOME:-}" profile0="${USERPROFILE:-}"
     outer=$(trap -p EXIT)
     # shellcheck disable=SC1090
     source "$SCRIPT_DIR/$1"
@@ -79,6 +81,9 @@ scenario() {
         eval "$_scenario_exit"
     fi
     if [ -n "$outer" ]; then eval "$outer"; else trap - EXIT; fi
+    cd "$pwd0" 2>/dev/null || cd "$PROJECT_ROOT" || true
+    export HOME="$home0"
+    [ -n "$profile0" ] && export USERPROFILE="$profile0"
 }
 
 # Run all test scenarios (source them so counters persist)
