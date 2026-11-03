@@ -84,7 +84,7 @@ func logWorkflowRun(ctx *executor.ExecutionContext, cfg *domain.ChatConfig, prom
 	// different folders logs to one project.
 	card, err := v.Card(name)
 	if err != nil {
-		if card, _, err = v.CreateProject(name, knowledge.SourceWorkflow, place, now); err != nil {
+		if card, _, err = v.CreateProject(name, knowledge.Layout().Sources.Workflow, place, now); err != nil {
 			return
 		}
 	}

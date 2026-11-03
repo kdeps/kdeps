@@ -158,12 +158,13 @@ func newKnowledgeBuildCmd() *cobra.Command {
 		Use:   "build",
 		Short: "Build the vault's link graph (only changed notes and code files are re-read)",
 		Long: `Builds the vault's graph from what the notes and code write down (links,
-tags, imports), groups it into communities with deterministic Louvain and
-writes the report next to the graph, under ~/.kdeps/knowledge/<vault-id>.
+tags, imports), groups it into communities (deterministic; the knowledge
+policy's community_method, louvain or leiden) and writes the report next to the graph, under ~/.kdeps/knowledge/<vault-id>.
 
 With --extract, a local model first reads every note that changed since its
 last extraction and lists what it is about; its findings join the graph as
-inferred edges (with the model's confidence) or ambiguous ones (below 0.5).
+inferred edges (with the model's confidence) or ambiguous ones (below the
+knowledge policy's ambiguous_below).
 --export also copies GRAPH_REPORT.md and graph.html into the vault. A file
 of yours there is never replaced.
 
@@ -399,7 +400,7 @@ func newKnowledgeReportCmd() *cobra.Command {
 		Use:   "report",
 		Short: "Print the graph report: god nodes, communities, surprising connections, dangling links",
 		Long: `Prints GRAPH_REPORT.md from the last build: the most connected notes (god
-nodes), the communities deterministic Louvain found, single links between
+nodes), the communities the build found, single links between
 communities that otherwise never touch (surprising connections) and links to
 missing notes. The report and graph.html sit with the graph under
 ~/.kdeps/knowledge/<vault-id>. kdeps knowledge build --export copies them

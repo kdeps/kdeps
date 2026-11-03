@@ -219,7 +219,7 @@ func (k *knowledgeState) overview() string {
 		}
 		if b.Len() == 0 {
 			b.WriteString("## Status overview (from the project cards in " +
-				filepath.Join(k.vault.Root, knowledge.ProjectsFolder) +
+				filepath.Join(k.vault.Root, knowledge.Layout().Folders.Projects) +
 				")\n\n| Card | Type | Status | Next | Updated |\n|---|---|---|---|---|\n")
 		}
 		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s |\n", c.Name, c.Type, c.Status, c.Next, c.Updated)
@@ -460,7 +460,7 @@ func (k *knowledgeState) gitRange(id string) knowledge.GitRange {
 func recordIndexes(card *knowledge.Card) {
 	for _, place := range card.SearchRoots() {
 		if p := searchlocal.IndexPath(place); fileExistsAt(p) {
-			_ = card.AddLink(knowledge.SourceIndex, p)
+			_ = card.AddLink(knowledge.Layout().Sources.Index, p)
 		}
 	}
 }
@@ -589,12 +589,22 @@ func (l *Loop) saveSessionNote(summary string, w io.Writer) bool {
 	return true
 }
 
-// Live session note caps.
+// Live session note caps, read from their events. Each default applies when
+// its event is off.
 const (
-	liveNotePrompts   = 8
-	liveNoteItems     = 15
-	liveNoteLineChars = 160
+	defaultLiveNotePrompts   = 8
+	defaultLiveNoteItems     = 15
+	defaultLiveNoteLineChars = 160
 )
+
+// liveNotePrompts is how many prompts the live session note keeps.
+func liveNotePrompts() int { return itemsOr(eventLiveNotePrompts, defaultLiveNotePrompts) }
+
+// liveNoteItems is how many decisions, failed tools and files it lists.
+func liveNoteItems() int { return itemsOr(eventLiveNoteItems, defaultLiveNoteItems) }
+
+// liveNoteLineChars is the longest line it keeps.
+func liveNoteLineChars() int { return itemsOr(eventLiveNoteLineChars, defaultLiveNoteLineChars) }
 
 // liveSessionSummary is the session so far in the compaction summary's
 // format, built without a model: the last model summary's sections, with
@@ -607,14 +617,14 @@ func (l *Loop) liveSessionSummary() string {
 	if len(prompts) == 0 && base["goal"] == "" {
 		return ""
 	}
-	if len(prompts) > liveNotePrompts {
-		prompts = append(prompts[:1], prompts[len(prompts)-liveNotePrompts+1:]...)
+	if len(prompts) > liveNotePrompts() {
+		prompts = append(prompts[:1], prompts[len(prompts)-liveNotePrompts()+1:]...)
 	}
 	files, failed := l.liveToolFacts(k.summaryAt.UnixMilli())
 	var decisions []string
 	if l.memoryStore != nil {
 		for _, e := range l.memoryStore.List() {
-			if e.Type == memTypeDecision && e.UpdatedAt >= k.summaryAt.UnixMilli() && len(decisions) < liveNoteItems {
+			if e.Type == memTypeDecision && e.UpdatedAt >= k.summaryAt.UnixMilli() && len(decisions) < liveNoteItems() {
 				decisions = append(decisions, "- "+liveLine(e.Value))
 			}
 		}
@@ -649,7 +659,7 @@ func (l *Loop) liveToolFacts(sinceMs int64) ([]string, []string) {
 			continue
 		}
 		if isToolErrorResult(rec.Result) {
-			if len(failed) < liveNoteItems {
+			if len(failed) < liveNoteItems() {
 				failed = append(failed, "- "+rec.Name+" failed: "+liveLine(rec.Result))
 			}
 			continue
@@ -663,7 +673,7 @@ func (l *Loop) liveToolFacts(sinceMs int64) ([]string, []string) {
 		}
 		_ = json.Unmarshal([]byte(rec.Args), &args)
 		f := firstNonEmptyString(args.Path, args.FilePath)
-		if f != "" && !seen[f] && len(files) < liveNoteItems {
+		if f != "" && !seen[f] && len(files) < liveNoteItems() {
 			seen[f] = true
 			files = append(files, "- modified "+f)
 		}
@@ -683,8 +693,8 @@ func firstNonEmptyString(vals ...string) string {
 // liveLine is text as one capped line for the live note.
 func liveLine(s string) string {
 	line := strings.Join(strings.Fields(s), " ")
-	if r := []rune(line); len(r) > liveNoteLineChars {
-		line = string(r[:liveNoteLineChars-3]) + "..."
+	if r := []rune(line); len(r) > liveNoteLineChars() {
+		line = string(r[:liveNoteLineChars()-3]) + "..."
 	}
 	return line
 }
@@ -903,11 +913,11 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 		if err != nil {
 			return "", err
 		}
-		dir = filepath.Join(card.Dir(), knowledge.NotesFolder)
+		dir = filepath.Join(card.Dir(), knowledge.Layout().Project.Notes)
 		if typ == "decision" {
-			dir = filepath.Join(card.Dir(), knowledge.DecisionsFolder)
+			dir = filepath.Join(card.Dir(), knowledge.Layout().Project.Decisions)
 		}
-	case knowledge.SharedFolder, knowledge.InboxFolder:
+	case knowledge.Layout().Folders.Shared, knowledge.Layout().Folders.Inbox:
 		dir = filepath.Join(k.vault.Root, scope)
 	default:
 		return "", fmt.Errorf("knowledge_note_save: scope is project, shared or inbox, not %q", scope)

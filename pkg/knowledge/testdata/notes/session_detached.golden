@@ -1,0 +1,36 @@
+---
+type: session
+status: done
+project: my app
+session: s-1
+created: 2026-10-15
+summary: "billing: monthly"
+tags: [session, my app]
+links: ["[[my app]]"]
+commits: abc1234..def5678
+---
+
+## Focus
+
+bill monthly
+
+## What was built
+
+- invoices
+- receipts
+
+## Mistakes
+
+(none)
+
+## Decisions
+
+- **Monthly**: fewer charges
+
+## Wins
+
+fast
+
+## Git
+
+On detached HEAD, commits `abc1234..def5678`: `git log abc1234..def5678` shows them (`git diff abc1234..def5678` the change).

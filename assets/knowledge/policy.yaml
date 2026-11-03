@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 # Limits and thresholds of the knowledge graph: how much of a note, a repo or a
 # report is read, kept or shown. The code holds none of these values.
 
@@ -32,3 +32,4 @@ full_label_boost: 3.0  # multiplier when a note's whole label appears in the que
 session_note_weight: 0.4  # weight of a session note in recall, against 1 for a curated note
 memory_note_weight: 0.6  # weight of a project memory note in recall, against 1 for a curated note
 bytes_per_token: 4  # bytes per token when a recalled note's cost is estimated
+community_method: louvain  # how the graph is grouped: louvain, or leiden (its communities are always connected)

@@ -37,6 +37,8 @@ import (
 	"sync"
 	"time"
 
+	kgsearch "github.com/kdeps/kartographer/search"
+
 	"github.com/charmbracelet/log"
 	"github.com/ledongthuc/pdf"
 	"github.com/spf13/afero"
@@ -47,8 +49,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/index"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/tokenizer"
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
 )
 
@@ -87,11 +87,15 @@ func QueryIndex(dir, query string, limit int) []Hit {
 	if !fileExists(dbPath) || limit <= 0 {
 		return nil
 	}
-	terms := tokenizer.NewTokenizer().TokenizeToStrings(query)
+	tok, tokErr := knowledge.SearchTokenizer()
+	if tokErr != nil {
+		return nil
+	}
+	terms := tok.TokenizeToStrings(query)
 	if len(terms) == 0 {
 		return nil
 	}
-	idx, err := index.OpenReadOnly(dbPath, queryWait)
+	idx, err := kgsearch.OpenReadOnly(dbPath, queryWait)
 	if err != nil {
 		return nil
 	}
@@ -142,8 +146,8 @@ const (
 func boostByGraph(
 	ctx context.Context,
 	config *domain.SearchLocalConfig,
-	results []index.SearchResult,
-) []index.SearchResult {
+	results []kgsearch.SearchResult,
+) []kgsearch.SearchResult {
 	if len(results) == 0 {
 		return results
 	}
@@ -183,8 +187,8 @@ func boostByGraph(
 func boostByKnowledge(
 	ctx context.Context,
 	config *domain.SearchLocalConfig,
-	results []index.SearchResult,
-) ([]index.SearchResult, bool) {
+	results []kgsearch.SearchResult,
+) ([]kgsearch.SearchResult, bool) {
 	vault, _ := knowledge.Configured()
 	if !knowledge.PathInVault(vault, config.Path) {
 		return nil, false
@@ -230,7 +234,7 @@ func knowledgeBoost(weight float64) float64 {
 	return 1 + (graphBoostFactor-1)*weight
 }
 
-func sortBoosted(results []index.SearchResult) {
+func sortBoosted(results []kgsearch.SearchResult) {
 	sort.Slice(results, func(i, j int) bool {
 		if results[i].MatchCount != results[j].MatchCount {
 			return results[i].MatchCount > results[j].MatchCount
@@ -243,7 +247,7 @@ func sortBoosted(results []index.SearchResult) {
 // topic with, one of the top graphBoostSeedCount results. Split out from
 // boostByGraph so a query against an already-open (or already-closed) graph
 // can be tested independently of the open/index setup around it.
-func graphConnectedSet(ig *graph.IndexedGraph, results []index.SearchResult) map[string]bool {
+func graphConnectedSet(ig *graph.IndexedGraph, results []kgsearch.SearchResult) map[string]bool {
 	seedCount := graphBoostSeedCount
 	if seedCount > len(results) {
 		seedCount = len(results)
@@ -435,9 +439,13 @@ type fileJob struct {
 // File reading and tokenization runs in parallel across indexWorkers goroutines;
 // bbolt writes are serialized in a single goroutine, batched every indexBatchSize.
 // Incremental: files with unchanged ModTime are skipped; deleted files are purged.
-func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex) (int, error) {
+func (e *Executor) walkIndex(root string, glob string, idx *kgsearch.InvertedIndex) (int, error) {
+	tok, tokErr := knowledge.SearchTokenizer()
+	if tokErr != nil {
+		return 0, tokErr
+	}
 	jobs := make(chan fileJob, indexBatchSize)
-	results := make(chan index.DocWithTokens, indexBatchSize)
+	results := make(chan kgsearch.DocWithTokens, indexBatchSize)
 	done := make(chan error, 1)
 
 	// Track seen docIDs for stale-document cleanup after the walk.
@@ -447,7 +455,7 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 	// Single writer: batches results and flushes to bbolt.
 	var indexedCount int
 	go func() {
-		batch := make([]index.DocWithTokens, 0, indexBatchSize)
+		batch := make([]kgsearch.DocWithTokens, 0, indexBatchSize)
 		for doc := range results {
 			batch = append(batch, doc)
 			indexedCount++
@@ -471,10 +479,9 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			tok := tokenizer.NewTokenizer()
 			for job := range jobs {
 				if doc, tokens, positions := e.prepareDoc(job.path, job.d, tok); doc != nil {
-					results <- index.DocWithTokens{Doc: doc, Tokens: tokens, Positions: positions}
+					results <- kgsearch.DocWithTokens{Doc: doc, Tokens: tokens, Positions: positions}
 				}
 			}
 		}()
@@ -503,7 +510,7 @@ type walkCallback = func(string, os.DirEntry, error) error
 
 // makeWalkCallback returns a WalkDir callback that feeds indexable files into the jobs channel.
 func (e *Executor) makeWalkCallback(
-	_ string, glob string, idx *index.InvertedIndex,
+	_ string, glob string, idx *kgsearch.InvertedIndex,
 	jobs chan<- fileJob,
 	seenDocIDs *map[string]bool, seenMu *sync.Mutex,
 	skippedIncremental *int,
@@ -550,7 +557,12 @@ func matchGlob(glob, name string) bool {
 }
 
 // skipUnchanged returns true if the file's ModTime matches the index, meaning it hasn't changed.
-func (e *Executor) skipUnchanged(d os.DirEntry, docID string, idx *index.InvertedIndex, skippedIncremental *int) bool {
+func (e *Executor) skipUnchanged(
+	d os.DirEntry,
+	docID string,
+	idx *kgsearch.InvertedIndex,
+	skippedIncremental *int,
+) bool {
 	info, statErr := d.Info()
 	if statErr != nil {
 		return true
@@ -569,8 +581,8 @@ func (e *Executor) skipUnchanged(d os.DirEntry, docID string, idx *index.Inverte
 // Files larger than maxFileSize are skipped. The first ~240 chars of content are
 // captured as a preview so snippet generation never re-reads files from disk.
 func (e *Executor) prepareDoc(
-	p string, d os.DirEntry, tok *tokenizer.Tokenizer,
-) (*index.Document, []string, []int) {
+	p string, d os.DirEntry, tok *kgsearch.Tokenizer,
+) (*kgsearch.Document, []string, []int) {
 	info, statErr := d.Info()
 	if statErr != nil {
 		return nil, nil, nil
@@ -599,7 +611,7 @@ func (e *Executor) prepareDoc(
 		preview = preview[:previewMax]
 	}
 
-	return &index.Document{
+	return &kgsearch.Document{
 		ID:      docID,
 		Path:    p,
 		ModTime: info.ModTime().Unix(),
@@ -757,7 +769,7 @@ func extractPDFText(p string) (string, error) {
 // valid bbolt database (e.g. a leftover gob-format index or corrupted file),
 // it is removed and a fresh database is created. Returns the index and
 // whether a valid database already existed.
-func openOrCreateIndex(dbPath string) (*index.InvertedIndex, bool, error) {
+func openOrCreateIndex(dbPath string) (*kgsearch.InvertedIndex, bool, error) {
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return nil, false, err
@@ -765,14 +777,14 @@ func openOrCreateIndex(dbPath string) (*index.InvertedIndex, bool, error) {
 
 	existed := fileExists(dbPath)
 
-	idx, err := index.NewInvertedIndex(dbPath)
+	idx, err := kgsearch.NewInvertedIndex(dbPath)
 	if err == nil {
 		return idx, existed, nil
 	}
 
 	// Remove the invalid/corrupt file and create a fresh database.
 	_ = os.Remove(dbPath)
-	idx, createErr := index.NewInvertedIndex(dbPath)
+	idx, createErr := kgsearch.NewInvertedIndex(dbPath)
 	if createErr != nil {
 		return nil, false, createErr
 	}
@@ -943,7 +955,10 @@ func (e *Executor) IndexFile(path string) {
 	}
 
 	docID := fmt.Sprintf("%x", path)
-	tok := tokenizer.NewTokenizer()
+	tok, tokErr := knowledge.SearchTokenizer()
+	if tokErr != nil {
+		return
+	}
 	tokens := tok.Tokenize(string(content))
 	tokenStrings := make([]string, len(tokens))
 	positions := make([]int, len(tokens))
@@ -958,8 +973,8 @@ func (e *Executor) IndexFile(path string) {
 		preview = preview[:previewMax]
 	}
 
-	idx.BatchAddDocuments([]index.DocWithTokens{{
-		Doc: &index.Document{
+	idx.BatchAddDocuments([]kgsearch.DocWithTokens{{
+		Doc: &kgsearch.Document{
 			ID:      docID,
 			Path:    path,
 			ModTime: info.ModTime().Unix(),
@@ -990,8 +1005,11 @@ func (e *Executor) IndexFiles(root string, paths []string) {
 	}
 	defer idx.Close()
 
-	tok := tokenizer.NewTokenizer()
-	docs := make([]index.DocWithTokens, 0, len(paths))
+	tok, tokErr := knowledge.SearchTokenizer()
+	if tokErr != nil {
+		return
+	}
+	docs := make([]kgsearch.DocWithTokens, 0, len(paths))
 	for _, path := range paths {
 		if rel, relErr := filepath.Rel(root, path); relErr != nil || strings.HasPrefix(rel, "..") {
 			continue
@@ -1024,8 +1042,8 @@ func (e *Executor) IndexFiles(root string, paths []string) {
 			preview = preview[:previewMax]
 		}
 
-		docs = append(docs, index.DocWithTokens{
-			Doc: &index.Document{
+		docs = append(docs, kgsearch.DocWithTokens{
+			Doc: &kgsearch.Document{
 				ID:      docID,
 				Path:    path,
 				ModTime: info.ModTime().Unix(),
@@ -1135,13 +1153,16 @@ func (e *Executor) executeIndexed(
 		}), nil
 	}
 
-	tok := tokenizer.NewTokenizer()
+	tok, tokErr := knowledge.SearchTokenizer()
+	if tokErr != nil {
+		return nil, tokErr
+	}
 	queryTerms := tok.TokenizeToStrings(config.Query)
 	if len(queryTerms) == 0 {
 		return buildSearchResult(config.Path, nil), nil
 	}
 
-	var results []index.SearchResult
+	var results []kgsearch.SearchResult
 	maxDist := config.MaxDistance
 	if maxDist <= 0 {
 		maxDist = 2

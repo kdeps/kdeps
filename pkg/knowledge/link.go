@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
 // FileLink is one vault-graph connection from a file to another file.
@@ -73,7 +75,7 @@ func HasNote(ix *Index, vault, abs string) bool {
 	if !ok {
 		return false
 	}
-	n := ix.Node(noteID(rel))
+	n := ix.Node(kgknowledge.NoteID(rel))
 	return n != nil && n.Note != ""
 }
 
@@ -86,7 +88,7 @@ func LinksFrom(ix *Index, vault, abs string) []FileLink {
 	}
 	rel, _ := NoteRel(vault, abs)
 	best := map[string]FileLink{}
-	for _, nb := range ix.Neighbours(noteID(rel)) {
+	for _, nb := range ix.Neighbours(kgknowledge.NoteID(rel)) {
 		addLink(best, noteFile(vault, nb.Node.Note), nb.Weight, nb.Chain, nb.Relation)
 	}
 	return sortedLinks(best)

@@ -48,6 +48,7 @@ type policyFile struct {
 	SessionNoteWeight float64 `yaml:"session_note_weight"` // weight of a session note in recall
 	MemoryNoteWeight  float64 `yaml:"memory_note_weight"`  // weight of a project memory note in recall
 	BytesPerToken     int     `yaml:"bytes_per_token"`     // bytes per token when a recalled note's cost is estimated
+	CommunityMethod   string  `yaml:"community_method"`    // louvain, or leiden
 }
 
 // policyValues loads the policy once; a missing or broken item is reported and

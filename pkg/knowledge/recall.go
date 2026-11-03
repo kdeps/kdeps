@@ -60,6 +60,7 @@ type recallRulesFile struct {
 	MinWordLength int      `yaml:"min_word_length"`
 	MinStemLength int      `yaml:"min_stem_length"`
 	Stopwords     []string `yaml:"stopwords"`
+	TaskWords     []string `yaml:"task_words"`
 }
 
 // recallRules and stopWords are read once from the knowledge asset set.
@@ -93,17 +94,39 @@ func parseRecallRules(data []byte) (recallRulesFile, error) {
 
 //nolint:gochecknoinits // registers the knowledge asset set
 func init() {
-	assets.Register(knowledgeSet, assets.Spec{
+	assets.Register(knowledgeSet, knowledgeSpec())
+}
+
+// knowledgeSpec is the knowledge asset set: each item is checked by its own
+// parser before install replaces a working file.
+func knowledgeSpec() assets.Spec {
+	return assets.Spec{
 		Validate: func(data []byte, name string) error {
-			if name == policyItem {
+			switch name {
+			case policyItem:
 				_, err := parsePolicy(data)
+				return err
+			case vaultItem:
+				_, err := parseLayout(data)
+				return err
+			case checkItem:
+				_, err := parseCheckRules(data)
+				return err
+			case notesItem:
+				_, err := parseNoteRules(data)
+				return err
+			case extractItem:
+				_, err := parseExtractRules(data)
+				return err
+			case searchItem:
+				_, err := parseSearchRules(data)
 				return err
 			}
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem, policyItem},
-	})
+		Required: []string{recallItem, policyItem, vaultItem, checkItem, notesItem, extractItem, searchItem},
+	}
 }
 
 // wordOptions is the kdeps policy for keyword words.
@@ -153,12 +176,18 @@ func NewIndex(g *Graph) *Index {
 func sourceWeight(n *Node) float64 {
 	p := policy()
 	switch {
-	case n.Kind == "session":
+	case isSessionKind(n.Kind):
 		return p.SessionNoteWeight
 	case isMemoryNote(n.Note):
 		return p.MemoryNoteWeight
 	}
 	return 1
+}
+
+// isSessionKind reports a node of the kind notes.yaml gives session notes.
+func isSessionKind(kind string) bool {
+	r, err := notesRules()
+	return err == nil && kind == r.Session.Kind
 }
 
 // edgeWeight is the strength of an edge in recall, for community detection and
