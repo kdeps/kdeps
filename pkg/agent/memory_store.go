@@ -35,6 +35,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/kartographer/graph"
+	kgtext "github.com/kdeps/kartographer/text"
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
@@ -395,7 +396,7 @@ func memoryQueryTerms(query string) []string {
 	}
 	terms := make([]string, 0, len(fields))
 	for _, field := range fields {
-		if utf8.RuneCountInString(field) >= minMemoryQueryWordRunes {
+		if utf8.RuneCountInString(field) >= memoryRules.SearchMinWord {
 			terms = append(terms, field)
 		}
 	}
@@ -404,10 +405,6 @@ func memoryQueryTerms(query string) []string {
 	}
 	return terms
 }
-
-// minMemoryQueryWordRunes is the shortest extra word kept when a query has
-// more than one word. A one-character word would match almost every entry.
-const minMemoryQueryWordRunes = 2
 
 // memorySearchRank scores one entry against query words. The first result is
 // how many words appear in the key. The second is how many appear in the key
@@ -951,15 +948,6 @@ func memoryMinTokenLen() int { return itemsOr(eventMemoryFocusMinWord, defaultMe
 // memoryMaxTokens() is the memory token budget when a caller sets none (memory-format-tokens).
 func memoryMaxTokens() int { return itemsOr(eventMemoryFormatTokens, defaultMemoryFormatTokens) }
 
-// focusKeyWeight is how much a focus token matching the entry's key counts versus
-// matching its value (T): the key names the concept, so a key hit is the stronger
-// signal.
-const focusKeyWeight = 2
-
-// focusStructuralBonus lifts a matching structural entry above a low-signal
-// note/fact that merely mentions the same term (U).
-const focusStructuralBonus = 1
-
 // focusScore rates how strongly an entry answers the focus tokens (T): each token
 // scores once, weighted higher on a key match than a value match. Word-boundary
 // matched (S) via wordTokens/prefixInSet. A matching structural (non note/fact)
@@ -968,17 +956,18 @@ const focusStructuralBonus = 1
 func focusScore(e MemoryEntry, toks []string) int {
 	keyTok := wordTokens(e.Key)
 	valTok := wordTokens(e.Value)
+	w := memoryRules.FocusWeights
 	score := 0
 	for _, t := range toks {
 		switch {
 		case prefixInSet(keyTok, t):
-			score += focusKeyWeight
+			score += w.KeyWeight
 		case prefixInSet(valTok, t):
 			score++
 		}
 	}
 	if score > 0 && e.Type != "" && !slices.Contains(memoryRules.LowSignal, e.Type) {
-		score += focusStructuralBonus
+		score += w.StructuralBonus
 	}
 	return score
 }
@@ -1022,17 +1011,20 @@ func focusMatches(entries []MemoryEntry, focus string) []string {
 	return out
 }
 
-// wordTokens splits s into the set of its lowercase [a-z0-9] runs, so focus
-// matching is word/segment-boundary based: punctuation, underscores, and colons
-// (as in memory keys like "result:api_wiring") all delimit tokens.
-func wordTokens(s string) map[string]bool {
-	set := make(map[string]bool)
-	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
-	}) {
-		set[w] = true
+// focusWordOptions is how memory focus splits text into words: kartographer's
+// text.Words with the memory rules' stopwords and stem floor and the
+// memory-focus-min-word event.
+func focusWordOptions() kgtext.Options {
+	return kgtext.Options{
+		MinWordLength: memoryMinTokenLen(),
+		MinStemLength: memoryRules.FocusMinStem,
+		Stopwords:     memoryRules.focusStop,
 	}
-	return set
+}
+
+// wordTokens is the set of focus words in s (a memory key or value).
+func wordTokens(s string) map[string]bool {
+	return kgtext.Set(kgtext.Words(s, focusWordOptions()))
 }
 
 // prefixInSet reports whether any token in set equals prefix or begins with it, so
@@ -1047,16 +1039,13 @@ func prefixInSet(set map[string]bool, prefix string) bool {
 	return false
 }
 
-// significantTokens returns the lowercase words of s that are long enough and not
-// stopwords, for loose prompt-to-memory matching.
+// significantTokens is the distinct focus words of s (the prompt), in order.
 func significantTokens(s string) []string {
-	if s == "" {
-		return nil
-	}
 	var out []string
-	for _, w := range strings.Fields(strings.ToLower(s)) {
-		w = strings.Trim(w, ".,!?;:\"'()[]{}<>")
-		if len(w) >= memoryMinTokenLen() && !memoryRules.focusStop[w] {
+	seen := map[string]bool{}
+	for _, w := range kgtext.Words(s, focusWordOptions()) {
+		if !seen[w] {
+			seen[w] = true
 			out = append(out, w)
 		}
 	}
