@@ -19,8 +19,7 @@ session:  # what the session and run log templates write, and kdeps reads back
   untitled: session  # a note's file name when its title has no usable characters
   file_time: "2006-01-02 1504"  # how a new session note's file name starts: its start time, as a Go time layout
 
-saved_note:  # a note the model saves with knowledge_note_save
-  default_type: note  # its type when the model names none
+saved_note:  # a note the model saves with knowledge_note_save (its default type is the tool's type default)
   decision_type: decision  # this type is filed in the project's decisions folder, the rest in its notes folder
 
 session_sections:  # a session note's headings in order, each filled by the first summary section that is set

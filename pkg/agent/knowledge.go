@@ -874,14 +874,11 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 	if strings.ContainsAny(title, `/\:*?"<>|`) {
 		return "", errors.New("knowledge_note_save: title cannot contain / \\ : * ? \" < > |")
 	}
-	defaultType, decisionType, typesErr := knowledge.SavedNoteTypes()
-	if typesErr != nil {
-		return "", typesErr
+	decisionType, typeErr := knowledge.DecisionNoteType()
+	if typeErr != nil {
+		return "", typeErr
 	}
-	typ := str("type")
-	if typ == "" {
-		typ = defaultType
-	}
+	typ := str("type") // knowledge_note_save.yaml's default fills an empty type
 	var dir string
 	switch scope := strings.ToLower(str("scope")); scope {
 	case "", "project":

@@ -89,7 +89,6 @@ type noteRules struct {
 		FileTime   string `yaml:"file_time"`
 	} `yaml:"session"`
 	SavedNote struct {
-		DefaultType  string `yaml:"default_type"`
 		DecisionType string `yaml:"decision_type"`
 	} `yaml:"saved_note"`
 	Sections  []sessionSection  `yaml:"session_sections"`
@@ -122,8 +121,8 @@ func parseNoteRules(data []byte) (noteRules, error) {
 			"session.kind, session.id_key, session.commits_key, session.untitled and session.file_time must be set",
 		)
 	}
-	if r.SavedNote.DefaultType == "" || r.SavedNote.DecisionType == "" {
-		return r, errors.New("saved_note.default_type and saved_note.decision_type must be set")
+	if r.SavedNote.DecisionType == "" {
+		return r, errors.New("saved_note.decision_type must be set")
 	}
 	if len(r.Sections) == 0 {
 		return r, errors.New("session_sections is empty")
@@ -227,12 +226,12 @@ func LiveSummary(base map[string]string, prompts, files, decisions, failed []str
 	})
 }
 
-// SavedNoteTypes is notes.yaml's saved_note types: the type of a saved note
-// that names none, and the type filed with the project's decisions.
-func SavedNoteTypes() (string, string, error) {
+// DecisionNoteType is notes.yaml's saved_note.decision_type: a saved note of
+// this type is filed with the project's decisions.
+func DecisionNoteType() (string, error) {
 	r, err := notesRules()
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return r.SavedNote.DefaultType, r.SavedNote.DecisionType, nil
+	return r.SavedNote.DecisionType, nil
 }

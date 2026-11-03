@@ -167,10 +167,9 @@ func TestLiveSummary_MatchesTheCompactionFormat(t *testing.T) {
 		"## Mistakes\n- bash_exec failed\n"), got)
 }
 
-func TestSavedNoteTypes_FromNotesYAML(t *testing.T) {
-	def, dec, err := SavedNoteTypes()
+func TestDecisionNoteType_FromNotesYAML(t *testing.T) {
+	dec, err := DecisionNoteType()
 	require.NoError(t, err)
-	assert.Equal(t, "note", def)
 	assert.Equal(t, "decision", dec)
 	data, err := os.ReadFile(filepath.Join("..", "..", "assets", "knowledge", "notes.yaml"))
 	require.NoError(t, err)

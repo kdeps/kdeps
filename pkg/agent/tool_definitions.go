@@ -191,5 +191,35 @@ func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 	t.OutputFormat = d.OutputFormat
 	t.SeeAlso = d.SeeAlso
 	t.Parameters = maps.Clone(d.Parameters)
+	if run := t.Execute; run != nil {
+		params := t.Parameters
+		t.Execute = func(args map[string]any) (string, error) { return run(withParamDefaults(args, params)) }
+	}
 	return t
+}
+
+// withParamDefaults is args with each declared parameter default filled in
+// where the model left that argument out or empty, so a tool's defaults live
+// in its YAML definition, not in its handler.
+func withParamDefaults(args map[string]any, params map[string]domain.ToolParam) map[string]any {
+	var out map[string]any
+	for name, p := range params {
+		if p.Default == nil {
+			continue
+		}
+		if v, ok := args[name]; ok && v != nil && v != "" {
+			continue
+		}
+		if out == nil {
+			out = maps.Clone(args)
+			if out == nil {
+				out = map[string]any{}
+			}
+		}
+		out[name] = p.Default
+	}
+	if out == nil {
+		return args
+	}
+	return out
 }
