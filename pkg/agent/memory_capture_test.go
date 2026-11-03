@@ -43,3 +43,17 @@ func TestReplyCapture_FollowsTheMemoryRules(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, r.actionRe, "no reply_capture section captures nothing")
 }
+
+func TestFocusWeights_FollowTheMemoryRules(t *testing.T) {
+	keyHit := MemoryEntry{Key: "billing_retry", Value: "x", Type: "decision"}
+	valHit := MemoryEntry{Key: "other", Value: "billing", Type: "note"}
+	toks := []string{"billing"}
+	assert.Equal(t, 3, focusScore(keyHit, toks), "key_weight 2 plus structural_bonus 1")
+	assert.Equal(t, 1, focusScore(valHit, toks), "a value hit on a low-signal type")
+
+	r, err := parseMemoryRules([]byte("default_type: note\n"))
+	require.NoError(t, err)
+	assert.Equal(t, 1, r.FocusWeights.KeyWeight, "no weights: a key hit counts like a value hit")
+	_, err = parseMemoryRules([]byte("default_type: note\nfocus_weights: {structural_bonus: -1}\n"))
+	require.Error(t, err)
+}
