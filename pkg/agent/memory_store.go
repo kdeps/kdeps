@@ -42,18 +42,13 @@ import (
 )
 
 const (
-	memoryDir       = ".kdeps/memory"
-	memoryFileName  = "memory.jsonl"
-	memoryMaxLine   = 1 << 20 // 1 MiB max line
-	memoryMaxTokens = 2000    // default max tokens for prompt injection
+	memoryDir      = ".kdeps/memory"
+	memoryFileName = "memory.jsonl"
+	memoryMaxLine  = 1 << 20 // 1 MiB max line
 
 	// Memory formatting constants.
-	memoryXMLOverhead   = 30  // bytes per entry for XML tags in prompt
-	memoryMaxKeyLength  = 80  // max chars for a memory key
-	memoryMaxFirstLine  = 40  // max chars for tool result first line
-	memoryMaxDerivedKey = 30  // max chars for derived tool result key
-	memoryPromptTokens  = 500 // default tokens for memory prompt injection
-	hoursPerDay         = 24  // for relative-age (J) day rollup
+	memoryXMLOverhead = 30 // bytes per entry for XML tags in prompt
+	hoursPerDay       = 24 // for relative-age (J) day rollup
 )
 
 // memoryStoreInstance is set during Loop construction so memory tools
@@ -766,7 +761,7 @@ func (m *MemoryStore) FormatForPromptCapped(
 		return ""
 	}
 	if maxTokens <= 0 {
-		maxTokens = memoryMaxTokens
+		maxTokens = memoryMaxTokens()
 	}
 
 	byKey := make(map[string]MemoryEntry, len(entries))
@@ -928,28 +923,33 @@ func newDepGraph(deps map[string][]string) *graph.DependencyGraph {
 	return graph.NewDependencyGraph(afero.NewMemMapFs(), log.New(io.Discard), deps)
 }
 
-// memoryStopwords are common words ignored when matching a prompt to memory. The
-// 3-char entries matter because significantTokens now accepts length-3 tokens (R)
-// to catch technical terms like "api"/"sql"/"css"/"git" — without these, common
-// short English words would match everything and defeat focus.
-//
-//nolint:gochecknoglobals // static lookup table
-var memoryStopwords = map[string]bool{
-	// 4+ char noise.
-	"this": true, "that": true, "with": true, "from": true, "have": true,
-	"what": true, "when": true, "where": true, "which": true, "would": true, "could": true,
-	"should": true, "about": true, "your": true, "please": true, "into": true, "then": true,
-	// 3-char noise (admitted by the length-3 bound; technical 3-char terms are absent).
-	"the": true, "and": true, "for": true, "are": true, "was": true, "you": true,
-	"can": true, "how": true, "why": true, "who": true, "has": true, "had": true,
-	"but": true, "not": true, "its": true, "out": true, "all": true, "any": true,
-	"one": true, "two": true, "now": true, "see": true, "off": true, "per": true,
-	"via": true, "let": true, "did": true, "our": true, "yes": true, "too": true,
+// Memory limits, read from their events; each default applies when its event is off.
+const (
+	defaultMemoryKeyChars        = 80
+	defaultMemoryToolLineChars   = 40
+	defaultMemoryDerivedKeyChars = 30
+	defaultMemoryFocusMinWord    = 3
+	defaultMemoryFormatTokens    = 2000
+)
+
+// memoryMaxKeyLength() is the longest memory key kept (memory-key-chars).
+func memoryMaxKeyLength() int { return effectiveBytes(eventMemoryKeyChars, defaultMemoryKeyChars) }
+
+// memoryMaxFirstLine() is how much of a tool result's first line names its entry (memory-tool-line-chars).
+func memoryMaxFirstLine() int {
+	return effectiveBytes(eventMemoryToolLineChars, defaultMemoryToolLineChars)
 }
 
-// memoryMinTokenLen is the shortest prompt word treated as significant for focus
-// matching (R). Length 3 admits technical terms; 2-char words are too noisy.
-const memoryMinTokenLen = 3
+// memoryMaxDerivedKey() is the longest key made from a tool result (memory-derived-key-chars).
+func memoryMaxDerivedKey() int {
+	return effectiveBytes(eventMemoryDerivedKeyChars, defaultMemoryDerivedKeyChars)
+}
+
+// memoryMinTokenLen() is the shortest prompt word that counts for focus matching (memory-focus-min-word).
+func memoryMinTokenLen() int { return itemsOr(eventMemoryFocusMinWord, defaultMemoryFocusMinWord) }
+
+// memoryMaxTokens() is the memory token budget when a caller sets none (memory-format-tokens).
+func memoryMaxTokens() int { return itemsOr(eventMemoryFormatTokens, defaultMemoryFormatTokens) }
 
 // focusKeyWeight is how much a focus token matching the entry's key counts versus
 // matching its value (T): the key names the concept, so a key hit is the stronger
@@ -1056,7 +1056,7 @@ func significantTokens(s string) []string {
 	var out []string
 	for _, w := range strings.Fields(strings.ToLower(s)) {
 		w = strings.Trim(w, ".,!?;:\"'()[]{}<>")
-		if len(w) >= memoryMinTokenLen && !memoryStopwords[w] {
+		if len(w) >= memoryMinTokenLen() && !memoryRules.focusStop[w] {
 			out = append(out, w)
 		}
 	}
@@ -1356,8 +1356,8 @@ func sanitizeMemoryKey(raw string) string {
 		}
 		return -1
 	}, key)
-	if len(key) > memoryMaxKeyLength {
-		key = key[:memoryMaxKeyLength]
+	if len(key) > memoryMaxKeyLength() {
+		key = key[:memoryMaxKeyLength()]
 	}
 	return key
 }
@@ -1612,8 +1612,8 @@ func toolResultKey(toolName, result string) string {
 		firstLine = result[:idx]
 	}
 	firstLine = strings.TrimSpace(firstLine)
-	if len(firstLine) > memoryMaxFirstLine {
-		firstLine = firstLine[:memoryMaxFirstLine]
+	if len(firstLine) > memoryMaxFirstLine() {
+		firstLine = firstLine[:memoryMaxFirstLine()]
 	}
 	// Sanitize: lowercase, replace non-alphanumeric with underscores.
 	key := strings.ToLower(firstLine)
@@ -1624,8 +1624,8 @@ func toolResultKey(toolName, result string) string {
 		return '_'
 	}, key)
 	key = strings.Trim(key, "_")
-	if len(key) > memoryMaxDerivedKey {
-		key = key[:memoryMaxDerivedKey]
+	if len(key) > memoryMaxDerivedKey() {
+		key = key[:memoryMaxDerivedKey()]
 	}
 	if key == "" {
 		key = "output"
@@ -1691,8 +1691,8 @@ func thinkingKey(text string, nowMillis int64) string {
 		firstLine = firstLine[:idx]
 	}
 	firstLine = strings.TrimSpace(firstLine)
-	if len(firstLine) > memoryMaxFirstLine {
-		firstLine = firstLine[:memoryMaxFirstLine]
+	if len(firstLine) > memoryMaxFirstLine() {
+		firstLine = firstLine[:memoryMaxFirstLine()]
 	}
 	slug := strings.ToLower(firstLine)
 	slug = strings.Map(func(r rune) rune {
@@ -1702,8 +1702,8 @@ func thinkingKey(text string, nowMillis int64) string {
 		return '_'
 	}, slug)
 	slug = strings.Trim(slug, "_")
-	if len(slug) > memoryMaxDerivedKey {
-		slug = slug[:memoryMaxDerivedKey]
+	if len(slug) > memoryMaxDerivedKey() {
+		slug = slug[:memoryMaxDerivedKey()]
 	}
 	if slug == "" {
 		slug = "round"

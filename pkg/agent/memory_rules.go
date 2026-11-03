@@ -38,7 +38,10 @@ type MemoryRules struct {
 		ActionMax   int      `yaml:"action_max"`
 		FileVerbs   []string `yaml:"file_verbs"`
 	} `yaml:"reply_capture"`
+	FocusStopwords []string `yaml:"focus_stopwords"`
+
 	actionRe, fileRe *regexp.Regexp // built from ReplyCapture; nil captures nothing
+	focusStop        map[string]bool
 }
 
 // verbAlternation is a regexp alternation of verbs, each matched literally.
@@ -111,6 +114,10 @@ func parseMemoryRules(data []byte) (MemoryRules, error) {
 			return MemoryRules{}, errors.New("reply_capture: action_min must be 0 or more and at most action_max")
 		}
 		r.actionRe = regexp.MustCompile(`(?i)(` + verbAlternation(c.ActionVerbs) + `)\s+(.+)`)
+	}
+	r.focusStop = make(map[string]bool, len(r.FocusStopwords))
+	for _, w := range r.FocusStopwords {
+		r.focusStop[strings.ToLower(w)] = true
 	}
 	if verbs := r.ReplyCapture.FileVerbs; len(verbs) > 0 {
 		r.fileRe = regexp.MustCompile(

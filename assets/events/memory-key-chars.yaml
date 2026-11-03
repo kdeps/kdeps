@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: memory-key-chars
+on:
+  # A memory key, or a memory note file name made from it, longer than this many
+  # characters is cut.
+  bytes: 80
+run: truncate

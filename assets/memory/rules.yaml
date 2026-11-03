@@ -1,4 +1,4 @@
-version: 1.2.0
+version: 1.3.0
 # How the agent's memory store files what it saves: the type it gives an
 # entry, the entry it links each to, which tool results it captures, and
 # what it reads as a finished status or a resolved error.
@@ -83,3 +83,9 @@ reply_capture:
   action_max: 200
   # "<verb> [file] path" records the paths as last_files; these match as written.
   file_verbs: [Edited, Modified, Created, Read, Wrote]
+
+# Prompt words that say nothing about what to recall: ignored when a prompt is
+# matched to memory (memory-focus-min-word sets the shortest word that counts).
+focus_stopwords: [this, that, with, from, have, what, when, where, which, would, could, should, about, your,
+  please, into, then, the, and, for, are, was, you, can, how, why, who, has, had, but, not, its, out, all,
+  any, one, two, now, see, off, per, via, let, did, our, "yes", too]

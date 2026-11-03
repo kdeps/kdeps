@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: memory-summary-chars
+on:
+  # Characters of a memory note's summary line; a longer one is cut with three
+  # dots.
+  bytes: 120
+run: truncate

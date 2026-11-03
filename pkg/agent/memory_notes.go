@@ -47,7 +47,6 @@ import (
 // vault, out of the link graph.
 const (
 	memoryGlobalName  = "global"
-	memorySummaryLen  = 120
 	memoryHashLen     = 6
 	legacyMemoryFile  = "memory.bolt"
 	legacyMovedSuffix = ".moved"
@@ -104,8 +103,8 @@ func (m *MemoryStore) vaultRoot() string { return m.basePath }
 // memorySlug turns a key into a file name.
 func memorySlug(key string) string {
 	s := strings.Trim(memorySlugRe.ReplaceAllString(key, "-"), "-.")
-	if len(s) > memoryMaxKeyLength {
-		s = s[:memoryMaxKeyLength]
+	if len(s) > memoryMaxKeyLength() {
+		s = s[:memoryMaxKeyLength()]
 	}
 	if s == "" {
 		s = "entry"
@@ -165,8 +164,8 @@ func parseMillis(s string) int64 {
 
 func firstLineCapped(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
-	if r := []rune(line); len(r) > memorySummaryLen {
-		line = string(r[:memorySummaryLen-3]) + "..."
+	if r := []rune(line); len(r) > memorySummaryLen() {
+		line = string(r[:memorySummaryLen()-3]) + "..."
 	}
 	return line
 }
@@ -313,4 +312,12 @@ func (m *MemoryStore) migrateLegacy() error {
 		}
 	}
 	return os.Rename(m.legacy, m.legacy+legacyMovedSuffix)
+}
+
+// defaultMemorySummaryChars applies when the memory-summary-chars event is off.
+const defaultMemorySummaryChars = 120
+
+// memorySummaryLen is how many characters of a memory note's summary line are kept (memory-summary-chars).
+func memorySummaryLen() int {
+	return effectiveBytes(eventMemorySummaryChars, defaultMemorySummaryChars)
 }
