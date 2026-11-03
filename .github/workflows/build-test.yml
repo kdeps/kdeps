@@ -532,7 +532,9 @@ jobs:
       - name: Test E2E
         if: matrix.suite == 'e2e'
         shell: bash
-        timeout-minutes: 45
+        # A shard takes 5-12 minutes; a stalled one fails here with its log
+        # instead of holding the runner for most of an hour.
+        timeout-minutes: 20
         env:
           KDEPS_MEMORY_DB_PATH: ":memory:"
           E2E_SHARD: ${{ matrix.shard }}  # tests/e2e/e2e.sh runs every 3rd scenario
