@@ -36,10 +36,13 @@ type MemoryRules struct {
 	StatusDone    memoryMarkers     `yaml:"status_done"`
 	ErrorResolved memoryMarkers     `yaml:"error_resolved"`
 	ReplyCapture  struct {
-		ActionVerbs []string `yaml:"action_verbs"`
-		ActionMin   int      `yaml:"action_min"`
-		ActionMax   int      `yaml:"action_max"`
-		FileVerbs   []string `yaml:"file_verbs"`
+		ActionVerbs  []string `yaml:"action_verbs"`
+		ActionMin    int      `yaml:"action_min"`
+		ActionMax    int      `yaml:"action_max"`
+		FileVerbs    []string `yaml:"file_verbs"`
+		ToolLine     string   `yaml:"tool_line"`
+		KeyValueLine string   `yaml:"key_value_line"`
+		LineValueMax int      `yaml:"line_value_max"`
 	} `yaml:"reply_capture"`
 	FocusStopwords []string `yaml:"focus_stopwords"`
 	FocusMinStem   int      `yaml:"focus_min_stem"`
@@ -50,6 +53,8 @@ type MemoryRules struct {
 	SearchMinWord int `yaml:"search_min_word"`
 
 	actionRe, fileRe *regexp.Regexp // built from ReplyCapture; nil captures nothing
+	toolLineRe       *regexp.Regexp // reply_capture.tool_line; nil captures nothing
+	keyValueRe       *regexp.Regexp // reply_capture.key_value_line; nil captures nothing
 	focusStop        map[string]bool
 }
 
@@ -125,22 +130,51 @@ func parseMemoryRules(data []byte) (MemoryRules, error) {
 	if r.FocusWeights.KeyWeight == 0 {
 		r.FocusWeights.KeyWeight = 1 // a key hit counts at least as much as a value hit
 	}
-	if c := r.ReplyCapture; len(c.ActionVerbs) > 0 {
-		if c.ActionMin < 0 || c.ActionMax < c.ActionMin {
-			return MemoryRules{}, errors.New("reply_capture: action_min must be 0 or more and at most action_max")
-		}
-		r.actionRe = regexp.MustCompile(`(?i)(` + verbAlternation(c.ActionVerbs) + `)\s+(.+)`)
-	}
 	r.focusStop = make(map[string]bool, len(r.FocusStopwords))
 	for _, w := range r.FocusStopwords {
 		r.focusStop[strings.ToLower(w)] = true
+	}
+	if err := r.compileReplyCapture(); err != nil {
+		return MemoryRules{}, err
+	}
+	return r, nil
+}
+
+// compileReplyCapture builds the reply_capture patterns: the action and file
+// verbs into their patterns, and the line patterns, which must compile and
+// have a key and a value group.
+func (r *MemoryRules) compileReplyCapture() error {
+	if c := r.ReplyCapture; len(c.ActionVerbs) > 0 {
+		if c.ActionMin < 0 || c.ActionMax < c.ActionMin {
+			return errors.New("reply_capture: action_min must be 0 or more and at most action_max")
+		}
+		r.actionRe = regexp.MustCompile(`(?i)(` + verbAlternation(c.ActionVerbs) + `)\s+(.+)`)
+	}
+	for _, l := range []struct {
+		name, pattern string
+		re            **regexp.Regexp
+	}{
+		{"tool_line", r.ReplyCapture.ToolLine, &r.toolLineRe},
+		{"key_value_line", r.ReplyCapture.KeyValueLine, &r.keyValueRe},
+	} {
+		if l.pattern == "" {
+			continue
+		}
+		re, err := regexp.Compile("(?m)" + l.pattern)
+		if err != nil {
+			return fmt.Errorf("reply_capture.%s: %w", l.name, err)
+		}
+		if re.NumSubexp() != 2 { //nolint:mnd // a key and a value
+			return fmt.Errorf("reply_capture.%s: needs two groups, the key and the value", l.name)
+		}
+		*l.re = re
 	}
 	if verbs := r.ReplyCapture.FileVerbs; len(verbs) > 0 {
 		r.fileRe = regexp.MustCompile(
 			`(?:` + verbAlternation(verbs) + `)\s+(?:file\s+)?` + "`" + `?([~/.][^\s` + "`" + `]+)` + "`" + `?`,
 		)
 	}
-	return r, nil
+	return nil
 }
 
 //nolint:gochecknoglobals // loaded from the memory asset set; reloaded by ReloadAssets
