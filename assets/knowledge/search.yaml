@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # How the local search indexes (a project's folders and search folders) split
 # files and queries into terms. An index keeps the terms it was built with:
 # after changing these, rebuild the index so queries and files match again.
@@ -7,3 +7,27 @@ min_word_length: 2  # shorter words are dropped
 stopwords: [a, an, and, are, as, at, be, by, for, from, has, he, in, is, it, its, of, on, that, the, to, was, will, with]
 stem_suffixes: [ing, ed, ly, es, s]  # tried in order; the first that fits is removed
 stem_keep: 2  # a suffix is removed only when more than this many characters remain
+
+# Which files the local search indexes read. Folder names and extensions match
+# exactly; the secret rules ignore case.
+skip_hidden: true  # names starting with a dot are never read
+skip_dirs:  # folders never walked: version control, dependencies, caches, build output
+  [.git, .hg, .svn, node_modules, bower_components, .next, .nuxt, .output, .turbo, .parcel-cache, .svelte-kit,
+   .angular, .yarn, __pycache__, .venv, venv, .env, env, .tox, .mypy_cache, .pytest_cache, .ruff_cache,
+   site-packages, dist-packages, .eggs, eggs, pip-wheel-metadata, vendor, target, build, obj, bin, .terraform,
+   .serverless, cdk.out, coverage, __snapshots__, .cache, tmp, temp]
+# Files read; a file without an extension (Makefile, README) always is. Office
+# formats are ZIP archives of XML that kdeps extracts; legacy binary .doc/.xls/.ppt are not.
+extensions:
+  [.go, .py, .js, .ts, .tsx, .jsx, .java, .c, .cpp, .cc, .h, .hpp, .rs, .rb, .php, .sh, .bash, .zsh,
+   .yml, .yaml, .json, .xml, .toml, .ini, .cfg, .conf, .envrc, .md, .txt, .rst, .adoc,
+   .html, .css, .scss, .less, .svg, .sql, .proto, .graphql, .prisma, .dart, .swift, .kt, .kts,
+   .scala, .clj, .cljs, .ex, .exs, .erl, .lua, .zig, .nim, .vue, .svelte, .tf, .hcl, .nix, .dhall,
+   .pdf, .docx, .xlsx, .pptx, .odt, .ods, .odp]
+# Files that hold keys or credentials: never indexed, never returned by a
+# search, so their content never reaches a prompt.
+secret_names: [id_rsa, id_dsa, id_ecdsa, id_ed25519, id_ecdsa_sk, id_ed25519_sk, credentials, authorized_keys,
+  .netrc, .npmrc, .pgpass, .pypirc, .git-credentials, .env]
+secret_prefixes: [.env.]
+secret_extensions: [.pem, .key, .p12, .pfx, .keystore, .jks]
+secret_dirs: [.ssh, .gnupg, .aws]

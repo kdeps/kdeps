@@ -405,7 +405,7 @@ kdeps knowledge folders remove ~/docs/billing-specs
 /search index                     update the index of every folder the project searches
 ```
 
-The model uses `knowledge_card_update` with `add_search_folder` or `remove_search_folder`. kdeps refuses your home folder, a filesystem root, the vault, the project's own folder, a folder inside one the project already searches, and a path that is not a folder. Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned by a search, in any folder. A search folder that is deleted shows up in `kdeps knowledge check`.
+The model uses `knowledge_card_update` with `add_search_folder` or `remove_search_folder`. kdeps refuses your home folder, a filesystem root, the vault, the project's own folder, a folder inside one the project already searches, and a path that is not a folder. Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned by a search, in any folder. The lists are the `knowledge` set's `search.yaml` (`secret_names`, `secret_prefixes`, `secret_extensions`, `secret_dirs`); without that file, kdeps indexes nothing. A search folder that is deleted shows up in `kdeps knowledge check`.
 
 ## Check
 

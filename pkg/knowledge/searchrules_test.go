@@ -56,3 +56,24 @@ func TestParseSearchRules_RejectsBadValues(t *testing.T) {
 	require.NoError(t, spec.Validate(data, searchItem))
 	require.Error(t, spec.Validate([]byte("min_word_length: 0\n"), searchItem))
 }
+
+func TestSearchFilter_KeepsTheIndexRules(t *testing.T) {
+	f, err := SearchFilter()
+	require.NoError(t, err)
+	assert.True(t, f.SkipEntry("node_modules"))
+	assert.True(t, f.SkipEntry(".git"), "hidden names are skipped")
+	assert.False(t, f.SkipEntry("dist"), "built docs stay searchable")
+	assert.True(t, f.Indexable("README"))
+	assert.True(t, f.Indexable("report.docx"))
+	assert.False(t, f.Indexable("legacy.doc"))
+	assert.False(t, f.Indexable("notes.MD"), "extensions match exactly, as before")
+	for _, p := range []string{"/p/.env", "/p/.env.local", "/h/.ssh/config", "/p/id_ed25519", "/p/CERT.PEM", "/p/.aws/x"} {
+		assert.True(t, f.Secret(p), p)
+	}
+	assert.False(t, f.Secret("/p/env.go"))
+}
+
+func TestParseSearchRules_RequiresTheSecretRules(t *testing.T) {
+	_, err := parseSearchRules([]byte("min_word_length: 2\nextensions: [.go]\n"))
+	require.Error(t, err, "a file without secret rules is rejected, so secrets are never indexed by omission")
+}
