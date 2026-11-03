@@ -122,9 +122,41 @@ func Required(set, name string) bool {
 }
 
 // Open returns set's files as its loader reads them (see overlay), from
-// Source() and Root().
+// Source() and Root(). A required item that is missing (a profile that left
+// it out) is installed on demand, once per process, and read again.
 func Open(set string) ReadFS {
-	return overlay(set, sourceFS(), Root())
+	return onDemandFS{ReadFS: overlay(set, sourceFS(), Root()), set: set}
+}
+
+// onDemandFS is a set's files that installs a missing required item on first read.
+type onDemandFS struct {
+	ReadFS
+	set string
+}
+
+//nolint:gochecknoglobals // one install attempt per item per process
+var onDemandTried sync.Map
+
+// ReadFile reads name, installing it first when it is a required item of the
+// set that is not there yet.
+func (f onDemandFS) ReadFile(name string) ([]byte, error) {
+	data, err := f.ReadFS.ReadFile(name)
+	if err == nil || !errors.Is(err, fs.ErrNotExist) || IsBundle(f.set) {
+		return data, err
+	}
+	file, ok := strings.CutPrefix(name, f.set+"/")
+	if !ok || strings.Contains(file, "/") || !strings.HasSuffix(file, yamlExt) {
+		return data, err
+	}
+	item := strings.TrimSuffix(file, yamlExt)
+	id := ID(f.set, item)
+	if !Required(f.set, item) {
+		return data, err
+	}
+	if _, tried := onDemandTried.LoadOrStore(id, true); tried || !InstallOnDemand(id) {
+		return data, err
+	}
+	return overlay(f.set, sourceFS(), Root()).ReadFile(name)
 }
 
 // Item describes one asset: its source version and its local state.
