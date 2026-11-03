@@ -36,7 +36,7 @@ func TestParsePrompts(t *testing.T) {
 	require.NoError(t, err)
 	for name, text := range map[string]string{
 		"missing prompt": strings.Replace(good, "files: |-", "unused: |-", 1),
-		"bad template":   strings.Replace(good, "{{.Body}}", "{{.Body", 1),
+		"bad template":   strings.Replace(good, "{{.Root}}", "{{.Root", 1),
 		"broken YAML":    "vault: [",
 	} {
 		_, caseErr := parsePrompts([]byte(text))
