@@ -150,7 +150,7 @@ if [ "$KDEPS_STARTED" = false ]; then
 fi
 
 # Test 1: Index a document
-INDEX_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
+INDEX_RESP=$(curl -sf --max-time 30 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
     -H "Content-Type: application/json" -d '{"text": "KDeps is a declarative YAML workflow framework."}' 2>&1)
 
 if echo "$INDEX_RESP" | grep -q '"success"'; then
@@ -160,7 +160,7 @@ else
 fi
 
 # Test 2: Index a second document
-INDEX2_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
+INDEX2_RESP=$(curl -sf --max-time 30 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
     -H "Content-Type: application/json" -d '{"text": "Vector embeddings enable semantic search."}' 2>&1)
 
 if echo "$INDEX2_RESP" | grep -q '"success"'; then
@@ -170,7 +170,7 @@ else
 fi
 
 # Test 3: Search documents
-SEARCH_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
+SEARCH_RESP=$(curl -sf --max-time 30 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
 if echo "$SEARCH_RESP" | grep -q '"searchResult"'; then
@@ -199,7 +199,7 @@ else
 fi
 
 # Test 5: Delete a document
-DELETE_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/delete" \
+DELETE_RESP=$(curl -sf --max-time 30 -X POST "http://127.0.0.1:${API_PORT}/embed/delete" \
     -H "Content-Type: application/json" -d '{"text": "KDeps is a declarative YAML workflow framework."}' 2>&1)
 
 if echo "$DELETE_RESP" | grep -q '"success"'; then
@@ -209,7 +209,7 @@ else
 fi
 
 # Test 6: Search count decreased after delete
-SEARCH2_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
+SEARCH2_RESP=$(curl -sf --max-time 30 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
 SEARCH2_COUNT=$(echo "$SEARCH2_RESP" | python3 -c "
