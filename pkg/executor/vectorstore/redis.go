@@ -27,6 +27,7 @@ import (
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcredis "github.com/tmc/langchaingo/vectorstores/redisvector"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -42,7 +43,8 @@ func newRedisStore(ctx context.Context, cfg *domain.VectorStoreConfig) (*redisSt
 		return nil, errors.New("vectorstore redis: index name is required (set collection field)")
 	}
 	if cfg.URL == "" {
-		cfg.URL = "redis://localhost:6379"
+		d, _ := kdepsconfig.GetDefaults()
+		cfg.URL = d.VectorStore.RedisURL // executor defaults vector_store.redis_url
 	}
 
 	embedder, err := buildEmbedder(ctx, cfg)

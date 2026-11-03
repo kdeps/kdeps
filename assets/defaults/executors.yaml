@@ -1,7 +1,7 @@
 # Default values for kdeps executors.
 # Used when neither resource YAML nor config.yaml resource_defaults provides a value.
 # Values in config.yaml always override these.
-version: 1.1.0
+version: 1.2.0
 chat:
   timeout: "60s"
   context_length: 4096
@@ -20,3 +20,5 @@ embedding:
 vector_store:
   top_k: 5  # similarity_search results when a resource sets no topK (the vector_store component sets 5 itself)
   chroma_url: http://localhost:8000  # the chroma provider's endpoint when a resource sets no url
+  redis_url: redis://localhost:6379  # the redis provider's endpoint when a resource sets no url
+  mongodb_database: kdeps  # the mongodb provider's database when a resource sets none (apiKey)

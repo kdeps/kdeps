@@ -375,7 +375,8 @@ func buildMongoStore(
 	}
 	dbName := cfg.APIKey
 	if dbName == "" {
-		dbName = "kdeps"
+		d, _ := kdepsconfig.GetDefaults()
+		dbName = d.VectorStore.MongoDBDatabase // executor defaults vector_store.mongodb_database
 	}
 	store := lcmongovector.New(client.Database(dbName).Collection(cfg.Collection), embedder)
 	return &store, nil
