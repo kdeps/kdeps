@@ -112,6 +112,12 @@ run: cap
 | `memory-thinking-limit` | reasoning (thinking) entries kept (oldest dropped) | 20 |
 | `memory-low-signal-limit` | entries of the low-signal types (`low_signal:` in [memory rules](/agent/memory-internals#memory-rules)) kept (oldest dropped) | 50 |
 | `memory-status-limit` | tool-call status entries (`status:<tool>:<n>`) kept (oldest dropped) | 60 |
+| `memory-key-chars` (`on: bytes`) | characters of a memory key, and of a memory note's file name made from it | 80 |
+| `memory-tool-line-chars` (`on: bytes`) | characters of a tool result's first line used to name its entry | 40 |
+| `memory-derived-key-chars` (`on: bytes`) | characters of a key made from a tool name and its result | 30 |
+| `memory-summary-chars` (`on: bytes`) | characters of a memory note's summary line (longer is cut with `...`) | 120 |
+| `memory-focus-min-word` | the shortest prompt word that counts when the prompt is matched to memory | 3 |
+| `memory-format-tokens` | tokens of memory put in a prompt when the caller sets no budget | 2000 |
 
 ```yaml
 # ~/.kdeps/events/memory-value-limit.yaml

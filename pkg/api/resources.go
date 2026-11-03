@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 
+	kgsearch "github.com/kdeps/kartographer/search"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
@@ -374,33 +376,14 @@ func IndexSearchFiles(root string, paths []string) {
 // hook has finished.
 func WaitSearchIndex() { searchIndexWG.Wait() }
 
-// InterleaveSearchResults takes the first hit of each list, then the second,
-// up to limit, and drops a path already taken.
+// InterleaveSearchResults merges per-folder search results with kartographer's
+// search.Interleave: the first hit of each list, then the second, up to limit,
+// a path already taken left out.
 func InterleaveSearchResults(lists [][]map[string]any, limit int) []map[string]any {
-	out := []map[string]any{}
-	seen := map[string]bool{}
-	for i := 0; len(out) < limit; i++ {
-		more := false
-		for _, list := range lists {
-			if i >= len(list) {
-				continue
-			}
-			more = true
-			p, _ := list[i]["path"].(string)
-			if seen[p] {
-				continue
-			}
-			seen[p] = true
-			out = append(out, list[i])
-			if len(out) == limit {
-				break
-			}
-		}
-		if !more {
-			break
-		}
-	}
-	return out
+	return kgsearch.Interleave(lists, limit, func(r map[string]any) string {
+		p, _ := r["path"].(string)
+		return p
+	})
 }
 
 func resultRows(result any) []map[string]any {

@@ -1,4 +1,4 @@
-version: 1.5.0
+version: 1.6.0
 # How the agent's memory store files what it saves: the type it gives an
 # entry, the entry it links each to, which tool results it captures, and
 # what it reads as a finished status or a resolved error.
@@ -83,6 +83,12 @@ reply_capture:
   action_max: 200
   # "<verb> [file] path" records the paths as last_files; these match as written.
   file_verbs: [Edited, Modified, Created, Read, Wrote]
+  # Whole lines of the reply saved as entries, each a regular expression with
+  # two groups, the key and the value, matched per line. A value longer than
+  # line_value_max characters is not saved. key_value_line keys are lower-cased.
+  tool_line: '^(tool:[a-z_]+):\s*(.+)$'
+  key_value_line: '^([A-Z][A-Z_]{2,40}):\s*(.+)$'
+  line_value_max: 500
 
 # Prompt words that say nothing about what to recall: ignored when a prompt is
 # matched to memory (memory-focus-min-word sets the shortest word that counts).

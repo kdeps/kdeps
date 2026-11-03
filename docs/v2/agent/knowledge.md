@@ -49,9 +49,11 @@ note:
 
 Every name must be set. Install rejects a `vault.yaml` that leaves one empty.
 
-The notes kdeps writes (a project's card, a session note, a decision note and a workflow's daily run log) are Go templates in the same set's `notes.yaml`, with the compaction summary sections that fill each session heading:
+The notes kdeps writes (a project's card, a session note, a decision note, a workflow's daily run log, a note the model saves with `knowledge_note_save`, `GRAPH_REPORT.md` and the lines of `kdeps knowledge explain`) are Go templates in the same set's `notes.yaml`, with the compaction summary sections that fill each session heading:
 
 ```yaml
+session:
+  file_time: "2006-01-02 1504"  # a new session note's file name starts with its start time, as a Go time layout
 session_sections:  # session note headings, each filled by the first summary section that is set
   - heading: What was built
     from: [done, progress]
@@ -59,6 +61,8 @@ templates:
   run_entry: |  # one workflow chat call in the day's run log
     - {{.Time}} {{.Prompt}} -> {{.Reply}}
 ```
+
+A link the model gives `knowledge_note_save` resolves the way the graph resolves links: by path, then by title or alias, the note nearest the new one winning. It is written with its full vault path, or as given when no note matches.
 
 Install rejects a `notes.yaml` with a missing or broken template.
 

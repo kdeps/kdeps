@@ -1450,12 +1450,15 @@ func extractStructuredSections(response string, now int64, seen map[string]bool)
 // extractToolResults captures tool: prefixed entries from tool call results
 // embedded in the assistant response (e.g. "tool:bash_exec: ...").
 func extractToolResults(response string, now int64, seen map[string]bool) []MemoryEntry {
+	re := memoryRules.toolLineRe
+	if re == nil {
+		return nil
+	}
 	var entries []MemoryEntry
-	toolRe := regexp.MustCompile(`(?m)^(tool:[a-z_]+):\s*(.+)$`)
-	for _, match := range toolRe.FindAllStringSubmatch(response, -1) {
+	for _, match := range re.FindAllStringSubmatch(response, -1) {
 		key := strings.TrimSpace(match[1])
 		value := strings.TrimSpace(match[2])
-		if key == "" || value == "" || seen[key] || len(value) > 500 {
+		if key == "" || value == "" || seen[key] || len(value) > memoryRules.ReplyCapture.LineValueMax {
 			continue
 		}
 		seen[key] = true
@@ -1506,12 +1509,15 @@ func extractMemoryMarkers(text string, now int64, seen map[string]bool) []Memory
 
 // extractKeyValueLines finds KEY: value lines (colon-separated, single line).
 func extractKeyValueLines(text string, now int64, seen map[string]bool) []MemoryEntry {
+	re := memoryRules.keyValueRe
+	if re == nil {
+		return nil
+	}
 	var entries []MemoryEntry
-	keyValRe := regexp.MustCompile(`(?m)^([A-Z][A-Z_]{2,40}):\s*(.+)$`)
-	for _, match := range keyValRe.FindAllStringSubmatch(text, -1) {
+	for _, match := range re.FindAllStringSubmatch(text, -1) {
 		key := strings.ToLower(strings.TrimSpace(match[1]))
 		value := strings.TrimSpace(match[2])
-		if key == "" || value == "" || seen[key] || len(value) > 500 {
+		if key == "" || value == "" || seen[key] || len(value) > memoryRules.ReplyCapture.LineValueMax {
 			continue
 		}
 		// Same unverified-self-report risk as extractMemoryMarkers -- see its

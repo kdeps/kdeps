@@ -125,7 +125,20 @@ status_done:                     # a status with one of markers and none of not 
 error_resolved:                  # an error that reads as resolved is not flagged in the memory block
   not: [reopened, still failing]
   markers: [fixed, resolved, closed]
+reply_capture:                   # what the store reads from the model's reply besides [MEMORY:] markers
+  action_verbs: [Added, Fixed, Updated]   # "<verb> the rest" (any case) becomes last_action
+  action_min: 5                  # the rest must be 5 to 200 characters long
+  action_max: 200
+  file_verbs: [Edited, Created, Wrote]    # "<verb> [file] path" (as written) becomes last_files
+focus_stopwords: [the, and, please]       # prompt words ignored when the prompt is matched to memory
+focus_min_stem: 3                # a word of 3+ letters without -ing/-ed/-s is matched by that stem (billing finds bills)
+focus_weights:                   # how an entry ranks against the prompt for the memory block
+  key_weight: 2                  # a prompt word in the key scores 2, one only in the value scores 1
+  structural_bonus: 1            # a match on a type outside low_signal adds 1
+search_min_word: 2               # memory_search drops the extra words of a query shorter than this
 ```
+
+Memory focus splits the prompt and each entry into words the way the knowledge recall does (letters and digits, camelCase and snake_case split, stemmed), so `billing` matches an entry about `bills`. Status and error markers are matched on whole, unstemmed words.
 
 A marker with a space, hyphen or apostrophe matches as text; a marker of 3 letters or fewer matches a whole word (`wip` does not match `wiped`); a longer one also matches a word that starts with it (`complete` matches `completed`).
 

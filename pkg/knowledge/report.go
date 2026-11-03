@@ -95,18 +95,17 @@ func evidenceSuffix(e *Edge) string {
 }
 
 // Explain lists every edge whose nodes or source match query, with the file
-// and line the edge came from.
-func Explain(g *Graph, query string) string {
-	var b strings.Builder
+// and line the edge came from, as notes.yaml's explain template writes them.
+func Explain(g *Graph, query string) (string, error) {
 	var graph *kgknowledge.Graph
 	if g != nil {
 		graph = &g.Graph
 	}
-	for _, e := range kgknowledge.MatchEdges(graph, query) {
-		fmt.Fprintf(&b, "%s -[%s, %s, %.2f]-> %s%s\n",
-			e.From, e.Relation, e.Provenance, e.Confidence, e.To, evidenceSuffix(e))
+	r, err := notesRules()
+	if err != nil {
+		return "", err
 	}
-	return b.String()
+	return r.render(tmplExplain, map[string]any{"Edges": kgknowledge.MatchEdges(graph, query)})
 }
 
 // ExportReports copies the report and the explorer page into the vault.

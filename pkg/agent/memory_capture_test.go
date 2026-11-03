@@ -20,6 +20,8 @@ package agent
 
 import (
 	"slices"
+
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,4 +88,23 @@ func TestMemoryReverseAndLeaves_ThroughTheDependencyGraph(t *testing.T) {
 	}
 	assert.Contains(t, keys, "result")
 	assert.Len(t, keys, len(slices.Compact(slices.Sorted(slices.Values(keys)))), "each referencing entry once")
+}
+
+func TestReplyLines_FollowTheMemoryRules(t *testing.T) {
+	got := extractToolResults("tool:bash_exec: exit 0\nnot a tool line", 1, map[string]bool{})
+	require.Len(t, got, 1)
+	assert.Equal(t, "tool:bash_exec", got[0].Key)
+	kv := extractKeyValueLines("STATUS: tests pass\nlower: no\nX: too short", 1, map[string]bool{})
+	require.Len(t, kv, 1)
+	assert.Equal(t, "status", kv[0].Key, "keys are lower-cased")
+	assert.Empty(t, extractKeyValueLines("STATUS: "+strings.Repeat("x", 501), 1, map[string]bool{}),
+		"longer than line_value_max")
+
+	_, err := parseMemoryRules([]byte("default_type: note\nreply_capture:\n  tool_line: '^(tool:.+)$'\n"))
+	require.ErrorContains(t, err, "two groups")
+	_, err = parseMemoryRules([]byte("default_type: note\nreply_capture:\n  key_value_line: '('\n"))
+	require.ErrorContains(t, err, "key_value_line")
+	r, err := parseMemoryRules([]byte("default_type: note\n"))
+	require.NoError(t, err)
+	assert.Nil(t, r.toolLineRe, "no pattern captures no lines")
 }

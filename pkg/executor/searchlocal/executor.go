@@ -20,23 +20,18 @@
 package searchlocal
 
 import (
-	"archive/zip"
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 	"time"
 
 	kgsearch "github.com/kdeps/kartographer/search"
 
 	"github.com/charmbracelet/log"
-	"github.com/ledongthuc/pdf"
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kartographer/graph"
@@ -273,7 +268,7 @@ func IsSecretFile(path string) bool {
 }
 
 // docOptions is how a file becomes a search document: search.yaml's tokenizer,
-// size limit and preview, with PDF and office documents read as text.
+// size limit and preview; kartographer reads PDF and office documents as text.
 func docOptions() (kgsearch.DocOptions, error) {
 	tok, err := knowledge.SearchTokenizer()
 	if err != nil {
@@ -283,7 +278,6 @@ func docOptions() (kgsearch.DocOptions, error) {
 		Tokenizer: tok,
 		MaxSize:   maxFileSize(),
 		Preview:   previewMax(),
-		Read:      readIndexableText,
 	}, nil
 }
 
@@ -321,150 +315,6 @@ func (e *Executor) walkIndex(root string, glob string, idx *kgsearch.InvertedInd
 			read, unchanged = p.Read, p.Unchanged
 		},
 	})
-}
-
-// readIndexableText returns a file's indexable text content. PDFs and
-// ZIP-based office formats are extracted to plain text (see below); every
-// other indexable extension is read as-is, since prior extension gating
-// already limits this to text-shaped formats.
-func readIndexableText(p string) (string, error) {
-	switch strings.ToLower(filepath.Ext(p)) {
-	case ".pdf":
-		return extractPDFText(p)
-	case ".docx":
-		return extractZippedXMLText(p, "word/document.xml")
-	case ".xlsx":
-		return extractZippedXMLText(p, "xl/sharedStrings.xml")
-	case ".odt", ".ods", ".odp":
-		return extractZippedXMLText(p, "content.xml")
-	case ".pptx":
-		return extractPptxText(p)
-	default:
-		content, err := os.ReadFile(p)
-		if err != nil {
-			return "", err
-		}
-		return string(content), nil
-	}
-}
-
-// extractZippedXMLText opens a ZIP-based document and extracts the text
-// content of the given member file(s) (docx's word/document.xml, xlsx's
-// shared-string table, or an ODF package's single content.xml), stripping
-// XML markup down to the visible text nodes. Missing members are skipped
-// rather than erroring, since a genuinely empty or unusually-structured
-// document should still index as "no text found", not fail the whole file.
-func extractZippedXMLText(p string, members ...string) (string, error) {
-	r, err := zip.OpenReader(p)
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-
-	var sb strings.Builder
-	for _, f := range r.File {
-		if !slices.Contains(members, f.Name) {
-			continue
-		}
-		if text, terr := extractXMLText(f); terr == nil {
-			sb.WriteString(text)
-			sb.WriteString("\n")
-		}
-	}
-	return sb.String(), nil
-}
-
-// extractPptxText extracts every slide's text in a PowerPoint package.
-// Slides are numbered member files (ppt/slides/slide1.xml, slide2.xml, ...)
-// rather than one fixed path like docx/xlsx/odf, so this walks the archive
-// instead of using extractZippedXMLText's fixed member list.
-func extractPptxText(p string) (string, error) {
-	r, err := zip.OpenReader(p)
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-
-	var sb strings.Builder
-	for _, f := range r.File {
-		if !strings.HasPrefix(f.Name, "ppt/slides/slide") || !strings.HasSuffix(f.Name, ".xml") {
-			continue
-		}
-		if text, terr := extractXMLText(f); terr == nil {
-			sb.WriteString(text)
-			sb.WriteString("\n")
-		}
-	}
-	return sb.String(), nil
-}
-
-// extractXMLText reads a zipped XML member and concatenates its character
-// data nodes, discarding markup -- good enough for search indexing, not a
-// faithful document reconstruction.
-func extractXMLText(f *zip.File) (string, error) {
-	rc, err := f.Open()
-	if err != nil {
-		return "", err
-	}
-	defer rc.Close()
-
-	dec := xml.NewDecoder(rc)
-	var sb strings.Builder
-	for {
-		tok, terr := dec.Token()
-		if errors.Is(terr, io.EOF) {
-			break
-		}
-		if terr != nil {
-			break
-		}
-		if cd, ok := tok.(xml.CharData); ok {
-			sb.Write(cd)
-			sb.WriteByte(' ')
-		}
-	}
-	return sb.String(), nil
-}
-
-// extractPDFText extracts plain text from a PDF using a pure-Go parser (no
-// pdftotext/pdfcpu binary required), so indexing works out of the box.
-// Unparsable pages are skipped rather than failing the whole file -- a
-// best-effort partial index beats no index for a PDF with one bad page.
-func extractPDFText(p string) (string, error) {
-	f, err := os.Open(p)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return "", err
-	}
-
-	reader, err := pdf.NewReader(f, info.Size())
-	if err != nil {
-		return "", err
-	}
-
-	var sb strings.Builder
-	fonts := make(map[string]*pdf.Font)
-	for i := 1; i <= reader.NumPage(); i++ {
-		page := reader.Page(i)
-		for _, name := range page.Fonts() {
-			if _, ok := fonts[name]; !ok {
-				fnt := page.Font(name)
-				fonts[name] = &fnt
-			}
-		}
-		text, perr := page.GetPlainText(fonts)
-		if perr != nil {
-			continue
-		}
-		sb.WriteString(text)
-		sb.WriteString("\n")
-	}
-	return sb.String(), nil
 }
 
 func fileExists(path string) bool {
@@ -531,10 +381,6 @@ func (e *Executor) StartIndex(path string) int {
 	return indexedCount
 }
 
-// snippetMaxPreview is the max characters for a fallback snippet when query is
-// not found: twice the snippet context.
-func snippetMaxPreview() int { return snippetContext() * 2 } //nolint:mnd // both sides of a match
-
 // generateSnippet reads a file and returns a snippet of context around the first
 // occurrence of query. Returns empty string if the file can't be read or the
 // query isn't found (keeps results compact but meaningful for the LLM).
@@ -552,51 +398,8 @@ func generateSnippet(filePath, query string) string {
 		return ""
 	}
 	content := string(buf[:n])
-	findStart, findEnd := newQueryMatcher(query).find(content)
-	if findStart < 0 {
-		// Query not found in content (token mismatch). Return first ~200 chars.
-		end := len(content)
-		if end > snippetMaxPreview() {
-			end = snippetMaxPreview()
-		}
-		if end < len(content) {
-			return content[:end] + "..."
-		}
-		return content[:end]
-	}
-
-	start := findStart - snippetContext()
-	if start < 0 {
-		start = 0
-	}
-	end := findEnd + snippetContext()
-	if end > len(content) {
-		end = len(content)
-	}
-	// Defend against Unicode case-expansion: strings.ToLower may produce a
-	// longer byte string than the original content, so the literal-match index
-	// can point past content's bounds after start/end clamping. Fall back to a
-	// preview when indices are inverted or start exceeds content length.
-	if start >= len(content) || end < start {
-		previewEnd := len(content)
-		if previewEnd > snippetMaxPreview() {
-			previewEnd = snippetMaxPreview()
-		}
-		if previewEnd < len(content) {
-			return content[:previewEnd] + "..."
-		}
-		return content[:previewEnd]
-	}
-
-	var sb strings.Builder
-	if start > 0 {
-		sb.WriteString("...")
-	}
-	sb.WriteString(content[start:end])
-	if end < len(content) {
-		sb.WriteString("...")
-	}
-	return sb.String()
+	start, end := newQueryMatcher(query).find(content)
+	return kgsearch.Snippet(content, start, end, snippetContext())
 }
 
 // IndexFile indexes a single file into the CWD's search index. It opens the

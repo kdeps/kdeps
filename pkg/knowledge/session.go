@@ -33,11 +33,7 @@ import (
 
 const boldTitleMark = "**"
 
-var (
-	unsafeNameRe = regexp.MustCompile(`[^\p{L}\p{N} ._-]+`)
-	// listMarkerRe matches a list item's marker and checkbox: "- ", "2. ", "- [x] ".
-	listMarkerRe = regexp.MustCompile(`^\s*(?:[-*+]|\d+[.)])?\s*(?:\[[ xX]\])?\s*`)
-)
+var unsafeNameRe = regexp.MustCompile(`[^\p{L}\p{N} ._-]+`)
 
 // SessionNote is what WriteSession wrote.
 type SessionNote struct {
@@ -206,9 +202,8 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 // listItems is text's list items without their markers, skipping the none placeholder.
 func listItems(text, none string) []string {
 	var out []string
-	for _, l := range strings.Split(text, "\n") {
-		l = strings.TrimSpace(listMarkerRe.ReplaceAllString(l, ""))
-		if l != "" && l != none {
+	for _, l := range kgnotes.ListItems(text) {
+		if l != none {
 			out = append(out, l)
 		}
 	}
@@ -318,8 +313,7 @@ func summarySections(summary string, r noteRules) map[string]string {
 // capped for a summary.
 func oneLine(text string) string {
 	for _, l := range strings.Split(text, "\n") {
-		l = strings.TrimSpace(listMarkerRe.ReplaceAllString(l, ""))
-		l = strings.Trim(l, "*_ ")
+		l = strings.Trim(kgnotes.ListItem(l), "*_ ")
 		if l != "" {
 			if r := []rune(l); len(r) > policy().MaxSummary {
 				l = string(r[:policy().MaxSummary-3]) + "..."
