@@ -158,7 +158,7 @@ func WithParamDefaults(args map[string]any, params map[string]domain.ToolParam) 
 		if p.Default == nil {
 			continue
 		}
-		if v, ok := args[name]; ok && v != nil && v != "" {
+		if !isEmptyValue(args[name]) {
 			continue
 		}
 		if out == nil {
