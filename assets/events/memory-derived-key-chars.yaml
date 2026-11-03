@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: memory-derived-key-chars
+on:
+  # Characters of a memory key made from a tool name and its result's first
+  # line.
+  bytes: 30
+run: truncate

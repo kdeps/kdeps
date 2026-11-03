@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: memory-format-tokens
+# Tokens of memory put in a prompt when the caller sets no budget. Turning the
+# event off keeps the default.
+items: 2000
+run: cap

@@ -104,9 +104,9 @@ func TestMemoryNotes_OnlyChangedNotesRewritten(t *testing.T) {
 
 func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	assert.Equal(t, "entry", memorySlug(":::"))
-	assert.Len(t, memorySlug(strings.Repeat("k", 200)), memoryMaxKeyLength)
+	assert.Len(t, memorySlug(strings.Repeat("k", 200)), memoryMaxKeyLength())
 	assert.Equal(t, "Short", firstLineCapped("Short\nmore"))
-	assert.Len(t, []rune(firstLineCapped(strings.Repeat("x", 300))), memorySummaryLen)
+	assert.Len(t, []rune(firstLineCapped(strings.Repeat("x", 300))), memorySummaryLen())
 	assert.Empty(t, formatMillis(0))
 	assert.Zero(t, parseMillis("nope"))
 	root := t.TempDir()

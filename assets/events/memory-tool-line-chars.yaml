@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/truncate: ""
+name: memory-tool-line-chars
+on:
+  # Characters of a tool result's first line used to name its memory entry.
+  bytes: 40
+run: truncate
