@@ -3560,8 +3560,8 @@ func TestContextLimitForModel_Default(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	// No env vars, no registry match — returns contextLimitDefault
-	assert.Equal(t, contextLimitDefault, repl.contextLimitForModel("unknown-local"))
+	// No env vars, no registry match — returns 4096
+	assert.Equal(t, 4096, repl.contextLimitForModel("unknown-local"))
 }
 
 func TestContextLimitForModel_CloudModel(t *testing.T) {
@@ -3572,7 +3572,7 @@ func TestContextLimitForModel_CloudModel(t *testing.T) {
 	// resolves any KnownCloudModels entry (ContextWindowForModel delegates to
 	// executorLLM.ModelContextWindow before its own older, narrower table) --
 	// every catalog entry carries a real ContextWindow, so a known cloud
-	// model gets its actual window, not the generic contextLimitCloud
+	// model gets its actual window, not the generic 131072
 	// fallback (that fallback only fires for a cloud backend match with no
 	// catalog window at all, which no longer happens for any real entry).
 	for _, m := range llm.KnownCloudModels {
@@ -3620,14 +3620,14 @@ func TestContextFromParams_Thresholds(t *testing.T) {
 		want   int
 	}{
 		{name: "unknown", params: 0, want: 0},
-		{name: "1B", params: 1, want: contextLimit1B},
-		{name: "2B_below_3B_tier", params: 2, want: contextLimit1B},
-		{name: "3B", params: 3, want: contextLimit3B},
-		{name: "7B", params: 7, want: contextLimit7B},
-		{name: "8B", params: 8, want: contextLimit7B},
-		{name: "13B", params: 13, want: contextLimit13B},
-		{name: "27B", params: 27, want: contextLimit13B},
-		{name: "30B", params: 30, want: contextLimitGGUF},
+		{name: "1B", params: 1, want: 8192},
+		{name: "2B_below_3B_tier", params: 2, want: 8192},
+		{name: "3B", params: 3, want: 16384},
+		{name: "7B", params: 7, want: 32768},
+		{name: "8B", params: 8, want: 32768},
+		{name: "13B", params: 13, want: 65536},
+		{name: "27B", params: 27, want: 65536},
+		{name: "30B", params: 30, want: 131072},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
