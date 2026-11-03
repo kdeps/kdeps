@@ -141,12 +141,10 @@ type BuildStats struct {
 	Notes, Changed, CodeFiles, Nodes, Edges, Communities int
 }
 
-// cacheEntry is one parsed file, reused while its hash is unchanged.
+// cacheEntry is a note's content hash at the last build, to count the notes
+// that changed since.
 type cacheEntry struct {
-	Hash       string   `json:"hash"`
-	Note       *Note    `json:"note,omitempty"`
-	Imports    []string `json:"imports,omitempty"`    // code files
-	ImportLine []int    `json:"importLine,omitempty"` // 1-based line of each import
+	Hash string `json:"hash"`
 }
 
 type buildCache struct {
@@ -154,9 +152,9 @@ type buildCache struct {
 	Files   map[string]cacheEntry `json:"files"`
 }
 
-// parserVersion changes whenever parsing changes, so older cached parses
-// are re-read. 3 records the source line of each link and tag.
-const parserVersion = 3
+// parserVersion changes whenever the cache format changes, so an older cache
+// is ignored. 4 keeps only each note's hash.
+const parserVersion = 4
 
 // builder accumulates a graph's nodes and edges, deduplicated.
 type builder struct {
@@ -230,21 +228,20 @@ func buildGraph(ctx context.Context, v Vault, dir string, now time.Time) (*Graph
 	return g, st, nil
 }
 
-// readNotes walks the vault, reusing the cached parse of unchanged notes.
+// readNotes walks the vault and counts the notes whose content changed since
+// the last build.
 func (b *builder) readNotes(v Vault) ([]*Note, error) {
 	notes, err := v.Walk()
 	if err != nil {
 		return nil, err
 	}
-	for i, n := range notes {
+	for _, n := range notes {
 		b.st.Notes++
 		key := "note:" + n.Path
-		if e, ok := b.cache.Files[key]; ok && e.Hash == n.Hash && e.Note != nil {
-			notes[i] = e.Note
-		} else {
+		if e, ok := b.cache.Files[key]; !ok || e.Hash != n.Hash {
 			b.st.Changed++
 		}
-		b.next.Files[key] = cacheEntry{Hash: n.Hash, Note: notes[i]}
+		b.next.Files[key] = cacheEntry{Hash: n.Hash}
 	}
 	return notes, nil
 }
