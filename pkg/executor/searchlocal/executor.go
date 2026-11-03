@@ -101,8 +101,8 @@ func QueryIndex(dir, query string, limit int) []Hit {
 	defer idx.Close()
 	var out []Hit
 	for _, r := range idx.Search(terms) {
-		if r.Document == nil || r.MatchCount < (len(terms)+1)/2 {
-			continue // most of the request's words must appear
+		if r.Document == nil || r.MatchCount < knowledge.SearchLimitsNow().RecallMatches(len(terms)) {
+			continue // search.yaml recall_match_share of the request's words must appear
 		}
 		out = append(out, Hit{Path: r.Document.Path, Preview: r.Document.Preview})
 		if len(out) == limit {
