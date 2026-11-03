@@ -52,7 +52,7 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 		if module == "" {
 			continue
 		}
-		rootID := "code:" + module
+		rootID := kgknowledge.CodeID(module)
 		b.kg.Add(&Node{ID: rootID, Label: module, Kind: KindCode})
 		if rel, relErr := filepath.Rel(v.Root, c.File); relErr == nil && !strings.HasPrefix(rel, "..") {
 			b.kg.Link(
@@ -94,12 +94,12 @@ func (b *builder) addModule(ctx context.Context, root string) {
 // addPackageFile adds a Go file's package and its in-module imports. Only
 // imports connect packages: an edge the code does not write is not added.
 func (b *builder) addPackageFile(root string, fi codegraph.FileImports) {
-	id := "code:" + fi.Package
+	id := kgknowledge.CodeID(fi.Package)
 	b.kg.Add(&Node{ID: id, Label: fi.Package, Kind: KindCode})
 	file := filepath.Join(root, filepath.FromSlash(fi.File))
 	for i, imp := range fi.Imports {
-		b.kg.Add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
-		b.kg.Link(id, "code:"+imp, RelDependsOn, file, kgknowledge.LineRef(fi.Lines[i]))
+		b.kg.Add(&Node{ID: kgknowledge.CodeID(imp), Label: imp, Kind: KindCode})
+		b.kg.Link(id, kgknowledge.CodeID(imp), RelDependsOn, file, kgknowledge.LineRef(fi.Lines[i]))
 	}
 }
 
