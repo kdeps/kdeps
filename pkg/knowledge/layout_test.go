@@ -58,6 +58,11 @@ func TestParseLayout_RejectsAnEmptyName(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "folders.shared is not set")
 
+	oneCol := strings.Replace(string(shippedLayout(t)), "links_header: [Source, Path]", "links_header: [Source]", 1)
+	_, err = parseLayout([]byte(oneCol))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "card.links_header")
+
 	noCanon := strings.Replace(string(shippedLayout(t)), "canonical: [canonical, fact_id]", "canonical: []", 1)
 	_, err = parseLayout([]byte(noCanon))
 	require.Error(t, err)
