@@ -146,6 +146,9 @@ if [ -z "${KDEPS_E2E_REAL_LLM:-}" ] && [ -z "${KDEPS_LLM_OVERRIDE_URL:-}" ] && c
     case "$(uname -s 2>/dev/null)" in MINGW* | MSYS* | CYGWIN*) _mock_parent="" ;; esac # $$ is not a Windows pid
     python3 "$PROJECT_ROOT/tests/e2e/helpers/mock_llm.py" "$_mock_port" "$E2E_MOCK_LLM_LOG" $_mock_parent \
         >/dev/null 2>&1 </dev/null &
+    # On Windows the mock cannot watch its parent ($$ is not a Windows pid), so
+    # the run's EXIT trap below stops it.
+    _MOCK_LLM_PID=$!
     for _ in $(seq 1 50); do
         python3 -c "import socket;socket.create_connection(('127.0.0.1',$_mock_port),1)" 2>/dev/null && break
         sleep 0.1
@@ -283,7 +286,7 @@ PYEOF
     python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" "$_mock_registry_parent" >/dev/null 2>&1 </dev/null &
     _MOCK_PID=$!
     sleep 0.2
-    trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
+    trap 'kill "$_MOCK_PID" ${_MOCK_LLM_PID:+"$_MOCK_LLM_PID"} 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
     export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
 fi
 
