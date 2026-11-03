@@ -21,6 +21,7 @@ package knowledge
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	kgsearch "github.com/kdeps/kartographer/search"
 	"gopkg.in/yaml.v3"
@@ -35,6 +36,14 @@ type searchRules struct {
 	Stopwords     []string `yaml:"stopwords"`
 	StemSuffixes  []string `yaml:"stem_suffixes"`
 	StemKeep      int      `yaml:"stem_keep"`
+
+	SkipHidden       bool     `yaml:"skip_hidden"`
+	SkipDirs         []string `yaml:"skip_dirs"`
+	Extensions       []string `yaml:"extensions"`
+	SecretNames      []string `yaml:"secret_names"`
+	SecretPrefixes   []string `yaml:"secret_prefixes"`
+	SecretExtensions []string `yaml:"secret_extensions"`
+	SecretDirs       []string `yaml:"secret_dirs"`
 }
 
 // parseSearchRules reads search.yaml. The minimum word length must be at
@@ -49,6 +58,9 @@ func parseSearchRules(data []byte) (searchRules, error) {
 	}
 	if r.StemKeep < 0 {
 		return r, errors.New("stem_keep must not be negative")
+	}
+	if len(r.Extensions) == 0 || len(r.SecretNames) == 0 || len(r.SecretDirs) == 0 {
+		return r, errors.New("extensions, secret_names and secret_dirs must be set")
 	}
 	return r, nil
 }
@@ -67,4 +79,35 @@ func SearchTokenizer() (*kgsearch.Tokenizer, error) {
 	return kgsearch.NewTokenizer(kgsearch.TokenizerOptions{
 		MinWordLength: r.MinWordLength, Stopwords: r.Stopwords, StemSuffixes: r.StemSuffixes, StemKeep: r.StemKeep,
 	}), nil
+}
+
+// SearchFilter is the local search file filter with search.yaml's rules: which
+// folders are walked, which files are indexed, and which are secrets. A
+// missing or broken file is an error; callers then index nothing and treat
+// every file as a secret.
+func SearchFilter() (*kgsearch.Filter, error) {
+	searchFilterCache.Lock()
+	defer searchFilterCache.Unlock()
+	if searchFilterCache.f != nil {
+		return searchFilterCache.f, nil
+	}
+	r, err := searchRulesItem.get()
+	if err != nil {
+		return nil, fmt.Errorf("search file rules: %w", err)
+	}
+	searchFilterCache.f = kgsearch.NewFilter(kgsearch.FilterOptions{
+		SkipHidden: r.SkipHidden, SkipDirs: r.SkipDirs, Extensions: r.Extensions,
+		SecretNames: r.SecretNames, SecretPrefixes: r.SecretPrefixes, SecretExts: r.SecretExtensions,
+		SecretDirs: r.SecretDirs,
+	})
+	return searchFilterCache.f, nil
+}
+
+// searchFilterCache keeps the filter once its rules load; a walk asks for it
+// on every entry.
+//
+//nolint:gochecknoglobals // built once from the knowledge asset set
+var searchFilterCache struct {
+	sync.Mutex
+	f *kgsearch.Filter
 }

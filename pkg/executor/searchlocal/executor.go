@@ -269,157 +269,28 @@ func graphConnectedSet(ig *graph.IndexedGraph, results []kgsearch.SearchResult) 
 	return connected
 }
 
-// noIndexDirs are directory names that are never indexed.
-//
-//nolint:gochecknoglobals // static lookup table
-var noIndexDirs = map[string]bool{
-	// Version control
-	".git": true,
-	".hg":  true,
-	".svn": true,
-
-	// JavaScript / TypeScript
-	"node_modules":     true,
-	"bower_components": true,
-	".next":            true,
-	".nuxt":            true,
-	".output":          true,
-	".turbo":           true,
-	".parcel-cache":    true,
-	".svelte-kit":      true,
-	".angular":         true,
-	".yarn":            true,
-
-	// Python
-	"__pycache__":        true,
-	".venv":              true,
-	"venv":               true,
-	".env":               true,
-	"env":                true,
-	".tox":               true,
-	".mypy_cache":        true,
-	".pytest_cache":      true,
-	".ruff_cache":        true,
-	"site-packages":      true,
-	"dist-packages":      true,
-	".eggs":              true,
-	"eggs":               true,
-	"pip-wheel-metadata": true,
-
-	// Go
-	"vendor": true,
-
-	// Rust / Java / C++ / C#. "dist" deliberately excluded: it's also the
-	// standard build output dir for static-site generators (VitePress,
-	// Docusaurus, VuePress) whose rendered HTML is exactly the kind of
-	// content indexing exists to find -- confirmed live as the reason a
-	// project's built docs were silently invisible to /search.
-	"target": true,
-	"build":  true,
-	"obj":    true,
-	"bin":    true,
-
-	// Infrastructure / IaC
-	".terraform":  true,
-	".serverless": true,
-	"cdk.out":     true,
-
-	// Coverage / test artifacts
-	"coverage":      true,
-	"__snapshots__": true,
-
-	// Misc cache / temp
-	".cache": true,
-	"tmp":    true,
-	"temp":   true,
-}
-
-// skipWalkEntry returns true if the walk entry should be skipped.
+// skipWalkEntry returns true if the walk entry should be skipped (search.yaml's
+// skip rules). Without the rules nothing is walked.
 func skipWalkEntry(d os.DirEntry) bool {
-	if len(d.Name()) == 0 {
-		return true
-	}
-	if d.Name()[0] == '.' {
-		return true
-	}
-	return noIndexDirs[d.Name()]
+	f, err := knowledge.SearchFilter()
+	return err != nil || f.SkipEntry(d.Name())
 }
 
-// indexBatchSize is how many files are collected before flushing to bbolt.
-// indexableExtensions are file extensions that are indexed in index mode.
-// Files without an extension (e.g. Makefile, README) are always indexed.
-//
-//nolint:gochecknoglobals // static lookup table
-var indexableExtensions = map[string]bool{
-	".go": true, ".py": true, ".js": true, ".ts": true, ".tsx": true, ".jsx": true,
-	".java": true, ".c": true, ".cpp": true, ".cc": true, ".h": true, ".hpp": true,
-	".rs": true, ".rb": true, ".php": true, ".sh": true, ".bash": true, ".zsh": true,
-	".yml": true, ".yaml": true, ".json": true, ".xml": true, ".toml": true,
-	".ini": true, ".cfg": true, ".conf": true, ".envrc": true,
-	".md": true, ".txt": true, ".rst": true, ".adoc": true,
-	".html": true, ".css": true, ".scss": true, ".less": true, ".svg": true,
-	".sql": true, ".proto": true, ".graphql": true, ".prisma": true,
-	".dart": true, ".swift": true, ".kt": true, ".kts": true,
-	".scala": true, ".clj": true, ".cljs": true, ".ex": true, ".exs": true, ".erl": true,
-	".lua": true, ".zig": true, ".nim": true, ".vue": true, ".svelte": true,
-	".tf": true, ".hcl": true, ".nix": true, ".dhall": true,
-	".pdf": true,
-	// OOXML (Word/Excel/PowerPoint) and OpenDocument (LibreOffice/OpenOffice)
-	// formats are ZIP archives of XML, extracted in readIndexableText. Legacy
-	// pre-2007 binary formats (.doc, .xls, .ppt) are deliberately NOT included:
-	// they use the OLE Compound File binary format, not ZIP+XML, and there is
-	// no pure-Go parser for it in this codebase -- indexing them as raw bytes
-	// would tokenize binary garbage instead of real content, the same bug
-	// PDF had before real extraction was added.
-	".docx": true, ".xlsx": true, ".pptx": true,
-	".odt": true, ".ods": true, ".odp": true,
-}
-
-// isIndexableExt returns true if the file extension is indexable.
-// Files without an extension (e.g. Makefile, README) are considered indexable.
+// isIndexableExt returns true if a file is indexed (search.yaml's extensions,
+// never a secret). Without the rules nothing is.
 func isIndexableExt(name string) bool {
-	if IsSecretFile(name) {
-		return false
-	}
-	ext := filepath.Ext(name)
-	return ext == "" || indexableExtensions[ext]
+	f, err := knowledge.SearchFilter()
+	return err == nil && f.Indexable(name)
 }
 
-// IsSecretFile reports a file that holds keys or credentials: SSH keys,
-// credentials, .env files, .netrc/.npmrc/.pgpass, certificates and key
-// stores, and anything in .ssh, .gnupg or .aws. Search and indexing never
-// return one, so its content never reaches a prompt through search_local
-// or recall.
+// IsSecretFile reports a file that holds keys or credentials (search.yaml's
+// secret rules). Search and indexing never return one, so its content never
+// reaches a prompt through search_local or recall. Without the rules every
+// file counts as one.
 func IsSecretFile(path string) bool {
-	name := strings.ToLower(filepath.Base(path))
-	if secretNames[name] || name == ".env" || strings.HasPrefix(name, ".env.") || secretExts[filepath.Ext(name)] {
-		return true
-	}
-	for _, part := range strings.Split(filepath.ToSlash(filepath.Dir(path)), "/") {
-		if secretDirs[strings.ToLower(part)] {
-			return true
-		}
-	}
-	return false
+	f, err := knowledge.SearchFilter()
+	return err != nil || f.Secret(path)
 }
-
-//nolint:gochecknoglobals // static lookup tables
-var (
-	secretNames = map[string]bool{
-		"id_rsa": true, "id_dsa": true, "id_ecdsa": true, "id_ed25519": true,
-		"id_ecdsa_sk": true, "id_ed25519_sk": true, "credentials": true, "authorized_keys": true,
-		".netrc": true, ".npmrc": true, ".pgpass": true, ".pypirc": true, ".git-credentials": true,
-	}
-	secretExts = map[string]bool{
-		".pem":      true,
-		".key":      true,
-		".p12":      true,
-		".pfx":      true,
-		".keystore": true,
-		".jks":      true,
-	}
-	secretDirs = map[string]bool{".ssh": true, ".gnupg": true, ".aws": true}
-)
 
 const indexBatchSize = 2000
 
