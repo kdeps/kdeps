@@ -786,7 +786,7 @@ func TestGenerateSnippet(t *testing.T) {
 	}
 
 	long := filepath.Join(dir, "long.txt")
-	longContent := strings.Repeat("a", snippetMaxPreview()+50)
+	longContent := strings.Repeat("a", 2*snippetContext()+50)
 	require.NoError(t, os.WriteFile(long, []byte(longContent), 0600))
 	got := generateSnippet(long, "notfound")
 	if !strings.HasSuffix(got, "...") {

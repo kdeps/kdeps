@@ -27,7 +27,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	kgsearch "github.com/kdeps/kartographer/search"
@@ -94,8 +93,8 @@ func QueryIndex(dir, query string, limit int) []Hit {
 	defer idx.Close()
 	var out []Hit
 	for _, r := range idx.Search(terms) {
-		if r.Document == nil || r.MatchCount < knowledge.SearchLimitsNow().RecallMatches(len(terms)) {
-			continue // search.yaml recall_match_share of the request's words must appear
+		if r.Document == nil || r.MatchCount < (len(terms)+1)/2 {
+			continue // most of the request's words must appear
 		}
 		out = append(out, Hit{Path: r.Document.Path, Preview: r.Document.Preview})
 		if len(out) == limit {
@@ -382,10 +381,6 @@ func (e *Executor) StartIndex(path string) int {
 	return indexedCount
 }
 
-// snippetMaxPreview is the max characters for a fallback snippet when query is
-// not found: twice the snippet context.
-func snippetMaxPreview() int { return snippetContext() * 2 } //nolint:mnd // both sides of a match
-
 // generateSnippet reads a file and returns a snippet of context around the first
 // occurrence of query. Returns empty string if the file can't be read or the
 // query isn't found (keeps results compact but meaningful for the LLM).
@@ -403,51 +398,8 @@ func generateSnippet(filePath, query string) string {
 		return ""
 	}
 	content := string(buf[:n])
-	findStart, findEnd := newQueryMatcher(query).find(content)
-	if findStart < 0 {
-		// Query not found in content (token mismatch). Return first ~200 chars.
-		end := len(content)
-		if end > snippetMaxPreview() {
-			end = snippetMaxPreview()
-		}
-		if end < len(content) {
-			return content[:end] + "..."
-		}
-		return content[:end]
-	}
-
-	start := findStart - snippetContext()
-	if start < 0 {
-		start = 0
-	}
-	end := findEnd + snippetContext()
-	if end > len(content) {
-		end = len(content)
-	}
-	// Defend against Unicode case-expansion: strings.ToLower may produce a
-	// longer byte string than the original content, so the literal-match index
-	// can point past content's bounds after start/end clamping. Fall back to a
-	// preview when indices are inverted or start exceeds content length.
-	if start >= len(content) || end < start {
-		previewEnd := len(content)
-		if previewEnd > snippetMaxPreview() {
-			previewEnd = snippetMaxPreview()
-		}
-		if previewEnd < len(content) {
-			return content[:previewEnd] + "..."
-		}
-		return content[:previewEnd]
-	}
-
-	var sb strings.Builder
-	if start > 0 {
-		sb.WriteString("...")
-	}
-	sb.WriteString(content[start:end])
-	if end < len(content) {
-		sb.WriteString("...")
-	}
-	return sb.String()
+	start, end := newQueryMatcher(query).find(content)
+	return kgsearch.Snippet(content, start, end, snippetContext())
 }
 
 // IndexFile indexes a single file into the CWD's search index. It opens the
