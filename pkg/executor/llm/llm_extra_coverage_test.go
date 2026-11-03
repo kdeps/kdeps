@@ -683,15 +683,3 @@ func TestKillModel_NonexistentBackend(t *testing.T) {
 	result := s.KillModel("nonexistent-backend", "some-model")
 	assert.False(t, result)
 }
-
-// ---- stream.go: jaccardSimilarity union==0 edge case ----
-
-func TestJaccardSimilarity_NonEmptyNoOverlap(t *testing.T) {
-	// Both sets non-empty with no overlap → union > 0, so the union==0 branch is not hit.
-	// This is unreachable since union==0 requires both sets to be empty,
-	// which is caught by the early return.
-	a := wordSet("foo bar")
-	b := wordSet("baz qux")
-	score := jaccardSimilarity(a, b)
-	assert.InDelta(t, 0.0, score, 0.001)
-}

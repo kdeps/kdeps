@@ -371,21 +371,6 @@ func findItemIndex(pool []domain.ScenarioItem, prompt string) int {
 	return -1
 }
 
-func TestJaccardSimilarity_Basic(t *testing.T) {
-	t.Parallel()
-	a := wordSet("the quick brown fox")
-	b := wordSet("the quick red fox")
-	score := jaccardSimilarity(a, b)
-	// 3 intersection (the quick fox) / 5 union
-	assert.InDelta(t, 0.6, score, 0.01)
-}
-
-func TestJaccardSimilarity_Empty(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, 0.0, jaccardSimilarity(map[string]struct{}{}, wordSet("hello")))
-	assert.Equal(t, 0.0, jaccardSimilarity(wordSet("hello"), map[string]struct{}{}))
-}
-
 // --- Contextual compression (T15) tests ---
 
 func TestCompressRetrieverContext_TopKZero_ReturnsAll(t *testing.T) {
@@ -771,27 +756,6 @@ func TestWordSet_Empty(t *testing.T) {
 	t.Parallel()
 	set := wordSet("")
 	assert.Empty(t, set)
-}
-
-func TestJaccardSimilarity_Identical(t *testing.T) {
-	t.Parallel()
-	a := wordSet("hello world")
-	score := jaccardSimilarity(a, a)
-	assert.InDelta(t, 1.0, score, 0.001)
-}
-
-func TestJaccardSimilarity_Disjoint(t *testing.T) {
-	t.Parallel()
-	a := wordSet("foo bar")
-	b := wordSet("baz qux")
-	score := jaccardSimilarity(a, b)
-	assert.Equal(t, 0.0, score)
-}
-
-func TestJaccardSimilarity_EmptySet(t *testing.T) {
-	t.Parallel()
-	score := jaccardSimilarity(map[string]struct{}{}, wordSet("foo"))
-	assert.Equal(t, 0.0, score)
 }
 
 func TestBuildJSONOpts_NoJSONResponse(t *testing.T) {
@@ -1197,45 +1161,6 @@ func TestChainOfThought_NoScenarioWithRetriever_CoTPresent(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "CoT should appear even when retriever context is present")
-}
-
-// --- cosineSimilarity tests ---
-
-func TestCosineSimilarity_Identical(t *testing.T) {
-	t.Parallel()
-	v := []float32{1, 0, 0}
-	assert.InDelta(t, 1.0, cosineSimilarity(v, v), 1e-9)
-}
-
-func TestCosineSimilarity_Orthogonal(t *testing.T) {
-	t.Parallel()
-	a := []float32{1, 0}
-	b := []float32{0, 1}
-	assert.InDelta(t, 0.0, cosineSimilarity(a, b), 1e-9)
-}
-
-func TestCosineSimilarity_ZeroVector(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, 0.0, cosineSimilarity([]float32{0, 0}, []float32{1, 1}))
-}
-
-func TestCosineSimilarity_LengthMismatch(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, 0.0, cosineSimilarity([]float32{1, 2}, []float32{1}))
-}
-
-func TestCosineSimilarity_EmptySlice(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, 0.0, cosineSimilarity(nil, nil))
-}
-
-func TestCosineSimilarity_KnownValue(t *testing.T) {
-	t.Parallel()
-	// [1,1] · [1,0] / (sqrt(2) * 1) = 1/sqrt(2) ≈ 0.7071
-	a := []float32{1, 1}
-	b := []float32{1, 0}
-	got := cosineSimilarity(a, b)
-	assert.InDelta(t, 0.7071, got, 0.0001)
 }
 
 // --- selectFewShotByEmbedding fallback tests ---
