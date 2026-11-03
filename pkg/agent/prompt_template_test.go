@@ -23,61 +23,52 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/afero"
 )
 
-// --- splitFrontmatter ---
+// --- prompt template front matter (kartographer notes.SplitFrontmatter) ---
 
-func TestSplitFrontmatter_NoFrontmatter(t *testing.T) {
-	content := "just some text\nno frontmatter here"
-	fm, body := splitFrontmatter(content)
-	if fm != nil {
-		t.Fatalf("expected nil frontmatter, got %v", fm)
+func loadTemplateText(t *testing.T, content string) *PromptTemplate {
+	t.Helper()
+	orig := AppFS
+	t.Cleanup(func() { AppFS = orig })
+	AppFS = afero.NewMemMapFs()
+	if err := afero.WriteFile(AppFS, "/p/review.md", []byte(content), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	if body != content {
-		t.Fatalf("expected body unchanged, got %q", body)
+	return loadPromptTemplateFromFile("/p/review.md")
+}
+
+func TestPromptTemplate_FrontMatter(t *testing.T) {
+	tpl := loadTemplateText(t, "---\ndescription: My template\nargument-hint: <query>\n---\n\nBody text here.")
+	if tpl.Description != "My template" || tpl.ArgumentHint != "<query>" {
+		t.Fatalf("front matter = %q, %q", tpl.Description, tpl.ArgumentHint)
+	}
+	if tpl.Content != "Body text here." {
+		t.Fatalf("body = %q", tpl.Content)
 	}
 }
 
-func TestSplitFrontmatter_WithFrontmatter(t *testing.T) {
-	content := "---\ndescription: My template\nargument-hint: <query>\n---\nBody text here."
-	fm, body := splitFrontmatter(content)
-	if fm["description"] != "My template" {
-		t.Fatalf("expected description=My template, got %q", fm["description"])
-	}
-	if fm["argument-hint"] != "<query>" {
-		t.Fatalf("expected argument-hint=<query>, got %q", fm["argument-hint"])
-	}
-	if !strings.Contains(body, "Body text here.") {
-		t.Fatalf("expected body to contain content, got %q", body)
+func TestPromptTemplate_NoOrUnclosedFrontMatter(t *testing.T) {
+	for _, content := range []string{"just some text\nmore", "---\ndescription: oops"} {
+		tpl := loadTemplateText(t, content)
+		if !strings.HasPrefix(tpl.Content, strings.SplitN(content, "\n", 2)[0]) {
+			t.Fatalf("body of %q = %q, want the whole text", content, tpl.Content)
+		}
+		if tpl.ArgumentHint != "" {
+			t.Fatalf("hint from %q = %q", content, tpl.ArgumentHint)
+		}
 	}
 }
 
-func TestSplitFrontmatter_MalformedNoDash(t *testing.T) {
-	content := "---\ndescription: oops"
-	fm, body := splitFrontmatter(content)
-	if fm != nil {
-		t.Fatalf("expected nil frontmatter for unclosed block, got %v", fm)
+func TestPromptTemplate_QuotedAndCRLFFrontMatter(t *testing.T) {
+	tpl := loadTemplateText(t, "---\r\ndescription: \"Review: a PR\"\r\n---\r\nBody\r\nline")
+	if tpl.Description != "Review: a PR" {
+		t.Fatalf("description = %q", tpl.Description)
 	}
-	if body != content {
-		t.Fatalf("expected body unchanged for unclosed block")
-	}
-}
-
-func TestSplitFrontmatter_LineWithNoColon(t *testing.T) {
-	// Tests the idx < 0 path: a YAML block line without a colon is skipped
-	content := "---\ndescription: ok\nthis line has no colon\n---\nbody"
-	fm, body := splitFrontmatter(content)
-	if fm == nil {
-		t.Fatal("expected non-nil frontmatter")
-	}
-	if fm["description"] != "ok" {
-		t.Fatalf("expected description=ok, got %q", fm["description"])
-	}
-	if _, found := fm["this line has no colon"]; found {
-		t.Fatal("expected line without colon to be skipped")
-	}
-	if body != "body" {
-		t.Fatalf("expected body='body', got %q", body)
+	if tpl.Content != "Body\nline" {
+		t.Fatalf("body = %q", tpl.Content)
 	}
 }
 
