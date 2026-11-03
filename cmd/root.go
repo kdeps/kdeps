@@ -262,12 +262,18 @@ func ensureAssets(cmd *cobra.Command) error {
 	if !ok {
 		return nil
 	}
-	assets.SetOnDemand(agent.InstallComponentOnDemand(cmd.Context(), cmd.ErrOrStderr()))
 	var in io.Reader
 	if config.CanPromptForConnections() {
 		in = cmd.InOrStdin()
 	}
-	return agent.EnsureSets(cmd.Context(), cmd.ErrOrStderr(), in, sets)
+	if err := agent.EnsureSets(cmd.Context(), cmd.ErrOrStderr(), in, sets); err != nil {
+		return err
+	}
+	// Set after the batch install, so it only fetches what is still missing:
+	// a component a workflow calls, or a required item of a set this command
+	// did not list.
+	assets.SetOnDemand(agent.InstallComponentOnDemand(cmd.Context(), cmd.ErrOrStderr()))
+	return nil
 }
 
 func initRootLogging(cmd *cobra.Command) {

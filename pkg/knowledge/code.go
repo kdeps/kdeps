@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
+
 	"github.com/kdeps/kartographer/codegraph"
 	// The rules come from the codegraph asset set; the adapter configures them.
 	_ "github.com/kdeps/kdeps/v2/pkg/codegraph"
@@ -54,8 +56,8 @@ func (b *builder) addCode(ctx context.Context, v Vault) {
 		b.kg.Add(&Node{ID: rootID, Label: module, Kind: KindCode})
 		if rel, relErr := filepath.Rel(v.Root, c.File); relErr == nil && !strings.HasPrefix(rel, "..") {
 			b.kg.Link(
-				noteID(filepath.ToSlash(rel)), rootID, RelReferences,
-				filepath.ToSlash(rel), lineRef(lineInFile(c.File, repo)),
+				kgknowledge.NoteID(filepath.ToSlash(rel)), rootID, RelReferences,
+				filepath.ToSlash(rel), kgknowledge.LineRef(lineInFile(c.File, repo)),
 			)
 		}
 		b.addModule(ctx, root)
@@ -97,7 +99,7 @@ func (b *builder) addPackageFile(root string, fi codegraph.FileImports) {
 	file := filepath.Join(root, filepath.FromSlash(fi.File))
 	for i, imp := range fi.Imports {
 		b.kg.Add(&Node{ID: "code:" + imp, Label: imp, Kind: KindCode})
-		b.kg.Link(id, "code:"+imp, RelDependsOn, file, lineRef(fi.Lines[i]))
+		b.kg.Link(id, "code:"+imp, RelDependsOn, file, kgknowledge.LineRef(fi.Lines[i]))
 	}
 }
 

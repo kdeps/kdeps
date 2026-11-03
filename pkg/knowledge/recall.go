@@ -56,51 +56,76 @@ const (
 	recallItem   = "recall"
 )
 
-// recallRulesFile mirrors recall.yaml.
+// recallRulesFile mirrors recall.yaml; stop and task are its word lists as sets.
 type recallRulesFile struct {
 	MinWordLength int      `yaml:"min_word_length"`
 	MinStemLength int      `yaml:"min_stem_length"`
 	Stopwords     []string `yaml:"stopwords"`
+	TaskWords     []string `yaml:"task_words"`
+	stop, task    map[string]bool
 }
 
-// recallRules and stopWords are read once from the knowledge asset set.
-var recallRules, stopWords = loadRecallRules() //nolint:gochecknoglobals // loaded from the knowledge asset set
+//nolint:gochecknoglobals // loaded once from the knowledge asset set
+var (
+	recallRulesItem     = &yamlItem[recallRulesFile]{name: recallItem, parse: parseRecallRules}
+	recallRulesReported sync.Once
+)
 
-// loadRecallRules reads recall.yaml. A missing or broken file turns word
-// filtering off (every word of length one or more is kept) and says so.
+// recallRules reads recall.yaml on first use (installing it when a profile
+// left it out). A missing or broken file turns word filtering off (every word
+// of length one or more is kept) and says so once.
 //
 //kdeps:flow knowledge: a knowledge-graph recall query arrives > its words are split and stemmed > [the recall rules set the word lengths and stopwords] > matching nodes are scored > the best notes fill the budget
-func loadRecallRules() (recallRulesFile, map[string]bool) {
-	var r recallRulesFile
-	data, err := assets.Open(knowledgeSet).ReadFile(knowledgeSet + "/" + recallItem + ".yaml")
-	if err == nil {
-		r, err = parseRecallRules(data)
-	}
+func recallRules() recallRulesFile {
+	r, err := recallRulesItem.get()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "knowledge: recall rules: %v\n", err)
-		r = recallRulesFile{MinWordLength: 1, MinStemLength: 1}
+		recallRulesReported.Do(func() { fmt.Fprintf(os.Stderr, "knowledge: recall rules: %v\n", err) })
+		return recallRulesFile{MinWordLength: 1, MinStemLength: 1}
 	}
-	set := make(map[string]bool, len(r.Stopwords))
-	for _, w := range r.Stopwords {
-		set[w] = true
-	}
-	return r, set
+	return r
 }
 
 func parseRecallRules(data []byte) (recallRulesFile, error) {
 	var r recallRulesFile
-	return r, yaml.Unmarshal(data, &r)
+	if err := yaml.Unmarshal(data, &r); err != nil {
+		return r, err
+	}
+	r.stop, r.task = kword.Set(r.Stopwords), kword.Set(r.TaskWords)
+	return r, nil
 }
 
 //nolint:gochecknoinits // registers the knowledge asset set
 func init() {
-	assets.Register(knowledgeSet, assets.Spec{
-		Validate: func(data []byte, _ string) error {
+	assets.Register(knowledgeSet, knowledgeSpec())
+}
+
+// knowledgeSpec is the knowledge asset set: each item is checked by its own
+// parser before install replaces a working file.
+func knowledgeSpec() assets.Spec {
+	return assets.Spec{
+		Validate: func(data []byte, name string) error {
+			switch name {
+			case vaultItem:
+				_, err := parseLayout(data)
+				return err
+			case checkItem:
+				_, err := parseCheckRules(data)
+				return err
+			case notesItem:
+				_, err := parseNoteRules(data)
+				return err
+			case extractItem:
+				_, err := parseExtractRules(data)
+				return err
+			case searchItem:
+				_, err := parseSearchRules(data)
+				return err
+			}
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem, policyItem},
-	})
+		Required: []string{recallItem, policyItem, vaultItem, checkItem, notesItem, extractItem, searchItem},
+	}
 }
 
 // PathStep is one edge on the path that reached a recalled note.
@@ -227,14 +252,13 @@ func provOrder(p string) int {
 	}
 }
 
-// wordOptions is the kdeps policy for keyword words.
-var wordOptions = kword.Options{ //nolint:gochecknoglobals // fixed policy
-	MinWordLength: recallRules.MinWordLength,
-	MinStemLength: recallRules.MinStemLength,
-	Stopwords:     stopWords,
+// wordOptions is the recall rules' policy for keyword words.
+func wordOptions() kword.Options {
+	r := recallRules()
+	return kword.Options{MinWordLength: r.MinWordLength, MinStemLength: r.MinStemLength, Stopwords: r.stop}
 }
 
-func words(s string) []string { return kword.Words(s, wordOptions) }
+func words(s string) []string { return kword.Words(s, wordOptions()) }
 
 // Recall finds the notes related to text: it scores nodes on the request's
 // words, walks up to hops edges from the best ones (extracted edges count
@@ -329,7 +353,7 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 		s += w
 	}
 	label := strings.ToLower(strings.TrimPrefix(ix.byID[id].Label, "#"))
-	if s > 0 && len(label) > recallRules.MinWordLength && strings.Contains(lowerText, label) {
+	if s > 0 && len(label) > recallRules().MinWordLength && strings.Contains(lowerText, label) {
 		s *= fullLabelBoost
 	}
 	return s * sourceWeight(ix.byID[id])
@@ -340,12 +364,18 @@ func (ix *Index) score(id string, toks []string, q map[string]bool, lowerText st
 // both would otherwise out-match a decision or gotcha on the same words.
 func sourceWeight(n *Node) float64 {
 	switch {
-	case n.Kind == "session":
+	case isSessionKind(n.Kind):
 		return sessionNoteWeight
 	case isMemoryNote(n.Note):
 		return memoryNoteWeight
 	}
 	return 1
+}
+
+// isSessionKind reports a node of the kind notes.yaml gives session notes.
+func isSessionKind(kind string) bool {
+	r, err := notesRules()
+	return err == nil && kind == r.Session.Kind
 }
 
 // walk spreads score from a seed, strongest edge first. A node is expanded

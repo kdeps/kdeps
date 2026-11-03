@@ -321,8 +321,8 @@ github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwA
 github.com/json-iterator/go v1.1.9/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/kdeps/kartographer v0.3.1-0.20261102165439-e66e77cdc3a9 h1:3xuxzAf9fyQ6ivhn9VLNpCPEGuofGlE3dMuokpbYZBE=
-github.com/kdeps/kartographer v0.3.1-0.20261102165439-e66e77cdc3a9/go.mod h1:OsVNu8d5LTvxeIa79ny7o5ZxOQEcM/OhBNwdiz2qU68=
+github.com/kdeps/kartographer v0.3.1-0.20261103000421-e3efcc8bb0f5 h1:QZTYbd2LeXWNxGtrlGxTM+9yfd7uQ8JW/Ww00Jc/H3c=
+github.com/kdeps/kartographer v0.3.1-0.20261103000421-e3efcc8bb0f5/go.mod h1:OsVNu8d5LTvxeIa79ny7o5ZxOQEcM/OhBNwdiz2qU68=
 github.com/kisielk/sqlstruct v0.0.0-20201105191214-5f3e10d3ab46/go.mod h1:yyMNCyc/Ib3bDTKd379tNMpB/7/H5TjM2Y9QJ5THLbE=
 github.com/klauspost/compress v1.10.3/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
 github.com/klauspost/compress v1.19.2 h1:hMRETovs/pu/dVWN7zIT1PGG8t509MwT6bO7XSi26R8=

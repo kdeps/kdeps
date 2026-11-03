@@ -113,8 +113,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "matching nodes are scored"},
 			{Label: "the best notes fill the budget"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.Extract", "knowledge.loadPolicy"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge folders remove", "kdeps knowledge build", "kdeps knowledge folders", "kdeps knowledge folders add", "kdeps knowledge folders index"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.(*Topic).Add", "knowledge.recallRules"},
 	},
 	"memory": {
 		Mode: "agent",
