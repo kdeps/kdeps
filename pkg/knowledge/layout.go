@@ -49,11 +49,12 @@ type VaultLayout struct {
 		Auto      string `yaml:"auto"`
 	} `yaml:"project"`
 	Card struct {
-		Type     string `yaml:"type"`
-		Status   string `yaml:"status"`
-		Next     string `yaml:"next"`
-		Updated  string `yaml:"updated"`
-		Archived string `yaml:"archived"`
+		Type        string   `yaml:"type"`
+		Status      string   `yaml:"status"`
+		Next        string   `yaml:"next"`
+		Updated     string   `yaml:"updated"`
+		Archived    string   `yaml:"archived"`
+		LinksHeader []string `yaml:"links_header"`
 	} `yaml:"card"`
 	Note struct {
 		Type      string   `yaml:"type"`
@@ -97,6 +98,9 @@ func (l VaultLayout) validate() error {
 		if f.value == "" {
 			return fmt.Errorf("%s is not set", f.key)
 		}
+	}
+	if len(l.Card.LinksHeader) != 2 || slices.Contains(l.Card.LinksHeader, "") {
+		return errors.New("card.links_header must name two columns: a link kind and a path")
 	}
 	if len(l.Note.Canonical) == 0 || slices.Contains(l.Note.Canonical, "") {
 		return errors.New("note.canonical must list at least one key, none empty")

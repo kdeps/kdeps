@@ -58,12 +58,14 @@ func TestNoteRules_CardUsesTheLayoutKeys(t *testing.T) {
 	require.NoError(t, err)
 	keys := Layout().Card
 	keys.Type, keys.Next = "kind", "todo"
+	keys.LinksHeader = []string{"Kind", "Where"}
 	body, err := r.render(tmplCard, map[string]any{
 		"Keys": keys, "None": r.None, "Updated": "2026-10-15", "Source": "repo", "Place": "/p",
 	})
 	require.NoError(t, err)
 	assert.Contains(t, body, "kind: project\n", "the card's type key comes from vault.yaml")
 	assert.Contains(t, body, "todo: (none)\n")
+	assert.Contains(t, body, "| Kind | Where |\n", "the places table header comes from vault.yaml")
 }
 
 func TestSummarySections_FollowNotesYAML(t *testing.T) {

@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: live-note-line-chars
+# The longest line the live session note keeps, in characters; a longer one is
+# cut with three dots. Turning the event off keeps the default.
+items: 160
+run: cap

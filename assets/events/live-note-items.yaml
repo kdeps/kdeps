@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: live-note-items
+# How many decisions, failed tools and modified files the live session note
+# lists. Turning the event off keeps the default.
+items: 15
+run: cap
