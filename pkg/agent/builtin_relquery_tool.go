@@ -31,14 +31,8 @@ import (
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-const (
-	// relQueryDefaultLimit is the row cap applied when the caller omits limit.
-	relQueryDefaultLimit = 50
-	// relQueryMaxLimit is the hard cap regardless of what the caller asks for,
-	// keeping the marshaled result well under the tool-result byte cap
-	// (maxToolResultBytes in loop.go) so it is never truncated mid-JSON.
-	relQueryMaxLimit = 500
-)
+// defaultRelQueryMaxRows applies when the memory-query-rows-max event is off.
+const defaultRelQueryMaxRows = 500
 
 // The call route lives in pkg/api. This package owns the live loop, so the
 // handler reaches it through the setter. activeLoop is set during Loop
@@ -118,11 +112,11 @@ func backslashEscapeHint(query string, compileErr error) string {
 }
 
 // resolveQueryLimit reads the limit argument (an LLM tool call may send it
-// as a JSON number, i.e. float64) and clamps it to
-// [1, relQueryMaxLimit], defaulting to relQueryDefaultLimit when absent,
-// zero, or invalid.
+// as a JSON number, i.e. float64) and clamps it to the memory-query-rows-max
+// event. A zero or invalid limit gets memory_query.yaml's limit default, the
+// same value the tool runtime fills in when the model leaves limit out.
 func resolveQueryLimit(raw any) int {
-	limit := relQueryDefaultLimit
+	limit := 0
 	switch v := raw.(type) {
 	case float64:
 		limit = int(v)
@@ -130,12 +124,9 @@ func resolveQueryLimit(raw any) int {
 		limit = v
 	}
 	if limit <= 0 {
-		limit = relQueryDefaultLimit
+		limit = api.ParamDefaultInt("memory_query", "limit")
 	}
-	if limit > relQueryMaxLimit {
-		limit = relQueryMaxLimit
-	}
-	return limit
+	return min(limit, itemsOr(eventMemoryQueryRowsMax, defaultRelQueryMaxRows))
 }
 
 // marshalQueryResult renders an expr-lang query result as JSON. When the
