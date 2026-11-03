@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,4 +64,26 @@ func TestFocusWords_MatchWordForms(t *testing.T) {
 	assert.Positive(t, focusScore(billing, significantTokens("Fix billing")), "billing finds bills by stem")
 	assert.Equal(t, []string{"deploy"}, significantTokens("deploy the deployed"), "distinct stems; stopwords dropped")
 	assert.True(t, errorIsResolved("Resolved: stale cache"), "markers match whole unstemmed words")
+}
+
+func TestMemoryReverseAndLeaves_ThroughTheDependencyGraph(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "prompt"},
+		{Key: "progress", References: []string{"prompt", "prompt"}},
+		{Key: "result", References: []string{"progress"}},
+	}
+	assert.Equal(t, map[string]bool{"result": true}, leafKeys(entries), "only the entry nobody references")
+
+	store := NewMemoryStore(t.TempDir())
+	store.SetCwd("/Users/test/Projects/foo")
+	for _, e := range entries {
+		require.NoError(t, store.Set(e.Key, "v"))
+	}
+	require.NoError(t, store.SetRelation("result", "prompt"))
+	var keys []string
+	for _, e := range store.GetReverseRelated("prompt") {
+		keys = append(keys, e.Key)
+	}
+	assert.Contains(t, keys, "result")
+	assert.Len(t, keys, len(slices.Compact(slices.Sorted(slices.Values(keys)))), "each referencing entry once")
 }
