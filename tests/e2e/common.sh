@@ -260,7 +260,7 @@ import http.server, sys, os, signal, threading, time
 signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
 # A script that sets its own EXIT trap replaces the kill below; exit when the
 # shell that started us is gone instead of outliving the run.
-parent = int(sys.argv[2])
+parent = int(sys.argv[2])  # 0 on Windows: $$ is not a Windows pid, and os.kill(pid, 0) there sends Ctrl+C
 def watch():
     while True:
         time.sleep(1)
@@ -268,7 +268,8 @@ def watch():
             os.kill(parent, 0)
         except OSError:
             os._exit(0)
-threading.Thread(target=watch, daemon=True).start()
+if parent:
+    threading.Thread(target=watch, daemon=True).start()
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self): self.send_response(404); self.end_headers()
     def do_POST(self): self.send_response(404); self.end_headers()
@@ -277,7 +278,9 @@ http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 PYEOF
     # No inherited stdout/stderr: a leftover server must not hold open the
     # pipe a caller reads the e2e output through.
-    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" "$$" >/dev/null 2>&1 </dev/null &
+    _mock_registry_parent="$$"
+    case "$(uname -s 2>/dev/null)" in MINGW* | MSYS* | CYGWIN*) _mock_registry_parent=0 ;; esac
+    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" "$_mock_registry_parent" >/dev/null 2>&1 </dev/null &
     _MOCK_PID=$!
     sleep 0.2
     trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM

@@ -64,8 +64,41 @@ scenario() {
     # A start line per scenario: when a shard stalls and its step times out,
     # the log names the scenario that was running.
     echo "=== scenario $1 ($(date -u +%H:%M:%S))"
+    # Scenarios share this shell, so an EXIT trap a scenario sets to stop its
+    # server would only run when the whole suite ends (and is replaced by the
+    # next scenario's): its servers kept running through every later scenario.
+    # Run the scenario's own EXIT cleanup when it finishes, then put back the
+    # run-wide trap (the mock servers' cleanup from common.sh).
+    # The cleanup can delete a scenario's temp folder, which the shell's working
+    # directory, HOME or the temp variables may still point at (a scenario's own
+    # TMP=$(mktemp -d) is Windows' exported TMP), so they are put back afterwards.
+    local outer inner _scenario_exit="" pwd0="$PWD" _v
+    local _set_HOME="" _set_USERPROFILE="" _set_TMP="" _set_TEMP="" _set_TMPDIR=""
+    local _was_HOME="" _was_USERPROFILE="" _was_TMP="" _was_TEMP="" _was_TMPDIR=""
+    for _v in HOME USERPROFILE TMP TEMP TMPDIR; do
+        if [ -n "${!_v+x}" ]; then
+            printf -v "_set_$_v" '1'
+            printf -v "_was_$_v" '%s' "${!_v}"
+        fi
+    done
+    outer=$(trap -p EXIT)
     # shellcheck disable=SC1090
     source "$SCRIPT_DIR/$1"
+    inner=$(trap -p EXIT)
+    if [ -n "$inner" ] && [ "$inner" != "$outer" ]; then
+        eval "$(printf '%s' "$inner" | sed -E "s/^trap -- (.*) EXIT$/_scenario_exit=\1/")"
+        eval "$_scenario_exit"
+    fi
+    if [ -n "$outer" ]; then eval "$outer"; else trap - EXIT; fi
+    cd "$pwd0" 2>/dev/null || cd "$PROJECT_ROOT" || true
+    for _v in HOME USERPROFILE TMP TEMP TMPDIR; do
+        local _set="_set_$_v" _was="_was_$_v"
+        if [ -n "${!_set:-}" ]; then
+            printf -v "$_v" '%s' "${!_was:-}"
+        else
+            unset "$_v"
+        fi
+    done
 }
 
 # Run all test scenarios (source them so counters persist)
