@@ -542,6 +542,7 @@ func TestGetDefaults_FromAssets(t *testing.T) {
 	assert.Equal(t, VectorStoreDefaults{
 		TopK: 5, ChromaURL: "http://localhost:8000", RedisURL: "redis://localhost:6379", MongoDBDatabase: "kdeps",
 	}, d.VectorStore)
+	assert.Equal(t, SessionStoreDefaults{MongoDBDatabase: "kdeps", MongoDBCollection: "sessions"}, d.SessionStore)
 	require.Error(t, assets.Install(t.TempDir(), "defaults/executors", []byte("version: 2.0.0\nchat: [\n"), false))
 	require.Error(t, assets.Remove(t.TempDir(), "defaults/executors"), "required")
 }

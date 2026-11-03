@@ -47,12 +47,13 @@ var readDefaults = func() ([]byte, error) {
 
 // ExecutorDefaults holds the default values for executors.
 type ExecutorDefaults struct {
-	Chat        ChatExecutorDefaults   `yaml:"chat"`
-	HTTP        HTTPExecutorDefaults   `yaml:"http"`
-	Python      PythonExecutorDefaults `yaml:"python"`
-	Exec        ExecExecutorDefaults   `yaml:"exec"`
-	Embedding   EmbeddingDefaults      `yaml:"embedding"`
-	VectorStore VectorStoreDefaults    `yaml:"vector_store"`
+	Chat         ChatExecutorDefaults   `yaml:"chat"`
+	HTTP         HTTPExecutorDefaults   `yaml:"http"`
+	Python       PythonExecutorDefaults `yaml:"python"`
+	Exec         ExecExecutorDefaults   `yaml:"exec"`
+	Embedding    EmbeddingDefaults      `yaml:"embedding"`
+	VectorStore  VectorStoreDefaults    `yaml:"vector_store"`
+	SessionStore SessionStoreDefaults   `yaml:"session_store"`
 }
 
 // ChatExecutorDefaults holds default values for LLM chat execution.
@@ -83,6 +84,12 @@ type EmbeddingDefaults struct {
 	DBPath     string `yaml:"db_path"`
 	Collection string `yaml:"collection"`
 	Limit      int    `yaml:"limit"`
+}
+
+// SessionStoreDefaults holds default names for the agent session store.
+type SessionStoreDefaults struct {
+	MongoDBDatabase   string `yaml:"mongodb_database"`
+	MongoDBCollection string `yaml:"mongodb_collection"`
 }
 
 // VectorStoreDefaults holds default values for vector store execution.

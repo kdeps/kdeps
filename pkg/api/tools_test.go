@@ -33,6 +33,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -456,4 +459,27 @@ func writeTemp(t *testing.T, body string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestRegisterTool_FillsDeclaredDefaults(t *testing.T) {
+	var got map[string]any
+	RegisterTool(ToolSpec{
+		Name:       "defaults_probe",
+		Parameters: map[string]domain.ToolParam{"limit": {Default: 3}, "q": {}},
+		Call: func(_ context.Context, args map[string]any) (string, error) {
+			got = args
+			return "", nil
+		},
+	})
+	spec, ok := lookupTool("defaults_probe")
+	require.True(t, ok)
+	_, err := spec.Call(t.Context(), map[string]any{"q": "x"})
+	require.NoError(t, err)
+	assert.Equal(t, 3, got["limit"], "a left-out argument gets its declared default")
+	_, err = spec.Call(t.Context(), map[string]any{"limit": float64(9)})
+	require.NoError(t, err)
+	assert.InDelta(t, 9.0, got["limit"], 0, "a given argument is kept")
+	assert.Equal(t, 3, ParamDefaultInt("defaults_probe", "limit"))
+	assert.Zero(t, ParamDefaultInt("defaults_probe", "q"))
+	assert.Equal(t, 3, ParamDefaultInt(toolSearchLocal, argLimit), "search_local.yaml declares limit 3")
 }
