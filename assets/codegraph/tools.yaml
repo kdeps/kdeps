@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # The code-graph tools the agent is offered. Each name is a Kartographer tool,
 # exposed as code_<name>. Memory, workspace and web tools are not listed: kdeps
 # has its own for those.
@@ -7,6 +7,8 @@ tools:
   - callers
   - callees
   - impact
+  - impact_and_risk
+  - impact_of_diff
   - tests_for
   - rank_files
   - query

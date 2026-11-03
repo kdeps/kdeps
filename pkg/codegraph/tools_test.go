@@ -69,3 +69,13 @@ func TestCodeGraphToolRunsOnTheWorkingDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.Contains(out, "Greet"), out)
 }
+
+func TestRegisterOffersTheChangeImpactTools(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	require.NoError(t, Register(reg, t.TempDir()))
+	for _, name := range []string{"impact_and_risk", "impact_of_diff"} {
+		tool := reg.Get(ToolPrefix + name)
+		require.NotNil(t, tool, name)
+		assert.NotEmpty(t, tool.Parameters, name)
+	}
+}
