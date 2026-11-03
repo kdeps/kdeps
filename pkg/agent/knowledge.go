@@ -315,7 +315,12 @@ func (k *knowledgeState) recallFiles(text string) string {
 	if card == nil {
 		return ""
 	}
-	var b strings.Builder
+	type fileHit struct{ Path, Preview, Chain string }
+	type folder struct {
+		Place, Index string
+		Hits         []fileHit
+	}
+	var folders []folder
 	seen := map[string]bool{}
 	for _, place := range card.SearchRoots() {
 		place = knowledge.ExpandPath(place, k.vault.Root)
@@ -329,21 +334,20 @@ func (k *knowledgeState) recallFiles(text string) string {
 		if len(hits) == 0 {
 			continue
 		}
-		fmt.Fprintf(&b, "\nFolder %s (search index %s):", place, searchlocal.IndexPath(place))
+		f := folder{Place: place, Index: searchlocal.IndexPath(place)}
 		for _, h := range hits {
-			fmt.Fprintf(&b, "\n- %s", h.Path)
+			preview := ""
 			if p := strings.Join(strings.Fields(h.Preview), " "); p != "" {
-				fmt.Fprintf(&b, " - %s", liveLine(p))
+				preview = liveLine(p)
 			}
-			if chain := k.recallChain(h.Path); chain != "" {
-				fmt.Fprintf(&b, " (%s)", chain)
-			}
+			f.Hits = append(f.Hits, fileHit{Path: h.Path, Preview: preview, Chain: k.recallChain(h.Path)})
 		}
+		folders = append(folders, f)
 	}
-	if b.Len() == 0 {
+	if len(folders) == 0 {
 		return ""
 	}
-	return knowledge.Prompt(knowledge.PromptFiles, map[string]any{"Body": b.String()})
+	return knowledge.Prompt(knowledge.PromptFiles, map[string]any{"Folders": folders})
 }
 
 // defaultKnowledgeRecallFiles is the per-index recall count when the event is off.
