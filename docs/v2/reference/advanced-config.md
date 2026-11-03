@@ -352,7 +352,7 @@ llm:
   aux: current    # current | free | a model id
 ```
 
-`free` chooses a large OpenRouter free model for each of those calls. Any other id pins that model. See [Auxiliary model channel](/agent/aux).
+`free` chooses a large OpenRouter free model for each of those calls. Any other id pins that model. See [Auxiliary model channel](/agent/auxiliary).
 
 ## Knowledge vault
 

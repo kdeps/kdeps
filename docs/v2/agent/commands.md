@@ -46,7 +46,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/auto-improve` | In the kdeps repo, record a session, jump across OpenRouter free models, report product bugs the event log shows, and file one GitHub issue as each report arrives |
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; off by default, persists across sessions. A session that already stored refine-on stays on |
-| `/aux` | Show the model used for knowledge extraction, prompt refinement, and judges (see [Auxiliary model channel](/agent/aux)) |
+| `/aux` | Show the model used for knowledge extraction, prompt refinement, and judges (see [Auxiliary model channel](/agent/auxiliary)) |
 | `/aux current\|free\|<model>` | Use the session model, a large OpenRouter free model chosen per call, or any model. The session model is the default. Persists, and wins over `llm.aux` |
 | `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
 | `/efficiency on\|off` | Enable or disable soft-stopping read-only exploration loops; on by default, persists |

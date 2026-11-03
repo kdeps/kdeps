@@ -144,7 +144,7 @@ export default defineConfig({
           text: 'Control',
           items: [
             { text: 'Prompt refinement', link: '/agent/refine' },
-            { text: 'Auxiliary model channel', link: '/agent/aux' },
+            { text: 'Auxiliary model channel', link: '/agent/auxiliary' },
             { text: 'Efficiency enforcement', link: '/agent/efficiency' },
             { text: 'Judge panel', link: '/agent/judges' },
             { text: 'Approval tokens', link: '/agent/approvals' },

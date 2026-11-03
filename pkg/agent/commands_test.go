@@ -60,7 +60,7 @@ func TestCommands_EveryGoCommandHasAnAsset(t *testing.T) {
 }
 
 // Windows refuses to check out a path whose name is a reserved device
-// (aux.yaml is the AUX device). The slash command can still be /aux.
+// (aux.yaml and aux.md are the AUX device). The slash command can still be /aux.
 func TestShippedAssetNames_NotWindowsDevices(t *testing.T) {
 	reserved := map[string]bool{"con": true, "prn": true, "aux": true, "nul": true}
 	for i := 1; i <= 9; i++ {
@@ -68,9 +68,14 @@ func TestShippedAssetNames_NotWindowsDevices(t *testing.T) {
 		reserved["com"+n] = true
 		reserved["lpt"+n] = true
 	}
-	err := filepath.WalkDir(assets.Source(), func(p string, d os.DirEntry, walkErr error) error {
+	skip := map[string]bool{".git": true, "node_modules": true, "private": true, "kdeps-io": true}
+	root := filepath.Dir(assets.Source())
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		if d.IsDir() && skip[d.Name()] {
+			return filepath.SkipDir
 		}
 		stem := strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
 		if reserved[strings.ToLower(stem)] || reserved[strings.ToLower(d.Name())] {
