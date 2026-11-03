@@ -534,7 +534,7 @@ func TestUpdateSessionNote_EveryTurn(t *testing.T) {
 	l.SetKnowledge(false)
 	l.UpdateSessionNote()
 	assert.Equal(t, liveLine("a\n  b"), "a b")
-	assert.Len(t, []rune(liveLine(strings.Repeat("x", 400))), liveNoteLineChars)
+	assert.Len(t, []rune(liveLine(strings.Repeat("x", 400))), liveNoteLineChars())
 }
 
 func TestMemoryRidesOnEachTurn(t *testing.T) {
