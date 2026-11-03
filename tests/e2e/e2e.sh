@@ -55,6 +55,18 @@ echo ""
 # E2E_SHARD=k/n runs every n-th scenario starting at the k-th, so CI can
 # split the suite across runners. Unset runs them all.
 _scenario_idx=0
+
+# On Windows a process a scenario leaves running is only killed when the CI job
+# ends, so nothing names the scenario. _win_procs counts the kdeps and python
+# processes; scenario() reports a scenario after which the count went up.
+_win_procs() {
+    case "$(uname -s)" in
+        MINGW* | MSYS* | CYGWIN*)
+            tasklist //FO CSV //NH 2>/dev/null | grep -ciE '^"(kdeps|python)[0-9.]*\.exe"' || true ;;
+        *) echo 0 ;;
+    esac
+}
+
 scenario() {
     local i=$_scenario_idx
     _scenario_idx=$((i + 1))
@@ -82,6 +94,8 @@ scenario() {
         fi
     done
     outer=$(trap -p EXIT)
+    local procs0
+    procs0=$(_win_procs)
     # shellcheck disable=SC1090
     source "$SCRIPT_DIR/$1"
     inner=$(trap -p EXIT)
@@ -91,6 +105,11 @@ scenario() {
     fi
     if [ -n "$outer" ]; then eval "$outer"; else trap - EXIT; fi
     cd "$pwd0" 2>/dev/null || cd "$PROJECT_ROOT" || true
+    local procs1
+    procs1=$(_win_procs)
+    if [ "${procs1:-0}" -gt "${procs0:-0}" ]; then
+        echo "=== scenario $1 left $((procs1 - procs0)) kdeps/python process(es) running"
+    fi
     for _v in HOME USERPROFILE TMP TEMP TMPDIR; do
         local _set="_set_$_v" _was="_was_$_v"
         if [ -n "${!_set:-}" ]; then
