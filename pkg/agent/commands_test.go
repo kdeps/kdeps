@@ -59,6 +59,28 @@ func TestCommands_EveryGoCommandHasAnAsset(t *testing.T) {
 	assert.Len(t, slashCommands, len(entries), "every shipped command file must load")
 }
 
+// Windows refuses to check out a path whose name is a reserved device
+// (aux.yaml is the AUX device). The slash command can still be /aux.
+func TestShippedAssetNames_NotWindowsDevices(t *testing.T) {
+	reserved := map[string]bool{"con": true, "prn": true, "aux": true, "nul": true}
+	for i := 1; i <= 9; i++ {
+		n := strconv.Itoa(i)
+		reserved["com"+n] = true
+		reserved["lpt"+n] = true
+	}
+	err := filepath.WalkDir(assets.Source(), func(p string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		stem := strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
+		if reserved[strings.ToLower(stem)] || reserved[strings.ToLower(d.Name())] {
+			t.Errorf("Windows cannot check out %s", p)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestCommands_CoreItemsAreRequired(t *testing.T) {
 	for _, name := range requiredCommands {
 		assert.True(t, assets.Required("commands", name), name)
