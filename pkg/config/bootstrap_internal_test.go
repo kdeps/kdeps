@@ -539,6 +539,7 @@ func TestGetDefaults_FromAssets(t *testing.T) {
 	d, err := GetDefaults()
 	require.NoError(t, err)
 	assert.Equal(t, 4096, d.Chat.ContextLength)
+	assert.Equal(t, VectorStoreDefaults{TopK: 5, ChromaURL: "http://localhost:8000"}, d.VectorStore)
 	require.Error(t, assets.Install(t.TempDir(), "defaults/executors", []byte("version: 2.0.0\nchat: [\n"), false))
 	require.Error(t, assets.Remove(t.TempDir(), "defaults/executors"), "required")
 }

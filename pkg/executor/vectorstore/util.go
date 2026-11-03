@@ -23,14 +23,17 @@ import (
 	"fmt"
 
 	lcemb "github.com/tmc/langchaingo/embeddings"
+
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 )
 
-const defaultTopK = 5
-
-// normalizeTopK returns n if n > 0, otherwise defaultTopK.
+// normalizeTopK returns n if n > 0, otherwise the executor defaults'
+// vector_store.top_k (a resource configured without the vector_store
+// component, which sets topK itself).
 func normalizeTopK(n int) int {
 	if n <= 0 {
-		return defaultTopK
+		d, _ := kdepsconfig.GetDefaults()
+		return d.VectorStore.TopK
 	}
 	return n
 }

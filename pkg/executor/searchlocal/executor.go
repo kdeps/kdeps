@@ -281,6 +281,10 @@ func docOptions() (kgsearch.DocOptions, error) {
 	}, nil
 }
 
+// defaultFuzzyDistance is the edit distance of a fuzzy search configured
+// without the search_local component.
+const defaultFuzzyDistance = 2
+
 // indexProgressEvery is how often (files read) indexing reports progress;
 // kartographer reports unchanged files ten times less often.
 const (
@@ -561,7 +565,9 @@ func (e *Executor) executeIndexed(
 	var results []kgsearch.SearchResult
 	maxDist := config.MaxDistance
 	if maxDist <= 0 {
-		maxDist = 2
+		// The search_local component sets maxDistance (default 2); this covers a
+		// resource configured without it.
+		maxDist = defaultFuzzyDistance
 	}
 
 	if config.Fuzzy {
