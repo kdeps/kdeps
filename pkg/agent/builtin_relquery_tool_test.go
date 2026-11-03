@@ -210,9 +210,9 @@ func TestMemoryQuery_LimitTruncates(t *testing.T) {
 }
 
 func TestResolveQueryLimit(t *testing.T) {
-	assert.Equal(t, relQueryDefaultLimit, resolveQueryLimit(nil))
-	assert.Equal(t, relQueryDefaultLimit, resolveQueryLimit(float64(0)))
-	assert.Equal(t, relQueryDefaultLimit, resolveQueryLimit(float64(-5)))
+	assert.Equal(t, 50, resolveQueryLimit(nil))
+	assert.Equal(t, 50, resolveQueryLimit(float64(0)))
+	assert.Equal(t, 50, resolveQueryLimit(float64(-5)))
 	assert.Equal(t, 10, resolveQueryLimit(float64(10)))
-	assert.Equal(t, relQueryMaxLimit, resolveQueryLimit(float64(999999)))
+	assert.Equal(t, 500, resolveQueryLimit(float64(999999)))
 }

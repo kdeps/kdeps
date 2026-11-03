@@ -223,3 +223,15 @@ func withParamDefaults(args map[string]any, params map[string]domain.ToolParam) 
 	}
 	return out
 }
+
+// toolParamDefaultInt is the integer default the named tool's definition
+// declares for param, or 0 when it declares none.
+func toolParamDefaultInt(tool, param string) int {
+	switch v := toolDefinitions[tool].Parameters[param].Default.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	}
+	return 0
+}
