@@ -874,10 +874,11 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 	if strings.ContainsAny(title, `/\:*?"<>|`) {
 		return "", errors.New("knowledge_note_save: title cannot contain / \\ : * ? \" < > |")
 	}
-	typ := str("type")
-	if typ == "" {
-		typ = "note"
+	decisionType, typeErr := knowledge.DecisionNoteType()
+	if typeErr != nil {
+		return "", typeErr
 	}
+	typ := str("type") // knowledge_note_save.yaml's default fills an empty type
 	var dir string
 	switch scope := strings.ToLower(str("scope")); scope {
 	case "", "project":
@@ -886,7 +887,7 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 			return "", err
 		}
 		dir = filepath.Join(card.Dir(), knowledge.Layout().Project.Notes)
-		if typ == "decision" {
+		if typ == decisionType {
 			dir = filepath.Join(card.Dir(), knowledge.Layout().Project.Decisions)
 		}
 	case knowledge.Layout().Folders.Shared, knowledge.Layout().Folders.Inbox:

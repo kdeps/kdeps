@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -77,4 +78,19 @@ func TestLoadToolDefinitionsFrom(t *testing.T) {
 	})
 	assert.Equal(t, []string{"good"}, slices.Collect(maps.Keys(defs)), "a bad file is skipped, the rest load")
 	assert.Contains(t, stderr, "bad.yaml")
+}
+
+func TestWithParamDefaults_FillsOnlyMissingOrEmpty(t *testing.T) {
+	params := map[string]domain.ToolParam{"type": {Default: "note"}, "scope": {}}
+	assert.Equal(t, map[string]any{"type": "note"}, withParamDefaults(nil, params))
+	assert.Equal(
+		t,
+		map[string]any{"type": "note", "title": "x"},
+		withParamDefaults(map[string]any{"title": "x", "type": ""}, params),
+	)
+	in := map[string]any{"type": "decision"}
+	assert.Equal(t, "decision", withParamDefaults(in, params)["type"], "a given value is kept")
+	args := map[string]any{"title": "x"}
+	_ = withParamDefaults(args, params)
+	assert.NotContains(t, args, "type", "the caller's map is not changed")
 }
