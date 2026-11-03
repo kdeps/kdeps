@@ -125,19 +125,27 @@ func graphDBPath(dir string) string {
 	return datadir.File(dir, "graph.db")
 }
 
-const (
-	// graphBoostFactor multiplies the score of a result linked from, or
-	// sharing a topic with, a top-ranked seed result.
-	graphBoostFactor = 1.25
-	// graphBoostSeedCount is how many top-ranked results are used as seeds
-	// when looking up connected documents in the graph.
-	graphBoostSeedCount = 5
-)
+// graphBoostFactor multiplies the score of a result linked from, or sharing a
+// topic with, a top-ranked seed result (search.yaml limits.graph_boost).
+func graphBoostFactor() float64 { return knowledge.SearchLimitsNow().GraphBoost }
+
+// graphBoostSeedCount is how many top-ranked results seed the graph lookup
+// (search.yaml limits.graph_boost_seeds).
+func graphBoostSeedCount() int { return knowledge.SearchLimitsNow().GraphBoostSeeds }
+
+// maxFileSize is the largest file (bytes) read and indexed (limits.max_file_size).
+func maxFileSize() int64 { return knowledge.SearchLimitsNow().MaxFileSize }
+
+// previewMax is how many characters of a file its index preview keeps (limits.preview_chars).
+func previewMax() int { return knowledge.SearchLimitsNow().PreviewChars }
+
+// snippetContext is the characters of context around a match (limits.snippet_context).
+func snippetContext() int { return knowledge.SearchLimitsNow().SnippetContext }
 
 // boostByGraph re-ranks results before the final sort. When config.Path is
 // inside the knowledge vault, the structural graph is brought current (no
 // model call) and the boost reads those edges. It does not build graph.db:
-// an extracted reference multiplies the score by graphBoostFactor, and a
+// an extracted reference multiplies the score by graphBoostFactor(), and a
 // weaker edge multiplies by less (see knowledgeBoost). Any other folder, or
 // a vault graph that cannot be built, uses a kartographer reference/topic
 // graph, and every connected document gets the full factor. Never returns
@@ -173,7 +181,7 @@ func boostByGraph(
 	connected := graphConnectedSet(ig, results)
 	for i := range results {
 		if connected[results[i].Document.Path] {
-			results[i].Score *= graphBoostFactor
+			results[i].Score *= graphBoostFactor()
 		}
 	}
 
@@ -200,7 +208,7 @@ func boostByKnowledge(
 	if ix == nil {
 		return nil, false
 	}
-	seedCount := graphBoostSeedCount
+	seedCount := graphBoostSeedCount()
 	if seedCount > len(results) {
 		seedCount = len(results)
 	}
@@ -221,7 +229,7 @@ func boostByKnowledge(
 	return results, true
 }
 
-// knowledgeBoost scales graphBoostFactor by an edge weight. Weight 1 is the
+// knowledgeBoost scales graphBoostFactor() by an edge weight. Weight 1 is the
 // full 25% boost. A tag edge (weight 0.3) or a low-confidence inferred edge
 // moves the score less.
 func knowledgeBoost(weight float64) float64 {
@@ -231,7 +239,7 @@ func knowledgeBoost(weight float64) float64 {
 	if weight > 1 {
 		weight = 1
 	}
-	return 1 + (graphBoostFactor-1)*weight
+	return 1 + (graphBoostFactor()-1)*weight
 }
 
 func sortBoosted(results []kgsearch.SearchResult) {
@@ -244,11 +252,11 @@ func sortBoosted(results []kgsearch.SearchResult) {
 }
 
 // graphConnectedSet returns every document path linked from, or sharing a
-// topic with, one of the top graphBoostSeedCount results. Split out from
+// topic with, one of the top graphBoostSeedCount() results. Split out from
 // boostByGraph so a query against an already-open (or already-closed) graph
 // can be tested independently of the open/index setup around it.
 func graphConnectedSet(ig *graph.IndexedGraph, results []kgsearch.SearchResult) map[string]bool {
-	seedCount := graphBoostSeedCount
+	seedCount := graphBoostSeedCount()
 	if seedCount > len(results) {
 		seedCount = len(results)
 	}
@@ -293,9 +301,6 @@ func IsSecretFile(path string) bool {
 }
 
 const indexBatchSize = 2000
-
-// maxFileSize is the largest file (bytes) we will read and index.
-const maxFileSize = 1 << 20 // 1 MiB
 
 // indexWorkers is the number of parallel file readers. Defaults to GOMAXPROCS.
 var indexWorkers = runtime.GOMAXPROCS(0) //nolint:gochecknoglobals // parallel file readers
@@ -458,7 +463,7 @@ func (e *Executor) prepareDoc(
 	if statErr != nil {
 		return nil, nil, nil
 	}
-	if info.Size() > maxFileSize {
+	if info.Size() > maxFileSize() {
 		return nil, nil, nil
 	}
 
@@ -477,9 +482,8 @@ func (e *Executor) prepareDoc(
 	}
 
 	preview := text
-	const previewMax = 240
-	if len(preview) > previewMax {
-		preview = preview[:previewMax]
+	if len(preview) > previewMax() {
+		preview = preview[:previewMax()]
 	}
 
 	return &kgsearch.Document{
@@ -726,11 +730,9 @@ func (e *Executor) StartIndex(path string) int {
 	return indexedCount
 }
 
-// snippetContext is the number of characters of context around a query match.
-const snippetContext = 120
-
-// snippetMaxPreview is the max characters for a fallback snippet when query is not found.
-const snippetMaxPreview = snippetContext * 2
+// snippetMaxPreview is the max characters for a fallback snippet when query is
+// not found: twice the snippet context.
+func snippetMaxPreview() int { return snippetContext() * 2 } //nolint:mnd // both sides of a match
 
 // generateSnippet reads a file and returns a snippet of context around the first
 // occurrence of query. Returns empty string if the file can't be read or the
@@ -743,8 +745,7 @@ func generateSnippet(filePath, query string) string {
 	defer f.Close()
 
 	// Read up to 512 KiB — enough to find the query in any text file.
-	const maxRead = 512 << 10
-	buf := make([]byte, maxRead)
+	buf := make([]byte, knowledge.SearchLimitsNow().SnippetReadBytes)
 	n, _ := io.ReadFull(f, buf)
 	if n == 0 {
 		return ""
@@ -754,8 +755,8 @@ func generateSnippet(filePath, query string) string {
 	if findStart < 0 {
 		// Query not found in content (token mismatch). Return first ~200 chars.
 		end := len(content)
-		if end > snippetMaxPreview {
-			end = snippetMaxPreview
+		if end > snippetMaxPreview() {
+			end = snippetMaxPreview()
 		}
 		if end < len(content) {
 			return content[:end] + "..."
@@ -763,11 +764,11 @@ func generateSnippet(filePath, query string) string {
 		return content[:end]
 	}
 
-	start := findStart - snippetContext
+	start := findStart - snippetContext()
 	if start < 0 {
 		start = 0
 	}
-	end := findEnd + snippetContext
+	end := findEnd + snippetContext()
 	if end > len(content) {
 		end = len(content)
 	}
@@ -777,8 +778,8 @@ func generateSnippet(filePath, query string) string {
 	// preview when indices are inverted or start exceeds content length.
 	if start >= len(content) || end < start {
 		previewEnd := len(content)
-		if previewEnd > snippetMaxPreview {
-			previewEnd = snippetMaxPreview
+		if previewEnd > snippetMaxPreview() {
+			previewEnd = snippetMaxPreview()
 		}
 		if previewEnd < len(content) {
 			return content[:previewEnd] + "..."
@@ -813,7 +814,7 @@ func (e *Executor) IndexFile(path string) {
 	defer idx.Close()
 
 	info, statErr := os.Stat(path)
-	if statErr != nil || info.IsDir() || info.Size() > maxFileSize {
+	if statErr != nil || info.IsDir() || info.Size() > maxFileSize() {
 		return
 	}
 	if !isIndexableExt(filepath.Base(path)) {
@@ -839,9 +840,8 @@ func (e *Executor) IndexFile(path string) {
 	}
 
 	preview := content
-	const previewMax = 240
-	if len(preview) > previewMax {
-		preview = preview[:previewMax]
+	if len(preview) > previewMax() {
+		preview = preview[:previewMax()]
 	}
 
 	idx.BatchAddDocuments([]kgsearch.DocWithTokens{{
@@ -886,7 +886,7 @@ func (e *Executor) IndexFiles(root string, paths []string) {
 			continue
 		}
 		info, statErr := os.Stat(path)
-		if statErr != nil || info.IsDir() || info.Size() > maxFileSize {
+		if statErr != nil || info.IsDir() || info.Size() > maxFileSize() {
 			continue
 		}
 		if !isIndexableExt(filepath.Base(path)) {
@@ -908,9 +908,8 @@ func (e *Executor) IndexFiles(root string, paths []string) {
 		}
 
 		preview := content
-		const previewMax = 240
-		if len(preview) > previewMax {
-			preview = preview[:previewMax]
+		if len(preview) > previewMax() {
+			preview = preview[:previewMax()]
 		}
 
 		docs = append(docs, kgsearch.DocWithTokens{

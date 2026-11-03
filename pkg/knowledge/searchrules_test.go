@@ -21,6 +21,7 @@ package knowledge
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,4 +77,20 @@ func TestSearchFilter_KeepsTheIndexRules(t *testing.T) {
 func TestParseSearchRules_RequiresTheSecretRules(t *testing.T) {
 	_, err := parseSearchRules([]byte("min_word_length: 2\nextensions: [.go]\n"))
 	require.Error(t, err, "a file without secret rules is rejected, so secrets are never indexed by omission")
+}
+
+func TestSearchLimits_KeepTheOldValues(t *testing.T) {
+	assert.Equal(t, SearchLimits{
+		MaxFileSize: 1 << 20, PreviewChars: 240, SnippetContext: 120, SnippetReadBytes: 512 << 10,
+		GraphBoost: 1.25, GraphBoostSeeds: 5,
+	}, SearchLimitsNow())
+	data, err := os.ReadFile(filepath.Join("..", "..", "assets", knowledgeSet, searchItem+".yaml"))
+	require.NoError(t, err)
+	for name, from := range map[string]string{
+		"zero preview": "preview_chars: 240", "boost below 1": "graph_boost: 1.25",
+	} {
+		to := map[string]string{"zero preview": "preview_chars: 0", "boost below 1": "graph_boost: 0.5"}[name]
+		_, caseErr := parseSearchRules([]byte(strings.Replace(string(data), from, to, 1)))
+		assert.Error(t, caseErr, name)
+	}
 }

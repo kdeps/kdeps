@@ -146,7 +146,7 @@ func TestWalk_SkipsOversizedFile(t *testing.T) {
 	small := filepath.Join(root, "small.txt")
 	big := filepath.Join(root, "big.txt")
 	require.NoError(t, os.WriteFile(small, []byte("needle"), 0o600))
-	oversized := append([]byte("needle"), bytes.Repeat([]byte("x"), maxFileSize)...)
+	oversized := append([]byte("needle"), bytes.Repeat([]byte("x"), int(maxFileSize()))...)
 	require.NoError(t, os.WriteFile(big, oversized, 0o600))
 
 	rows := walkRows(t, &domain.SearchLocalConfig{Path: root, Query: "needle"})
@@ -801,7 +801,7 @@ func TestGenerateSnippet(t *testing.T) {
 	}
 
 	long := filepath.Join(dir, "long.txt")
-	longContent := strings.Repeat("a", snippetMaxPreview+50)
+	longContent := strings.Repeat("a", snippetMaxPreview()+50)
 	require.NoError(t, os.WriteFile(long, []byte(longContent), 0600))
 	got := generateSnippet(long, "notfound")
 	if !strings.HasSuffix(got, "...") {
