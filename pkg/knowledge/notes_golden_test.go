@@ -97,3 +97,14 @@ func TestNotesGolden_Card(t *testing.T) {
 	require.NoError(t, err)
 	golden(t, "card", string(data))
 }
+
+func TestNotesGolden_RecallBlock(t *testing.T) {
+	r := Recall{Hits: []Hit{
+		{Note: "projects/app/decisions/Billing.md", Summary: "bill monthly", Path: []PathStep{
+			{From: "note:seed.md", To: "note:projects/app/decisions/Billing.md", Relation: RelReferences}}},
+		{Note: "shared/Pricing.md", Via: "Billing"},
+		{Note: "shared/Plain.md"},
+	}}
+	golden(t, "recall_block", FormatRecall(r, "/vault"))
+	assert.Empty(t, FormatRecall(Recall{}, "/vault"), "no hits, no block")
+}
