@@ -20,6 +20,9 @@ package validator
 
 import (
 	"fmt"
+	"math"
+
+	"github.com/kdeps/kartographer/graph"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -61,17 +64,11 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 	}
 
 	visited := make(map[string]bool)
-	var dfs func(id string)
-	dfs = func(id string) {
-		if visited[id] {
-			return
-		}
+	for _, id := range graph.Nearest(target, math.MaxInt, func(id string) ([]string, bool) {
+		return requires[id], true
+	}) {
 		visited[id] = true
-		for _, dep := range requires[id] {
-			dfs(dep)
-		}
 	}
-	dfs(target)
 
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
