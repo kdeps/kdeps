@@ -36,6 +36,13 @@ const (
 	PromptVault  = "vault"
 	PromptRecall = "recall"
 	PromptFiles  = "files"
+
+	PromptCard          = "card"
+	PromptRecallNone    = "recall_none"
+	PromptNoteSaved     = "note_saved"
+	PromptCardUpdated   = "card_updated"
+	PromptFolderRemoved = "folder_removed"
+	PromptFolderAdded   = "folder_added"
 )
 
 // knowledgePrompts is prompts.yaml, each entry parsed as a template.
@@ -48,7 +55,10 @@ func parsePrompts(data []byte) (knowledgePrompts, error) {
 		return nil, err
 	}
 	out := knowledgePrompts{}
-	for _, name := range []string{PromptVault, PromptRecall, PromptFiles} {
+	for _, name := range []string{
+		PromptVault, PromptRecall, PromptFiles, PromptCard, PromptRecallNone, PromptNoteSaved,
+		PromptCardUpdated, PromptFolderRemoved, PromptFolderAdded,
+	} {
 		text := raw[name]
 		if strings.TrimSpace(text) == "" {
 			return nil, fmt.Errorf("%s is not set", name)
