@@ -28,18 +28,13 @@ type Topic struct {
 	t kword.Topic
 }
 
-// taskWords are the recall rules' task words: verbs and fillers any request
-// may use, which say nothing about its topic.
-//
-//nolint:gochecknoglobals // loaded from the knowledge asset set
-var taskWords = kword.Set(recallRules.TaskWords)
-
 // topicWords are text's content words: stemmed, without stopwords or task words.
 func topicWords(text string) []string {
 	seen := map[string]bool{}
 	var out []string
+	task := recallRules().task
 	for _, w := range words(text) {
-		if !taskWords[w] && !seen[w] {
+		if !task[w] && !seen[w] {
 			seen[w] = true
 			out = append(out, w)
 		}
