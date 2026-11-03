@@ -20,13 +20,13 @@ package knowledge
 
 import (
 	"context"
-	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	kgnotes "github.com/kdeps/kartographer/notes"
 
 	kgstore "github.com/kdeps/kartographer/store"
 
@@ -56,58 +56,20 @@ const (
 	manifestFile = "manifest.json"
 )
 
-// ManifestEntry is the filesystem state used for a cheap vault freshness check.
-type ManifestEntry struct {
-	Size    int64 `json:"size"`
-	ModTime int64 `json:"modTime"`
-}
+// ManifestEntry is a note's size and modification time, for a cheap vault
+// freshness check (kartographer's notes.ManifestEntry).
+type ManifestEntry = kgnotes.ManifestEntry
 
 // Manifest records every markdown note that contributes to the graph.
-type Manifest map[string]ManifestEntry
+type Manifest = kgnotes.Manifest
 
-// CurrentManifest scans note metadata without parsing note contents.
+// CurrentManifest records the vault's notes without parsing them.
 func CurrentManifest(v Vault) (Manifest, error) {
-	manifest := Manifest{}
-	err := filepath.WalkDir(v.Root, func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if strings.HasPrefix(d.Name(), ".") && p != v.Root {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if d.IsDir() || !strings.EqualFold(filepath.Ext(p), mdExt) {
-			return nil
-		}
-		info, ok := indexableNote(d)
-		if !ok {
-			return nil
-		}
-		rel, relErr := filepath.Rel(v.Root, p)
-		if relErr != nil {
-			return relErr
-		}
-		if filepath.ToSlash(rel) == reportFile && ours(p, reportMarker) {
-			return nil
-		}
-		manifest[filepath.ToSlash(rel)] = ManifestEntry{
-			Size: info.Size(), ModTime: info.ModTime().UnixNano(),
-		}
-		return nil
-	})
-	return manifest, err
-}
-
-// indexableNote reports file metadata for a markdown note small enough to index.
-// Unreadable and oversized notes are omitted so one bad file does not fail the scan.
-func indexableNote(d os.DirEntry) (os.FileInfo, bool) {
-	info, err := d.Info()
-	if err != nil || info.Size() > policy().MaxNoteSize {
-		return nil, false
+	files, err := v.noteFiles()
+	if err != nil {
+		return nil, err
 	}
-	return info, true
+	return kgnotes.ManifestOf(files), nil
 }
 
 // NeedsBuild reports whether notes were added, changed, renamed, or deleted
@@ -122,7 +84,7 @@ func NeedsBuild(v Vault, dir string) (bool, error) {
 	if readErr := kgstore.ReadJSON(filepath.Join(dir, manifestFile), &stored); readErr != nil {
 		return true, nil //nolint:nilerr // an unreadable manifest is a reason to rebuild, not an error
 	}
-	return !reflect.DeepEqual(current, stored), nil
+	return !current.Equal(stored), nil
 }
 
 // graphMu serializes builds. Session startup, workflow recall, vault search,
