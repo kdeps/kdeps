@@ -306,13 +306,13 @@ func TestBoostByGraph_VaultGraphWeightsAndSkipsKartographer(t *testing.T) {
 		score[r.Document.Path] = r.Score
 		order = append(order, filepath.Base(r.Document.Path))
 	}
-	if math.Abs(score[extracted]-0.95*knowledgeBoost(1)) > 0.0001 {
+	if math.Abs(score[extracted]-0.95*edgeBoost(1)) > 0.0001 {
 		t.Fatalf("extracted score = %f", score[extracted])
 	}
-	if math.Abs(score[inferred]-0.9*knowledgeBoost(0.4)) > 0.0001 {
+	if math.Abs(score[inferred]-0.9*edgeBoost(0.4)) > 0.0001 {
 		t.Fatalf("inferred score = %f", score[inferred])
 	}
-	if math.Abs(score[tagged]-0.8*knowledgeBoost(0.3)) > 0.0001 {
+	if math.Abs(score[tagged]-0.8*edgeBoost(0.3)) > 0.0001 {
 		t.Fatalf("tagged score = %f", score[tagged])
 	}
 	want := []string{"hub.md", "extracted.md", "unrelated.md", "inferred.md", "tagged.md"}
@@ -360,7 +360,7 @@ func TestBoostByGraph_VaultGraphBuiltOnSearch(t *testing.T) {
 			got = r.Score
 		}
 	}
-	if math.Abs(got-0.95*knowledgeBoost(1)) > 0.0001 {
+	if math.Abs(got-0.95*edgeBoost(1)) > 0.0001 {
 		t.Fatalf("extracted score = %f", got)
 	}
 }
@@ -400,3 +400,6 @@ func TestExecuteIndexed_GraphBoost(t *testing.T) {
 		t.Fatal("nil result")
 	}
 }
+
+// edgeBoost is the multiplier search.Boost applies for an edge of weight w.
+func edgeBoost(w float64) float64 { return 1 + (graphBoostFactor()-1)*w }

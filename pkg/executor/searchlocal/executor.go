@@ -32,7 +32,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -146,7 +145,7 @@ func snippetContext() int { return knowledge.SearchLimitsNow().SnippetContext }
 // inside the knowledge vault, the structural graph is brought current (no
 // model call) and the boost reads those edges. It does not build graph.db:
 // an extracted reference multiplies the score by graphBoostFactor(), and a
-// weaker edge multiplies by less (see knowledgeBoost). Any other folder, or
+// weaker edge multiplies by less (search.Boost scales by its weight). Any other folder, or
 // a vault graph that cannot be built, uses a kartographer reference/topic
 // graph, and every connected document gets the full factor. Never returns
 // an error -- graph boosting is a ranking enhancement, not a correctness
@@ -179,13 +178,12 @@ func boostByGraph(
 	}
 
 	connected := graphConnectedSet(ig, results)
-	for i := range results {
-		if connected[results[i].Document.Path] {
-			results[i].Score *= graphBoostFactor()
+	kgsearch.Boost(results, graphBoostFactor(), func(path string) float64 {
+		if connected[path] {
+			return 1
 		}
-	}
-
-	sortBoosted(results)
+		return 0
+	})
 	return results
 }
 
@@ -220,35 +218,12 @@ func boostByKnowledge(
 			}
 		}
 	}
-	for i := range results {
-		if w := weight[filepath.Clean(results[i].Document.Path)]; w > 0 {
-			results[i].Score *= knowledgeBoost(w)
-		}
-	}
-	sortBoosted(results)
-	return results, true
-}
-
-// knowledgeBoost scales graphBoostFactor() by an edge weight. Weight 1 is the
-// full 25% boost. A tag edge (weight 0.3) or a low-confidence inferred edge
-// moves the score less.
-func knowledgeBoost(weight float64) float64 {
-	if weight <= 0 {
-		return 1
-	}
-	if weight > 1 {
-		weight = 1
-	}
-	return 1 + (graphBoostFactor()-1)*weight
-}
-
-func sortBoosted(results []kgsearch.SearchResult) {
-	sort.Slice(results, func(i, j int) bool {
-		if results[i].MatchCount != results[j].MatchCount {
-			return results[i].MatchCount > results[j].MatchCount
-		}
-		return results[i].Score > results[j].Score
+	// A tag edge (weight 0.3) or a low-confidence inferred edge moves the score
+	// less than an extracted reference (weight 1).
+	kgsearch.Boost(results, graphBoostFactor(), func(path string) float64 {
+		return weight[filepath.Clean(path)]
 	})
+	return results, true
 }
 
 // graphConnectedSet returns every document path linked from, or sharing a
