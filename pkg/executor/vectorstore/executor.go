@@ -148,10 +148,7 @@ func executeSimilaritySearch(
 		return nil, err
 	}
 
-	topK := cfg.TopK
-	if topK <= 0 {
-		topK = 5
-	}
+	topK := normalizeTopK(cfg.TopK)
 
 	docs, err := store.SimilaritySearch(
 		ctx,

@@ -25,6 +25,8 @@ import (
 	lcemb "github.com/tmc/langchaingo/embeddings"
 )
 
+// defaultTopK applies when a vector store resource is configured without the
+// vector_store component, which sets topK (default 5) itself.
 const defaultTopK = 5
 
 // normalizeTopK returns n if n > 0, otherwise defaultTopK.
