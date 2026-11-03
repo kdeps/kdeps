@@ -103,7 +103,7 @@ For filtering by field, combining facts across sources, or correlating past tool
 | Relation | Fields | Source |
 |---|---|---|
 | `memory` | `key`, `value`, `namespace`, `type`, `references`, `createdAt`, `updatedAt` | Persistent memory entries |
-| `tool_calls` | `name`, `args`, `result`, `timestamp` | Recent tool-call history (this session, most recent 200) |
+| `tool_calls` | `name`, `args` (an object when the arguments are JSON, so `.args.command` works), `args_json` (the raw text), `result`, `timestamp` | Recent tool-call history (this session, most recent 200) |
 
 The query language is [expr-lang](https://expr-lang.org/), the same engine `before:`/`after:` expressions use. `filter()`/`map()` are its own built-ins (select/project); `join()`/`union()` are added by `memory_query`:
 
