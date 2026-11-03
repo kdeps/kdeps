@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: tool-allocation-increment
+# Tool rounds added to the budget each time auto tool allocation raises it,
+# when the config sets no increment. Turning the event off keeps the default.
+items: 100
+run: cap

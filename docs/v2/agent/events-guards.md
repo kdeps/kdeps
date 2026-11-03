@@ -119,6 +119,13 @@ run: cap
 | `memory-focus-min-word` | the shortest prompt word that counts when the prompt is matched to memory | 3 |
 | `memory-format-tokens` | tokens of memory put in a prompt when the caller sets no budget | 2000 |
 
+Two agent loop budgets are events of the same kind, read only when the config leaves them unset:
+
+| Event | What it caps | Default |
+|---|---|---|
+| `tool-allocation-increment` | tool rounds added each time auto tool allocation raises the budget | 100 |
+| `preamble-token-limit` | tokens of the system preamble kept when neither the compact token budget nor the auto-compact threshold is set | 40000 |
+
 ```yaml
 # ~/.kdeps/events/memory-value-limit.yaml
 name: memory-value-limit
