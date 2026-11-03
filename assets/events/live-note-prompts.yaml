@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: live-note-prompts
+# How many of the session's prompts the live session note keeps: the first,
+# then the latest. Turning the event off keeps the default.
+items: 8
+run: cap

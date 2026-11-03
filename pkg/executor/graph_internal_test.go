@@ -27,38 +27,27 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func TestGraph_SubsetCycleError(t *testing.T) {
+func TestTopologicalSort_SameOrderEveryCall(t *testing.T) {
 	g := NewGraph()
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "a", Requires: []string{"b"}}))
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "b", Requires: []string{"a"}}))
-	_, err := g.topologicalSortSubset(map[string]bool{"a": true, "b": true})
-	require.Error(t, err)
-}
-
-func TestTopologicalSortAllNodes_VisitedContinue(t *testing.T) {
-	g := NewGraph()
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "a", Requires: []string{"b"}}))
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "b"}))
-	require.NoError(t, g.Build())
-	for range 50 {
-		_, err := g.topologicalSortAllNodes()
-		require.NoError(t, err)
+	for _, id := range []string{"e", "d", "c", "b", "a"} {
+		require.NoError(t, g.AddResource(&domain.Resource{ActionID: id}))
 	}
-}
-
-func TestGraph_TopologicalSortVisitedAndCycle(t *testing.T) {
-	g := NewGraph()
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "a"}))
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "b", Requires: []string{"a"}}))
-	visited := map[string]bool{"a": true}
-	var result []*domain.Resource
-	require.NoError(t, g.TopologicalSortUtil("a", visited, &result))
-
-	g2 := NewGraph()
-	require.NoError(t, g2.AddResource(&domain.Resource{ActionID: "a", Requires: []string{"b"}}))
-	require.NoError(t, g2.AddResource(&domain.Resource{ActionID: "b", Requires: []string{"a"}}))
-	_, err := g2.topologicalSortAllNodes()
-	require.Error(t, err)
+	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "z", Requires: []string{"e", "a"}}))
+	first, err := g.TopologicalSort()
+	require.NoError(t, err)
+	ids := func(rs []*domain.Resource) []string {
+		out := make([]string, len(rs))
+		for i, r := range rs {
+			out[i] = r.ActionID
+		}
+		return out
+	}
+	assert.Equal(t, []string{"a", "b", "c", "d", "e", "z"}, ids(first), "independent resources run in name order")
+	for range 50 {
+		again, againErr := g.TopologicalSort()
+		require.NoError(t, againErr)
+		assert.Equal(t, ids(first), ids(again))
+	}
 }
 
 func TestGraph_CycleAndSubset(t *testing.T) {
@@ -77,15 +66,6 @@ func TestGraph_CycleAndSubset(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 	_ = order
-}
-
-func TestGraph_TopologicalSortVisitedSkip(t *testing.T) {
-	g := NewGraph()
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "a"}))
-	require.NoError(t, g.AddResource(&domain.Resource{ActionID: "b"}))
-	visited := map[string]bool{"a": true}
-	var result []*domain.Resource
-	require.NoError(t, g.TopologicalSortUtil("a", visited, &result))
 }
 
 func TestGraph_TopologicalSortSubsetCycle(t *testing.T) {

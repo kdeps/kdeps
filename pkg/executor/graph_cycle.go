@@ -20,48 +20,11 @@ package executor
 
 import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// DetectCycles detects cycles in the dependency graph.
+// DetectCycles reports a dependency cycle among the resources.
 func (g *Graph) DetectCycles() error {
 	kdeps_debug.Log("enter: DetectCycles")
-	visited := make(map[string]bool)
-	recursionStack := make(map[string]bool)
-
-	for actionID := range g.Nodes {
-		if visited[actionID] {
-			continue
-		}
-		if g.hasCycle(actionID, visited, recursionStack) {
-			return domain.NewError(
-				domain.ErrCodeDependencyCycle,
-				"dependency cycle detected",
-				nil,
-			)
-		}
-	}
-	return nil
-}
-
-// hasCycle checks if there's a cycle starting from the given node.
-func (g *Graph) hasCycle(actionID string, visited, recursionStack map[string]bool) bool {
-	kdeps_debug.Log("enter: hasCycle")
-	visited[actionID] = true
-	recursionStack[actionID] = true
-
-	// Check all dependencies.
-	for _, dep := range g.Edges[actionID] {
-		if !visited[dep] {
-			if g.hasCycle(dep, visited, recursionStack) {
-				return true
-			}
-		} else if recursionStack[dep] {
-			// Found a back edge (cycle).
-			return true
-		}
-	}
-
-	recursionStack[actionID] = false
-	return false
+	_, err := g.order()
+	return err
 }
