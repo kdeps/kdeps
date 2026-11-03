@@ -64,8 +64,21 @@ scenario() {
     # A start line per scenario: when a shard stalls and its step times out,
     # the log names the scenario that was running.
     echo "=== scenario $1 ($(date -u +%H:%M:%S))"
+    # Scenarios share this shell, so an EXIT trap a scenario sets to stop its
+    # server would only run when the whole suite ends (and is replaced by the
+    # next scenario's): its servers kept running through every later scenario.
+    # Run the scenario's own EXIT cleanup when it finishes, then put back the
+    # run-wide trap (the mock servers' cleanup from common.sh).
+    local outer inner _scenario_exit=""
+    outer=$(trap -p EXIT)
     # shellcheck disable=SC1090
     source "$SCRIPT_DIR/$1"
+    inner=$(trap -p EXIT)
+    if [ -n "$inner" ] && [ "$inner" != "$outer" ]; then
+        eval "$(printf '%s' "$inner" | sed -E "s/^trap -- (.*) EXIT$/_scenario_exit=\1/")"
+        eval "$_scenario_exit"
+    fi
+    if [ -n "$outer" ]; then eval "$outer"; else trap - EXIT; fi
 }
 
 # Run all test scenarios (source them so counters persist)
