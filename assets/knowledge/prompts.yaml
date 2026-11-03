@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.2.0
 # What the model reads about the knowledge vault, in both modes: the vault's
 # description at the start of a session, the notes recall found for a request,
 # and the files the project's search indexes matched. Go templates.
@@ -16,10 +16,14 @@ recall: |-
   {{range .Hits}}- {{.Path}}{{if .Summary}} - {{.Summary}}{{end}}{{if .Chain}} ({{.Chain}}){{else if .Via}} (linked from {{.Via}}){{end}}
   {{end}}</knowledge-recall>
 
-# .Body: the matched folders and files, each folder's lines starting on a new line
+# .Folders, each .Place (the folder), .Index (its search index) and .Hits, each
+# .Path (absolute), .Preview (the file's start, on one line), .Chain (the
+# relation path when recall also named the file)
 files: |-
   <knowledge-files>
-  Files in this project's search index that match the request (best first). Open the ones you need with read_file; search further with search_local, path set to the folder (or no path to search all of the project's folders).{{.Body}}
+  Files in this project's search index that match the request (best first). Open the ones you need with read_file; search further with search_local, path set to the folder (or no path to search all of the project's folders).{{range .Folders}}
+  Folder {{.Place}} (search index {{.Index}}):{{range .Hits}}
+  - {{.Path}}{{if .Preview}} - {{.Preview}}{{end}}{{if .Chain}} ({{.Chain}}){{end}}{{end}}{{end}}
   </knowledge-files>
 
 # The knowledge tools' replies.

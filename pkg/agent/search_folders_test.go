@@ -130,6 +130,8 @@ func TestRecallFiles_CoverSearchFolders(t *testing.T) {
 	require.NoError(t, err, "a listed folder is indexed again, not refused")
 	files := l.knowledge.recallFiles("zorbulator invoices")
 	assert.Contains(t, files, "Folder "+docs)
+	assert.Contains(t, files, "(search index "+execSearch.IndexPath(docs)+"):\n- ",
+		"each hit on its own line under its folder")
 	assert.Contains(t, files, filepath.Join(docs, "billing.md"))
 	assert.NotContains(t, files, "id_rsa")
 	assert.Contains(t, files, "no path to search all of the project's folders")

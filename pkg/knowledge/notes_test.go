@@ -140,3 +140,13 @@ func TestNoteLink_ResolvesLikeTheGraph(t *testing.T) {
 	)
 	assert.Equal(t, "[[no such note]]", NoteLink(v, notes, "no such note.md", ""))
 }
+
+func TestNoteRules_SessionFileTimeRequired(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "assets", "knowledge", "notes.yaml"))
+	require.NoError(t, err)
+	r, err := parseNoteRules(data)
+	require.NoError(t, err)
+	assert.Equal(t, "2006-01-02 1504", r.Session.FileTime)
+	_, err = parseNoteRules([]byte(strings.Replace(string(data), "file_time:", "file_time_unused:", 1)))
+	require.ErrorContains(t, err, "session.file_time")
+}

@@ -137,7 +137,7 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 	}
 	if newNote {
 		sn.New = true
-		file, err := createSessionNote(dir, now.Format("2006-01-02 1504")+" "+slug(line), body)
+		file, err := createSessionNote(dir, now.Format(r.Session.FileTime)+" "+slug(line), body)
 		if err != nil {
 			return nil, err
 		}
