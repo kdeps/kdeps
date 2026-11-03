@@ -220,9 +220,16 @@ func (v Vault) CreateProject(name, source, place string, now time.Time) (*Card, 
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return nil, false, err
 	}
-	body := fmt.Sprintf("%s\ntype: project\nstatus: active\nnext: %s\nupdated: %s\n%s\n"+
-		"| Source | Path |\n|---|---|\n| %s | %s |\n",
-		frontDelim, kgnotes.Scalar(noneText), now.Format(time.DateOnly), frontDelim, source, place)
+	r, rerr := notesRules()
+	if rerr != nil {
+		return nil, false, rerr
+	}
+	body, berr := r.render(tmplCard, map[string]any{
+		"Keys": Layout().Card, "None": r.None, "Updated": now.Format(time.DateOnly), "Source": source, "Place": place,
+	})
+	if berr != nil {
+		return nil, false, berr
+	}
 	file := filepath.Join(dir, name+mdExt)
 	if err := writeFileAtomic(file, body); err != nil {
 		return nil, false, err
@@ -373,32 +380,22 @@ func ReadCard(file string) (*Card, error) {
 	if err != nil {
 		return nil, err
 	}
-	meta, body := SplitFrontmatter(data)
+	meta, body := kgnotes.SplitFrontmatter(data)
 	c := &Card{
 		Name:    strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)),
 		File:    file,
-		Type:    metaString(meta, Layout().Card.Type),
-		Status:  metaString(meta, Layout().Card.Status),
-		Next:    metaString(meta, Layout().Card.Next),
-		Updated: metaString(meta, Layout().Card.Updated),
+		Type:    kgnotes.MetaString(meta, Layout().Card.Type),
+		Status:  kgnotes.MetaString(meta, Layout().Card.Status),
+		Next:    kgnotes.MetaString(meta, Layout().Card.Next),
+		Updated: kgnotes.MetaString(meta, Layout().Card.Updated),
 	}
-	for _, line := range strings.Split(body, "\n") {
-		t := strings.TrimSpace(line)
-		switch {
-		case t == "", strings.HasPrefix(t, "#"):
-		case strings.HasPrefix(t, "|"):
-			cells := strings.Split(strings.Trim(t, "|"), "|")
-			if len(cells) < linkCells {
-				continue
-			}
-			src, p := strings.TrimSpace(cells[0]), strings.TrimSpace(cells[1])
-			if strings.Trim(src, "-: ") == "" || strings.EqualFold(src, "source") {
-				continue // separator or header row
-			}
-			c.Links = append(c.Links, Link{Source: src, Path: strings.Trim(p, "`")})
-		default:
-			c.BodyLines++
+	parts := kgnotes.SplitBody(body, Layout().Card.LinksHeader)
+	c.BodyLines = parts.ProseLines
+	for _, row := range parts.Rows {
+		if len(row) < linkCells {
+			continue
 		}
+		c.Links = append(c.Links, Link{Source: row[0], Path: strings.Trim(row[1], "`")})
 	}
 	return c, nil
 }
@@ -415,11 +412,7 @@ func (c *Card) AddLink(source, place string) error {
 	if err != nil {
 		return err
 	}
-	text := strings.TrimRight(string(data), "\n")
-	if len(c.Links) == 0 {
-		text += "\n| Source | Path |\n|---|---|"
-	}
-	text += "\n| " + source + " | " + place + " |\n"
+	text := kgnotes.AppendTableRow(string(data), Layout().Card.LinksHeader, []string{source, place}, len(c.Links) == 0)
 	if err = writeFileAtomic(c.File, text); err != nil {
 		return err
 	}

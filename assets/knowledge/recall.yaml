@@ -1,7 +1,10 @@
-version: 1.0.0
+version: 1.1.0
 # How a query to the knowledge graph is matched: the words it is matched on.
 # A word shorter than min_word_length, or in stopwords, is ignored. A word of
 # at least min_stem_length after its suffix is removed is matched by its stem.
 min_word_length: 3
 min_stem_length: 3
 stopwords: [the, and, for, with, that, this, what, how, why, are, was, were, you, your, from, into, can, does, did, not, have, has, had, about, which, when, where, who, will, would, should, could, there, their, them, then, than, also, just, like, make, please, tell, show, give, all, any, its]
+# Words any request may use that say nothing about its topic: they are left
+# out when kdeps decides whether a request continues the conversation thread.
+task_words: [add, make, fix, use, please, now, also, need, want, show, tell, help, let, get, set, run, check, update, change, create, write, look, find, try, work, thing, just, again, continue, next, same, more, some, should, would, could, will, there, here, then, about, like]

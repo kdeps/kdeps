@@ -21,6 +21,7 @@ package knowledge
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,8 @@ func TestParseLayout_ShippedFileIsComplete(t *testing.T) {
 	assert.Equal(t, ".auto", l.Project.Auto)
 	assert.Equal(t, "archived", l.Card.Archived)
 	assert.Equal(t, "search", l.Sources.Search)
+	assert.Equal(t, "summary", l.Note.Summary)
+	assert.Equal(t, []string{"canonical", "fact_id"}, l.Note.Canonical, "the first set key wins")
 	assert.Equal(t, []string{"type", "status", "next", "updated"}, l.CardFields(), "card fields keep their order")
 }
 
@@ -54,6 +57,16 @@ func TestParseLayout_RejectsAnEmptyName(t *testing.T) {
 	_, err := parseLayout([]byte("folders:\n  projects: projects\n"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "folders.shared is not set")
+
+	oneCol := strings.Replace(string(shippedLayout(t)), "links_header: [Source, Path]", "links_header: [Source]", 1)
+	_, err = parseLayout([]byte(oneCol))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "card.links_header")
+
+	noCanon := strings.Replace(string(shippedLayout(t)), "canonical: [canonical, fact_id]", "canonical: []", 1)
+	_, err = parseLayout([]byte(noCanon))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "note.canonical")
 
 	_, err = parseLayout([]byte("folders: ["))
 	require.Error(t, err, "broken YAML is rejected")

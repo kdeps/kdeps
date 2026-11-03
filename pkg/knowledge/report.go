@@ -89,7 +89,8 @@ func ReportMarkdown(r Report, vault string) string {
 	for _, rk := range r.GodNodes {
 		fmt.Fprintf(&b, "| %s | %s | %d | %d |\n", nodeRef(rk.Node), rk.Node.Kind, rk.Degree, rk.Node.Community)
 	}
-	b.WriteString("\n## Communities\n\nGroups of notes that link mostly among themselves (Louvain).\n\n")
+	fmt.Fprintf(&b, "\n## Communities\n\nGroups of notes that link mostly among themselves (%s).\n\n",
+		policy().CommunityMethod)
 	for _, gr := range r.Groups {
 		names := make([]string, 0, len(gr.Top))
 		for _, rk := range gr.Top {

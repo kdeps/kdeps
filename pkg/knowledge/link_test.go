@@ -58,7 +58,7 @@ func TestLinksFrom_ReferenceTagAndStrongerEdge(t *testing.T) {
 				Provenance: ProvExtracted, Confidence: 1,
 			},
 			{
-				From: "note:hub.md", To: "note:linked.md", Relation: RelMentions,
+				From: "note:hub.md", To: "note:linked.md", Relation: "mentions",
 				Provenance: ProvInferred, Confidence: 0.4,
 			},
 			{
