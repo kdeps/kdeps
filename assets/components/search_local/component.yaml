@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: search_local
   description: Search local files through the kdeps API
-  version: "1.2.0"
+  version: "1.3.0"
 interface:
   inputs:
     - name: query
@@ -27,7 +27,8 @@ interface:
       description: Fuzzy (Levenshtein) matching when index is true
     - name: maxDistance
       type: integer
-      description: Maximum edit distance for fuzzy matching (default 2)
+      default: 2
+      description: Maximum edit distance for fuzzy matching
     - name: indexDBPath
       type: string
       description: Index database path; defaults to the folder's kdeps data dir
