@@ -699,3 +699,26 @@ func TestCheckUpdateDetectsExternalVaultChanges(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, changed)
 }
+
+func TestReadNotes_KeepsTheFreshParseOnARebuild(t *testing.T) {
+	v, _ := sampleVault(t)
+	dir := t.TempDir()
+	_, _, err := Build(t.Context(), v, dir, buildNow())
+	require.NoError(t, err)
+	next := buildCache{Version: parserVersion, Files: map[string]cacheEntry{}}
+	var st BuildStats
+	b := &builder{cache: loadCache(dir), next: &next, st: &st}
+	notes, err := b.readNotes(v)
+	require.NoError(t, err)
+	assert.Zero(t, st.Changed, "nothing changed since the build")
+	var withBody int
+	for _, n := range notes {
+		if n.Body != "" && n.Meta != nil {
+			withBody++
+		}
+	}
+	assert.Positive(t, withBody, "unchanged notes keep their body and front matter")
+	for _, e := range next.Files {
+		assert.NotEmpty(t, e.Hash)
+	}
+}
