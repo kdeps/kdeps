@@ -31,15 +31,7 @@ import (
 	kgnotes "github.com/kdeps/kartographer/notes"
 )
 
-const (
-	noneText      = "(none)"
-	boldTitleMark = "**"
-)
-
-// SessionSections are a session note's headings, in order.
-//
-//nolint:gochecknoglobals // fixed list
-var SessionSections = []string{"Focus", "What was built", "Mistakes", "Decisions", "Wins"}
+const boldTitleMark = "**"
 
 var (
 	unsafeNameRe = regexp.MustCompile(`[^\p{L}\p{N} ._-]+`)
@@ -117,8 +109,12 @@ func writeFileAtomic(file, body string) error {
 // the commits the session covers (zero outside a git repository); a note
 // rewritten later keeps the start it first recorded.
 func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (*SessionNote, error) {
-	sec := SummarySections(summary)
-	focus := firstNonEmpty(sec["goal"], sec["focus"])
+	r, rerr := notesRules()
+	if rerr != nil {
+		return nil, rerr
+	}
+	sec := summarySections(summary, r)
+	focus := firstSet(sec, r.Summary.Focus)
 	if strings.TrimSpace(focus) == "" {
 		return nil, errors.New("summary has no goal")
 	}
@@ -128,14 +124,17 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 	}
 	line := oneLine(focus)
 	sn := &SessionNote{Card: card}
-	sn.File = findSession(dir, id)
+	sn.File = findSession(dir, id, r)
 	newNote := sn.File == ""
 	if !newNote {
-		if from := recordedGitStart(sn.File); from != "" {
+		if from := recordedGitStart(sn.File, r); from != "" {
 			git.From = from
 		}
 	}
-	body := sessionBody(id, card.Name, card.SelfLink(), line, sec, now, git)
+	body, berr := sessionBody(r, id, card.Name, card.SelfLink(), line, sec, now, git)
+	if berr != nil {
+		return nil, berr
+	}
 	if newNote {
 		sn.New = true
 		file, err := createSessionNote(dir, now.Format("2006-01-02 1504")+" "+slug(line), body)
@@ -146,7 +145,7 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 	} else if err := writeFileAtomic(sn.File, body); err != nil {
 		return nil, err
 	}
-	if next := firstItem(sec["next steps"]); next != "" {
+	if next := firstItem(sec[r.Summary.Next]); next != "" {
 		if err := card.Update("", next, now); err != nil {
 			return nil, err
 		}
@@ -159,7 +158,11 @@ func WriteSession(card *Card, id, summary string, now time.Time, git GitRange) (
 // A decision whose title already has a note is left alone (one home per
 // fact). It returns the notes it wrote.
 func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]string, error) {
-	items := listItems(SummarySections(summary)["key decisions"])
+	r, rerr := notesRules()
+	if rerr != nil {
+		return nil, rerr
+	}
+	items := listItems(summarySections(summary, r)[r.Summary.Decisions], r.None)
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -173,10 +176,13 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 		title := decisionTitle(item)
 		file := filepath.Join(dir, slug(title)+mdExt)
 		summaryLine := strings.ReplaceAll(item, boldTitleMark, "")
-		body := fmt.Sprintf("%s\ntype: decision\nstatus: done\nproject: %s\ncreated: %s\nsummary: %s\n"+
-			"links: [%q, %q]\n%s\n\n# %s\n\n%s\n",
-			frontDelim, kgnotes.Scalar(card.Name), now.Format(time.DateOnly), kgnotes.Scalar(oneLine(summaryLine)),
-			sessionLink, card.SelfLink(), frontDelim, title, summaryLine)
+		body, err := r.render(tmplDecision, map[string]any{
+			"Project": card.Name, "Created": now.Format(time.DateOnly), "Summary": oneLine(summaryLine),
+			"SessionLink": sessionLink, "CardLink": card.SelfLink(), "Title": title, "Body": summaryLine,
+		})
+		if err != nil {
+			return written, err
+		}
 		f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
 		if errors.Is(err, os.ErrExist) {
 			continue // another session already wrote this fact's one home
@@ -197,12 +203,12 @@ func WriteDecisions(card *Card, sessionFile, summary string, now time.Time) ([]s
 	return written, nil
 }
 
-// listItems is text's list items without their markers, skipping "(none)".
-func listItems(text string) []string {
+// listItems is text's list items without their markers, skipping the none placeholder.
+func listItems(text, none string) []string {
 	var out []string
 	for _, l := range strings.Split(text, "\n") {
 		l = strings.TrimSpace(listMarkerRe.ReplaceAllString(l, ""))
-		if l != "" && l != noneText {
+		if l != "" && l != none {
 			out = append(out, l)
 		}
 	}
@@ -226,58 +232,47 @@ func decisionTitle(item string) string {
 
 // recordedGitStart is the first commit of the range a session note records
 // ("from..to", or a single commit), or "".
-func recordedGitStart(file string) string {
+func recordedGitStart(file string, r noteRules) string {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return ""
 	}
 	meta, _ := kgnotes.SplitFrontmatter(data)
-	from, _, _ := strings.Cut(kgnotes.MetaString(meta, "commits"), "..")
+	from, _, _ := strings.Cut(kgnotes.MetaString(meta, r.Session.CommitsKey), "..")
 	return strings.TrimSpace(from)
 }
 
-func sessionBody(id, project, cardLink, summary string, sec map[string]string, now time.Time, git GitRange) string {
-	var b strings.Builder
-	b.WriteString(frontDelim + "\ntype: session\nstatus: done\n")
-	fmt.Fprintf(&b, "project: %s\n", kgnotes.Scalar(project))
-	fmt.Fprintf(
-		&b,
-		"session: %s\ncreated: %s\nsummary: %s\ntags: [session",
-		kgnotes.Scalar(id),
-		now.Format(time.DateOnly),
-		kgnotes.Scalar(summary),
-	)
-	fmt.Fprintf(&b, ", %s]\nlinks: [%q]\n", kgnotes.Scalar(project), cardLink)
-	if git.To != "" {
-		if git.Branch != "" {
-			fmt.Fprintf(&b, "branch: %s\n", kgnotes.Scalar(git.Branch))
-		}
-		fmt.Fprintf(&b, "commits: %s\n", kgnotes.Scalar(gitRangeMeta(git)))
-	}
-	b.WriteString(frontDelim + "\n")
-	body := map[string]string{
-		"Focus":          sec["goal"],
-		"What was built": firstNonEmpty(sec["done"], sec["progress"]),
-		"Mistakes":       sec["mistakes"],
-		"Decisions":      sec["key decisions"],
-		"Wins":           sec["wins"],
-	}
-	for _, h := range SessionSections {
-		text := strings.TrimSpace(body[h])
+func sessionBody(
+	r noteRules,
+	id, project, cardLink, summary string,
+	sec map[string]string,
+	now time.Time,
+	git GitRange,
+) (string, error) {
+	type section struct{ Heading, Text string }
+	secs := make([]section, 0, len(r.Sections))
+	for _, ss := range r.Sections {
+		text := strings.TrimSpace(firstSet(sec, ss.From))
 		if text == "" {
-			text = noneText
+			text = r.None
 		}
-		fmt.Fprintf(&b, "\n## %s\n\n%s\n", h, text)
+		secs = append(secs, section{ss.Heading, text})
 	}
-	if g := gitSection(git); g != "" {
-		fmt.Fprintf(&b, "\n## Git\n\n%s\n", g)
-	}
-	return b.String()
+	return r.render(tmplSession, map[string]any{
+		"Session": r.Session, "ID": id, "Project": project, "Created": now.Format(time.DateOnly), "Summary": summary,
+		"CardLink": cardLink, "Commits": gitRangeMeta(git), "Git": git, "Sections": secs,
+	})
 }
 
 // SummarySections splits a compaction summary into its "##" and "###"
-// sections, keyed by lowercase heading.
+// sections, keyed by lowercase heading, with notes.yaml's placeholder and
+// progress rules applied. Without notes.yaml it is the plain split.
 func SummarySections(summary string) map[string]string {
+	r, _ := notesRules()
+	return summarySections(summary, r)
+}
+
+func summarySections(summary string, r noteRules) map[string]string {
 	out := map[string]string{}
 	var cur []string
 	key := ""
@@ -302,30 +297,21 @@ func SummarySections(summary string) map[string]string {
 	}
 	flush()
 	// "## Progress" holds its "###" parts too.
-	if _, ok := out["progress"]; !ok || out["progress"] == "" {
+	if p := r.Summary.Progress; p != "" && out[p] == "" {
 		var parts []string
-		for _, k := range []string{"done", "in progress"} {
-			if s := strings.TrimSpace(out[k]); s != "" && s != noneText {
+		for _, k := range r.Summary.ProgressFrom {
+			if s := strings.TrimSpace(out[k]); s != "" && s != r.None {
 				parts = append(parts, s)
 			}
 		}
-		out["progress"] = strings.Join(parts, "\n")
+		out[p] = strings.Join(parts, "\n")
 	}
 	for k, v := range out {
-		if v == noneText {
+		if r.None != "" && v == r.None {
 			out[k] = ""
 		}
 	}
 	return out
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 // oneLine is the first meaningful line of text, without list markers,
@@ -358,13 +344,14 @@ func slug(s string) string {
 		s = strings.TrimSpace(string(r[:policy().MaxSlug]))
 	}
 	if s == "" {
-		s = "session"
+		r, _ := notesRules()
+		s = r.Session.Untitled
 	}
 	return s
 }
 
 // findSession is the note of session id in dir, or "".
-func findSession(dir, id string) string {
+func findSession(dir, id string, r noteRules) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
@@ -377,7 +364,7 @@ func findSession(dir, id string) string {
 		if readErr != nil {
 			continue
 		}
-		if meta, _ := kgnotes.SplitFrontmatter(data); kgnotes.MetaString(meta, "session") == id {
+		if meta, _ := kgnotes.SplitFrontmatter(data); kgnotes.MetaString(meta, r.Session.IDKey) == id {
 			return filepath.Join(dir, e.Name())
 		}
 	}
@@ -398,14 +385,29 @@ func AppendRun(card *Card, prompt, reply string, now time.Time) (string, error) 
 	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return "", err
 	}
-	file := filepath.Join(dir, now.Format(time.DateOnly)+" "+card.Name+" runs"+mdExt)
-	entry := fmt.Sprintf("- %s %s -> %s\n", now.Format("15:04:05"), oneLine(prompt), oneLine(reply))
-	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
-		head := fmt.Sprintf("%s\ntype: session\nstatus: done\nproject: %s\nsession: %s\ncreated: %s\nsummary: %s\n"+
-			"tags: [session, workflow, %s]\nlinks: [%q]\n%s\n\n## Runs\n\n",
-			frontDelim, kgnotes.Scalar(card.Name), kgnotes.Scalar("runs-"+now.Format(time.DateOnly)),
-			now.Format(time.DateOnly), kgnotes.Scalar(card.Name+" workflow runs on "+now.Format(time.DateOnly)),
-			kgnotes.Scalar(card.Name), card.SelfLink(), frontDelim)
+	r, err := notesRules()
+	if err != nil {
+		return "", err
+	}
+	date := now.Format(time.DateOnly)
+	name, err := r.render(tmplRunsFile, map[string]any{"Created": date, "Project": card.Name})
+	if err != nil {
+		return "", err
+	}
+	file := filepath.Join(dir, name+mdExt)
+	entry, err := r.render(tmplRunEntry, map[string]any{
+		"Time": now.Format("15:04:05"), "Prompt": oneLine(prompt), "Reply": oneLine(reply),
+	})
+	if err != nil {
+		return "", err
+	}
+	if _, statErr := os.Stat(file); errors.Is(statErr, os.ErrNotExist) {
+		head, herr := r.render(tmplRunsHead, map[string]any{
+			"Session": r.Session, "Project": card.Name, "Created": date, "CardLink": card.SelfLink(),
+		})
+		if herr != nil {
+			return "", herr
+		}
 		return file, os.WriteFile(file, []byte(head+entry), filePerm)
 	}
 	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, filePerm)

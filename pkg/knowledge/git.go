@@ -104,19 +104,3 @@ func gitRangeMeta(r GitRange) string {
 	}
 	return r.From + ".." + r.To
 }
-
-// gitSection is the session note's Git section, or "" without a range.
-func gitSection(r GitRange) string {
-	if r.To == "" {
-		return ""
-	}
-	where := "detached HEAD"
-	if r.Branch != "" {
-		where = "branch `" + r.Branch + "`"
-	}
-	if r.From == "" || r.From == r.To {
-		return "On " + where + " at `" + r.To + "`; no commits in this session yet."
-	}
-	return "On " + where + ", commits `" + r.From + ".." + r.To + "`: `git log " + r.From + ".." + r.To +
-		"` shows them (`git diff " + r.From + ".." + r.To + "` the change)."
-}
