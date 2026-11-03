@@ -35,6 +35,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/kartographer/graph"
+	kgtext "github.com/kdeps/kartographer/text"
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
@@ -1010,17 +1011,20 @@ func focusMatches(entries []MemoryEntry, focus string) []string {
 	return out
 }
 
-// wordTokens splits s into the set of its lowercase [a-z0-9] runs, so focus
-// matching is word/segment-boundary based: punctuation, underscores, and colons
-// (as in memory keys like "result:api_wiring") all delimit tokens.
-func wordTokens(s string) map[string]bool {
-	set := make(map[string]bool)
-	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
-	}) {
-		set[w] = true
+// focusWordOptions is how memory focus splits text into words: kartographer's
+// text.Words with the memory rules' stopwords and stem floor and the
+// memory-focus-min-word event.
+func focusWordOptions() kgtext.Options {
+	return kgtext.Options{
+		MinWordLength: memoryMinTokenLen(),
+		MinStemLength: memoryRules.FocusMinStem,
+		Stopwords:     memoryRules.focusStop,
 	}
-	return set
+}
+
+// wordTokens is the set of focus words in s (a memory key or value).
+func wordTokens(s string) map[string]bool {
+	return kgtext.Set(kgtext.Words(s, focusWordOptions()))
 }
 
 // prefixInSet reports whether any token in set equals prefix or begins with it, so
@@ -1035,16 +1039,13 @@ func prefixInSet(set map[string]bool, prefix string) bool {
 	return false
 }
 
-// significantTokens returns the lowercase words of s that are long enough and not
-// stopwords, for loose prompt-to-memory matching.
+// significantTokens is the distinct focus words of s (the prompt), in order.
 func significantTokens(s string) []string {
-	if s == "" {
-		return nil
-	}
 	var out []string
-	for _, w := range strings.Fields(strings.ToLower(s)) {
-		w = strings.Trim(w, ".,!?;:\"'()[]{}<>")
-		if len(w) >= memoryMinTokenLen() && !memoryRules.focusStop[w] {
+	seen := map[string]bool{}
+	for _, w := range kgtext.Words(s, focusWordOptions()) {
+		if !seen[w] {
+			seen[w] = true
 			out = append(out, w)
 		}
 	}
@@ -1098,23 +1099,12 @@ func ancestryChain(key string, byKey map[string]MemoryEntry) map[string]bool {
 	if key == "" {
 		return set
 	}
-	queue := []string{key}
-	for len(queue) > 0 && len(set) < memoryChainMax() {
-		k := queue[0]
-		queue = queue[1:]
-		if set[k] {
-			continue
-		}
+	near := graph.Nearest(key, memoryChainMax(), func(k string) ([]string, bool) {
 		e, ok := byKey[k]
-		if !ok {
-			continue
-		}
+		return e.References, ok
+	})
+	for _, k := range near {
 		set[k] = true
-		for _, p := range e.References {
-			if !set[p] {
-				queue = append(queue, p)
-			}
-		}
 	}
 	return set
 }
