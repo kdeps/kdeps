@@ -46,6 +46,7 @@ const (
 	tmplReport   = "report"
 	tmplNote     = "note"
 	tmplExplain  = "explain"
+	tmplLive     = "live_summary"
 )
 
 func noteTemplateNames() []string {
@@ -59,6 +60,7 @@ func noteTemplateNames() []string {
 		tmplReport,
 		tmplNote,
 		tmplExplain,
+		tmplLive,
 	}
 }
 
@@ -94,7 +96,7 @@ type noteRules struct {
 // noteFuncs are the functions a note template can call.
 func noteFuncs() template.FuncMap {
 	return template.FuncMap{
-		"scalar": kgnotes.Scalar, "quote": strconv.Quote, "join": strings.Join,
+		"scalar": kgnotes.Scalar, "quote": strconv.Quote, "join": strings.Join, "lines": joinLines,
 		"ref": nodeRef, "refs": nodeRefs, "evidence": evidenceSuffix,
 	}
 }
@@ -198,4 +200,22 @@ func NoteLink(v Vault, notes []*Note, name, from string) string {
 		return WikiLink(v.Root, filepath.Join(v.Root, filepath.FromSlash(p)))
 	}
 	return "[[" + want + "]]"
+}
+
+// joinLines is first and then rest, one per line, trimmed.
+func joinLines(first string, rest []string) string {
+	return strings.TrimSpace(strings.Join(append([]string{first}, rest...), "\n"))
+}
+
+// LiveSummary is the session so far in the compaction summary's format, as
+// notes.yaml's live_summary template writes it: base is the last model
+// summary's sections (SummarySections), and the lists are what happened since.
+func LiveSummary(base map[string]string, prompts, files, decisions, failed []string) (string, error) {
+	r, err := notesRules()
+	if err != nil {
+		return "", err
+	}
+	return r.render(tmplLive, map[string]any{
+		"Base": base, "Prompts": prompts, "Files": files, "Decisions": decisions, "Failed": failed, "None": r.None,
+	})
 }

@@ -621,24 +621,15 @@ func (l *Loop) liveSessionSummary() string {
 			}
 		}
 	}
-	goalLines := []string{base["goal"]}
-	for _, p := range prompts {
-		goalLines = append(goalLines, "- "+p)
+	goal := make([]string, len(prompts))
+	for i, p := range prompts {
+		goal[i] = "- " + p
 	}
-	goal := strings.Join(goalLines, "\n")
-	section := func(title, from string, extra []string) string {
-		body := strings.TrimSpace(strings.Join(append([]string{base[from]}, extra...), "\n"))
-		if body == "" {
-			body = "(none)"
-		}
-		return "## " + title + "\n" + body + "\n"
+	text, err := knowledge.LiveSummary(base, goal, files, decisions, failed)
+	if err != nil {
+		return ""
 	}
-	return "## Goal\n" + strings.TrimSpace(goal) + "\n" +
-		"## Progress\n### Done\n" + strings.TrimSpace(strings.Join(append([]string{base["done"]}, files...), "\n")) + "\n" +
-		section("Key Decisions", "key decisions", decisions) +
-		section("Mistakes", "mistakes", failed) +
-		section("Wins", "wins", nil) +
-		section("Next Steps", "next steps", nil)
+	return text
 }
 
 // liveToolFacts lists, from the tool calls since sinceMs, the files written

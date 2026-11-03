@@ -150,3 +150,19 @@ func TestNoteRules_SessionFileTimeRequired(t *testing.T) {
 	_, err = parseNoteRules([]byte(strings.Replace(string(data), "file_time:", "file_time_unused:", 1)))
 	require.ErrorContains(t, err, "session.file_time")
 }
+
+func TestLiveSummary_MatchesTheCompactionFormat(t *testing.T) {
+	base := map[string]string{"goal": "Ship billing", "done": "- wired API", "key decisions": "- use Stripe"}
+	got, err := LiveSummary(base, []string{"- add refunds"}, []string{"- billing.go"},
+		[]string{"- monthly invoices"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "## Goal\nShip billing\n- add refunds\n"+
+		"## Progress\n### Done\n- wired API\n- billing.go\n"+
+		"## Key Decisions\n- use Stripe\n- monthly invoices\n"+
+		"## Mistakes\n(none)\n## Wins\n(none)\n## Next Steps\n(none)\n", got)
+
+	got, err = LiveSummary(map[string]string{}, []string{"- first"}, nil, nil, []string{"- bash_exec failed"})
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(got, "## Goal\n- first\n## Progress\n### Done\n\n## Key Decisions\n(none)\n"+
+		"## Mistakes\n- bash_exec failed\n"), got)
+}
