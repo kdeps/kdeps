@@ -21,10 +21,13 @@ package knowledge
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 	kgnotes "github.com/kdeps/kartographer/notes"
 	"gopkg.in/yaml.v3"
 )
@@ -41,10 +44,11 @@ const (
 	tmplRunEntry = "run_entry"
 	tmplRunsFile = "runs_file"
 	tmplReport   = "report"
+	tmplNote     = "note"
 )
 
 func noteTemplateNames() []string {
-	return []string{tmplCard, tmplSession, tmplDecision, tmplRunsHead, tmplRunEntry, tmplRunsFile, tmplReport}
+	return []string{tmplCard, tmplSession, tmplDecision, tmplRunsHead, tmplRunEntry, tmplRunsFile, tmplReport, tmplNote}
 }
 
 // sessionSection is one heading of a session note and the summary sections that fill it.
@@ -69,6 +73,7 @@ type noteRules struct {
 		IDKey      string `yaml:"id_key"`
 		CommitsKey string `yaml:"commits_key"`
 		Untitled   string `yaml:"untitled"`
+		FileTime   string `yaml:"file_time"`
 	} `yaml:"session"`
 	Sections  []sessionSection  `yaml:"session_sections"`
 	Templates map[string]string `yaml:"templates"`
@@ -78,7 +83,7 @@ type noteRules struct {
 // noteFuncs are the functions a note template can call.
 func noteFuncs() template.FuncMap {
 	return template.FuncMap{
-		"scalar": kgnotes.Scalar, "quote": strconv.Quote,
+		"scalar": kgnotes.Scalar, "quote": strconv.Quote, "join": strings.Join,
 		"ref": nodeRef, "refs": nodeRefs, "evidence": evidenceSuffix,
 	}
 }
@@ -94,8 +99,11 @@ func parseNoteRules(data []byte) (noteRules, error) {
 	if len(s.Focus) == 0 || s.Next == "" || s.Decisions == "" || s.Progress == "" || r.None == "" {
 		return r, errors.New("summary.focus, summary.next, summary.decisions, summary.progress and none must be set")
 	}
-	if r.Session.Kind == "" || r.Session.IDKey == "" || r.Session.CommitsKey == "" || r.Session.Untitled == "" {
-		return r, errors.New("session.kind, session.id_key, session.commits_key and session.untitled must be set")
+	if r.Session.Kind == "" || r.Session.IDKey == "" || r.Session.CommitsKey == "" || r.Session.Untitled == "" ||
+		r.Session.FileTime == "" {
+		return r, errors.New(
+			"session.kind, session.id_key, session.commits_key, session.untitled and session.file_time must be set",
+		)
 	}
 	if len(r.Sections) == 0 {
 		return r, errors.New("session_sections is empty")
@@ -149,4 +157,34 @@ func notesRules() (noteRules, error) {
 		return r, fmt.Errorf("note templates: %w", err)
 	}
 	return r, nil
+}
+
+// SavedNote is a note the agent saves, before it is written.
+type SavedNote struct {
+	Type, Title, Summary, Body string
+	Tags, Links                []string
+}
+
+// SavedNoteText is n as notes.yaml's note template writes it, created at now.
+func SavedNoteText(n SavedNote, now time.Time) (string, error) {
+	r, err := notesRules()
+	if err != nil {
+		return "", err
+	}
+	return r.render(tmplNote, map[string]any{
+		"Type": n.Type, "Title": n.Title, "Summary": n.Summary, "Body": n.Body,
+		"Created": now.Format(time.DateOnly), "Tags": n.Tags, "Links": n.Links,
+	})
+}
+
+// NoteLink is a wiki link to the note name resolves to the way the graph
+// resolves links (path, then title or alias, the one nearest from winning),
+// written with its full vault path; [[name]] as given when no note matches.
+// from is the vault-relative path of the note that holds the link.
+func NoteLink(v Vault, notes []*Note, name, from string) string {
+	want := strings.TrimSuffix(filepath.ToSlash(name), mdExt)
+	if p := kgknowledge.NewResolver(noteDocs(notes)).Wiki(want, from); p != "" {
+		return WikiLink(v.Root, filepath.Join(v.Root, filepath.FromSlash(p)))
+	}
+	return "[[" + want + "]]"
 }

@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.3.0
 # The notes kdeps writes into the vault: a project's card, a session note, a
 # decision note and a workflow's daily run log. Section names are a compaction
 # summary's headings, lowercased; they must match the compaction prompt.
@@ -17,6 +17,7 @@ session:  # what the session and run log templates write, and kdeps reads back
   id_key: session  # front matter key of the session id; a rewrite finds its note by it
   commits_key: commits  # front matter key of the commit range ("from..to", or one commit)
   untitled: session  # a note's file name when its title has no usable characters
+  file_time: "2006-01-02 1504"  # how a new session note's file name starts: its start time, as a Go time layout
 
 session_sections:  # a session note's headings in order, each filled by the first summary section that is set
   - heading: Focus
@@ -33,6 +34,26 @@ session_sections:  # a session note's headings in order, each filled by the firs
 # Go templates. scalar quotes a YAML scalar only when it needs it; quote is a
 # double-quoted string. The fields each template gets are listed beside it.
 templates:
+  # .Type, .Title, .Summary, .Body, .Created, .Tags, .Links: a note the agent
+  # saves with knowledge_note_save
+  note: |
+    ---
+    type: {{.Type}}
+    status: draft
+    created: {{.Created}}
+    summary: {{quote .Summary}}
+    {{- if .Tags}}
+    tags: [{{join .Tags ", "}}]
+    {{- end}}
+    {{- if .Links}}
+    links: [{{range $i, $l := .Links}}{{if $i}}, {{end}}{{quote $l}}{{end}}]
+    {{- end}}
+    ---
+
+    # {{.Title}}
+
+    {{.Body}}
+
   # .Keys (the card keys of vault.yaml), .None, .Updated, .Source, .Place
   card: |
     ---

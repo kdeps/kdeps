@@ -913,42 +913,22 @@ func (k *knowledgeState) saveNote(args map[string]any, now time.Time) (string, e
 				title, filepath.Join(k.vault.Root, filepath.FromSlash(n.Path)))
 		}
 	}
-	var fm strings.Builder
-	fmt.Fprintf(
-		&fm,
-		"---\ntype: %s\nstatus: draft\ncreated: %s\nsummary: %q\n",
-		typ,
-		now.Format(time.DateOnly),
-		summary,
-	)
-	if tags := splitList(str("tags")); len(tags) > 0 {
-		fmt.Fprintf(&fm, "tags: [%s]\n", strings.Join(tags, ", "))
+	file := filepath.Join(dir, title+".md")
+	from, _ := filepath.Rel(k.vault.Root, file)
+	links := splitList(str("links"))
+	for i, l := range links {
+		links[i] = knowledge.NoteLink(k.vault, notes, strings.Trim(l, "[]"), filepath.ToSlash(from))
 	}
-	if links := splitList(str("links")); len(links) > 0 {
-		quoted := make([]string, len(links))
-		for i, l := range links {
-			quoted[i] = fmt.Sprintf("%q", k.fullLink(notes, strings.Trim(l, "[]")))
-		}
-		fmt.Fprintf(&fm, "links: [%s]\n", strings.Join(quoted, ", "))
+	text, err := knowledge.SavedNoteText(knowledge.SavedNote{
+		Type: typ, Title: title, Summary: summary, Body: body, Tags: splitList(str("tags")), Links: links,
+	}, now)
+	if err != nil {
+		return "", err
 	}
-	fm.WriteString("---\n\n# " + title + "\n\n" + body + "\n")
 	if innerErr := os.MkdirAll(dir, 0o750); innerErr != nil {
 		return "", innerErr
 	}
-	file := filepath.Join(dir, title+".md")
-	return file, os.WriteFile(file, []byte(fm.String()), 0o600)
-}
-
-// fullLink links a note named by title (or path) with its full vault path
-// when it exists, else as given.
-func (k *knowledgeState) fullLink(notes []*knowledge.Note, name string) string {
-	want := strings.TrimSuffix(filepath.ToSlash(name), ".md")
-	for _, n := range notes {
-		if strings.EqualFold(n.Title, want) || strings.EqualFold(strings.TrimSuffix(n.Path, ".md"), want) {
-			return knowledge.WikiLink(k.vault.Root, filepath.Join(k.vault.Root, filepath.FromSlash(n.Path)))
-		}
-	}
-	return "[[" + want + "]]"
+	return file, os.WriteFile(file, []byte(text), 0o600)
 }
 
 func splitList(s string) []string {

@@ -109,3 +109,44 @@ func TestParseNoteRules_RejectsAMissingSessionBlock(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session.kind")
 }
+
+func TestSavedNoteText(t *testing.T) {
+	now := buildNow()
+	got, err := SavedNoteText(SavedNote{Type: "note", Title: "Retry", Summary: `say "hi"`, Body: "Body."}, now)
+	require.NoError(t, err)
+	assert.Equal(t, "---\ntype: note\nstatus: draft\ncreated: "+now.Format("2006-01-02")+
+		"\nsummary: \"say \\\"hi\\\"\"\n---\n\n# Retry\n\nBody.\n", got)
+
+	got, err = SavedNoteText(SavedNote{
+		Type: "decision", Title: "T", Summary: "s", Body: "b",
+		Tags: []string{"a", "b"}, Links: []string{"[[x/y]]", "[[z]]"},
+	}, now)
+	require.NoError(t, err)
+	assert.Contains(t, got, "summary: \"s\"\ntags: [a, b]\nlinks: [\"[[x/y]]\", \"[[z]]\"]\n---\n")
+}
+
+func TestNoteLink_ResolvesLikeTheGraph(t *testing.T) {
+	v, _ := sampleVault(t)
+	notes, err := v.Walk()
+	require.NoError(t, err)
+	n := notes[0]
+	want := WikiLink(v.Root, filepath.Join(v.Root, filepath.FromSlash(n.Path)))
+	assert.Equal(t, want, NoteLink(v, notes, n.Title, ""), "by title")
+	assert.Equal(
+		t,
+		want,
+		NoteLink(v, notes, strings.ToUpper(strings.TrimSuffix(n.Path, ".md")), ""),
+		"by path, any case",
+	)
+	assert.Equal(t, "[[no such note]]", NoteLink(v, notes, "no such note.md", ""))
+}
+
+func TestNoteRules_SessionFileTimeRequired(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "assets", "knowledge", "notes.yaml"))
+	require.NoError(t, err)
+	r, err := parseNoteRules(data)
+	require.NoError(t, err)
+	assert.Equal(t, "2006-01-02 1504", r.Session.FileTime)
+	_, err = parseNoteRules([]byte(strings.Replace(string(data), "file_time:", "file_time_unused:", 1)))
+	require.ErrorContains(t, err, "session.file_time")
+}
