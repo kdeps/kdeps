@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # Business rules for the code graph: ranking weights, result limits and path
 # bounds. Change a value here; the code reads it at start-up.
 ranking:
