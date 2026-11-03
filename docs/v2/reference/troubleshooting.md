@@ -9,10 +9,10 @@ Works in workflow and agent mode.
 ### Dependency cycle detected
 
 ```
-Error: dependency cycle detected (code: DEPENDENCY_CYCLE)
+Error: dependency cycle detected involving resource 'fetch' (code: DEPENDENCY_CYCLE)
 ```
 
-Two or more resources form a circular [`requires`](/reference/glossary#requires) chain (A requires B, B requires A). The engine detects cycles during graph construction and fails before execution.
+Two or more resources form a circular [`requires`](/reference/glossary#requires) chain (A requires B, B requires A). The engine detects cycles during graph construction and fails before execution. The message names one resource on the cycle.
 
 Fix: break the cycle by removing one of the `requires` edges. If both resources genuinely need each other's output, merge them into a single resource.
 
