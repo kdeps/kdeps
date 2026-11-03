@@ -61,6 +61,9 @@ scenario() {
     if [ -n "${E2E_SHARD:-}" ] && [ $((i % ${E2E_SHARD#*/})) -ne $((${E2E_SHARD%/*} - 1)) ]; then
         return 0
     fi
+    # A start line per scenario: when a shard stalls and its step times out,
+    # the log names the scenario that was running.
+    echo "=== scenario $1 ($(date -u +%H:%M:%S))"
     # shellcheck disable=SC1090
     source "$SCRIPT_DIR/$1"
 }
