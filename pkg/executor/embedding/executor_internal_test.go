@@ -122,7 +122,7 @@ func TestSearch_RowsError(t *testing.T) {
 }
 
 // TestSearch_ScanError exercises the rows.Scan error branch in search
-// (executor.go lines 165-166) by causing a column count mismatch via sqlmock.
+// (searchTexts) by causing a column count mismatch via sqlmock.
 func TestSearch_ScanError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -130,8 +130,8 @@ func TestSearch_ScanError(t *testing.T) {
 
 	// Return a row with zero columns; scanning into a string target causes
 	// database/sql to produce "expected 1 destination arguments, not 0".
-	mock.ExpectQuery(`SELECT text FROM embeddings WHERE collection = \? AND LOWER\(text\) LIKE LOWER\(\?\) LIMIT \?`).
-		WithArgs("default", "%query%", 10).
+	mock.ExpectQuery(`SELECT text FROM embeddings WHERE collection = \? ORDER BY rowid`).
+		WithArgs("default").
 		WillReturnRows(sqlmock.NewRows([]string{}).AddRow())
 
 	e := &Executor{}

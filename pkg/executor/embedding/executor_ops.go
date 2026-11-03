@@ -24,6 +24,11 @@ import (
 	"errors"
 	"fmt"
 
+	kgsearch "github.com/kdeps/kartographer/search"
+	kgtext "github.com/kdeps/kartographer/text"
+
+	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -66,29 +71,9 @@ func (e *Executor) search(ctx context.Context, db *sql.DB, collection, query str
 	if query == "" {
 		return nil, errors.New("embedding: text (query) is required for search operation")
 	}
-	rows, queryErr := db.QueryContext(ctx,
-		`SELECT text FROM embeddings WHERE collection = ? AND LOWER(text) LIKE LOWER(?) LIMIT ?`,
-		collection, "%"+query+"%", limit,
-	)
-	if queryErr != nil {
-		return nil, fmt.Errorf("embedding: search failed: %w", queryErr)
-	}
-	defer rows.Close()
-
-	var matches []string
-	for rows.Next() {
-		var t string
-		if scanErr := rows.Scan(&t); scanErr != nil {
-			return nil, fmt.Errorf("embedding: scan failed: %w", scanErr)
-		}
-		matches = append(matches, t)
-	}
-	if matches == nil {
-		matches = []string{}
-	}
-
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return nil, fmt.Errorf("embedding: rows iteration failed: %w", rowsErr)
+	matches, err := searchTexts(ctx, db, collection, query, limit)
+	if err != nil {
+		return nil, err
 	}
 	return buildEmbeddingResult(map[string]interface{}{
 		"operation":       "search",
@@ -120,4 +105,56 @@ func (e *Executor) delete(ctx context.Context, db *sql.DB, collection, text stri
 		"affected":   affected,
 		"success":    true,
 	}), nil
+}
+
+// searchTexts is the collection's texts that hold every word of query, best
+// match first (kartographer's search.Rank over search.Jaccard word overlap),
+// at most limit of them. Words are split by search.yaml's tokenizer, so word
+// forms meet by stem the way the local search index matches them.
+func searchTexts(ctx context.Context, db *sql.DB, collection, query string, limit int) ([]string, error) {
+	tok, err := knowledge.SearchTokenizer()
+	if err != nil {
+		return nil, fmt.Errorf("embedding: search rules: %w", err)
+	}
+	want := kgtext.Set(tok.TokenizeToStrings(query))
+	rows, err := db.QueryContext(ctx, `SELECT text FROM embeddings WHERE collection = ? ORDER BY rowid`, collection)
+	if err != nil {
+		return nil, fmt.Errorf("embedding: search failed: %w", err)
+	}
+	defer rows.Close()
+	var hits []kgsearch.SearchResult
+	for rows.Next() {
+		var t string
+		if err = rows.Scan(&t); err != nil {
+			return nil, fmt.Errorf("embedding: scan failed: %w", err)
+		}
+		have := kgtext.Set(tok.TokenizeToStrings(t))
+		if len(want) == 0 || !containsAll(have, want) {
+			continue
+		}
+		hits = append(hits, kgsearch.SearchResult{
+			Document: &kgsearch.Document{Path: t}, Score: kgsearch.Jaccard(want, have), MatchCount: len(want),
+		})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("embedding: rows iteration failed: %w", err)
+	}
+	kgsearch.Rank(hits)
+	matches := []string{}
+	for _, h := range hits {
+		if limit > 0 && len(matches) == limit {
+			break
+		}
+		matches = append(matches, h.Document.Path)
+	}
+	return matches, nil
+}
+
+func containsAll(have, want map[string]bool) bool {
+	for w := range want {
+		if !have[w] {
+			return false
+		}
+	}
+	return true
 }
