@@ -451,7 +451,10 @@ func newKnowledgeExplainCmd() *cobra.Command {
 			if err != nil {
 				return errors.New("no graph yet: run kdeps knowledge build")
 			}
-			text := knowledge.Explain(g, strings.Join(args, " "))
+			text, err := knowledge.Explain(g, strings.Join(args, " "))
+			if err != nil {
+				return err
+			}
 			if text == "" {
 				fmt.Fprintln(cmd.OutOrStdout(), "No edges match.")
 				return nil

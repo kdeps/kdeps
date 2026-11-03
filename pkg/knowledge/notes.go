@@ -45,10 +45,21 @@ const (
 	tmplRunsFile = "runs_file"
 	tmplReport   = "report"
 	tmplNote     = "note"
+	tmplExplain  = "explain"
 )
 
 func noteTemplateNames() []string {
-	return []string{tmplCard, tmplSession, tmplDecision, tmplRunsHead, tmplRunEntry, tmplRunsFile, tmplReport, tmplNote}
+	return []string{
+		tmplCard,
+		tmplSession,
+		tmplDecision,
+		tmplRunsHead,
+		tmplRunEntry,
+		tmplRunsFile,
+		tmplReport,
+		tmplNote,
+		tmplExplain,
+	}
 }
 
 // sessionSection is one heading of a session note and the summary sections that fill it.
