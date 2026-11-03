@@ -59,77 +59,29 @@ func NewReport(g *Graph, modularity float64) Report {
 
 // ReportMarkdown renders a report as GRAPH_REPORT.md.
 // ReportMarkdown renders a report as GRAPH_REPORT.md.
-func ReportMarkdown(r Report, vault string) string {
-	var b strings.Builder
+func ReportMarkdown(r Report, vault string) (string, error) {
+	rules, err := notesRules()
+	if err != nil {
+		return "", err
+	}
 	pct := 0
 	if r.Edges > 0 {
 		pct = r.Extracted * 100 / r.Edges //nolint:mnd // percent
 	}
-	fmt.Fprintf(&b, "%s\n\nVault: %s\n\n## Summary\n\n", reportMarker, vault)
-	fmt.Fprintf(
-		&b,
-		"| Notes | Nodes | Edges | Extracted edges | Communities | Modularity |\n|---|---|---|---|---|---|\n",
-	)
-	fmt.Fprintf(
-		&b,
-		"| %d | %d | %d | %d%% | %d | %.2f |\n\n",
-		r.Notes,
-		r.Nodes,
-		r.Edges,
-		pct,
-		r.Communities,
-		r.Modularity,
-	)
-	b.WriteString(
-		"Extracted edges are written in the notes (links, tags) or in code (imports); the rest are guesses.\n\n",
-	)
-	b.WriteString(
-		"## God nodes\n\nThe most connected notes and packages: changing them touches the most.\n\n| Node | Kind | Links | Community |\n|---|---|---|---|\n",
-	)
-	for _, rk := range r.GodNodes {
-		fmt.Fprintf(&b, "| %s | %s | %d | %d |\n", nodeRef(rk.Node), rk.Node.Kind, rk.Degree, rk.Node.Community)
+	p := policy()
+	return rules.render(tmplReport, map[string]any{
+		"Marker": reportMarker, "Vault": vault, "Pct": pct, "Method": p.CommunityMethod,
+		"AmbiguousBelow": p.AmbiguousBelow, "R": r,
+	})
+}
+
+// nodeRefs joins the references of ranked nodes.
+func nodeRefs(rs []Ranked) string {
+	names := make([]string, 0, len(rs))
+	for _, rk := range rs {
+		names = append(names, nodeRef(rk.Node))
 	}
-	fmt.Fprintf(&b, "\n## Communities\n\nGroups of notes that link mostly among themselves (%s).\n\n",
-		policy().CommunityMethod)
-	for _, gr := range r.Groups {
-		names := make([]string, 0, len(gr.Top))
-		for _, rk := range gr.Top {
-			names = append(names, nodeRef(rk.Node))
-		}
-		fmt.Fprintf(&b, "- **Community %d** (%d nodes): %s", gr.ID, gr.Size, strings.Join(names, ", "))
-		if gr.Summary != "" {
-			fmt.Fprintf(&b, " - %s", gr.Summary)
-		}
-		b.WriteByte('\n')
-	}
-	b.WriteString(
-		"\n## Surprising connections\n\nA single link between two communities that otherwise never touch.\n\n",
-	)
-	if len(r.Surprising) == 0 {
-		b.WriteString("(none)\n")
-	}
-	for _, br := range r.Surprising {
-		fmt.Fprintf(&b, "- %s (community %d, %d nodes) -[%s, %s]-> %s (community %d, %d nodes)%s\n",
-			nodeRef(br.From), br.FromGroup, br.FromSize, br.Edge.Relation, br.Edge.Provenance,
-			nodeRef(br.To), br.ToGroup, br.ToSize, evidenceSuffix(br.Edge))
-	}
-	b.WriteString(
-		"\n## Edges to review\n\nGuesses a model could not settle (confidence below 0.5): confirm with a [[link]] or ignore.\n\n",
-	)
-	if len(r.Review) == 0 {
-		b.WriteString("(none)\n")
-	}
-	for _, e := range r.Review {
-		fmt.Fprintf(&b, "- %s -[%s, %.2f]-> %s%s\n", e.From, e.Relation, e.Confidence, e.To, evidenceSuffix(e))
-	}
-	b.WriteString("\n## Links to notes that do not exist\n\n")
-	if len(r.Missing) == 0 {
-		b.WriteString("(none)\n")
-	}
-	for _, m := range r.Missing {
-		fmt.Fprintf(&b, "- [[%s]]\n", m)
-	}
-	return b.String()
+	return strings.Join(names, ", ")
 }
 
 func evidenceSuffix(e *Edge) string {
@@ -194,7 +146,10 @@ func nodeRef(n *Node) string {
 // state directory, outside the vault). The page's template is installed the
 // first time it is needed; offline without it, only the report is written.
 func writeReport(g *Graph, modularity float64, dir string) error {
-	md := ReportMarkdown(NewReport(g, modularity), g.Vault)
+	md, mdErr := ReportMarkdown(NewReport(g, modularity), g.Vault)
+	if mdErr != nil {
+		return mdErr
+	}
 	if ours(filepath.Join(dir, reportFile), reportMarker) {
 		if err := os.WriteFile(filepath.Join(dir, reportFile), []byte(md), filePerm); err != nil {
 			return err

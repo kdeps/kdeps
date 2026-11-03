@@ -109,3 +109,33 @@ func TestNotesGolden_RecallBlock(t *testing.T) {
 	golden(t, "recall_block", filepath.ToSlash(FormatRecall(r, "/vault")))
 	assert.Empty(t, FormatRecall(Recall{}, "/vault"), "no hits, no block")
 }
+
+func goldenReport() Report {
+	a := &Node{ID: "note:shared/A.md", Label: "A", Kind: "note", Note: "shared/A.md", Community: 0}
+	b := &Node{ID: "code:example.com/app", Label: "example.com/app", Kind: KindCode, Community: 1}
+	c := &Node{ID: "note:shared/C.md", Label: "C", Kind: "decision", Note: "shared/C.md", Community: 1}
+	bridge := &Edge{From: a.ID, To: b.ID, Relation: RelReferences, Provenance: ProvExtracted, Confidence: 1,
+		SourceFile: "shared/A.md", SourceLocation: "L3"}
+	review := &Edge{From: a.ID, To: c.ID, Relation: RelRelatesTo, Provenance: ProvAmbiguous, Confidence: 0.3,
+		SourceFile: "shared/A.md"}
+	return Report{
+		Notes: 2, Nodes: 3, Edges: 4, Extracted: 3, Communities: 2, Modularity: 0.4321,
+		GodNodes: []Ranked{{Node: a, Degree: 3}, {Node: b, Degree: 2}},
+		Groups: []Group{
+			{ID: 0, Size: 2, Top: []Ranked{{Node: a, Degree: 3}}, Summary: "the shared notes"},
+			{ID: 1, Size: 2, Top: []Ranked{{Node: b, Degree: 2}, {Node: c, Degree: 1}}},
+		},
+		Surprising: []Bridge{{Edge: bridge, From: a, To: b, FromGroup: 0, ToGroup: 1, FromSize: 2, ToSize: 2}},
+		Missing:    []string{"Gone"},
+		Review:     []*Edge{review},
+	}
+}
+
+func TestNotesGolden_Report(t *testing.T) {
+	full, err := ReportMarkdown(goldenReport(), "/vault")
+	require.NoError(t, err)
+	golden(t, "report_full", full)
+	empty, err := ReportMarkdown(Report{}, "/vault")
+	require.NoError(t, err)
+	golden(t, "report_empty", empty)
+}

@@ -1,0 +1,39 @@
+# Knowledge graph report
+
+Vault: /vault
+
+## Summary
+
+| Notes | Nodes | Edges | Extracted edges | Communities | Modularity |
+|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0% | 0 | 0.00 |
+
+Extracted edges are written in the notes (links, tags) or in code (imports); the rest are guesses.
+
+## God nodes
+
+The most connected notes and packages: changing them touches the most.
+
+| Node | Kind | Links | Community |
+|---|---|---|---|
+
+## Communities
+
+Groups of notes that link mostly among themselves (louvain).
+
+
+## Surprising connections
+
+A single link between two communities that otherwise never touch.
+
+(none)
+
+## Edges to review
+
+Guesses a model could not settle (confidence below 0.5): confirm with a [[link]] or ignore.
+
+(none)
+
+## Links to notes that do not exist
+
+(none)

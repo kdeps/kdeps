@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # The notes kdeps writes into the vault: a project's card, a session note, a
 # decision note and a workflow's daily run log. Section names are a compaction
 # summary's headings, lowercased; they must match the compaction prompt.
@@ -113,3 +113,55 @@ templates:
     - {{.Time}} {{.Prompt}} -> {{.Reply}}
   # .Created, .Project: the run log's file name, without .md
   runs_file: "{{.Created}} {{.Project}} runs"
+
+  # GRAPH_REPORT.md, written next to the graph. .Marker (its first line, how kdeps
+  # knows the file is its own), .Vault, .Pct (share of extracted edges), .Method
+  # (the community method), .AmbiguousBelow, .R (the report: .Notes .Nodes .Edges
+  # .Communities .Modularity .GodNodes .Groups .Surprising .Review .Missing).
+  # ref is a node's [[link]] or `label`, refs joins several, evidence is an edge's source.
+  report: |-
+    {{.Marker}}
+
+    Vault: {{.Vault}}
+
+    ## Summary
+
+    | Notes | Nodes | Edges | Extracted edges | Communities | Modularity |
+    |---|---|---|---|---|---|
+    | {{.R.Notes}} | {{.R.Nodes}} | {{.R.Edges}} | {{.Pct}}% | {{.R.Communities}} | {{printf "%.2f" .R.Modularity}} |
+
+    Extracted edges are written in the notes (links, tags) or in code (imports); the rest are guesses.
+
+    ## God nodes
+
+    The most connected notes and packages: changing them touches the most.
+
+    | Node | Kind | Links | Community |
+    |---|---|---|---|
+    {{range .R.GodNodes}}| {{ref .Node}} | {{.Node.Kind}} | {{.Degree}} | {{.Node.Community}} |
+    {{end}}
+    ## Communities
+
+    Groups of notes that link mostly among themselves ({{.Method}}).
+
+    {{range .R.Groups}}- **Community {{.ID}}** ({{.Size}} nodes): {{refs .Top}}{{if .Summary}} - {{.Summary}}{{end}}
+    {{end}}
+    ## Surprising connections
+
+    A single link between two communities that otherwise never touch.
+
+    {{if not .R.Surprising}}(none)
+    {{end}}{{range .R.Surprising}}- {{ref .From}} (community {{.FromGroup}}, {{.FromSize}} nodes) -[{{.Edge.Relation}}, {{.Edge.Provenance}}]-> {{ref .To}} (community {{.ToGroup}}, {{.ToSize}} nodes){{evidence .Edge}}
+    {{end}}
+    ## Edges to review
+
+    Guesses a model could not settle (confidence below {{.AmbiguousBelow}}): confirm with a [[link]] or ignore.
+
+    {{if not .R.Review}}(none)
+    {{end}}{{range .R.Review}}- {{.From}} -[{{.Relation}}, {{printf "%.2f" .Confidence}}]-> {{.To}}{{evidence .}}
+    {{end}}
+    ## Links to notes that do not exist
+
+    {{if not .R.Missing}}(none)
+    {{end}}{{range .R.Missing}}- [[{{.}}]]
+    {{end}}
