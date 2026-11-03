@@ -75,7 +75,6 @@ const (
 	argFollowRedirects = "followRedirects"
 	argTLS             = "tls"
 
-	searchDefaultLimit = 3
 	msgSearchNeedQuery = "search_local: give a query (or a glob) to search for"
 	msgURLRequired     = "URL is required"
 	msgHTTPUnavailable = "http_request: client is unavailable"
@@ -237,9 +236,9 @@ func SearchLocalWith(opts SearchOpts, args map[string]any) (string, error) {
 	if strings.TrimSpace(query) == "" && strings.TrimSpace(glob) == "" {
 		return "", errors.New(msgSearchNeedQuery)
 	}
-	limit := searchDefaultLimit
-	if v, ok := args[argLimit].(float64); ok && v > 0 {
-		limit = int(v)
+	limit := intArg(args, argLimit)
+	if limit <= 0 { // search_local.yaml's limit default (filled in when limit is left out)
+		limit = ParamDefaultInt(toolSearchLocal, argLimit)
 	}
 	path := stringArg(args, argPath)
 	if strings.TrimSpace(path) != "" {
