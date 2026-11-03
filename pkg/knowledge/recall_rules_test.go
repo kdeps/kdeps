@@ -8,13 +8,13 @@ import (
 
 // The recall rules are the "recall" item of the "knowledge" asset set.
 func TestRecallRulesLoadFromTheAssetSet(t *testing.T) {
-	assert.Equal(t, 3, recallRules.MinWordLength)
-	assert.Equal(t, 3, recallRules.MinStemLength)
-	assert.True(t, stopWords["the"])
+	assert.Equal(t, 3, recallRules().MinWordLength)
+	assert.Equal(t, 3, recallRules().MinStemLength)
+	assert.True(t, recallRules().stop["the"])
 }
 
 func TestTaskWords_ComeFromTheRecallRules(t *testing.T) {
-	assert.Contains(t, recallRules.TaskWords, "please")
-	assert.True(t, taskWords["fix"])
+	assert.Contains(t, recallRules().TaskWords, "please")
+	assert.True(t, recallRules().task["fix"])
 	assert.Equal(t, []string{"stripe"}, topicWords("please fix the stripe"), "task words and stopwords are left out")
 }

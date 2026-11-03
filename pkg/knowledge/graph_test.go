@@ -592,7 +592,7 @@ func TestRecall_CuratedNotesOutrankAutoWritten(t *testing.T) {
 	for in, want := range map[string]string{
 		"billing": "bill", "invoices": "invoice", "deployed": "deploy", "bus": "bus", "process": "process", "notes": "note",
 	} {
-		assert.Equal(t, want, kword.Stem(in, recallRules.MinStemLength), in)
+		assert.Equal(t, want, kword.Stem(in, recallRules().MinStemLength), in)
 	}
 }
 

@@ -114,7 +114,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the best notes fill the budget"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge folders remove", "kdeps knowledge build", "kdeps knowledge folders", "kdeps knowledge folders add", "kdeps knowledge folders index"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*MemoryStore).SetGlobal", "knowledge.Layout"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.(*Topic).Add", "knowledge.recallRules"},
 	},
 	"memory": {
 		Mode: "agent",
