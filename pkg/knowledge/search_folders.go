@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	kgnotes "github.com/kdeps/kartographer/notes"
 )
 
 // indexOf names the search index file of a folder, for dropping a removed
@@ -169,15 +171,11 @@ func (c *Card) RemoveLink(source, place string) error {
 
 // linkRow parses one "| source | path |" line of a links table.
 func linkRow(line string) (Link, bool) {
-	t := strings.TrimSpace(line)
-	if !strings.HasPrefix(t, "|") || !strings.HasSuffix(t, "|") {
+	cells, ok := kgnotes.TableRow(line)
+	if !ok || len(cells) < linkCells {
 		return Link{}, false
 	}
-	cells := strings.Split(strings.Trim(t, "|"), "|")
-	if len(cells) < linkCells {
-		return Link{}, false
-	}
-	return Link{Source: strings.TrimSpace(cells[0]), Path: strings.TrimSpace(cells[1])}, true
+	return Link{Source: cells[0], Path: cells[1]}, true
 }
 
 // samePath compares two cleaned paths, ignoring case where the OS does.
