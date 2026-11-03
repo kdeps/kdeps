@@ -1,0 +1,115 @@
+version: 1.0.0
+# The notes kdeps writes into the vault: a project's card, a session note, a
+# decision note and a workflow's daily run log. Section names are a compaction
+# summary's headings, lowercased; they must match the compaction prompt.
+
+summary:
+  focus: [goal, focus]  # the session's focus, the first one set; a summary without one writes no session note
+  next: next steps  # its first item becomes the card's next step
+  decisions: key decisions  # each item becomes one decision note
+  progress: progress  # when empty, filled from progress_from
+  progress_from: [done, in progress]
+
+none: "(none)"  # the text of an empty section; a summary item of only this is no item
+
+session:  # what the session and run log templates write, and kdeps reads back
+  kind: session  # their type; recall ranks this kind below the notes people curate
+  id_key: session  # front matter key of the session id; a rewrite finds its note by it
+  commits_key: commits  # front matter key of the commit range ("from..to", or one commit)
+  untitled: session  # a note's file name when its title has no usable characters
+
+session_sections:  # a session note's headings in order, each filled by the first summary section that is set
+  - heading: Focus
+    from: [goal]
+  - heading: What was built
+    from: [done, progress]
+  - heading: Mistakes
+    from: [mistakes]
+  - heading: Decisions
+    from: [key decisions]
+  - heading: Wins
+    from: [wins]
+
+# Go templates. scalar quotes a YAML scalar only when it needs it; quote is a
+# double-quoted string. The fields each template gets are listed beside it.
+templates:
+  # .Keys (the card keys of vault.yaml), .None, .Updated, .Source, .Place
+  card: |
+    ---
+    {{.Keys.Type}}: project
+    {{.Keys.Status}}: active
+    {{.Keys.Next}}: {{scalar .None}}
+    {{.Keys.Updated}}: {{.Updated}}
+    ---
+    | {{index .Keys.LinksHeader 0}} | {{index .Keys.LinksHeader 1}} |
+    |---|---|
+    | {{.Source}} | {{.Place}} |
+
+  # .Session (the session block above), .ID, .Project, .Created, .Summary, .CardLink, .Commits,
+  # .Git (.Branch, .From, .To), .Sections (.Heading, .Text)
+  session: |-
+    ---
+    type: {{.Session.Kind}}
+    status: done
+    project: {{scalar .Project}}
+    {{.Session.IDKey}}: {{scalar .ID}}
+    created: {{.Created}}
+    summary: {{scalar .Summary}}
+    tags: [session, {{scalar .Project}}]
+    links: [{{quote .CardLink}}]
+    {{- if .Git.To}}
+    {{- if .Git.Branch}}
+    branch: {{scalar .Git.Branch}}
+    {{- end}}
+    {{.Session.CommitsKey}}: {{scalar .Commits}}
+    {{- end}}
+    ---
+    {{range .Sections}}
+    ## {{.Heading}}
+
+    {{.Text}}
+    {{end}}
+    {{- if .Git.To}}
+    ## Git
+
+    On {{if .Git.Branch}}branch `{{.Git.Branch}}`{{else}}detached HEAD{{end}}
+    {{- if or (eq .Git.From "") (eq .Git.From .Git.To)}} at `{{.Git.To}}`; no commits in this session yet.
+    {{- else}}, commits `{{.Git.From}}..{{.Git.To}}`: `git log {{.Git.From}}..{{.Git.To}}` shows them (`git diff {{.Git.From}}..{{.Git.To}}` the change).
+    {{- end}}
+    {{end}}
+
+  # .Project, .Created, .Summary, .SessionLink, .CardLink, .Title, .Body
+  decision: |
+    ---
+    type: decision
+    status: done
+    project: {{scalar .Project}}
+    created: {{.Created}}
+    summary: {{scalar .Summary}}
+    links: [{{quote .SessionLink}}, {{quote .CardLink}}]
+    ---
+
+    # {{.Title}}
+
+    {{.Body}}
+
+  # .Session, .Project, .Created, .CardLink: the top of a workflow's run log for the day
+  runs_head: |
+    ---
+    type: {{.Session.Kind}}
+    status: done
+    project: {{scalar .Project}}
+    {{.Session.IDKey}}: {{scalar (printf "runs-%s" .Created)}}
+    created: {{.Created}}
+    summary: {{scalar (printf "%s workflow runs on %s" .Project .Created)}}
+    tags: [session, workflow, {{scalar .Project}}]
+    links: [{{quote .CardLink}}]
+    ---
+
+    ## Runs
+    {{""}}
+  # .Time, .Prompt, .Reply: one workflow chat call
+  run_entry: |
+    - {{.Time}} {{.Prompt}} -> {{.Reply}}
+  # .Created, .Project: the run log's file name, without .md
+  runs_file: "{{.Created}} {{.Project}} runs"

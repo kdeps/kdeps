@@ -1,0 +1,9 @@
+version: 1.0.0
+# How the local search indexes (a project's folders and search folders) split
+# files and queries into terms. An index keeps the terms it was built with:
+# after changing these, rebuild the index so queries and files match again.
+
+min_word_length: 2  # shorter words are dropped
+stopwords: [a, an, and, are, as, at, be, by, for, from, has, he, in, is, it, its, of, on, that, the, to, was, will, with]
+stem_suffixes: [ing, ed, ly, es, s]  # tried in order; the first that fits is removed
+stem_keep: 2  # a suffix is removed only when more than this many characters remain

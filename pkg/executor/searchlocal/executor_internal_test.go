@@ -26,12 +26,13 @@ import (
 	"testing"
 	"time"
 
+	kgsearch "github.com/kdeps/kartographer/search"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/datadir"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal/internal/index"
 )
 
 // mockFileInfo implements fs.FileInfo for testing.
@@ -441,7 +442,7 @@ func TestIndexPersistsAcrossSessions(t *testing.T) {
 	assert.Contains(t, buf.String(), "2 files")
 
 	// Re-open and verify the data is still there
-	idx, err := index.NewInvertedIndex(dbPath)
+	idx, err := kgsearch.NewInvertedIndex(dbPath)
 	require.NoError(t, err)
 	defer idx.Close()
 
@@ -472,7 +473,7 @@ func TestIndexSearchResultsPersisted(t *testing.T) {
 	assert.Contains(t, buf.String(), "1 files")
 
 	// Now open the bbolt DB directly and search
-	idx, err := index.NewInvertedIndex(dbPath)
+	idx, err := kgsearch.NewInvertedIndex(dbPath)
 	require.NoError(t, err)
 	defer idx.Close()
 

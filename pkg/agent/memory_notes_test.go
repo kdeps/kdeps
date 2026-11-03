@@ -113,7 +113,14 @@ func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	plain := filepath.Join(t.TempDir(), "plain")
 	assert.Equal(t, filepath.Join(root, "projects", "plain", "memory"), projectMemoryDir(root, plain),
 		"a place without a card: the project kdeps creates for it")
-	card, _, err := knowledge.Vault{Root: root}.CreateProject("named", knowledge.SourceFolder, plain, time.Now())
+	card, _, err := knowledge.Vault{
+		Root: root,
+	}.CreateProject(
+		"named",
+		knowledge.Layout().Sources.Folder,
+		plain,
+		time.Now(),
+	)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(card.Dir(), "memory"), projectMemoryDir(root, filepath.Join(plain, "sub")))
 	assert.Empty(t, legacyMemoryPath("x"), "tests never touch the real old store")
@@ -138,7 +145,7 @@ func TestMemoryStore_RebaseFollowsTheProject(t *testing.T) {
 	s.SetCwd(cwd)
 	require.NoError(t, s.Load())
 	require.NoError(t, s.Set("fact:a", "one"))
-	require.NoError(t, v.SetStatus(card, knowledge.StatusArchived, "", time.Now()))
+	require.NoError(t, v.SetStatus(card, knowledge.Layout().Card.Archived, "", time.Now()))
 
 	s.Rebase()
 	assert.Equal(t, filepath.Join(root, "archive", "proj", "memory"), s.path)
@@ -157,7 +164,7 @@ func TestMemoryStore_RebaseFollowsTheProject(t *testing.T) {
 func TestProjectMemoryDir_FollowsTheNameClashRule(t *testing.T) {
 	root := t.TempDir()
 	v := knowledge.Vault{Root: root}
-	_, _, err := v.CreateProject("work", knowledge.SourceFolder, "/elsewhere/work", time.Now())
+	_, _, err := v.CreateProject("work", knowledge.Layout().Sources.Folder, "/elsewhere/work", time.Now())
 	require.NoError(t, err)
 	cwd := filepath.Join(t.TempDir(), "clash", "work")
 	require.NoError(t, os.MkdirAll(cwd, 0o750))
