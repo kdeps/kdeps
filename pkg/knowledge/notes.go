@@ -88,6 +88,10 @@ type noteRules struct {
 		Untitled   string `yaml:"untitled"`
 		FileTime   string `yaml:"file_time"`
 	} `yaml:"session"`
+	SavedNote struct {
+		DefaultType  string `yaml:"default_type"`
+		DecisionType string `yaml:"decision_type"`
+	} `yaml:"saved_note"`
 	Sections  []sessionSection  `yaml:"session_sections"`
 	Templates map[string]string `yaml:"templates"`
 	tmpl      map[string]*template.Template
@@ -117,6 +121,9 @@ func parseNoteRules(data []byte) (noteRules, error) {
 		return r, errors.New(
 			"session.kind, session.id_key, session.commits_key, session.untitled and session.file_time must be set",
 		)
+	}
+	if r.SavedNote.DefaultType == "" || r.SavedNote.DecisionType == "" {
+		return r, errors.New("saved_note.default_type and saved_note.decision_type must be set")
 	}
 	if len(r.Sections) == 0 {
 		return r, errors.New("session_sections is empty")
@@ -218,4 +225,14 @@ func LiveSummary(base map[string]string, prompts, files, decisions, failed []str
 	return r.render(tmplLive, map[string]any{
 		"Base": base, "Prompts": prompts, "Files": files, "Decisions": decisions, "Failed": failed, "None": r.None,
 	})
+}
+
+// SavedNoteTypes is notes.yaml's saved_note types: the type of a saved note
+// that names none, and the type filed with the project's decisions.
+func SavedNoteTypes() (string, string, error) {
+	r, err := notesRules()
+	if err != nil {
+		return "", "", err
+	}
+	return r.SavedNote.DefaultType, r.SavedNote.DecisionType, nil
 }
