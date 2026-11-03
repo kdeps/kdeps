@@ -40,6 +40,34 @@ case "$(uname -s)" in
 esac
 export NULL_PATH
 
+# On Windows, killing a native kdeps.exe leaves the processes it started (the
+# python executors, servers) running: Windows has no process groups for a
+# signal to reach. Those orphans pile up across scenarios on a CI runner. This
+# kill stops each target's whole process tree with taskkill /T first, then
+# calls the builtin; kill -0 (a liveness check) and job specs pass straight
+# through.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        kill() {
+            local a check=0
+            for a in "$@"; do
+                [ "$a" = "-0" ] && check=1
+            done
+            if [ "$check" = 0 ] && command -v taskkill >/dev/null 2>&1; then
+                for a in "$@"; do
+                    case "$a" in
+                        -* | %*) ;;
+                        *[!0-9]*) ;;
+                        *) [ -r "/proc/$a/winpid" ] &&
+                            taskkill //F //T //PID "$(cat "/proc/$a/winpid")" >/dev/null 2>&1 ;;
+                    esac
+                done
+            fi
+            builtin kill "$@"
+        }
+        ;;
+esac
+
 # Convert a bash-side path (e.g. from `mktemp -d`) to the form a native
 # kdeps.exe needs when it's embedded as YAML/JSON file *content* -- not passed
 # as a CLI argument. MSYS bash auto-translates POSIX-style paths in CLI args
