@@ -1110,23 +1110,12 @@ func ancestryChain(key string, byKey map[string]MemoryEntry) map[string]bool {
 	if key == "" {
 		return set
 	}
-	queue := []string{key}
-	for len(queue) > 0 && len(set) < memoryChainMax() {
-		k := queue[0]
-		queue = queue[1:]
-		if set[k] {
-			continue
-		}
+	near := graph.Nearest(key, memoryChainMax(), func(k string) ([]string, bool) {
 		e, ok := byKey[k]
-		if !ok {
-			continue
-		}
+		return e.References, ok
+	})
+	for _, k := range near {
 		set[k] = true
-		for _, p := range e.References {
-			if !set[p] {
-				queue = append(queue, p)
-			}
-		}
 	}
 	return set
 }
