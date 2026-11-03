@@ -19,11 +19,17 @@
 package knowledge
 
 import (
+	kgcommunity "github.com/kdeps/kartographer/community"
 	kgknowledge "github.com/kdeps/kartographer/knowledge"
 )
 
-// Communities groups the graph's nodes with Kartographer's Louvain grouping,
-// weighted by the vault's edge weights, and returns the modularity.
-func Communities(g *Graph) float64 {
-	return kgknowledge.Communities(&g.Graph, edgeWeight)
+// Communities groups the graph's nodes with Kartographer's community method
+// the policy names (community_method), weighted by the vault's edge weights,
+// and returns the modularity. An unknown method is an error.
+func Communities(g *Graph) (float64, error) {
+	detect, err := kgcommunity.Method(policy().CommunityMethod)
+	if err != nil {
+		return 0, err
+	}
+	return kgknowledge.CommunitiesWith(&g.Graph, edgeWeight, detect), nil
 }

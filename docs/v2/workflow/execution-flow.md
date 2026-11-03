@@ -9,7 +9,7 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 1. Parses the workflow and builds a dependency graph from [`requires`](/reference/glossary#requires) fields
 2. Detects cycles (fails fast if any exist)
 3. Finds the [`targetActionId`](/reference/glossary#targetactionid) resource and walks its transitive dependencies
-4. Topologically sorts resources so dependencies run before dependents
+4. Topologically sorts resources so dependencies run before dependents. The order is the same on every run: a resource's `requires` are taken in the order it lists them
 5. Executes resources in order - resources without shared dependencies can run concurrently
 
 ## Execution order

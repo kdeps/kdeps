@@ -19,84 +19,55 @@
 package executor
 
 import (
+	"errors"
 	"fmt"
+	"io"
+
+	"github.com/charmbracelet/log"
+	kggraph "github.com/kdeps/kartographer/graph"
+	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// TopologicalSort returns resources in topological order (dependencies first).
+// dependencies is the graph's edges as kartographer's dependency graph.
+func (g *Graph) dependencies() *kggraph.DependencyGraph {
+	return kggraph.NewDependencyGraph(afero.NewMemMapFs(), log.New(io.Discard), g.Edges)
+}
+
+// order is kartographer's dependency order of roots (every resource when none),
+// as resources. A cycle is the domain's dependency cycle error.
+func (g *Graph) order(roots ...string) ([]*domain.Resource, error) {
+	ids, err := g.dependencies().Order(roots...)
+	if err != nil {
+		var ce *kggraph.CycleError
+		if errors.As(err, &ce) {
+			return nil, domain.NewError(domain.ErrCodeDependencyCycle,
+				fmt.Sprintf("dependency cycle detected involving resource '%s'", ce.Node), nil)
+		}
+		return nil, err
+	}
+	out := make([]*domain.Resource, 0, len(ids))
+	for _, id := range ids {
+		if node, ok := g.Nodes[id]; ok {
+			out = append(out, node.Resource)
+		}
+	}
+	return out, nil
+}
+
+// TopologicalSort returns every resource, dependencies first.
 func (g *Graph) TopologicalSort() ([]*domain.Resource, error) {
 	kdeps_debug.Log("enter: TopologicalSort")
 	if err := g.Build(); err != nil {
 		return nil, err
 	}
-	return g.topologicalSortAllNodes()
+	return g.order()
 }
 
-func (g *Graph) topologicalSortAllNodes() ([]*domain.Resource, error) {
-	visited := make(map[string]bool)
-	var result []*domain.Resource
-	for actionID := range g.Nodes {
-		if visited[actionID] {
-			continue
-		}
-		if err := g.TopologicalSortUtil(actionID, visited, &result); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TopologicalSortUtil performs DFS for topological sort (exported for testing).
-func (g *Graph) TopologicalSortUtil(
-	actionID string,
-	visited map[string]bool,
-	result *[]*domain.Resource,
-) error {
-	kdeps_debug.Log("enter: TopologicalSortUtil")
-	return g.topologicalSortUtilWithStack(actionID, visited, make(map[string]bool), result)
-}
-
-func (g *Graph) topologicalSortUtilWithStack(
-	actionID string,
-	visited map[string]bool,
-	recursionStack map[string]bool,
-	result *[]*domain.Resource,
-) error {
-	kdeps_debug.Log("enter: topologicalSortUtilWithStack")
-	// Check for cycle: if node is in recursion stack, we have a cycle
-	if recursionStack[actionID] {
-		return fmt.Errorf("cycle detected in dependency graph involving resource '%s'", actionID)
-	}
-
-	// If already visited, skip (already processed)
-	if visited[actionID] {
-		return nil
-	}
-
-	// Mark as being processed (add to recursion stack)
-	recursionStack[actionID] = true
-	visited[actionID] = true
-
-	// Visit all dependencies first.
-	for _, dep := range g.Edges[actionID] {
-		if err := g.topologicalSortUtilWithStack(dep, visited, recursionStack, result); err != nil {
-			return err
-		}
-	}
-
-	// Remove from recursion stack (finished processing)
-	delete(recursionStack, actionID)
-
-	// Add current node to result.
-	node := g.Nodes[actionID]
-	*result = append(*result, node.Resource)
-
-	return nil
-}
-
-// GetExecutionOrder returns the execution order for resources based on dependencies.
+// GetExecutionOrder returns the target and the resources it depends on,
+// dependencies first.
 func (g *Graph) GetExecutionOrder(targetActionID string) ([]*domain.Resource, error) {
 	kdeps_debug.Log("enter: GetExecutionOrder")
 	if err := g.Build(); err != nil {
@@ -105,25 +76,5 @@ func (g *Graph) GetExecutionOrder(targetActionID string) ([]*domain.Resource, er
 	if _, exists := g.Nodes[targetActionID]; !exists {
 		return nil, fmt.Errorf("target resource '%s' not found", targetActionID)
 	}
-	return g.topologicalSortSubset(g.executionSubset(targetActionID))
-}
-
-func (g *Graph) executionSubset(targetActionID string) map[string]bool {
-	deps := g.GetTransitiveDependencies(targetActionID)
-	deps[targetActionID] = true
-	return deps
-}
-
-func (g *Graph) topologicalSortSubset(actionIDs map[string]bool) ([]*domain.Resource, error) {
-	visited := make(map[string]bool)
-	var result []*domain.Resource
-	for actionID := range actionIDs {
-		if visited[actionID] {
-			continue
-		}
-		if err := g.TopologicalSortUtil(actionID, visited, &result); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
+	return g.order(targetActionID)
 }
