@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -122,11 +121,23 @@ func knowledgeSpec() assets.Spec {
 			case searchItem:
 				_, err := parseSearchRules(data)
 				return err
+			case promptsItem:
+				_, err := parsePrompts(data)
+				return err
 			}
 			_, err := parseRecallRules(data)
 			return err
 		},
-		Required: []string{recallItem, policyItem, vaultItem, checkItem, notesItem, extractItem, searchItem},
+		Required: []string{
+			recallItem,
+			policyItem,
+			vaultItem,
+			checkItem,
+			notesItem,
+			extractItem,
+			searchItem,
+			promptsItem,
+		},
 	}
 }
 
@@ -200,28 +211,12 @@ func FormatRecall(r Recall, vault string) string {
 	if len(r.Hits) == 0 {
 		return ""
 	}
-	var b strings.Builder
-	b.WriteString(
-		"<knowledge-recall>\nNotes in the knowledge vault related to this request, from its link graph (best first). ",
-	)
-	b.WriteString(
-		"Read only the ones you need with read_file; status lives in the project card, the story in these notes.\n",
-	)
+	type hit struct{ Path, Summary, Chain, Via string }
+	hits := make([]hit, 0, len(r.Hits))
 	for _, h := range r.Hits {
-		fmt.Fprintf(&b, "- %s", filepath.Join(vault, filepath.FromSlash(h.Note)))
-		if h.Summary != "" {
-			fmt.Fprintf(&b, " - %s", h.Summary)
-		}
-		switch {
-		case h.Chain() != "":
-			fmt.Fprintf(&b, " (%s)", h.Chain())
-		case h.Via != "":
-			fmt.Fprintf(&b, " (linked from %s)", h.Via)
-		}
-		b.WriteByte('\n')
+		hits = append(hits, hit{filepath.Join(vault, filepath.FromSlash(h.Note)), h.Summary, h.Chain(), h.Via})
 	}
-	b.WriteString("</knowledge-recall>")
-	return b.String()
+	return Prompt(PromptRecall, map[string]any{"Hits": hits})
 }
 
 //nolint:gochecknoglobals // process-wide cache of loaded graphs
