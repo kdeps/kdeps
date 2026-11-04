@@ -90,6 +90,8 @@ review @notes.txt and summarize the key points
 expands to the file's contents. Any memory id works: pastes (`paste:<id>`),
 entries the model saved with `memory_save`, or ids listed by `/memory`. Tab
 completes memory ids after `@` alongside file paths. The full-screen prompt
+does the same: Tab on an `@` token fills one match, extends a shared prefix,
+or lists the matches. Text before the `@` stays.
 
 ```bash
 # Reuse an earlier paste
