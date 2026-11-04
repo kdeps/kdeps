@@ -433,3 +433,15 @@ func TestPrompt_HistoryKeepsTheLimitAndAllWhenUnlimited(t *testing.T) {
 	m, _ = typed(t, m, keyPress(tea.KeyEnter))
 	assert.Equal(t, []string{"b", "c", "d"}, m.history, "zero keeps every prompt")
 }
+
+func TestPromptOrigin_KeepsTheCursorInTheWindow(t *testing.T) {
+	assert.Equal(t, 0, promptOrigin(20, 4, 30), "a short line stays put")
+	assert.Equal(t, 0, promptOrigin(200, 10, 40), "a cursor in the first window stays put")
+	origin := promptOrigin(200, 0, 40)
+	assert.Equal(t, 0, origin, "the start of a long line stays visible")
+	origin = promptOrigin(220, 200, 40)
+	assert.Greater(t, origin, 0)
+	assert.GreaterOrEqual(t, 200, origin)
+	assert.Less(t, 200, origin+40, "the cursor bar stays inside the window")
+	assert.LessOrEqual(t, origin, 220-40, "the window does not run past the line")
+}
