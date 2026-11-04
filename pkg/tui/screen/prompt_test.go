@@ -413,6 +413,24 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	assert.Contains(t, view, "shift+left/right", "the help lists selection")
 }
 
+func TestEsc_RestoresTheUnsentPromptWhileRecalling(t *testing.T) {
+	m := newPromptScreen(t)
+	m = m.UseHistory([]string{"older", "newer"}, nil)
+	m = typeText(t, m, "draft")
+	m, _ = typed(t, m, ctrl('p'))
+	m, _ = typed(t, m, ctrl('p'))
+	assert.Equal(t, "older", m.Prompt())
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "draft", m.Prompt(), "esc puts the unsent text back")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "draft", m.Prompt(), "esc leaves the prompt when not recalling")
+
+	m, _ = typed(t, m, ctrl('p'))
+	assert.Equal(t, "newer", m.Prompt(), "recall still starts from the newest line")
+}
+
 func TestEdit_OnARecalledLineKeepsTheEdit(t *testing.T) {
 	recall := func() Model {
 		m := newPromptScreen(t)
