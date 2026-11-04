@@ -250,6 +250,52 @@ func TestCopy_VisibleMainWhenNothingIsSelected(t *testing.T) {
 	assert.Equal(t, "hello", m.Prompt())
 }
 
+func TestFold_CtrlSpaceHidesTheRestOfTheOutput(t *testing.T) {
+	fold := tea.KeyPressMsg{Code: ' ', Mod: tea.ModCtrl, Text: " "}
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(30)})
+	m, _ = typed(t, m, OutputMsg{Text: "AAA\nBBB\nCCC"})
+	m = typeText(t, m, "keep")
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "AAA")
+	assert.Contains(t, view, "CCC")
+
+	m, _ = typed(t, m, fold)
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "AAA", "the first line stays")
+	assert.NotContains(t, view, "BBB")
+	assert.NotContains(t, view, "CCC")
+	assert.Contains(t, view, "row 29")
+	assert.Equal(t, "keep", m.Prompt(), "ctrl+space does not type a space")
+
+	m, _ = typed(t, m, fold)
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "BBB")
+	assert.Contains(t, view, "CCC", "the same chord opens the output")
+
+	m, _ = typed(t, m, OutputMsg{Text: "ONLY"})
+	m, _ = typed(t, m, fold)
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "ONLY", "a one-line output does not fold")
+	assert.Contains(t, view, "CCC")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: ' ', Text: " "})
+	assert.Equal(t, "keep ", m.Prompt(), "space still types")
+}
+
+func TestFold_TogglesTheOutputAtTheBottom(t *testing.T) {
+	fold := tea.KeyPressMsg{Code: ' ', Mod: tea.ModCtrl}
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(40)})
+	m, _ = typed(t, m, OutputMsg{Text: "AAA\nBBB\nCCC"})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	m, _ = typed(t, m, fold)
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "row 0", "the older output folds to its first line")
+	assert.NotContains(t, view, "row 10")
+	assert.Contains(t, view, "CCC", "the output below the window stays whole")
+}
+
 func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 	var f feed.Feed
 	for i := range 100 {
