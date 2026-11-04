@@ -13,6 +13,7 @@ const helpText = `keys
   up / down      scroll the main pane
   pgup / pgdown  scroll a page
   end            jump to the newest output
+  home           jump to the oldest output
   tab            complete a slash command, else switch focus between panes
   ctrl+f         show or hide the feed
   ctrl+p/ctrl+n  recall earlier prompts

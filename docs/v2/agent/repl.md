@@ -58,6 +58,10 @@ The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to
 
 `Ctrl+S` is intercepted by some terminals or multiplexers for flow control (XON/XOFF) before it reaches the REPL; if it does nothing for you, that is a terminal setting, not kdeps - `stty -ixon` in your shell config re-enables it.
 
+## Full-screen scrolling
+
+`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. Home jumps to the oldest row and End returns to the newest. The offset stops at either end, so one PgDown from the top moves forward.
+
 ## Multimodal input
 
 Attach images and other binary files to your prompt using `@`:
