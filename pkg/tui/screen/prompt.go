@@ -140,17 +140,43 @@ func (m Model) deleteWordBefore() Model {
 	return m
 }
 
-// recordPrompt adds a submitted line to the history. A line equal to the
-// previous one is not repeated.
-func (m Model) recordPrompt(line string) Model {
-	if n := len(m.history); n == 0 || m.history[n-1] != line {
-		m.history = append(m.history, line)
-		if extra := len(m.history) - m.HistoryMax; m.HistoryMax > 0 && extra > 0 {
-			m.history = m.history[extra:]
+// UseHistory installs earlier prompts, oldest first, and remembers each new
+// submitted line. HistoryMax drops the oldest (0 keeps all). Blank lines and
+// a line equal to the one before it are left out.
+func (m Model) UseHistory(lines []string, remember func(string)) Model {
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
 		}
+		if n := len(kept); n > 0 && kept[n-1] == line {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if m.HistoryMax > 0 && len(kept) > m.HistoryMax {
+		kept = kept[len(kept)-m.HistoryMax:]
+	}
+	m.history = kept
+	m.histAt = len(m.history)
+	m.remember = remember
+	return m
+}
+
+// recordPrompt adds a submitted line to the history. A line equal to the
+// previous one is not repeated. The bool reports whether the line was added.
+func (m Model) recordPrompt(line string) (Model, bool) {
+	if n := len(m.history); n > 0 && m.history[n-1] == line {
+		m.histAt = n
+		return m, false
+	}
+	m.history = append(m.history, line)
+	if extra := len(m.history) - m.HistoryMax; m.HistoryMax > 0 && extra > 0 {
+		m.history = m.history[extra:]
 	}
 	m.histAt = len(m.history)
-	return m
+	return m, true
 }
 
 // historyBack recalls the previous submitted line. The first step back keeps
@@ -185,13 +211,14 @@ func (m Model) setPrompt(text string) Model {
 	return m
 }
 
-// submitPrompt returns the trimmed prompt and clears the editor. The line is
-// recorded in the history when it is not empty.
-func (m Model) submitPrompt() (Model, string) {
+// submitPrompt returns the trimmed prompt and clears the editor. The bool
+// reports that the line was added to the history.
+func (m Model) submitPrompt() (Model, string, bool) {
 	line := strings.TrimSpace(string(m.input))
 	m = m.setPrompt("")
-	if line != "" {
-		m = m.recordPrompt(line)
+	if line == "" {
+		return m, "", false
 	}
-	return m, line
+	m, recorded := m.recordPrompt(line)
+	return m, line, recorded
 }

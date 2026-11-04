@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -138,6 +139,10 @@ const sessionPillIDLen = 8
 func newScreenModel(f *feed.Feed) screen.Model {
 	m := screen.New(f)
 	m.HistoryMax = promptHistoryLimit()
+	path := historyPath()
+	m = m.UseHistory(loadPromptHistory(path), func(line string) {
+		appendPromptHistory(path, line)
+	})
 	m.Model = screenModelLabel()
 	if wd, wdErr := os.Getwd(); wdErr == nil {
 		m.Title = filepath.Base(wd)
@@ -147,6 +152,51 @@ func newScreenModel(f *feed.Feed) screen.Model {
 
 // defaultPromptHistory is the prompt recall depth when the event is missing.
 const defaultPromptHistory = 100
+
+// promptHistoryScan is the scanner's starting buffer. promptHistoryMax is
+// the longest history line it will accept.
+const (
+	promptHistoryScan = 64 << 10
+	promptHistoryMax  = 1 << 20
+)
+
+// loadPromptHistory reads the line editor's history file. Readline stores one
+// prompt per line. A missing file is an empty history.
+func loadPromptHistory(path string) []string {
+	if path == "" {
+		return nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, promptHistoryScan), promptHistoryMax)
+	var lines []string
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+	}
+	return lines
+}
+
+// appendPromptHistory adds one prompt to the line editor's history file.
+// A line that contains a newline would split into two readline entries, so
+// it is not written.
+func appendPromptHistory(path, line string) {
+	if path == "" || strings.TrimSpace(line) == "" || strings.ContainsAny(line, "\r\n") {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = io.WriteString(f, line+"\n")
+}
 
 // promptHistoryLimit is how many prompts the full-screen view recalls: the
 // prompt-history-limit event's items. A disabled event keeps every prompt (0).

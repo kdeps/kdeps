@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui"
@@ -55,12 +56,16 @@ type frameCache struct {
 }
 
 // frameKey is everything a frame depends on, except an open overlay (which
-// has no key and is never cached).
+// has no key and is never cached). profile is the terminal color profile:
+// a frame drawn for one profile is not served for another. model, title
+// and pills are the header, so a chip change is not served from the last frame.
 type frameKey struct {
 	width, height, mainOff, feedOff int
 	mainVer, feedVer                int
 	feedOpen, focusFeed             bool
 	status, prompt                  string
+	model, title, pills             string
+	profile                         colorprofile.Profile
 }
 
 type Model struct {
@@ -90,7 +95,10 @@ type Model struct {
 	OnSubmit func(line string)
 	// Complete lists the slash commands that start with a prefix. Tab completes
 	// a slash command when the prompt starts with "/". Nil disables completion.
-	Complete    func(prefix string) []string
+	Complete func(prefix string) []string
+	// remember runs off the UI loop when a submitted line is new.
+	remember    func(string)
+	profile     colorprofile.Profile
 	overlay     Overlay
 	overlayDone func(Overlay) tea.Cmd
 }
@@ -132,6 +140,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Nothing to change: the update itself makes the view draw again.
 	case PillMsg:
 		m.pills = withPill(m.pills, v.Name, v.Value)
+	case tea.ColorProfileMsg:
+		m.profile = v.Profile
 	case tea.MouseWheelMsg:
 		return m.wheel(v), nil
 	case tea.KeyPressMsg:
@@ -212,25 +222,37 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.mainOff = 0
 		}
 	case "enter":
-		var line string
-		m, line = m.submitPrompt()
-		if line != "" {
-			// The message area shows what the user asked, before the reply.
-			m = m.appendOutput(userLine(line))
-		}
-		if line != "" && m.OnSubmit != nil {
-			submit := m.OnSubmit
-			return m, func() tea.Msg {
-				submit(line)
-				return nil
-			}
-		}
+		return m.submitLine()
 	default:
 		if v.Text != "" {
 			m = m.insertText(v.Text)
 		}
 	}
 	return m, nil
+}
+
+// submitLine records the prompt, shows it in the message area, and runs the
+// submit and history callbacks off the UI loop.
+func (m Model) submitLine() (tea.Model, tea.Cmd) {
+	line, recorded := "", false
+	m, line, recorded = m.submitPrompt()
+	if line == "" {
+		return m, nil
+	}
+	m = m.appendOutput(userLine(line))
+	submit, remember := m.OnSubmit, m.remember
+	if submit == nil && (!recorded || remember == nil) {
+		return m, nil
+	}
+	return m, func() tea.Msg {
+		if recorded && remember != nil {
+			remember(line)
+		}
+		if submit != nil {
+			submit(line)
+		}
+		return nil
+	}
 }
 
 // appendOutput adds text to the main pane, one row per line.
@@ -296,6 +318,7 @@ func (m Model) frameKey() frameKey {
 		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
 		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
 		status: m.Status, prompt: m.promptText(),
+		model: m.Model, title: m.Title, pills: m.pillsKey(), profile: m.profile,
 	}
 }
 
@@ -364,6 +387,17 @@ func withPill(pills map[string]string, name, value string) map[string]string {
 	}
 	out[name] = value
 	return out
+}
+
+// pillsKey is the pill values in display order, so the frame key stays stable.
+func (m Model) pillsKey() string {
+	var parts []string
+	for _, name := range []string{"backend", "session", "tool"} {
+		if v := m.pills[name]; v != "" {
+			parts = append(parts, name+"="+v)
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // pillsText is the pills in one chip: the values that are set, in the order

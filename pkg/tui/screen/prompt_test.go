@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 )
@@ -197,6 +198,30 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m.Complete = completeFrom("/model", "/session")
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
 	assert.Contains(t, ansi.Strip(m.render()), "/model  /session", "the help lists the slash commands")
+}
+
+func TestPrompt_SharedHistoryRecallsAndRemembers(t *testing.T) {
+	m := newPromptScreen(t)
+	m.HistoryMax = 1
+	var saved []string
+	m = m.UseHistory([]string{"  drop  ", "keep", "", "keep"}, func(line string) {
+		saved = append(saved, line)
+	})
+	m, _ = typed(t, m, ctrl('p'))
+	assert.Equal(t, "keep", m.Prompt(), "a repeated neighbor is stored once")
+	m, _ = typed(t, m, ctrl('p'))
+	assert.Equal(t, "keep", m.Prompt(), "the older line was past the limit")
+
+	m = typeText(t, m.setPrompt(""), "fresh")
+	m, cmd := typed(t, m, keyPress(tea.KeyEnter))
+	require.NotNil(t, cmd)
+	cmd()
+	assert.Equal(t, []string{"fresh"}, saved)
+
+	m = typeText(t, m, "fresh")
+	_, cmd = typed(t, m, keyPress(tea.KeyEnter))
+	assert.Nil(t, cmd, "a repeated line is not written again")
+	assert.Equal(t, []string{"fresh"}, saved)
 }
 
 func TestPrompt_HistoryKeepsTheLimitAndAllWhenUnlimited(t *testing.T) {
