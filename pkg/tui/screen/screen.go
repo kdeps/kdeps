@@ -205,9 +205,17 @@ func (m Model) scroll(delta int) Model {
 	return m.clampScroll()
 }
 
-// itemKey scrolls the main pane by one output. Shift+Up and Shift+Down are
-// matched on the modifier, so a shifted letter is still typed.
-func (m Model) itemKey(v tea.KeyPressMsg) (Model, bool) {
+// arrowKey handles modified Up and Down. Ctrl+Up and Ctrl+Down scroll half a
+// page. Shift+Up and Shift+Down scroll the main pane by one output. Both are
+// matched on the modifier, so a shifted or ctrl letter still types.
+func (m Model) arrowKey(v tea.KeyPressMsg) (Model, bool) {
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
+		delta := m.halfRows()
+		if v.Code == tea.KeyDown {
+			delta = -delta
+		}
+		return m.scroll(delta), true
+	}
 	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) {
 		return m, false
 	}
@@ -440,16 +448,8 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
-	if next, handled := m.itemKey(v); handled {
+	if next, handled := m.arrowKey(v); handled {
 		return next, nil
-	}
-	// Ctrl+Up and Ctrl+Down scroll half a page. u and d still type.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
-		delta := m.halfRows()
-		if v.Code == tea.KeyDown {
-			delta = -delta
-		}
-		return m.scroll(delta), nil
 	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
