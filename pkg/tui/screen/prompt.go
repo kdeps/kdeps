@@ -79,22 +79,24 @@ func wordRight(input []rune, cursor int) int {
 func (m Model) editKey(name string) (Model, bool) {
 	switch name {
 	case "ctrl+u":
+		before := string(m.input)
 		if m.hasSel() {
-			return m.deleteSel(true), true
+			return m.deleteSel(true).keepEdit(before), true
 		}
 		m = m.killText(m.input[:m.cursor], true)
 		m.input = m.input[m.cursor:]
 		m.cursor = 0
 		m.anchor = 0
-		return m, true
+		return m.keepEdit(before), true
 	case "ctrl+k":
+		before := string(m.input)
 		if m.hasSel() {
-			return m.deleteSel(true), true
+			return m.deleteSel(true).keepEdit(before), true
 		}
 		m = m.killText(m.input[m.cursor:], false)
 		m.input = m.input[:m.cursor]
 		m.anchor = m.cursor
-		return m, true
+		return m.keepEdit(before), true
 	case "ctrl+w":
 		return m.deleteWordBefore(), true
 	case "left":
@@ -219,6 +221,7 @@ func (m Model) completeCommand() (Model, bool) {
 		return m, false
 	}
 	m.killing = false
+	before := string(m.input)
 	word := string(m.input[:m.cursor])
 	if strings.ContainsRune(word, ' ') {
 		return m, true
@@ -241,7 +244,7 @@ func (m Model) completeCommand() (Model, bool) {
 			m = m.appendOutput(strings.Join(matches, "  "))
 		}
 	}
-	return m, true
+	return m.keepEdit(before), true
 }
 
 // replaceWord replaces the text before the cursor with text.
@@ -262,6 +265,10 @@ func (m Model) replaceWord(text string) Model {
 // Ctrl+Shift+X cuts it into the yank buffer. With no selection, Ctrl+Shift+C
 // copies the visible main pane instead.
 func (m Model) selectKey(v tea.KeyPressMsg) (Model, bool) {
+	// Esc clears a selection and leaves the prompt text.
+	if !v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyEsc || v.String() == "esc" || v.String() == "alt+esc") {
+		return m.clearSel(), true
+	}
 	if v.Mod.Contains(tea.ModCtrl) && v.Mod.Contains(tea.ModShift) {
 		switch {
 		case v.Code == 'a' || v.String() == "ctrl+shift+a":
@@ -328,6 +335,14 @@ func (m Model) hasSel() bool {
 	return lo != hi
 }
 
+// clearSel drops the selection and leaves the prompt text where it is.
+func (m Model) clearSel() Model {
+	m.anchor = m.cursor
+	m.selecting = false
+	m.killing = false
+	return m
+}
+
 // selectAll selects the whole prompt.
 func (m Model) selectAll() Model {
 	if len(m.input) == 0 {
@@ -352,7 +367,8 @@ func (m Model) copySel() Model {
 
 // cutSel removes the selection and stores it for Ctrl+Y.
 func (m Model) cutSel() Model {
-	return m.deleteSel(true)
+	before := string(m.input)
+	return m.deleteSel(true).keepEdit(before)
 }
 
 // deleteSel removes the selection. kill stores it for Ctrl+Y. Backspace does not.
@@ -402,6 +418,7 @@ func (m Model) promptText() string {
 // insertText puts text at the cursor and moves the cursor past it.
 // A selection is replaced, and that removal is not a kill.
 func (m Model) insertText(text string) Model {
+	before := string(m.input)
 	if m.hasSel() {
 		m = m.deleteSel(false)
 	}
@@ -410,7 +427,7 @@ func (m Model) insertText(text string) Model {
 	m.cursor += len(runes)
 	m.anchor = m.cursor
 	m.killing = false
-	return m
+	return m.keepEdit(before)
 }
 
 // killText stores chunk so Ctrl+Y can put it back. A kill that follows
@@ -444,52 +461,56 @@ func (m Model) yank() Model {
 
 // deleteBefore removes the rune before the cursor.
 func (m Model) deleteBefore() Model {
+	before := string(m.input)
 	if m.hasSel() {
-		return m.deleteSel(false)
+		return m.deleteSel(false).keepEdit(before)
 	}
 	if m.cursor > 0 {
 		m.input = append(m.input[:m.cursor-1], m.input[m.cursor:]...)
 		m.cursor--
 		m.anchor = m.cursor
 	}
-	return m
+	return m.keepEdit(before)
 }
 
 // deleteAfter removes the rune under the cursor.
 func (m Model) deleteAfter() Model {
+	before := string(m.input)
 	if m.hasSel() {
-		return m.deleteSel(false)
+		return m.deleteSel(false).keepEdit(before)
 	}
 	if m.cursor < len(m.input) {
 		m.input = append(m.input[:m.cursor], m.input[m.cursor+1:]...)
 		m.anchor = m.cursor
 	}
-	return m
+	return m.keepEdit(before)
 }
 
 // deleteWordBefore removes the word before the cursor, and the spaces before it.
 func (m Model) deleteWordBefore() Model {
+	before := string(m.input)
 	if m.hasSel() {
-		return m.deleteSel(true)
+		return m.deleteSel(true).keepEdit(before)
 	}
 	start := wordLeft(m.input, m.cursor)
 	m = m.killText(m.input[start:m.cursor], true)
 	m.input = append(m.input[:start], m.input[m.cursor:]...)
 	m.cursor = start
 	m.anchor = m.cursor
-	return m
+	return m.keepEdit(before)
 }
 
 // deleteWordAfter removes the word after the cursor, and the spaces before it.
 func (m Model) deleteWordAfter() Model {
+	before := string(m.input)
 	if m.hasSel() {
-		return m.deleteSel(true)
+		return m.deleteSel(true).keepEdit(before)
 	}
 	end := wordRight(m.input, m.cursor)
 	m = m.killText(m.input[m.cursor:end], false)
 	m.input = append(m.input[:m.cursor], m.input[end:]...)
 	m.anchor = m.cursor
-	return m
+	return m.keepEdit(before)
 }
 
 // UseHistory installs earlier prompts, oldest first, and remembers each new
@@ -529,6 +550,17 @@ func (m Model) recordPrompt(line string) (Model, bool) {
 	}
 	m.histAt = len(m.history)
 	return m, true
+}
+
+// keepEdit leaves history when a recalled line changes. The edited text
+// becomes the unsent draft, so the next recall step does not replace it.
+func (m Model) keepEdit(before string) Model {
+	if m.histAt >= len(m.history) || string(m.input) == before {
+		return m
+	}
+	m.histDraft = string(m.input)
+	m.histAt = len(m.history)
+	return m
 }
 
 // historyBack recalls the previous submitted line. The first step back keeps
