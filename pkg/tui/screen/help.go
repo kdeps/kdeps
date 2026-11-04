@@ -44,7 +44,8 @@ func (h helpOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc", "enter", "q", "ctrl+g":
 			h.done = true
 		default:
-			if k.Code == 'g' && k.Mod.Contains(tea.ModCtrl) && !k.Mod.Contains(tea.ModAlt) && !k.Mod.Contains(tea.ModShift) {
+			if k.Code == 'g' && k.Mod.Contains(tea.ModCtrl) &&
+				!k.Mod.Contains(tea.ModAlt) && !k.Mod.Contains(tea.ModShift) {
 				h.done = true
 			}
 		}

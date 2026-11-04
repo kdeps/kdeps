@@ -482,8 +482,7 @@ func (m Model) openHelp() Model {
 
 // commandKey handles ctrl chords that must not type their letter.
 // Ctrl+G opens the key list, Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O
-// opens the editor, and
-// Ctrl+Z suspends the view.
+// opens the editor, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
