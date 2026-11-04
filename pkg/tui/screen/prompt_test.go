@@ -16,6 +16,10 @@ func keyPress(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code} }
 
 func ctrl(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code, Mod: tea.ModCtrl} }
 
+func alt(code rune) tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: code, Mod: tea.ModAlt, Text: string(code)}
+}
+
 func typeText(t *testing.T, m Model, s string) Model {
 	t.Helper()
 	for _, r := range s {
@@ -61,6 +65,26 @@ func TestPrompt_KillLineAndWord(t *testing.T) {
 	assert.Equal(t, "y", m.Prompt(), "ctrl+u removes everything before the cursor")
 	m, _ = typed(t, m, ctrl('k'))
 	assert.Equal(t, "", m.Prompt(), "ctrl+k removes everything after the cursor")
+}
+
+func TestPrompt_WordMotion(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "one two  three")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl})
+	assert.Equal(t, len("one two  "), m.cursor, "ctrl+left lands on the start of the last word")
+	m, _ = typed(t, m, alt('b'))
+	assert.Equal(t, len("one "), m.cursor, "alt+b lands on the previous word")
+	assert.Equal(t, "one two  three", m.Prompt(), "alt+b does not type the letter")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModCtrl})
+	assert.Equal(t, len("one two"), m.cursor, "ctrl+right lands at the end of the word")
+	m, _ = typed(t, m, alt('f'))
+	assert.Equal(t, len("one two  three"), m.cursor, "alt+f skips the spaces and the next word")
+
+	m.cursor = len("one two")
+	m, _ = typed(t, m, alt('d'))
+	assert.Equal(t, "one two", m.Prompt(), "alt+d deletes the spaces and the next word")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyBackspace, Mod: tea.ModAlt})
+	assert.Equal(t, "one ", m.Prompt(), "alt+backspace deletes the word before the cursor")
 }
 
 func TestPrompt_HistoryRecallsAndRestoresTheDraft(t *testing.T) {
