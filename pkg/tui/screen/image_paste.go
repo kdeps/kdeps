@@ -24,6 +24,7 @@ const (
 
 // imageByteReads are tools that write image bytes to stdout. A missing tool
 // is skipped. The first bytes that are an image are saved.
+//
 //nolint:gochecknoglobals // clipboard tools; tests swap them for scripts
 var imageByteReads = [][]string{
 	{"pngpaste", "-"},
@@ -33,6 +34,7 @@ var imageByteReads = [][]string{
 
 // imagePathReads are tools that write clipboard text. The first text is used.
 // It is pasted only when it is a path to an image file.
+//
 //nolint:gochecknoglobals // clipboard tools; tests swap them for scripts
 var imagePathReads = [][]string{
 	{"pbpaste"},
