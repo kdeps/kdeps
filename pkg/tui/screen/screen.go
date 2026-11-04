@@ -311,6 +311,9 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if v.Text == "?" && len(m.input) == 0 {
 		return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil), nil
 	}
+	if next, handled := m.wordKey(v); handled {
+		return next, nil
+	}
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}

@@ -2,7 +2,77 @@ package screen
 
 import (
 	"strings"
+
+	tea "charm.land/bubbletea/v2"
 )
+
+// wordKey moves or deletes by word. Alt+letter is matched on the modifier,
+// because the key's text is the letter and would otherwise be typed.
+func (m Model) wordKey(v tea.KeyPressMsg) (Model, bool) {
+	switch {
+	case wordBack(v):
+		m.cursor = wordLeft(m.input, m.cursor)
+	case wordForward(v):
+		m.cursor = wordRight(m.input, m.cursor)
+	case wordDeleteBack(v):
+		m = m.deleteWordBefore()
+	case wordDeleteForward(v):
+		m = m.deleteWordAfter()
+	default:
+		return m, false
+	}
+	return m, true
+}
+
+func wordBack(v tea.KeyPressMsg) bool {
+	if v.Code == tea.KeyLeft && (v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt)) {
+		return true
+	}
+	return v.Mod.Contains(tea.ModAlt) && v.Code == 'b'
+}
+
+func wordForward(v tea.KeyPressMsg) bool {
+	if v.Code == tea.KeyRight && (v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt)) {
+		return true
+	}
+	return v.Mod.Contains(tea.ModAlt) && v.Code == 'f'
+}
+
+func wordDeleteBack(v tea.KeyPressMsg) bool {
+	return v.Code == tea.KeyBackspace && (v.Mod.Contains(tea.ModAlt) || v.Mod.Contains(tea.ModCtrl))
+}
+
+func wordDeleteForward(v tea.KeyPressMsg) bool {
+	if v.Code == tea.KeyDelete && v.Mod.Contains(tea.ModCtrl) {
+		return true
+	}
+	return v.Mod.Contains(tea.ModAlt) && v.Code == 'd'
+}
+
+// wordLeft is the cursor after moving to the start of the previous word.
+// A word is a run of non-spaces, the same split Ctrl+W uses.
+func wordLeft(input []rune, cursor int) int {
+	i := cursor
+	for i > 0 && input[i-1] == ' ' {
+		i--
+	}
+	for i > 0 && input[i-1] != ' ' {
+		i--
+	}
+	return i
+}
+
+// wordRight is the cursor after moving to the end of the next word.
+func wordRight(input []rune, cursor int) int {
+	i := cursor
+	for i < len(input) && input[i] == ' ' {
+		i++
+	}
+	for i < len(input) && input[i] != ' ' {
+		i++
+	}
+	return i
+}
 
 // editKey applies a prompt editing key (cursor, delete, kill, history). It
 // reports false for keys that are not editing keys.
@@ -128,15 +198,16 @@ func (m Model) deleteAfter() Model {
 
 // deleteWordBefore removes the word before the cursor, and the spaces before it.
 func (m Model) deleteWordBefore() Model {
-	start := m.cursor
-	for start > 0 && m.input[start-1] == ' ' {
-		start--
-	}
-	for start > 0 && m.input[start-1] != ' ' {
-		start--
-	}
+	start := wordLeft(m.input, m.cursor)
 	m.input = append(m.input[:start], m.input[m.cursor:]...)
 	m.cursor = start
+	return m
+}
+
+// deleteWordAfter removes the word after the cursor, and the spaces before it.
+func (m Model) deleteWordAfter() Model {
+	end := wordRight(m.input, m.cursor)
+	m.input = append(m.input[:m.cursor], m.input[end:]...)
 	return m
 }
 
