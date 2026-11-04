@@ -50,6 +50,9 @@ const layoutBottomRows = 6
 // wheelStep is how many rows one mouse-wheel notch scrolls.
 const wheelStep = 3
 
+// halfPageDivisor splits a page scroll in two.
+const halfPageDivisor = 2
+
 // Model is the full-screen view.
 // frameCache holds the last drawn frame. The model copies share it, so a
 // frame is reused until the key below changes.
@@ -175,7 +178,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !v.ok {
 			return m, nil
 		}
-		return m.setPrompt(v.text), nil
+		before := string(m.input)
+		return m.setPrompt(v.text).keepEdit(before), nil
 	}
 	return m, nil
 }
@@ -183,6 +187,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // pageRows is how many rows a page key scrolls: the height of the boxes.
 func (m Model) pageRows() int {
 	return max(m.height-layoutBottomRows, 1)
+}
+
+// halfRows is half a page, and at least one row, so the move keeps some of
+// the rows that were already on screen.
+func (m Model) halfRows() int {
+	return max(m.pageRows()/halfPageDivisor, 1)
 }
 
 // scroll moves the focused box by delta rows (positive is up, into history).
@@ -364,6 +374,14 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
+	// Ctrl+Up and Ctrl+Down scroll half a page. u and d still type.
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
+		delta := m.halfRows()
+		if v.Code == tea.KeyDown {
+			delta = -delta
+		}
+		return m.scroll(delta), nil
+	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
 	}
@@ -390,6 +408,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.scroll(-m.pageRows()), nil
 	case "home":
 		return m.jumpOldest(), nil
+	case "ctrl+end":
+		// End follows whichever pane is focused. Ctrl+End always follows
+		// the main pane, including while the feed has the keys.
+		m.mainOff = 0
+		return m, nil
 	case "end":
 		if m.focusFeed {
 			m.feedOff = 0
@@ -455,7 +478,8 @@ func (m Model) appendOutput(text string) Model {
 }
 
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+O opens the editor, Ctrl+Shift+V pastes, and Ctrl+Z suspends.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, Ctrl+Shift+V
+// pastes, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -463,6 +487,15 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	switch {
 	case v.Code == 'y' || v.String() == "ctrl+y":
 		return m.yank(), nil, true
+	case (v.Code == 'd' || v.String() == "ctrl+d") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		// Ctrl+D deletes the character under the cursor. An empty prompt
+		// quits, the same way the line editor treats end of input.
+		if len(m.input) == 0 {
+			return m, tea.Quit, true
+		}
+		m = m.deleteAfter()
+		m.killing = false
+		return m, nil, true
 	case v.Code == 'o' || v.String() == "ctrl+o":
 		return m, m.openEditor(), true
 	case pasteChord(v):
