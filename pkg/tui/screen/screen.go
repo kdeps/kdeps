@@ -350,14 +350,8 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if v.Text == "?" && len(m.input) == 0 {
 		return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil), nil
 	}
-	// Match the modifier before the key text. A ctrl+y whose text is "y"
-	// would otherwise be typed.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'y' || v.String() == "ctrl+y") {
-		return m.yank(), nil
-	}
-	// ctrl+o would otherwise type o. Saving replaces the prompt and does not send it.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'o' || v.String() == "ctrl+o") {
-		return m, m.openEditor()
+	if next, cmd, handled := m.commandKey(v); handled {
+		return next, cmd
 	}
 	if next, handled := m.selectKey(v); handled {
 		return next, nil
@@ -456,6 +450,24 @@ func (m Model) appendOutput(text string) Model {
 		m.mainOff += after - before
 	}
 	return m.clampScroll()
+}
+
+// commandKey handles ctrl chords that must not type their letter.
+// Ctrl+Y yanks, Ctrl+O opens the editor, and Ctrl+Z suspends the view.
+func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
+	if !v.Mod.Contains(tea.ModCtrl) {
+		return m, nil, false
+	}
+	switch {
+	case v.Code == 'y' || v.String() == "ctrl+y":
+		return m.yank(), nil, true
+	case v.Code == 'o' || v.String() == "ctrl+o":
+		return m, m.openEditor(), true
+	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		return m, tea.Suspend, true
+	default:
+		return m, nil, false
+	}
 }
 
 // foldKey toggles the output at the bottom of the main pane. Space still types.
