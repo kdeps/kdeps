@@ -307,6 +307,19 @@ func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.render()), "step 99", "the feed scrolled, not the main pane")
 }
 
+func TestSuspend_CtrlZLeavesThePrompt(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m = typeText(t, m, "keep")
+	m, cmd := typed(t, m, tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl, Text: "z"})
+	assert.Equal(t, "keep", m.Prompt(), "ctrl+z does not type")
+	require.NotNil(t, cmd)
+	_, ok := cmd().(tea.SuspendMsg)
+	assert.True(t, ok, "ctrl+z suspends the view")
+	m, cmd = typed(t, m, tea.KeyPressMsg{Code: 'z', Text: "z"})
+	assert.Equal(t, "keepz", m.Prompt())
+	assert.Nil(t, cmd)
+}
+
 func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
 	var f feed.Feed
 	for i := range 100 {
