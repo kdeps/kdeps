@@ -373,9 +373,6 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
-	if next, handled := m.pillKey(v); handled {
-		return next, nil
-	}
 	// Ctrl+Up and Ctrl+Down scroll half a page. u and d still type.
 	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
 		delta := m.halfRows()
@@ -480,8 +477,8 @@ func (m Model) appendOutput(text string) Model {
 }
 
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, and
-// Ctrl+Z suspends the view.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, Ctrl+T
+// toggles the header pills, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -502,6 +499,10 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		return m, m.openEditor(), true
 	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
 		return m, tea.Suspend, true
+	case (v.Code == 't' || v.String() == "ctrl+t") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		// Ctrl+T hides or shows the header pills. t still types.
+		m.pillsOff = !m.pillsOff
+		return m, nil, true
 	default:
 		return m, nil, false
 	}
@@ -792,18 +793,6 @@ func (m Model) pillsKey() string {
 		}
 	}
 	return strings.Join(parts, "\n")
-}
-
-// pillKey hides or shows the header pills. t still types.
-func (m Model) pillKey(v tea.KeyPressMsg) (Model, bool) {
-	if !v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) || v.Mod.Contains(tea.ModShift) {
-		return m, false
-	}
-	if v.Code != 't' && v.String() != "ctrl+t" {
-		return m, false
-	}
-	m.pillsOff = !m.pillsOff
-	return m, true
 }
 
 // pillsText is the pills in one chip: the values that are set, in the order
