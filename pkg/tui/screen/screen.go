@@ -35,6 +35,9 @@ type PillMsg struct{ Name, Value string }
 // maxMainLines bounds the main pane's history.
 const maxMainLines = 2000
 
+// foldMinLines is the shortest output that can fold. A one-line output stays.
+const foldMinLines = 2
+
 // feedBorder is the rows the boxes' rounded borders take on each axis.
 const feedBorder = 2
 
@@ -75,10 +78,11 @@ type Model struct {
 	width, height int
 	feedOpen      bool
 	main          []string
-	mainOff       int   // rows scrolled up from the newest main line
-	itemEnds      []int // exclusive end index in main after each output
-	feedOff       int   // rows scrolled up from the newest feed row
-	focusFeed     bool  // arrow keys scroll the feed instead of the main pane
+	mainOff       int    // rows scrolled up from the newest main line
+	outEnds       []int  // exclusive end index in main after each output
+	outFolded     []bool // a folded output shows its first line only
+	feedOff       int    // rows scrolled up from the newest feed row
+	focusFeed     bool   // arrow keys scroll the feed instead of the main pane
 	Status        string
 	// Title is shown in the header row, after the product name (for example the folder).
 	Title string
@@ -89,6 +93,8 @@ type Model struct {
 	pills     map[string]string
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
+	anchor    int      // the other end of a selection; equal to cursor when none
+	selecting bool     // a left-button drag in the prompt is extending the selection
 	killed    []rune   // text the last kill removed; ctrl+y inserts it
 	killing   bool     // the previous key was a kill, so the next kill joins it
 	history   []string // submitted lines, oldest first
@@ -154,6 +160,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.wheel(v), nil
 	case tea.MouseClickMsg:
 		return m.click(v), nil
+	case tea.MouseMotionMsg:
+		return m.drag(tea.Mouse(v)), nil
+	case tea.MouseReleaseMsg:
+		m.selecting = false
 	case tea.KeyPressMsg:
 		return m.key(v)
 	case tea.PasteMsg:
@@ -163,7 +173,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !v.ok {
 			return m, nil
 		}
-		return m.setPrompt(v.text), nil
+		before := string(m.input)
+		return m.setPrompt(v.text).keepEdit(before), nil
 	}
 	return m, nil
 }
@@ -232,21 +243,18 @@ func (m Model) scrollItem(older bool) Model {
 
 // itemHeights is the wrapped row count of each output in the main pane.
 func (m Model) itemHeights() []int {
-	if m.width == 0 || len(m.itemEnds) == 0 {
+	if m.width == 0 || len(m.outEnds) == 0 {
 		return nil
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
 	width := layout.InnerWidth(frame.Main.W)
-	heights := make([]int, 0, len(m.itemEnds))
+	heights := make([]int, 0, len(m.outEnds))
 	start := 0
-	for _, end := range m.itemEnds {
-		if end > len(m.main) {
-			end = len(m.main)
-		}
+	for i, end := range m.outEnds {
 		if end < start {
 			continue
 		}
-		n := len(wrapRows(m.main[start:end], width))
+		n := len(wrapRows(m.outputChunk(i, start, end), width))
 		if n < 1 {
 			n = 1
 		}
@@ -282,7 +290,7 @@ func (m Model) clampScroll() Model {
 // mainSpan is the main pane's content height and how many wrapped rows it holds.
 func (m Model) mainSpan() (int, int) {
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	return frame.Main.H - feedBorder, len(wrapRows(m.main, layout.InnerWidth(frame.Main.W)))
+	return frame.Main.H - feedBorder, len(wrapRows(m.shownLines(), layout.InnerWidth(frame.Main.W)))
 }
 
 // feedSpan is the feed's content height and row count. The bool is false when
@@ -338,12 +346,30 @@ func (m Model) click(v tea.MouseClickMsg) Model {
 	switch {
 	case frame.Feed.W > 0 && inRect(frame.Feed, v.X, v.Y):
 		m.focusFeed = true
+		m.selecting = false
+		m.anchor = m.cursor
 	case inRect(frame.Main, v.X, v.Y):
 		m.focusFeed = false
+		m.selecting = false
+		m.anchor = m.cursor
 	case v.Y == frame.Prompt.Y+1 && inRect(frame.Prompt, v.X, v.Y):
 		m = m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
+		m.anchor = m.cursor
+		m.selecting = true
 	}
 	return m
+}
+
+// drag extends a prompt selection while the left button stays down.
+func (m Model) drag(v tea.Mouse) Model {
+	if !m.selecting || v.Button != tea.MouseLeft || m.width == 0 || m.height == 0 {
+		return m
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	if v.Y != frame.Prompt.Y+1 || !inRect(frame.Prompt, v.X, v.Y) {
+		return m
+	}
+	return m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
 }
 
 // inRect reports whether the cell is inside the box.
@@ -393,14 +419,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if v.Text == "?" && len(m.input) == 0 {
 		return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil), nil
 	}
-	// Match the modifier before the key text. A ctrl+y whose text is "y"
-	// would otherwise be typed.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'y' || v.String() == "ctrl+y") {
-		return m.yank(), nil
+	if next, cmd, handled := m.commandKey(v); handled {
+		return next, cmd
 	}
-	// ctrl+o would otherwise type o. Saving replaces the prompt and does not send it.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'o' || v.String() == "ctrl+o") {
-		return m, m.openEditor()
+	if next, handled := m.selectKey(v); handled {
+		return next, nil
 	}
 	if next, handled := m.wordKey(v); handled {
 		return next, nil
@@ -409,6 +432,9 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return next, nil
 	}
 	if next, handled := m.itemKey(v); handled {
+		return next, nil
+	}
+	if next, handled := m.foldKey(v); handled {
 		return next, nil
 	}
 	switch v.String() {
@@ -434,6 +460,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.scroll(-m.pageRows()), nil
 	case "home":
 		return m.jumpOldest(), nil
+	case "ctrl+end":
+		// End follows whichever pane is focused. Ctrl+End always follows
+		// the main pane, including while the feed has the keys.
+		m.mainOff = 0
+		return m, nil
 	case "end":
 		if m.focusFeed {
 			m.feedOff = 0
@@ -485,10 +516,11 @@ func (m Model) appendOutput(text string) Model {
 	}
 	m.mainVer++
 	m.main = append(m.main, strings.Split(strings.TrimRight(text, "\n"), "\n")...)
-	m.itemEnds = append(m.itemEnds, len(m.main))
+	m.outEnds = append(m.outEnds, len(m.main))
+	m.outFolded = append(m.outFolded, false)
 	if extra := len(m.main) - maxMainLines; extra > 0 {
 		m.main = m.main[extra:]
-		m.itemEnds = trimItemEnds(m.itemEnds, extra)
+		m.outEnds, m.outFolded = trimOutputs(m.outEnds, m.outFolded, extra)
 	}
 	if stuck {
 		_, after := m.mainSpan()
@@ -497,16 +529,175 @@ func (m Model) appendOutput(text string) Model {
 	return m.clampScroll()
 }
 
-// trimItemEnds drops outputs that scrolled off the front and shifts the rest.
-func trimItemEnds(ends []int, extra int) []int {
-	kept := ends[:0]
-	for _, end := range ends {
+// commandKey handles ctrl chords that must not type their letter.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, and
+// Ctrl+Z suspends the view.
+func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
+	if !v.Mod.Contains(tea.ModCtrl) {
+		return m, nil, false
+	}
+	switch {
+	case v.Code == 'y' || v.String() == "ctrl+y":
+		return m.yank(), nil, true
+	case (v.Code == 'd' || v.String() == "ctrl+d") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		// Ctrl+D deletes the character under the cursor. An empty prompt
+		// quits, the same way the line editor treats end of input.
+		if len(m.input) == 0 {
+			return m, tea.Quit, true
+		}
+		m = m.deleteAfter()
+		m.killing = false
+		return m, nil, true
+	case v.Code == 'o' || v.String() == "ctrl+o":
+		return m, m.openEditor(), true
+	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		return m, tea.Suspend, true
+	default:
+		return m, nil, false
+	}
+}
+
+// foldKey toggles the output at the bottom of the main pane. Space still types.
+func (m Model) foldKey(v tea.KeyPressMsg) (Model, bool) {
+	if !v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) || v.Mod.Contains(tea.ModShift) {
+		return m, false
+	}
+	if v.Code != ' ' && v.Code != tea.KeySpace && v.String() != "ctrl+space" {
+		return m, false
+	}
+	return m.toggleFold(), true
+}
+
+// toggleFold folds or opens the output at the bottom of the main pane.
+// A one-line output stays open. The prompt is left as it is.
+func (m Model) toggleFold() Model {
+	idx := m.outputAtBottom()
+	if idx < 0 || m.outputLines(idx) < foldMinLines {
+		return m
+	}
+	m.outFolded[idx] = !m.outFolded[idx]
+	m.mainVer++
+	return m.clampScroll()
+}
+
+// outputAtBottom is the output that owns the newest visible main row.
+func (m Model) outputAtBottom() int {
+	if len(m.outEnds) == 0 {
+		return -1
+	}
+	if m.width == 0 || m.height == 0 {
+		return len(m.outEnds) - 1
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	width := layout.InnerWidth(frame.Main.W)
+	bottom := len(wrapRows(m.shownLines(), width)) - 1 - max(m.mainOff, 0)
+	if bottom < 0 {
+		bottom = 0
+	}
+	start, acc := 0, 0
+	for i, end := range m.outEnds {
+		chunk := m.outputChunk(i, start, end)
+		n := len(wrapRows(chunk, width))
+		if n < 1 {
+			n = 1
+		}
+		if acc+n > bottom {
+			return i
+		}
+		acc += n
+		start = end
+	}
+	return len(m.outEnds) - 1
+}
+
+// outputLines is how many stored lines an output has, before folding.
+func (m Model) outputLines(i int) int {
+	start := 0
+	if i > 0 {
+		start = m.outEnds[i-1]
+	}
+	end := m.outEnds[i]
+	if end > len(m.main) {
+		end = len(m.main)
+	}
+	if start > end {
+		return 0
+	}
+	return end - start
+}
+
+// outputChunk is the lines an output contributes. A folded output keeps its first line.
+func (m Model) outputChunk(i, start, end int) []string {
+	if end > len(m.main) {
+		end = len(m.main)
+	}
+	if start > end {
+		start = end
+	}
+	chunk := m.main[start:end]
+	if i < len(m.outFolded) && m.outFolded[i] && len(chunk) > 1 {
+		chunk = chunk[:1]
+	}
+	return chunk
+}
+
+// shownLines is the main pane with folded outputs reduced to their first line.
+func (m Model) shownLines() []string {
+	if len(m.outEnds) == 0 {
+		return m.main
+	}
+	lines := make([]string, 0, len(m.main))
+	start := 0
+	for i, end := range m.outEnds {
+		lines = append(lines, m.outputChunk(i, start, end)...)
+		if end > start {
+			start = end
+		}
+	}
+	if start < len(m.main) {
+		lines = append(lines, m.main[start:]...)
+	}
+	return lines
+}
+
+// trimOutputs drops outputs that scrolled off the front and shifts the rest.
+func trimOutputs(ends []int, folded []bool, extra int) ([]int, []bool) {
+	keptEnds := make([]int, 0, len(ends))
+	keptFolded := make([]bool, 0, len(folded))
+	for i, end := range ends {
 		if end <= extra {
 			continue
 		}
-		kept = append(kept, end-extra)
+		keptEnds = append(keptEnds, end-extra)
+		fold := false
+		if i < len(folded) {
+			fold = folded[i]
+		}
+		keptFolded = append(keptFolded, fold)
 	}
-	return kept
+	return keptEnds, keptFolded
+}
+
+// copyVisible stores the main pane's visible rows for Ctrl+Y. The rows become
+// one line. An empty pane leaves the yank buffer alone, and the prompt stays.
+func (m Model) copyVisible() Model {
+	text := strings.Join(strings.Fields(m.visibleMain()), " ")
+	if text == "" {
+		return m
+	}
+	m.killed = []rune(text)
+	m.killing = false
+	return m
+}
+
+// visibleMain is the main pane text on screen, one row per line.
+func (m Model) visibleMain() string {
+	if m.width == 0 || m.height == 0 {
+		return ""
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	rows := wrapRows(m.shownLines(), layout.InnerWidth(frame.Main.W))
+	return window(rows, frame.Main.H-feedBorder, m.mainOff)
 }
 
 // Prompt is the text the user has typed so far.
@@ -572,7 +763,7 @@ func (m Model) renderFrame() string {
 		return ""
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	mainText := window(wrapRows(m.main, layout.InnerWidth(frame.Main.W)), frame.Main.H-feedBorder, m.mainOff)
+	mainText := window(wrapRows(m.shownLines(), layout.InnerWidth(frame.Main.W)), frame.Main.H-feedBorder, m.mainOff)
 	if m.overlay != nil {
 		mainText = m.overlay.View().Content
 	}
