@@ -15,7 +15,7 @@ const helpText = `keys
   end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
   tab            complete / or @, or switch pane
-  ctrl+f/ctrl+z  feed / suspend
+  ctrl+f/ctrl+z  feed / suspend   ctrl+t pills
   ctrl+p/ctrl+n  recall, edit keeps it   esc restores
   ctrl+a/ctrl+e  start / end of the prompt
   ctrl+u/ctrl+k  delete to the start / end of the prompt

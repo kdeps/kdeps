@@ -77,12 +77,12 @@ type frameCache struct {
 // a frame drawn for one profile is not served for another. model, title
 // and pills are the header, so a chip change is not served from the last frame.
 type frameKey struct {
-	width, height, mainOff, feedOff       int
-	mainVer, feedVer                      int
-	feedOpen, focusFeed, mainBar, feedBar bool
-	status, prompt                        string
-	model, title, pills                   string
-	profile                               colorprofile.Profile
+	width, height, mainOff, feedOff                 int
+	mainVer, feedVer                                int
+	feedOpen, focusFeed, mainBar, feedBar, pillsOff bool
+	status, prompt                                  string
+	model, title, pills                             string
+	profile                                         colorprofile.Profile
 }
 
 type Model struct {
@@ -108,6 +108,7 @@ type Model struct {
 	// Model is the active model name, shown as a chip in the header row.
 	Model     string
 	pills     map[string]string
+	pillsOff  bool // ctrl+t hides the header pills; the model chip stays
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
 	anchor    int      // the other end of a selection; equal to cursor when none
@@ -599,8 +600,8 @@ func (m Model) openHelp() Model {
 
 // commandKey handles ctrl chords that must not type their letter.
 // Ctrl+G opens the key list, Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+V
-// pastes an image, Ctrl+Shift+V pastes text, Ctrl+O opens the editor, and
-// Ctrl+Z suspends the view.
+// pastes an image, Ctrl+Shift+V pastes text, Ctrl+O opens the editor, Ctrl+T
+// toggles the header pills, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -627,6 +628,10 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		return m, m.pasteClipboard(), true
 	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
 		return m, tea.Suspend, true
+	case (v.Code == 't' || v.String() == "ctrl+t") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		// Ctrl+T hides or shows the header pills. t still types.
+		m.pillsOff = !m.pillsOff
+		return m, nil, true
 	default:
 		return m, nil, false
 	}
@@ -836,7 +841,7 @@ func (m Model) frameKey() frameKey {
 	return frameKey{
 		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
 		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
-		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(),
+		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(), pillsOff: m.pillsOff,
 		status: m.Status, prompt: m.promptText(),
 		model: m.Model, title: m.Title, pills: m.pillsKey(), profile: m.profile,
 	}
@@ -1112,8 +1117,11 @@ func (m Model) pillsKey() string {
 }
 
 // pillsText is the pills in one chip: the values that are set, in the order
-// backend, session, tool, joined by a dot.
+// backend, session, tool, joined by a dot. A hidden chip keeps its values.
 func (m Model) pillsText() string {
+	if m.pillsOff {
+		return ""
+	}
 	var parts []string
 	for _, name := range []string{"backend", "session", "tool"} {
 		if v := m.pills[name]; v != "" {

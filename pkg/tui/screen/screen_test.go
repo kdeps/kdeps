@@ -807,6 +807,31 @@ func TestPills_MergeTheValuesIntoOneChip(t *testing.T) {
 	assert.Equal(t, "    openrouter ", ansi.Strip(m.pillsText()))
 }
 
+// TestPills_CtrlTHidesTheChip checks ctrl+t hides the header pills and shows
+// them again. The model chip, the title, and the prompt stay. t still types.
+func TestPills_CtrlTHidesTheChip(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m.Title = "proj"
+	m, _ = typed(t, m, ModelMsg{Name: "llama-3.2"})
+	m, _ = typed(t, m, PillMsg{Name: "backend", Value: "openrouter"})
+	m = typeText(t, m, "keep")
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "openrouter")
+	assert.Contains(t, view, "llama-3.2")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl, Text: "t"})
+	view = ansi.Strip(m.render())
+	assert.NotContains(t, view, "openrouter")
+	assert.Contains(t, view, "llama-3.2")
+	assert.Contains(t, view, "proj")
+	assert.Equal(t, "keep", m.Prompt())
+	m, _ = typed(t, m, PillMsg{Name: "backend", Value: "ollama"})
+	assert.NotContains(t, ansi.Strip(m.render()), "ollama", "a hidden chip stays hidden")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl, Text: "t"})
+	assert.Contains(t, ansi.Strip(m.render()), "ollama")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 't', Text: "t"})
+	assert.Equal(t, "keept", m.Prompt())
+}
+
 // TestMessageArea_ShowsTheSubmittedLineBeforeTheReply checks a submitted line
 // is echoed into the main pane, as a line of its own.
 func TestMessageArea_ShowsTheSubmittedLineBeforeTheReply(t *testing.T) {
