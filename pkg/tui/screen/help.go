@@ -9,7 +9,7 @@ import (
 // helpText lists the full-screen keys, shown by typing ? into an empty prompt.
 const helpText = `keys
   enter          send the prompt
-  up / down      scroll one row   ctrl+space folds
+  up / down      scroll one row, bar   ctrl+space folds
   pgup / pgdown  scroll a page   ctrl+up/down half a page
   end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
