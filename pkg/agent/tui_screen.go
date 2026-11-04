@@ -16,6 +16,39 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
 )
 
+// screenCompletions is what Tab asks for in the full-screen prompt. An @ token
+// completes files and memory ids. Anything else is the slash-command list.
+func (r *REPL) screenCompletions(prefix string) []string {
+	if rest, ok := strings.CutPrefix(prefix, "@"); ok {
+		return r.mentionCompletions(rest)
+	}
+	return commandNames()
+}
+
+// mentionCompletions is the full @ tokens for prefix. A file and a memory id
+// with the same name are one match, and the file is kept.
+func (r *REPL) mentionCompletions(prefix string) []string {
+	files, _ := doAtFileCompletion(r.loopCtx, prefix)
+	mem := r.memoryKeyCompletions(prefix)
+	out := make([]string, 0, len(files)+len(mem))
+	seen := make(map[string]bool, len(files)+len(mem))
+	add := func(suffix []rune) {
+		full := "@" + prefix + string(suffix)
+		if seen[full] {
+			return
+		}
+		seen[full] = true
+		out = append(out, full)
+	}
+	for _, s := range files {
+		add(s)
+	}
+	for _, s := range mem {
+		add(s)
+	}
+	return out
+}
+
 // runFullScreen runs the REPL in the full-screen view: the main pane, the feed,
 // the status box and the prompt. Lines the REPL prints to stdout or stderr are
 // captured into the main pane. It returns when the loop ends (/exit, EOF or
@@ -36,7 +69,7 @@ func (r *REPL) runFullScreen() error {
 	defer func() { os.Stdout, os.Stderr = origOut, origErr }() //nolint:reassign // restores the captured streams
 
 	m := newScreenModel(f)
-	m.Complete = func(string) []string { return commandNames() }
+	m.Complete = r.screenCompletions
 	var program *tea.Program
 	setScreenStatusSink(func(text string) { program.Send(screen.StatusTextMsg{Text: text}) })
 	defer setScreenStatusSink(nil)
