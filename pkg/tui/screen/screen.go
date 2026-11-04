@@ -124,6 +124,8 @@ type Model struct {
 	launchEditor func(text string) tea.Cmd
 	// readClipboard returns clipboard text. Nil reads the system clipboard.
 	readClipboard func() (string, bool)
+	// readImage reads a clipboard image path. Nil uses the system clipboard.
+	readImage func() (string, bool)
 	// Complete lists the slash commands that start with a prefix. Tab completes
 	// a slash command when the prompt starts with "/". Nil disables completion.
 	Complete func(prefix string) []string
@@ -197,6 +199,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		before := string(m.input)
 		return m.setPrompt(v.text).keepEdit(before), nil
+	case imagePasteMsg:
+		if v.path == "" {
+			return m, nil
+		}
+		return m.insertText("@" + v.path + " "), nil
 	}
 	return m, nil
 }
@@ -223,6 +230,85 @@ func (m Model) scroll(delta int) (Model, tea.Cmd) {
 		m.mainOff += delta
 	}
 	return m.revealBar(m.focusFeed)
+}
+
+// arrowKey handles modified Up and Down. Ctrl+Up and Ctrl+Down scroll half a
+// page. Shift+Up and Shift+Down scroll the main pane by one output. Both are
+// matched on the modifier, so a shifted or ctrl letter still types.
+func (m Model) arrowKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
+		delta := m.halfRows()
+		if v.Code == tea.KeyDown {
+			delta = -delta
+		}
+		next, cmd := m.scroll(delta)
+		return next, cmd, true
+	}
+	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) {
+		return m, nil, false
+	}
+	switch v.Code {
+	case tea.KeyUp:
+		next, cmd := m.scrollItem(true).revealBar(false)
+		return next, cmd, true
+	case tea.KeyDown:
+		next, cmd := m.scrollItem(false).revealBar(false)
+		return next, cmd, true
+	default:
+		return m, nil, false
+	}
+}
+
+// scrollItem moves the main pane by one output. older hides the next older
+// output. A move that starts inside an output finishes that output, so the
+// offset lands on a boundary between outputs. The feed stays where it is.
+func (m Model) scrollItem(older bool) Model {
+	heights := m.itemHeights()
+	if len(heights) == 0 {
+		return m.clampScroll()
+	}
+	hidden := m.mainOff
+	acc := 0
+	for i := len(heights) - 1; i >= 0; i-- {
+		h := heights[i]
+		if older {
+			if acc+h > hidden {
+				m.mainOff = acc + h
+				return m.clampScroll()
+			}
+		} else if acc+h >= hidden {
+			m.mainOff = acc
+			return m.clampScroll()
+		}
+		acc += h
+	}
+	if !older {
+		m.mainOff = 0
+	}
+	return m.clampScroll()
+}
+
+// itemHeights is the wrapped row count of each output in the main pane.
+func (m Model) itemHeights() []int {
+	if m.width == 0 || len(m.outEnds) == 0 {
+		return nil
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	width := layout.InnerWidth(frame.Main.W)
+	heights := make([]int, 0, len(m.outEnds))
+	start := 0
+	for i, end := range m.outEnds {
+		if end < start {
+			continue
+		}
+		n := len(wrapRows(m.outputChunk(i, start, end), width))
+		if n < 1 {
+			n = 1
+		}
+		heights = append(heights, n)
+		start = end
+	}
+	return heights
 }
 
 // jumpOldest moves the focused box to its oldest row.
@@ -407,13 +493,8 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
-	// Ctrl+Up and Ctrl+Down scroll half a page. u and d still type.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
-		delta := m.halfRows()
-		if v.Code == tea.KeyDown {
-			delta = -delta
-		}
-		return m.scroll(delta)
+	if next, cmd, handled := m.arrowKey(v); handled {
+		return next, cmd
 	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
@@ -512,8 +593,8 @@ func (m Model) appendOutput(text string) Model {
 }
 
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, Ctrl+Shift+V
-// pastes, and Ctrl+Z suspends the view.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+V pastes an image, Ctrl+Shift+V
+// pastes text, Ctrl+O opens the editor, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -530,6 +611,8 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		m = m.deleteAfter()
 		m.killing = false
 		return m, nil, true
+	case (v.Code == 'v' || v.String() == "ctrl+v") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		return m, m.pasteImage(), true
 	case v.Code == 'o' || v.String() == "ctrl+o":
 		return m, m.openEditor(), true
 	case pasteChord(v):

@@ -300,6 +300,33 @@ func TestComplete_AmbiguousListsTheMatches(t *testing.T) {
 	assert.Contains(t, strings.Join(m.main, "\n"), "/model  /mesh")
 }
 
+func TestComplete_AtTokenFillsAndKeepsTheTextBeforeIt(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("@main.go", "@map.txt")
+	m = typeText(t, m, "see @m")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @ma", m.Prompt(), "a shared prefix extends the token")
+	assert.False(t, m.focusFeed, "completing an @ token does not switch panes")
+
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @ma", m.Prompt(), "a shared prefix that is already typed stays")
+	assert.Contains(t, strings.Join(m.main, "\n"), "@main.go  @map.txt")
+
+	m.Complete = completeFrom("@main.go")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @main.go ", m.Prompt(), "one match fills the token and leaves the words before it")
+	assert.False(t, m.focusFeed, "completing an @ token does not switch panes")
+}
+
+func TestComplete_AtTokenWithNoMatchStays(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("@main.go")
+	m = typeText(t, m, "see @zzz")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @zzz", m.Prompt())
+	assert.False(t, m.focusFeed, "an @ token with no match still consumes tab")
+}
+
 func TestComplete_NotASlashPromptKeepsTabForFocus(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model")
@@ -411,6 +438,24 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	assert.Contains(t, view, "home", "the help lists Home")
 	assert.Contains(t, view, "ctrl+y", "the help lists yank")
 	assert.Contains(t, view, "shift+left/right", "the help lists selection")
+}
+
+func TestEsc_RestoresTheUnsentPromptWhileRecalling(t *testing.T) {
+	m := newPromptScreen(t)
+	m = m.UseHistory([]string{"older", "newer"}, nil)
+	m = typeText(t, m, "draft")
+	m, _ = typed(t, m, ctrl('p'))
+	m, _ = typed(t, m, ctrl('p'))
+	assert.Equal(t, "older", m.Prompt())
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "draft", m.Prompt(), "esc puts the unsent text back")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "draft", m.Prompt(), "esc leaves the prompt when not recalling")
+
+	m, _ = typed(t, m, ctrl('p'))
+	assert.Equal(t, "newer", m.Prompt(), "recall still starts from the newest line")
 }
 
 func TestEdit_OnARecalledLineKeepsTheEdit(t *testing.T) {
