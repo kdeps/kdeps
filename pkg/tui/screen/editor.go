@@ -15,11 +15,13 @@ import (
 const clipboardReadLimit = 2 * time.Second
 
 // clipboardReads are the read forms of the tools clipboard_copy writes with.
-var clipboardReads = [][]string{
-	{"pbpaste"},
-	{"xclip", "-selection", "clipboard", "-o"},
-	{"xsel", "--clipboard", "--output"},
-	{"powershell", "-NoProfile", "-Command", "Get-Clipboard"},
+func clipboardReads() [][]string {
+	return [][]string{
+		{"pbpaste"},
+		{"xclip", "-selection", "clipboard", "-o"},
+		{"xsel", "--clipboard", "--output"},
+		{"powershell", "-NoProfile", "-Command", "Get-Clipboard"},
+	}
 }
 
 // editorResultMsg is the text an external editor wrote back. ok is false when
@@ -123,7 +125,7 @@ func (m Model) pasteClipboard() tea.Cmd {
 // readClipboardText returns the first clipboard tool's text. A tool that is
 // missing is skipped. A tool that returns nothing means the clipboard is empty.
 func readClipboardText() (string, bool) {
-	for _, argv := range clipboardReads {
+	for _, argv := range clipboardReads() {
 		out, err := commandOutput(argv, clipboardReadLimit)
 		if err != nil {
 			continue

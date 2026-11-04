@@ -143,7 +143,7 @@ func TestPrompt_VStillTypes(t *testing.T) {
 	assert.Nil(t, cmd)
 	assert.False(t, called)
 
-	m, cmd = typed(t, m, tea.KeyPressMsg{Code: 'v', Mod: tea.ModCtrl, Text: "v"})
+	_, cmd = typed(t, m, tea.KeyPressMsg{Code: 'v', Mod: tea.ModCtrl, Text: "v"})
 	assert.False(t, called, "ctrl+v is not the paste chord")
 	assert.Nil(t, cmd)
 }
