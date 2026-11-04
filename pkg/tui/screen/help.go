@@ -21,6 +21,7 @@ const helpText = `keys
   ctrl+u/ctrl+k  delete to the start / end of the prompt
   ctrl+w         delete the word before the cursor
   ctrl+c         clear the prompt; on an empty prompt, quit
+  click          focus a pane, or move the prompt cursor
 
 press esc, enter or q to close`
 
