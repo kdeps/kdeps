@@ -51,10 +51,9 @@ const layoutBottomRows = 6
 // wheelStep is how many rows one mouse-wheel notch scrolls.
 const wheelStep = 3
 
-<<<<<<< HEAD
 // halfPageDivisor splits a page scroll in two.
 const halfPageDivisor = 2
-=======
+
 // barHold is how long a scroll bar stays after the last scroll.
 const barHold = 2 * time.Second
 
@@ -63,7 +62,6 @@ type barHideMsg struct {
 	feed bool
 	seq  int
 }
->>>>>>> b2fb756e2 (feat: draw a scroll bar while a full-screen pane is scrolled)
 
 // Model is the full-screen view.
 // frameCache holds the last drawn frame. The model copies share it, so a
@@ -412,7 +410,7 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if v.Code == tea.KeyDown {
 			delta = -delta
 		}
-		return m.scroll(delta), nil
+		return m.scroll(delta)
 	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
@@ -439,16 +437,12 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "pgdown":
 		return m.scroll(-m.pageRows())
 	case "home":
-<<<<<<< HEAD
-		return m.jumpOldest(), nil
+		return m.jumpOldest()
 	case "ctrl+end":
 		// End follows whichever pane is focused. Ctrl+End always follows
 		// the main pane, including while the feed has the keys.
 		m.mainOff = 0
 		return m, nil
-=======
-		return m.jumpOldest()
->>>>>>> b2fb756e2 (feat: draw a scroll bar while a full-screen pane is scrolled)
 	case "end":
 		if m.focusFeed {
 			m.feedOff = 0
@@ -771,8 +765,9 @@ func (m Model) renderFrame() string {
 		feedText = title + "\n" + body
 		if showFeed {
 			_, n, _ := m.feedSpan()
-			titleMark := []string{barTrack}
-			feedText = placeBar(title, feedW, 1, titleMark) + "\n" + placeBar(body, feedW, bodyH, barMarks(bodyH, n, m.feedOff))
+			titleMark := []string{barTrack()}
+			feedText = placeBar(title, feedW, 1, titleMark) + "\n" +
+				placeBar(body, feedW, bodyH, barMarks(bodyH, n, m.feedOff))
 		}
 	}
 	caret := styled(tui.CurrentPickerColors().Accent).Render(">")
@@ -879,10 +874,9 @@ func textWidth(inner int, bar bool) int {
 
 // barTrack is the empty part of a scroll bar. barThumb is the part on screen.
 // A reversed space stays one cell wide in every color profile.
-var (
-	barTrack = lipgloss.NewStyle().Faint(true).Render("│")
-	barThumb = lipgloss.NewStyle().Reverse(true).Render(" ")
-)
+func barTrack() string { return lipgloss.NewStyle().Faint(true).Render("│") }
+
+func barThumb() string { return lipgloss.NewStyle().Reverse(true).Render(" ") }
 
 // barMarks is one cell per row of a pane. offset counts rows above the newest
 // line, so zero puts the thumb at the bottom. The result is nil when the text fits.
@@ -910,9 +904,9 @@ func barMarks(height, lines, offset int) []string {
 	marks := make([]string, height)
 	for i := range marks {
 		if i >= pos && i < pos+thumb {
-			marks[i] = barThumb
+			marks[i] = barThumb()
 		} else {
-			marks[i] = barTrack
+			marks[i] = barTrack()
 		}
 	}
 	return marks

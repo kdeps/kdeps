@@ -599,11 +599,11 @@ func TestScrollBar_FeedScrollDoesNotMarkTheMainPane(t *testing.T) {
 func TestScrollBar_ThumbSitsAtTheEndYouAreOn(t *testing.T) {
 	marks := barMarks(10, 40, 0)
 	require.Len(t, marks, 10)
-	assert.Equal(t, barThumb, marks[9], "offset zero is the newest row, so the thumb is at the bottom")
-	assert.Equal(t, barTrack, marks[0])
+	assert.Equal(t, barThumb(), marks[9], "offset zero is the newest row, so the thumb is at the bottom")
+	assert.Equal(t, barTrack(), marks[0])
 
 	marks = barMarks(10, 40, 30)
-	assert.Equal(t, barThumb, marks[0], "the oldest row puts the thumb at the top")
+	assert.Equal(t, barThumb(), marks[0], "the oldest row puts the thumb at the top")
 	assert.Nil(t, barMarks(10, 10, 0), "a pane that fits has no bar")
 	assert.Nil(t, barMarks(10, 4, 0))
 }
