@@ -10,10 +10,11 @@ import (
 const helpText = `keys
   enter          send the prompt
   up / down      scroll the main pane
+  shift+up/down  scroll one output
   pgup / pgdown  scroll a page
   end            jump to the newest output
   home           jump to the oldest output
-  tab            complete a slash command, else switch focus between panes
+  tab            complete a slash command, or switch pane
   ctrl+f         show or hide the feed
   ctrl+p/ctrl+n  recall earlier prompts
   ctrl+a/ctrl+e  start / end of the prompt

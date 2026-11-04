@@ -75,9 +75,10 @@ type Model struct {
 	width, height int
 	feedOpen      bool
 	main          []string
-	mainOff       int  // rows scrolled up from the newest main line
-	feedOff       int  // rows scrolled up from the newest feed row
-	focusFeed     bool // arrow keys scroll the feed instead of the main pane
+	mainOff       int   // rows scrolled up from the newest main line
+	itemEnds      []int // exclusive end index in main after each output
+	feedOff       int   // rows scrolled up from the newest feed row
+	focusFeed     bool  // arrow keys scroll the feed instead of the main pane
 	Status        string
 	// Title is shown in the header row, after the product name (for example the folder).
 	Title string
@@ -182,6 +183,77 @@ func (m Model) scroll(delta int) Model {
 		m.mainOff += delta
 	}
 	return m.clampScroll()
+}
+
+// itemKey scrolls the main pane by one output. Shift+Up and Shift+Down are
+// matched on the modifier, so a shifted letter is still typed.
+func (m Model) itemKey(v tea.KeyPressMsg) (Model, bool) {
+	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) {
+		return m, false
+	}
+	switch v.Code {
+	case tea.KeyUp:
+		return m.scrollItem(true), true
+	case tea.KeyDown:
+		return m.scrollItem(false), true
+	default:
+		return m, false
+	}
+}
+
+// scrollItem moves the main pane by one output. older hides the next older
+// output. A move that starts inside an output finishes that output, so the
+// offset lands on a boundary between outputs. The feed stays where it is.
+func (m Model) scrollItem(older bool) Model {
+	heights := m.itemHeights()
+	if len(heights) == 0 {
+		return m.clampScroll()
+	}
+	hidden := m.mainOff
+	acc := 0
+	for i := len(heights) - 1; i >= 0; i-- {
+		h := heights[i]
+		if older {
+			if acc+h > hidden {
+				m.mainOff = acc + h
+				return m.clampScroll()
+			}
+		} else if acc+h >= hidden {
+			m.mainOff = acc
+			return m.clampScroll()
+		}
+		acc += h
+	}
+	if !older {
+		m.mainOff = 0
+	}
+	return m.clampScroll()
+}
+
+// itemHeights is the wrapped row count of each output in the main pane.
+func (m Model) itemHeights() []int {
+	if m.width == 0 || len(m.itemEnds) == 0 {
+		return nil
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	width := layout.InnerWidth(frame.Main.W)
+	heights := make([]int, 0, len(m.itemEnds))
+	start := 0
+	for _, end := range m.itemEnds {
+		if end > len(m.main) {
+			end = len(m.main)
+		}
+		if end < start {
+			continue
+		}
+		n := len(wrapRows(m.main[start:end], width))
+		if n < 1 {
+			n = 1
+		}
+		heights = append(heights, n)
+		start = end
+	}
+	return heights
 }
 
 // jumpOldest moves the focused box to its oldest row.
@@ -336,6 +408,9 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
+	if next, handled := m.itemKey(v); handled {
+		return next, nil
+	}
 	switch v.String() {
 	case "ctrl+c":
 		// Ctrl+C clears a typed prompt first, so a half-written line is not
@@ -410,14 +485,28 @@ func (m Model) appendOutput(text string) Model {
 	}
 	m.mainVer++
 	m.main = append(m.main, strings.Split(strings.TrimRight(text, "\n"), "\n")...)
+	m.itemEnds = append(m.itemEnds, len(m.main))
 	if extra := len(m.main) - maxMainLines; extra > 0 {
 		m.main = m.main[extra:]
+		m.itemEnds = trimItemEnds(m.itemEnds, extra)
 	}
 	if stuck {
 		_, after := m.mainSpan()
 		m.mainOff += after - before
 	}
 	return m.clampScroll()
+}
+
+// trimItemEnds drops outputs that scrolled off the front and shifts the rest.
+func trimItemEnds(ends []int, extra int) []int {
+	kept := ends[:0]
+	for _, end := range ends {
+		if end <= extra {
+			continue
+		}
+		kept = append(kept, end-extra)
+	}
+	return kept
 }
 
 // Prompt is the text the user has typed so far.
