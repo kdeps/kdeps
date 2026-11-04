@@ -13,7 +13,7 @@ const helpText = `keys
   pgup / pgdown  scroll a page   ctrl+up/down half a page
   end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
-  tab            complete a slash command, or switch pane
+  tab            complete / or @, or switch pane
   ctrl+f/ctrl+z  feed / suspend
   ctrl+p/ctrl+n  recall, edit keeps it   esc restores
   ctrl+a/ctrl+e  start / end of the prompt

@@ -300,6 +300,33 @@ func TestComplete_AmbiguousListsTheMatches(t *testing.T) {
 	assert.Contains(t, strings.Join(m.main, "\n"), "/model  /mesh")
 }
 
+func TestComplete_AtTokenFillsAndKeepsTheTextBeforeIt(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("@main.go", "@map.txt")
+	m = typeText(t, m, "see @m")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @ma", m.Prompt(), "a shared prefix extends the token")
+	assert.False(t, m.focusFeed, "completing an @ token does not switch panes")
+
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @ma", m.Prompt(), "a shared prefix that is already typed stays")
+	assert.Contains(t, strings.Join(m.main, "\n"), "@main.go  @map.txt")
+
+	m.Complete = completeFrom("@main.go")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @main.go ", m.Prompt(), "one match fills the token and leaves the words before it")
+	assert.False(t, m.focusFeed, "completing an @ token does not switch panes")
+}
+
+func TestComplete_AtTokenWithNoMatchStays(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("@main.go")
+	m = typeText(t, m, "see @zzz")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	assert.Equal(t, "see @zzz", m.Prompt())
+	assert.False(t, m.focusFeed, "an @ token with no match still consumes tab")
+}
+
 func TestComplete_NotASlashPromptKeepsTabForFocus(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model")

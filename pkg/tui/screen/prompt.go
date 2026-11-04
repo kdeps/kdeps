@@ -126,7 +126,7 @@ func (m Model) editKey(name string) (Model, bool) {
 	case "ctrl+n":
 		m = m.historyForward()
 	case "tab":
-		return m.completeCommand()
+		return m.completeTab()
 	default:
 		return m, false
 	}
@@ -140,6 +140,84 @@ func (m Model) commandList() []string {
 		return nil
 	}
 	return m.Complete("/")
+}
+
+// completeTab completes an @ path at the cursor, or else a slash command.
+func (m Model) completeTab() (Model, bool) {
+	if next, ok := m.completeMention(); ok {
+		return next, true
+	}
+	return m.completeCommand()
+}
+
+// completeMention completes the @ token at the cursor. A prompt with no @
+// token is not handled, so tab can still move focus.
+func (m Model) completeMention() (Model, bool) {
+	if m.Complete == nil {
+		return m, false
+	}
+	token, start := tokenBeforeCursor(m.input, m.cursor)
+	if !strings.HasPrefix(token, "@") {
+		return m, false
+	}
+	return m.completeToken(token, start), true
+}
+
+// tokenBeforeCursor is the word ending at the cursor, and where it starts.
+func tokenBeforeCursor(input []rune, cursor int) (string, int) {
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor > len(input) {
+		cursor = len(input)
+	}
+	start := cursor
+	for start > 0 && input[start-1] != ' ' && input[start-1] != '\t' {
+		start--
+	}
+	return string(input[start:cursor]), start
+}
+
+// completeToken replaces the token with the completion, the same way a slash
+// command completes: one match fills it, a shared prefix extends it, and
+// anything else is listed.
+func (m Model) completeToken(token string, start int) Model {
+	m.killing = false
+	var matches []string
+	for _, c := range m.Complete(token) {
+		if strings.HasPrefix(c, token) {
+			matches = append(matches, c)
+		}
+	}
+	switch {
+	case len(matches) == 0:
+	case len(matches) == 1:
+		m = m.replaceSpan(start, matches[0]+" ")
+	default:
+		if common := longestCommonPrefix(matches); len([]rune(common)) > len([]rune(token)) {
+			m = m.replaceSpan(start, common)
+		} else {
+			m.mainOff = 0
+			m = m.appendOutput(strings.Join(matches, "  "))
+		}
+	}
+	return m
+}
+
+// replaceSpan replaces the token that ends at the cursor. Text before it stays.
+func (m Model) replaceSpan(start int, text string) Model {
+	if start < 0 || start > m.cursor || m.cursor > len(m.input) {
+		return m
+	}
+	mid := []rune(text)
+	input := make([]rune, 0, len(m.input)-(m.cursor-start)+len(mid))
+	input = append(input, m.input[:start]...)
+	input = append(input, mid...)
+	m.input = append(input, m.input[m.cursor:]...)
+	m.cursor = start + len(mid)
+	m.anchor = m.cursor
+	m.killing = false
+	return m
 }
 
 // completeCommand completes the slash command before the cursor. A prompt
