@@ -10,7 +10,7 @@ import (
 // ctrl+g opens it with the prompt left as it is.
 const helpText = `keys
   enter/ctrl+g   send the prompt / key help
-  up / down      scroll one row   ctrl+space folds
+  up / down      scroll one row, bar   ctrl+space folds
   pgup / pgdown  scroll a page   ctrl+up/down half a page
   end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
