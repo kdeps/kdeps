@@ -24,7 +24,7 @@ const helpText = `keys
   ctrl+c/ctrl+d  clear or quit / delete under cursor
   click          focus a pane, or move the prompt cursor
   shift+left/right select   esc clears   ctrl+shift+c/x pane
-  ctrl+o         edit the prompt in your editor
+  ctrl+o/ctrl+v  editor / paste an image
 press esc, enter or q to close`
 
 // helpOverlay shows the key list and the slash commands until the user closes it.
