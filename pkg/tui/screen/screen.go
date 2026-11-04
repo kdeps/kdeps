@@ -372,6 +372,7 @@ func (m Model) submitLine() (tea.Model, tea.Cmd) {
 	if line == "" {
 		return m, nil
 	}
+	m.mainOff = 0
 	m = m.appendOutput(userLine(line))
 	submit, remember := m.OnSubmit, m.remember
 	if submit == nil && (!recorded || remember == nil) {
@@ -388,12 +389,22 @@ func (m Model) submitLine() (tea.Model, tea.Cmd) {
 	}
 }
 
-// appendOutput adds text to the main pane, one row per line.
+// appendOutput adds text to the main pane, one row per line. While the pane
+// is scrolled away from the newest row, the new rows stay below the window.
 func (m Model) appendOutput(text string) Model {
+	stuck := m.mainOff > 0
+	before := 0
+	if stuck {
+		_, before = m.mainSpan()
+	}
 	m.mainVer++
 	m.main = append(m.main, strings.Split(strings.TrimRight(text, "\n"), "\n")...)
 	if extra := len(m.main) - maxMainLines; extra > 0 {
 		m.main = m.main[extra:]
+	}
+	if stuck {
+		_, after := m.mainSpan()
+		m.mainOff += after - before
 	}
 	return m.clampScroll()
 }
@@ -492,12 +503,20 @@ func wrapRows(lines []string, width int) []string {
 // statusKeys is the key help shown after the counters in the status row.
 const statusKeys = "? help   tab complete   ctrl+f feed   ctrl+c quit"
 
+// notFollowing is the status hint while the main pane is off the newest row.
+const notFollowing = "not following"
+
 // statusText is the status row: the counters, then the key help, dimmed.
+// A pane scrolled into older rows says so, until End or Down returns to the tail.
 func (m Model) statusText() string {
-	if m.Status == "" {
-		return lipgloss.NewStyle().Faint(true).Render(statusKeys)
+	keys := lipgloss.NewStyle().Faint(true).Render(statusKeys)
+	if m.mainOff > 0 {
+		keys = lipgloss.NewStyle().Faint(true).Render(notFollowing) + "   " + keys
 	}
-	return m.Status + "   " + lipgloss.NewStyle().Faint(true).Render(statusKeys)
+	if m.Status == "" {
+		return keys
+	}
+	return m.Status + "   " + keys
 }
 
 // headerText is the header row: the product name, a dim diagonal rule, and the title.

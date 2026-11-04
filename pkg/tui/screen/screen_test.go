@@ -151,6 +151,43 @@ func TestScroll_ExtraPageUpDoesNotStick(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.render()), "row 0", "one page-down from the top moves forward")
 }
 
+func TestScroll_NotFollowingKeepsTheRowsAndShowsTheHint(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m.Status = "[turn 1]"
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	assert.NotContains(t, ansi.Strip(m.render()), "not following")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "row 75")
+	assert.Contains(t, view, "not following")
+	assert.True(t, strings.Contains(view, "[turn 1]   not following"), "the counters stay ahead of the hint")
+
+	m, _ = typed(t, m, OutputMsg{Text: "NEW"})
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "row 75", "new output leaves the scrolled rows in place")
+	assert.NotContains(t, view, "NEW")
+	assert.Contains(t, view, "not following")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnd})
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "NEW", "End follows the newest row")
+	assert.NotContains(t, view, "not following")
+}
+
+func TestScroll_SendingFollowsTheNewestRow(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.Contains(t, ansi.Strip(m.render()), "not following")
+
+	m = typeText(t, m, "hello")
+	m, _ = typed(t, m, keyPress(tea.KeyEnter))
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "hello", "sending shows the prompt at the tail")
+	assert.NotContains(t, view, "not following")
+}
+
 func TestScroll_HomeJumpsToTheOldestRow(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
