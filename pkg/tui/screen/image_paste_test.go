@@ -3,6 +3,7 @@ package screen
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -30,6 +31,9 @@ func TestCtrlV_PastesAnImagePathAndLeavesTextAlone(t *testing.T) {
 }
 
 func TestReadClipboardImage_SavesImageBytes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake clipboard tool is a #!/bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	script := filepath.Join(dir, "pngpaste")
 	body := "#!/bin/sh\nprintf '\\211PNG\\r\\n\\032\\n'\n"
@@ -49,6 +53,9 @@ func TestReadClipboardImage_SavesImageBytes(t *testing.T) {
 }
 
 func TestReadClipboardImage_UsesAnImagePathAndStopsOnText(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake clipboard tool is a #!/bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	pic := filepath.Join(dir, "shot.png")
 	require.NoError(t, os.WriteFile(pic, []byte{0x89, 'P', 'N', 'G'}, 0o644))
