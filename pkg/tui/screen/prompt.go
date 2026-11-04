@@ -406,6 +406,35 @@ func longestCommonPrefix(items []string) string {
 	return prefix
 }
 
+// promptOrigin is the first visible cell of a one-line prompt. total is the
+// line's width, cursor is the cursor bar's cell, and width is how many cells
+// fit. The bar stays on screen. When the line continues past the bar, a few
+// cells after it stay visible too.
+func promptOrigin(total, cursor, width int) int {
+	if width < 1 || total <= width || cursor < width {
+		return 0
+	}
+	const after = 8
+	before := width - 1 - after
+	if before < 0 {
+		before = 0
+	}
+	origin := cursor - before
+	if origin < 0 {
+		origin = 0
+	}
+	if cursor >= origin+width {
+		origin = cursor - width + 1
+	}
+	if maxOrigin := total - width; origin > maxOrigin {
+		origin = maxOrigin
+	}
+	if origin < 0 {
+		origin = 0
+	}
+	return origin
+}
+
 // promptText is the prompt with the cursor drawn as a bar. A selection is reversed.
 func (m Model) promptText() string {
 	lo, hi := m.selBounds()
