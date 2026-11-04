@@ -466,6 +466,31 @@ func TestClick_MovesThePromptCursor(t *testing.T) {
 	assert.Equal(t, 0, m.cursor, "a click on the prompt marker moves to the start")
 }
 
+func TestPromptWindow_KeepsTheCursorOnScreen(t *testing.T) {
+	m := typeText(t, resized(t, New(&feed.Feed{})), strings.Repeat("a", 200))
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	inner := layout.InnerWidth(frame.Prompt.W)
+	shown := ansi.Strip(m.promptLine(inner))
+	assert.LessOrEqual(t, ansi.StringWidth(shown), inner)
+	assert.Contains(t, shown, "|")
+	assert.NotContains(t, shown, "> ", "a long line scrolls the marker off")
+	assert.NotContains(t, shown, strings.Repeat("a", 200))
+
+	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	y := frame.Prompt.Y + 1
+	clicked, _ := typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
+	assert.NotEqual(t, 0, clicked.cursor, "a click in the scrolled window is not the start")
+	clicked, _ = typed(t, m, tea.MouseClickMsg{X: textX + inner - 1, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 200, clicked.cursor, "a click on the drawn bar stays at the end")
+
+	next, _ := m.Update(ctrl('a'))
+	m = next.(Model)
+	shown = ansi.Strip(m.promptLine(inner))
+	assert.Contains(t, shown, "> |aaa", "the start of the line comes back with the cursor")
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 0, m.cursor, "a click on the bar at the start stays there")
+}
+
 // TestFrameCache_ChangesWhenTheScreenChanges checks a frame is reused only
 // while nothing it is drawn from has changed.
 func TestFrameCache_ChangesWhenTheScreenChanges(t *testing.T) {

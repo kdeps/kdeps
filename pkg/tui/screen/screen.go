@@ -351,12 +351,13 @@ func inRect(r layout.Rect, x, y int) bool {
 }
 
 // placeCursor moves the cursor to the prompt cell under rel. rel is measured
-// from the left edge of the prompt text, which starts with the "> " marker.
-// The drawn bar is one cell, so a click on a letter lands on that letter.
+// from the left edge of the drawn prompt, which starts with the "> " marker
+// until the line is wider than the row. The drawn bar is one cell, so a
+// click on a letter lands on that letter.
 func (m Model) placeCursor(rel int) Model {
 	m.killing = false
-	prefix := lipgloss.Width(styled(tui.CurrentPickerColors().Accent).Render(">")) + 1
-	cell := rel - prefix
+	prefix := lipgloss.Width(m.promptCaret()) + 1
+	cell := rel + m.promptOrigin() - prefix
 	if cell < 0 {
 		m.cursor = 0
 		return m
@@ -770,8 +771,42 @@ func (m Model) renderFrame() string {
 				placeBar(body, feedW, bodyH, barMarks(bodyH, n, m.feedOff))
 		}
 	}
-	caret := styled(tui.CurrentPickerColors().Accent).Render(">")
-	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), caret+" "+m.promptText())
+	prompt := m.promptLine(layout.InnerWidth(frame.Prompt.W))
+	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), prompt)
+}
+
+// promptCaret is the marker at the start of the prompt row.
+func (m Model) promptCaret() string {
+	return styled(tui.CurrentPickerColors().Accent).Render(">")
+}
+
+// promptRaw is the caret and the prompt, including the cursor bar.
+func (m Model) promptRaw() string {
+	return m.promptCaret() + " " + m.promptText()
+}
+
+// cursorCell is the cell of the cursor bar in promptRaw.
+func (m Model) cursorCell() int {
+	return lipgloss.Width(m.promptCaret()) + 1 + lipgloss.Width(string(m.input[:m.cursor]))
+}
+
+// promptOrigin is how many cells of the prompt line are scrolled off the left.
+func (m Model) promptOrigin() int {
+	if m.width == 0 || m.height == 0 {
+		return 0
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	return promptOrigin(lipgloss.Width(m.promptRaw()), m.cursorCell(), layout.InnerWidth(frame.Prompt.W))
+}
+
+// promptLine is the prompt row windowed so the cursor stays on screen.
+func (m Model) promptLine(width int) string {
+	line := m.promptRaw()
+	if width < 1 || lipgloss.Width(line) <= width {
+		return line
+	}
+	origin := promptOrigin(lipgloss.Width(line), m.cursorCell(), width)
+	return ansi.Cut(line, origin, origin+width)
 }
 
 // wrapRows splits each line into the rows it takes at width cells, so the
