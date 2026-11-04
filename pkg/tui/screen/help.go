@@ -23,7 +23,7 @@ const helpText = `keys
   ctrl+y         put back the last killed text
   ctrl+c         clear the prompt; on an empty prompt, quit
   click          focus a pane, or move the prompt cursor
-  shift+left/right select   ctrl+shift+c/x copy/cut
+  shift+left/right select   esc clears   ctrl+shift+c/x
   ctrl+o         edit the prompt in your editor
 press esc, enter or q to close`
 

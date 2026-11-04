@@ -343,6 +343,25 @@ func TestPrompt_SelectCopyCutAndReplace(t *testing.T) {
 	assert.Equal(t, "X", m.Prompt(), "typing replaces the selection")
 }
 
+func TestPrompt_EscClearsTheSelection(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "hello")
+	m, _ = typed(t, m, ctrl('a'))
+	right := tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModShift}
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, right)
+	assert.True(t, m.hasSel())
+	assert.Equal(t, 2, m.cursor)
+
+	m, cmd := typed(t, m, keyPress(tea.KeyEsc))
+	assert.Nil(t, cmd, "esc does not quit")
+	assert.False(t, m.hasSel(), "esc clears the selection")
+	assert.Equal(t, "hello", m.Prompt(), "the text stays")
+	assert.Equal(t, 2, m.cursor, "the cursor stays")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "hello", m.Prompt(), "esc with no selection leaves the prompt")
+}
+
 func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model", "/session")
