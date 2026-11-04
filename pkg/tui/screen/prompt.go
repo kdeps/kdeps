@@ -222,6 +222,10 @@ func (m Model) replaceWord(text string) Model {
 // Ctrl+Shift+X cuts it into the yank buffer. With no selection, Ctrl+Shift+C
 // copies the visible main pane instead.
 func (m Model) selectKey(v tea.KeyPressMsg) (Model, bool) {
+	// Esc clears a selection and leaves the prompt text.
+	if !v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyEsc || v.String() == "esc" || v.String() == "alt+esc") {
+		return m.clearSel(), true
+	}
 	if v.Mod.Contains(tea.ModCtrl) && v.Mod.Contains(tea.ModShift) {
 		switch {
 		case v.Code == 'a' || v.String() == "ctrl+shift+a":
@@ -286,6 +290,14 @@ func (m Model) selBounds() (int, int) {
 func (m Model) hasSel() bool {
 	lo, hi := m.selBounds()
 	return lo != hi
+}
+
+// clearSel drops the selection and leaves the prompt text where it is.
+func (m Model) clearSel() Model {
+	m.anchor = m.cursor
+	m.selecting = false
+	m.killing = false
+	return m
 }
 
 // selectAll selects the whole prompt.
