@@ -87,6 +87,76 @@ func TestPrompt_WordMotion(t *testing.T) {
 	assert.Equal(t, "one ", m.Prompt(), "alt+backspace deletes the word before the cursor")
 }
 
+func TestPrompt_YankRestoresKilledText(t *testing.T) {
+	yank := tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl, Text: "y"}
+
+	m := typeText(t, newPromptScreen(t), "hello")
+	m, _ = typed(t, m, ctrl('u'))
+	assert.Equal(t, "", m.Prompt())
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "hello", m.Prompt(), "ctrl+y restores the line and does not type y")
+
+	m = m.setPrompt("hello")
+	m.cursor = 2
+	m, _ = typed(t, m, ctrl('k'))
+	assert.Equal(t, "he", m.Prompt())
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "hello", m.Prompt(), "ctrl+k yank restores the tail")
+
+	m = m.setPrompt("abc def ghi")
+	m.cursor = 0
+	m, _ = typed(t, m, alt('d'))
+	m, _ = typed(t, m, alt('d'))
+	assert.Equal(t, " ghi", m.Prompt())
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "abc def ghi", m.Prompt(), "two forward kills join into one yank")
+
+	m = m.setPrompt("abc def")
+	m, _ = typed(t, m, ctrl('w'))
+	m, _ = typed(t, m, ctrl('w'))
+	assert.Equal(t, "", m.Prompt())
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "abc def", m.Prompt(), "two backward kills prepend into one yank")
+
+	m = m.setPrompt("abcdef")
+	m.cursor = 3
+	m, _ = typed(t, m, ctrl('u'))
+	m, _ = typed(t, m, ctrl('k'))
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "abcdef", m.Prompt(), "a backward kill and a forward kill join")
+
+	m = m.setPrompt("hello")
+	m, _ = typed(t, m, ctrl('u'))
+	m = typeText(t, m, "x")
+	m, _ = typed(t, m, ctrl('u'))
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "x", m.Prompt(), "typing between kills replaces the buffer")
+
+	m = typeText(t, newPromptScreen(t), "ab")
+	m, _ = typed(t, m, keyPress(tea.KeyBackspace))
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "a", m.Prompt(), "backspace does not fill the yank buffer")
+
+	m = typeText(t, newPromptScreen(t), "hi")
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "hi", m.Prompt(), "ctrl+y with nothing killed leaves the prompt")
+
+	m = m.setPrompt("hello world")
+	m, _ = typed(t, m, ctrl('w'))
+	m, _ = typed(t, m, ctrl('k'))
+	m, _ = typed(t, m, ctrl('u'))
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "hello world", m.Prompt(), "a kill of nothing does not wipe the buffer")
+
+	m = m.setPrompt("abcdef")
+	m.cursor = 3
+	m, _ = typed(t, m, ctrl('k'))
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, ctrl('k'))
+	m, _ = typed(t, m, yank)
+	assert.Equal(t, "abc", m.Prompt(), "moving the cursor starts a new kill")
+}
+
 func TestPrompt_HistoryRecallsAndRestoresTheDraft(t *testing.T) {
 	var sent []string
 	m := newPromptScreen(t)
@@ -224,6 +294,7 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "/model  /session", "the help lists the slash commands")
 	assert.Contains(t, view, "home", "the help lists Home")
+	assert.Contains(t, view, "ctrl+y", "the help lists yank")
 }
 
 func TestPrompt_SharedHistoryRecallsAndRemembers(t *testing.T) {

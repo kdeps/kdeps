@@ -10,17 +10,18 @@ import (
 // because the key's text is the letter and would otherwise be typed.
 func (m Model) wordKey(v tea.KeyPressMsg) (Model, bool) {
 	switch {
+	case wordDeleteBack(v):
+		return m.deleteWordBefore(), true
+	case wordDeleteForward(v):
+		return m.deleteWordAfter(), true
 	case wordBack(v):
 		m.cursor = wordLeft(m.input, m.cursor)
 	case wordForward(v):
 		m.cursor = wordRight(m.input, m.cursor)
-	case wordDeleteBack(v):
-		m = m.deleteWordBefore()
-	case wordDeleteForward(v):
-		m = m.deleteWordAfter()
 	default:
 		return m, false
 	}
+	m.killing = false
 	return m, true
 }
 
@@ -78,6 +79,17 @@ func wordRight(input []rune, cursor int) int {
 // reports false for keys that are not editing keys.
 func (m Model) editKey(name string) (Model, bool) {
 	switch name {
+	case "ctrl+u":
+		m = m.killText(m.input[:m.cursor], true)
+		m.input = m.input[m.cursor:]
+		m.cursor = 0
+		return m, true
+	case "ctrl+k":
+		m = m.killText(m.input[m.cursor:], false)
+		m.input = m.input[:m.cursor]
+		return m, true
+	case "ctrl+w":
+		return m.deleteWordBefore(), true
 	case "left":
 		m.cursor = max(m.cursor-1, 0)
 	case "right":
@@ -90,13 +102,6 @@ func (m Model) editKey(name string) (Model, bool) {
 		m = m.deleteBefore()
 	case "delete":
 		m = m.deleteAfter()
-	case "ctrl+u":
-		m.input = m.input[m.cursor:]
-		m.cursor = 0
-	case "ctrl+k":
-		m.input = m.input[:m.cursor]
-	case "ctrl+w":
-		m = m.deleteWordBefore()
 	case "ctrl+p":
 		m = m.historyBack()
 	case "ctrl+n":
@@ -106,6 +111,7 @@ func (m Model) editKey(name string) (Model, bool) {
 	default:
 		return m, false
 	}
+	m.killing = false
 	return m, true
 }
 
@@ -123,6 +129,7 @@ func (m Model) completeCommand() (Model, bool) {
 	if m.Complete == nil || len(m.input) == 0 || m.input[0] != '/' {
 		return m, false
 	}
+	m.killing = false
 	word := string(m.input[:m.cursor])
 	if strings.ContainsRune(word, ' ') {
 		return m, true
@@ -152,6 +159,7 @@ func (m Model) replaceWord(text string) Model {
 	rest := append([]rune(nil), m.input[m.cursor:]...)
 	m.input = append([]rune(text), rest...)
 	m.cursor = len([]rune(text))
+	m.killing = false
 	return m
 }
 
@@ -176,7 +184,37 @@ func (m Model) insertText(text string) Model {
 	runes := []rune(text)
 	m.input = append(m.input[:m.cursor], append(runes, m.input[m.cursor:]...)...)
 	m.cursor += len(runes)
+	m.killing = false
 	return m
+}
+
+// killText stores chunk so Ctrl+Y can put it back. A kill that follows
+// another kill joins that text: backward text is prepended, forward text
+// appended. An empty chunk leaves the buffer as it is.
+func (m Model) killText(chunk []rune, backward bool) Model {
+	if len(chunk) == 0 {
+		return m
+	}
+	got := append([]rune(nil), chunk...)
+	if m.killing {
+		if backward {
+			m.killed = append(got, m.killed...)
+		} else {
+			m.killed = append(m.killed, got...)
+		}
+	} else {
+		m.killed = got
+	}
+	m.killing = true
+	return m
+}
+
+// yank inserts the last killed text at the cursor.
+func (m Model) yank() Model {
+	if len(m.killed) == 0 {
+		return m
+	}
+	return m.insertText(string(m.killed))
 }
 
 // deleteBefore removes the rune before the cursor.
@@ -199,6 +237,7 @@ func (m Model) deleteAfter() Model {
 // deleteWordBefore removes the word before the cursor, and the spaces before it.
 func (m Model) deleteWordBefore() Model {
 	start := wordLeft(m.input, m.cursor)
+	m = m.killText(m.input[start:m.cursor], true)
 	m.input = append(m.input[:start], m.input[m.cursor:]...)
 	m.cursor = start
 	return m
@@ -207,6 +246,7 @@ func (m Model) deleteWordBefore() Model {
 // deleteWordAfter removes the word after the cursor, and the spaces before it.
 func (m Model) deleteWordAfter() Model {
 	end := wordRight(m.input, m.cursor)
+	m = m.killText(m.input[m.cursor:end], false)
 	m.input = append(m.input[:m.cursor], m.input[end:]...)
 	return m
 }
@@ -279,6 +319,7 @@ func (m Model) historyForward() Model {
 func (m Model) setPrompt(text string) Model {
 	m.input = []rune(text)
 	m.cursor = len(m.input)
+	m.killing = false
 	return m
 }
 

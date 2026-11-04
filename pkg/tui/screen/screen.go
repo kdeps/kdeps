@@ -88,6 +88,8 @@ type Model struct {
 	pills     map[string]string
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
+	killed    []rune   // text the last kill removed; ctrl+y inserts it
+	killing   bool     // the previous key was a kill, so the next kill joins it
 	history   []string // submitted lines, oldest first
 	histAt    int      // history position while recalling; len(history) when not recalling
 	histDraft string   // unsent prompt text kept while recalling
@@ -274,6 +276,7 @@ func inRect(r layout.Rect, x, y int) bool {
 // from the left edge of the prompt text, which starts with the "> " marker.
 // The drawn bar is one cell, so a click on a letter lands on that letter.
 func (m Model) placeCursor(rel int) Model {
+	m.killing = false
 	prefix := lipgloss.Width(styled(tui.CurrentPickerColors().Accent).Render(">")) + 1
 	cell := rel - prefix
 	if cell < 0 {
@@ -310,6 +313,11 @@ func (m Model) placeCursor(rel int) Model {
 func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if v.Text == "?" && len(m.input) == 0 {
 		return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil), nil
+	}
+	// Match the modifier before the key text. A ctrl+y whose text is "y"
+	// would otherwise be typed.
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'y' || v.String() == "ctrl+y") {
+		return m.yank(), nil
 	}
 	if next, handled := m.wordKey(v); handled {
 		return next, nil
