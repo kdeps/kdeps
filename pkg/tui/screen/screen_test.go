@@ -208,6 +208,48 @@ func TestScroll_HomeJumpsToTheOldestRow(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.render()), "step 0", "the feed offset stops at the top too")
 }
 
+func TestCopy_VisibleMainWhenNothingIsSelected(t *testing.T) {
+	copyKey := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl | tea.ModShift, Text: "c"}
+	m := resized(t, New(&feed.Feed{}))
+	m.killed = []rune("stay")
+	m, _ = typed(t, m, copyKey)
+	assert.Equal(t, "stay", string(m.killed), "an empty pane leaves the yank buffer")
+	assert.Equal(t, "", m.Prompt())
+
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'c', Text: "c"})
+	assert.Equal(t, "c", m.Prompt(), "c still types")
+	assert.Equal(t, "stay", string(m.killed))
+
+	m = m.setPrompt("")
+	m, _ = typed(t, m, copyKey)
+	got := string(m.killed)
+	assert.Equal(t, "", m.Prompt(), "copy does not type c")
+	assert.NotContains(t, got, "\n")
+	assert.Contains(t, got, "row 99")
+	assert.NotContains(t, got, "row 50")
+	assert.False(t, m.killing)
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	m, _ = typed(t, m, copyKey)
+	got = string(m.killed)
+	assert.Contains(t, got, "row 75", "a scrolled pane copies the rows on screen")
+	assert.NotContains(t, got, "row 99")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl, Text: "y"})
+	assert.Contains(t, m.Prompt(), "row 75")
+	assert.NotContains(t, m.Prompt(), "\n")
+
+	m = typeText(t, m.setPrompt(""), "hello")
+	m, _ = typed(t, m, ctrl('a'))
+	right := tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModShift}
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, copyKey)
+	assert.Equal(t, "he", string(m.killed), "a selection wins over the pane")
+	assert.Equal(t, "hello", m.Prompt())
+}
+
 func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 	var f feed.Feed
 	for i := range 100 {

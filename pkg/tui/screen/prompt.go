@@ -187,14 +187,18 @@ func (m Model) replaceWord(text string) Model {
 
 // selectKey handles selection keys. Shift+Left and Shift+Right extend the
 // selection. Ctrl+Shift+A selects the line, Ctrl+Shift+C copies it, and
-// Ctrl+Shift+X cuts it into the yank buffer.
+// Ctrl+Shift+X cuts it into the yank buffer. With no selection, Ctrl+Shift+C
+// copies the visible main pane instead.
 func (m Model) selectKey(v tea.KeyPressMsg) (Model, bool) {
 	if v.Mod.Contains(tea.ModCtrl) && v.Mod.Contains(tea.ModShift) {
 		switch {
 		case v.Code == 'a' || v.String() == "ctrl+shift+a":
 			return m.selectAll(), true
 		case v.Code == 'c' || v.String() == "ctrl+shift+c":
-			return m.copySel(), true
+			if m.hasSel() {
+				return m.copySel(), true
+			}
+			return m.copyVisible(), true
 		case v.Code == 'x' || v.String() == "ctrl+shift+x":
 			return m.cutSel(), true
 		}
