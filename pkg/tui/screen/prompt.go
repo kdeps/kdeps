@@ -472,6 +472,16 @@ func (m Model) historyBack() Model {
 	return m.setPrompt(m.history[m.histAt])
 }
 
+// historyEscape puts the unsent text back while a recalled line is showing.
+// Esc outside that recall leaves the prompt alone.
+func (m Model) historyEscape() (Model, bool) {
+	if m.histAt >= len(m.history) {
+		return m, false
+	}
+	m.histAt = len(m.history)
+	return m.setPrompt(m.histDraft), true
+}
+
 // historyForward recalls the next submitted line, or the unsent text.
 func (m Model) historyForward() Model {
 	if m.histAt == len(m.history) {

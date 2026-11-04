@@ -396,6 +396,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		return m.submitLine()
+	case "esc", "alt+esc":
+		if next, ok := m.historyEscape(); ok {
+			return next, nil
+		}
+		return m, nil
 	default:
 		if v.Text != "" {
 			m = m.insertText(v.Text)
