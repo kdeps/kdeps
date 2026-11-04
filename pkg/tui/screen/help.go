@@ -8,7 +8,6 @@ import (
 
 // helpText lists the full-screen keys, shown by typing ? into an empty prompt.
 const helpText = `keys
-
   enter          send the prompt
   up / down      scroll the main pane
   pgup / pgdown  scroll a page
@@ -21,6 +20,7 @@ const helpText = `keys
   ctrl+u/ctrl+k  delete to the start / end of the prompt
   ctrl+w         delete the word before the cursor
   ctrl+left/right previous / next word
+  ctrl+y         put back the last killed text
   ctrl+c         clear the prompt; on an empty prompt, quit
   click          focus a pane, or move the prompt cursor
 
