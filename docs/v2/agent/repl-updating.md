@@ -8,6 +8,8 @@ kdeps checks GitHub for a newer stable release at startup (throttled to once eve
 Update available: v2.8.0 -> v2.9.0. Run /upgrade to update.
 ```
 
+A development build does not print that line. `make build` stamps the binary `v2.0.0-dev`, which is older than every release, so the notice would name whatever the 24-hour cache last stored. `/upgrade` still checks when you run it.
+
 Run `/upgrade` (or `kdeps --upgrade` outside the REPL) any time to check immediately and install. What happens next depends on how kdeps was installed:
 
 - **Homebrew** (`brew install kdeps/tap/kdeps`): prints `brew upgrade kdeps` instead of touching the binary - self-replacing it would desync Homebrew's own bookkeeping.

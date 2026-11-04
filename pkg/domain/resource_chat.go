@@ -104,6 +104,11 @@ type ChatConfig struct {
 	// a real chat: resource's prompt: always supports interpolation.
 	LiteralPrompt bool `yaml:"-"`
 
+	// TurnMeter records this call as the foreground turn's prompt size.
+	// Side calls leave it false so they do not replace that size on the
+	// status line.
+	TurnMeter bool `yaml:"-"`
+
 	ContextLength int    `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
 	Role          string `yaml:"role"`
 	Prompt        string `yaml:"prompt"`

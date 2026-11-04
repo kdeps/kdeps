@@ -129,6 +129,21 @@ func TestExtractAndBuild(t *testing.T) {
 	assert.Equal(t, st.Pending, st.Failed)
 }
 
+func TestExtract_DeadlineIsNotAFailedNote(t *testing.T) {
+	v, _ := sampleVault(t)
+	dir := t.TempDir()
+	ask := func(context.Context, string, string) (string, error) {
+		return "", context.DeadlineExceeded
+	}
+	st, err := Extract(t.Context(), v, dir, ask, ExtractOptions{System: "JSON", Workers: 2})
+	require.NoError(t, err)
+	assert.Greater(t, st.Pending, 0)
+	assert.Equal(t, 0, st.Done)
+	assert.Equal(t, 0, st.Failed, "the batch clock ending is not a failed note")
+	cache := loadExtractCache(dir)
+	assert.Empty(t, cache.Notes)
+}
+
 func TestChunksAndParse(t *testing.T) {
 	r, err := loadExtractRules()
 	require.NoError(t, err)

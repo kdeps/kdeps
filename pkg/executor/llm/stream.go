@@ -1572,7 +1572,9 @@ func generateAccounted(
 ) (*llms.ContentResponse, error) {
 	liveIn := estimateMessageTokens(cfg.Model, messages)
 	addLive(&liveInputs, liveIn)
-	atomic.StoreInt64(&lastCallIn, liveIn)
+	if cfg.TurnMeter {
+		atomic.StoreInt64(&lastCallIn, liveIn)
+	}
 	outBefore := atomic.LoadInt64(&liveOutputs)
 	resp, err := call()
 	streamedOut := atomic.LoadInt64(&liveOutputs) - outBefore
@@ -1582,7 +1584,7 @@ func generateAccounted(
 		return nil, err
 	}
 	recIn, recOut := recordTokenUsage(resp)
-	if recIn > liveIn {
+	if cfg.TurnMeter && recIn > liveIn {
 		atomic.StoreInt64(&lastCallIn, recIn)
 	}
 	if recIn == 0 && recOut == 0 {

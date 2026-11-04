@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -195,7 +196,9 @@ func updateAvailabilityNotice(ctx context.Context) string {
 	checkCtx, cancel := context.WithTimeout(ctx, updateCheckTimeout)
 	defer cancel()
 	result, err := updateAvailabilityNoticeFunc(checkCtx)
-	if err != nil || !result.Available {
+	// A make build is v2.0.0-dev, which is older than every release, so the
+	// notice would point a local tree at whatever the cache last stored.
+	if err != nil || !result.Available || strings.HasSuffix(result.Current, "-dev") {
 		return ""
 	}
 	return fmt.Sprintf("Update available: v%s -> v%s. Run /upgrade to update.", result.Current, result.Latest)

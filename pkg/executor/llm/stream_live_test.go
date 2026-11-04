@@ -46,7 +46,7 @@ func TestSessionTokens_IncludeLiveThenReplaceWithUsage(t *testing.T) {
 	atomic.StoreInt64(&liveInputs, 0)
 	atomic.StoreInt64(&liveOutputs, 0)
 
-	resp, err := generateAccounted(&domain.ChatConfig{}, nil, func() (*llms.ContentResponse, error) {
+	resp, err := generateAccounted(&domain.ChatConfig{TurnMeter: true}, nil, func() (*llms.ContentResponse, error) {
 		addLive(&liveOutputs, 7)
 		assert.Equal(t, int64(7), SessionOutputTokens(), "generated must move before the call returns")
 		return &llms.ContentResponse{Choices: []*llms.ContentChoice{{
@@ -64,4 +64,26 @@ func TestSessionTokens_IncludeLiveThenReplaceWithUsage(t *testing.T) {
 
 	ResetLastCallInput()
 	assert.Equal(t, int64(0), LastCallInputTokens())
+}
+
+func TestGenerateAccounted_SideCallKeepsTheTurnSize(t *testing.T) {
+	origIn, origOut := atomic.LoadInt64(&TokenInputs), atomic.LoadInt64(&TokenOutputs)
+	origLiveIn, origLiveOut := atomic.LoadInt64(&liveInputs), atomic.LoadInt64(&liveOutputs)
+	orig := LastCallInputTokens()
+	t.Cleanup(func() {
+		atomic.StoreInt64(&TokenInputs, origIn)
+		atomic.StoreInt64(&TokenOutputs, origOut)
+		atomic.StoreInt64(&liveInputs, origLiveIn)
+		atomic.StoreInt64(&liveOutputs, origLiveOut)
+		SetLastCallInputForTest(orig)
+	})
+	SetLastCallInputForTest(17800)
+	_, err := generateAccounted(&domain.ChatConfig{}, nil, func() (*llms.ContentResponse, error) {
+		return &llms.ContentResponse{Choices: []*llms.ContentChoice{{
+			Content:        "x",
+			GenerationInfo: map[string]any{"PromptTokens": 314, "CompletionTokens": 3},
+		}}}, nil
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, int64(17800), LastCallInputTokens(), "a side call must not replace the turn's prompt size")
 }
