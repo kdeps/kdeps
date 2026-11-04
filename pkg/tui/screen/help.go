@@ -23,7 +23,7 @@ const helpText = `keys
   ctrl+left/right previous / next word
   ctrl+y         put back the last killed text
   ctrl+c/ctrl+d  clear or quit / delete under cursor
-  click          focus a pane, or move the prompt cursor
+  click          pane or cursor; 2x word, 3x line
   shift+left/right select   esc clears   ctrl+shift+c/x pane
   ctrl+o/ctrl+v  editor / paste an image   ctrl+shift+v text
 press esc, enter, q, or ctrl+g to close`

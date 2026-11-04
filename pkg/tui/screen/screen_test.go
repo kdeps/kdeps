@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -576,6 +577,37 @@ func TestClick_MovesThePromptCursor(t *testing.T) {
 
 	m, _ = typed(t, m, tea.MouseClickMsg{X: textX, Y: y, Button: tea.MouseLeft})
 	assert.Equal(t, 0, m.cursor, "a click on the prompt marker moves to the start")
+}
+
+func TestClick_DoubleAndTripleClickSelect(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	for _, c := range "say hello world" {
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: c, Text: string(c)})
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	y := frame.Prompt.Y + 1
+	click := tea.MouseClickMsg{X: textX + 2 + 4, Y: y, Button: tea.MouseLeft}
+
+	m, _ = typed(t, m, click)
+	assert.Equal(t, 4, m.cursor, "the first click lands on h")
+	assert.False(t, m.hasSel())
+
+	m, _ = typed(t, m, click)
+	lo, hi := m.selBounds()
+	assert.Equal(t, "hello", string(m.input[lo:hi]), "the second click selects the word")
+	assert.False(t, m.selecting)
+
+	m, _ = typed(t, m, click)
+	lo, hi = m.selBounds()
+	assert.Equal(t, "say hello world", string(m.input[lo:hi]), "the third click selects the line")
+
+	m, _ = typed(t, m, click)
+	assert.False(t, m.hasSel(), "the click after a triple click places the cursor")
+
+	m.lastClick = time.Now().Add(-time.Second)
+	m, _ = typed(t, m, click)
+	assert.False(t, m.hasSel(), "a late second click does not select the word")
 }
 
 func TestPromptWindow_KeepsTheCursorOnScreen(t *testing.T) {
