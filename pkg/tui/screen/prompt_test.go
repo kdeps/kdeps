@@ -218,6 +218,46 @@ func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
 	assert.Equal(t, "why?", m.Prompt())
 }
 
+func TestCtrlD_DeletesUnderTheCursorAndQuitsWhenEmpty(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "ab")
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, cmd := typed(t, m, ctrl('d'))
+	assert.Equal(t, "a", m.Prompt(), "ctrl+d deletes the character under the cursor")
+	assert.Nil(t, cmd, "a non-empty prompt does not quit")
+
+	m, cmd = typed(t, m, ctrl('d'))
+	assert.Equal(t, "a", m.Prompt(), "ctrl+d at the end of the line leaves it")
+	assert.Nil(t, cmd)
+
+	m = typeText(t, m, "d")
+	assert.Equal(t, "ad", m.Prompt(), "d still types")
+
+	m, _ = typed(t, m, ctrl('u'))
+	_, cmd = typed(t, m, ctrl('d'))
+	assert.NotNil(t, cmd, "ctrl+d on an empty prompt quits")
+}
+
+func TestCtrlD_EndsAKillAndDropsASelection(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "helloXY")
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, ctrl('u'))
+	assert.Equal(t, "XY", m.Prompt())
+	m, _ = typed(t, m, ctrl('d'))
+	assert.Equal(t, "Y", m.Prompt())
+	m, _ = typed(t, m, ctrl('k'))
+	m, _ = typed(t, m, ctrl('y'))
+	assert.Equal(t, "Y", m.Prompt(), "ctrl+d ends a kill, so the next kill does not join")
+
+	m = typeText(t, newPromptScreen(t), "ab")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModShift})
+	m, cmd := typed(t, m, ctrl('d'))
+	assert.Equal(t, "a", m.Prompt(), "ctrl+d removes a selection")
+	assert.Nil(t, cmd)
+	m, _ = typed(t, m, ctrl('y'))
+	assert.Equal(t, "a", m.Prompt(), "the removed selection is not yanked")
+}
+
 func TestCtrlC_ClearsThePromptBeforeQuitting(t *testing.T) {
 	m := typeText(t, newPromptScreen(t), "draft")
 	m, cmd := typed(t, m, ctrl('c'))
@@ -343,6 +383,25 @@ func TestPrompt_SelectCopyCutAndReplace(t *testing.T) {
 	assert.Equal(t, "X", m.Prompt(), "typing replaces the selection")
 }
 
+func TestPrompt_EscClearsTheSelection(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "hello")
+	m, _ = typed(t, m, ctrl('a'))
+	right := tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModShift}
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, right)
+	assert.True(t, m.hasSel())
+	assert.Equal(t, 2, m.cursor)
+
+	m, cmd := typed(t, m, keyPress(tea.KeyEsc))
+	assert.Nil(t, cmd, "esc does not quit")
+	assert.False(t, m.hasSel(), "esc clears the selection")
+	assert.Equal(t, "hello", m.Prompt(), "the text stays")
+	assert.Equal(t, 2, m.cursor, "the cursor stays")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "hello", m.Prompt(), "esc with no selection leaves the prompt")
+}
+
 func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model", "/session")
@@ -370,6 +429,30 @@ func TestEsc_RestoresTheUnsentPromptWhileRecalling(t *testing.T) {
 
 	m, _ = typed(t, m, ctrl('p'))
 	assert.Equal(t, "newer", m.Prompt(), "recall still starts from the newest line")
+}
+
+func TestEdit_OnARecalledLineKeepsTheEdit(t *testing.T) {
+	recall := func() Model {
+		m := newPromptScreen(t)
+		m = m.UseHistory([]string{"older", "newer"}, nil)
+		m = typeText(t, m, "draft")
+		m, _ = typed(t, m, ctrl('p'))
+		return m
+	}
+
+	m := typeText(t, recall(), "!")
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "newer!", m.Prompt(), "an edit leaves history, so ctrl+n does not replace it")
+
+	m = recall()
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "draft", m.Prompt(), "moving the cursor stays in history")
+
+	m = recall()
+	m, _ = typed(t, m, keyPress(tea.KeyDelete))
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "draft", m.Prompt(), "a delete that changes nothing stays in history")
 }
 
 func TestPrompt_SharedHistoryRecallsAndRemembers(t *testing.T) {
