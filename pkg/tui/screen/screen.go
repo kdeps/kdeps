@@ -447,6 +447,28 @@ func (m Model) appendOutput(text string) Model {
 	return m.clampScroll()
 }
 
+// copyVisible stores the main pane's visible rows for Ctrl+Y. The rows become
+// one line. An empty pane leaves the yank buffer alone, and the prompt stays.
+func (m Model) copyVisible() Model {
+	text := strings.Join(strings.Fields(m.visibleMain()), " ")
+	if text == "" {
+		return m
+	}
+	m.killed = []rune(text)
+	m.killing = false
+	return m
+}
+
+// visibleMain is the main pane text on screen, one row per line.
+func (m Model) visibleMain() string {
+	if m.width == 0 || m.height == 0 {
+		return ""
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	rows := wrapRows(m.main, layout.InnerWidth(frame.Main.W))
+	return window(rows, frame.Main.H-feedBorder, m.mainOff)
+}
+
 // Prompt is the text the user has typed so far.
 func (m Model) Prompt() string { return string(m.input) }
 
