@@ -13,7 +13,7 @@ const helpText = `keys
   pgup / pgdown  scroll a page
   end            jump to the newest output
   home           jump to the oldest output
-  tab            complete a slash command, else switch focus between panes
+  tab            complete a slash command, or switch pane
   ctrl+f         show or hide the feed
   ctrl+p/ctrl+n  recall earlier prompts
   ctrl+a/ctrl+e  start / end of the prompt
@@ -23,6 +23,7 @@ const helpText = `keys
   ctrl+y         put back the last killed text
   ctrl+c         clear the prompt; on an empty prompt, quit
   click          focus a pane, or move the prompt cursor
+  shift+left/right select   ctrl+shift+c/x copy/cut
   ctrl+o         edit the prompt in your editor
 press esc, enter or q to close`
 
