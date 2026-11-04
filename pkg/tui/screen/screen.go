@@ -388,6 +388,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.scroll(-m.pageRows()), nil
 	case "home":
 		return m.jumpOldest(), nil
+	case "ctrl+end":
+		// End follows whichever pane is focused. Ctrl+End always follows
+		// the main pane, including while the feed has the keys.
+		m.mainOff = 0
+		return m, nil
 	case "end":
 		if m.focusFeed {
 			m.feedOff = 0
