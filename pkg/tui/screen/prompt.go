@@ -126,10 +126,7 @@ func (m Model) editKey(name string) (Model, bool) {
 	case "ctrl+n":
 		m = m.historyForward()
 	case "tab":
-		if next, ok := m.completeMention(); ok {
-			return next, true
-		}
-		return m.completeCommand()
+		return m.completeTab()
 	default:
 		return m, false
 	}
@@ -143,6 +140,14 @@ func (m Model) commandList() []string {
 		return nil
 	}
 	return m.Complete("/")
+}
+
+// completeTab completes an @ path at the cursor, or else a slash command.
+func (m Model) completeTab() (Model, bool) {
+	if next, ok := m.completeMention(); ok {
+		return next, true
+	}
+	return m.completeCommand()
 }
 
 // completeMention completes the @ token at the cursor. A prompt with no @
@@ -204,10 +209,11 @@ func (m Model) replaceSpan(start int, text string) Model {
 	if start < 0 || start > m.cursor || m.cursor > len(m.input) {
 		return m
 	}
-	rest := append([]rune(nil), m.input[m.cursor:]...)
-	head := append([]rune(nil), m.input[:start]...)
 	mid := []rune(text)
-	m.input = append(head, append(mid, rest...)...)
+	input := make([]rune, 0, len(m.input)-(m.cursor-start)+len(mid))
+	input = append(input, m.input[:start]...)
+	input = append(input, mid...)
+	m.input = append(input, m.input[m.cursor:]...)
 	m.cursor = start + len(mid)
 	m.anchor = m.cursor
 	m.killing = false
