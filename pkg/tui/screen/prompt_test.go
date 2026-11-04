@@ -197,7 +197,9 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model", "/session")
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
-	assert.Contains(t, ansi.Strip(m.render()), "/model  /session", "the help lists the slash commands")
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "/model  /session", "the help lists the slash commands")
+	assert.Contains(t, view, "home", "the help lists Home")
 }
 
 func TestPrompt_SharedHistoryRecallsAndRemembers(t *testing.T) {

@@ -136,6 +136,38 @@ func TestScroll_ClampsAtTheTop(t *testing.T) {
 		m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyUp})
 	}
 	assert.Contains(t, ansi.Strip(m.render()), "row 0", "scrolling past the top shows the first rows")
+	assert.Equal(t, 0, m.mainOff, "the stored offset stops at the top")
+}
+
+func TestScroll_ExtraPageUpDoesNotStick(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	for range 10 {
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	}
+	assert.Contains(t, ansi.Strip(m.render()), "row 0", "repeated page-up reaches the oldest row")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgDown})
+	assert.NotContains(t, ansi.Strip(m.render()), "row 0", "one page-down from the top moves forward")
+}
+
+func TestScroll_HomeJumpsToTheOldestRow(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyHome})
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "row 0", "Home shows the oldest row")
+	assert.NotContains(t, view, "row 99", "Home leaves the newest row")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyTab})
+	for i := range 100 {
+		m.Feed.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
+	}
+	for range 10 {
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	}
+	assert.Contains(t, ansi.Strip(m.render()), "step 0")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgDown})
+	assert.NotContains(t, ansi.Strip(m.render()), "step 0", "the feed offset stops at the top too")
 }
 
 func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {

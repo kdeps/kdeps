@@ -3,6 +3,7 @@
 package screen
 
 import (
+	"math"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -124,12 +125,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The overlay gets every message, resizes included.
 		if ws, ok := msg.(tea.WindowSizeMsg); ok {
 			m.width, m.height = ws.Width, ws.Height
+			m = m.clampScroll()
 		}
 		return m.updateOverlay(msg)
 	}
 	switch v := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = v.Width, v.Height
+		m = m.clampScroll()
 	case OutputMsg:
 		m = m.appendOutput(v.Text)
 	case StatusTextMsg:
@@ -159,13 +162,68 @@ func (m Model) pageRows() int {
 }
 
 // scroll moves the focused box by delta rows (positive is up, into history).
+// The offset stops at the oldest row, so a later move in the other direction
+// leaves that row instead of repeating it.
 func (m Model) scroll(delta int) Model {
 	if m.focusFeed {
-		m.feedOff = max(m.feedOff+delta, 0)
+		m.feedOff += delta
 	} else {
-		m.mainOff = max(m.mainOff+delta, 0)
+		m.mainOff += delta
+	}
+	return m.clampScroll()
+}
+
+// jumpOldest moves the focused box to its oldest row.
+func (m Model) jumpOldest() Model {
+	if m.focusFeed {
+		m.feedOff = math.MaxInt
+	} else {
+		m.mainOff = math.MaxInt
+	}
+	return m.clampScroll()
+}
+
+// clampScroll limits both offsets to the rows each box can actually show.
+func (m Model) clampScroll() Model {
+	if m.width == 0 || m.height == 0 {
+		return m
+	}
+	mainH, mainN := m.mainSpan()
+	m.mainOff = clampOffset(m.mainOff, mainN, mainH)
+	if feedH, feedN, ok := m.feedSpan(); ok {
+		m.feedOff = clampOffset(m.feedOff, feedN, feedH)
 	}
 	return m
+}
+
+// mainSpan is the main pane's content height and how many wrapped rows it holds.
+func (m Model) mainSpan() (int, int) {
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	return frame.Main.H - feedBorder, len(wrapRows(m.main, layout.InnerWidth(frame.Main.W)))
+}
+
+// feedSpan is the feed's content height and row count. The bool is false when
+// the feed is hidden, so a closed feed keeps its offset for the next open.
+func (m Model) feedSpan() (int, int, bool) {
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	if m.Feed == nil || frame.Feed.W == 0 {
+		return 0, 0, false
+	}
+	return frame.Feed.H - feedBorder - 1, m.Feed.Lines(layout.InnerWidth(frame.Feed.W)), true
+}
+
+// clampOffset limits off to the range the window can show.
+func clampOffset(off, lines, height int) int {
+	if off < 0 || height < 1 {
+		return 0
+	}
+	if top := lines - height; off > top {
+		if top < 0 {
+			return 0
+		}
+		return top
+	}
+	return off
 }
 
 // wheel scrolls the box under the mouse pointer.
@@ -205,6 +263,7 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "ctrl+f":
 		m.feedOpen = !m.feedOpen
+		m = m.clampScroll()
 	case "tab":
 		m.focusFeed = !m.focusFeed
 	case "up":
@@ -215,6 +274,8 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.scroll(m.pageRows()), nil
 	case "pgdown":
 		return m.scroll(-m.pageRows()), nil
+	case "home":
+		return m.jumpOldest(), nil
 	case "end":
 		if m.focusFeed {
 			m.feedOff = 0
@@ -262,7 +323,7 @@ func (m Model) appendOutput(text string) Model {
 	if extra := len(m.main) - maxMainLines; extra > 0 {
 		m.main = m.main[extra:]
 	}
-	return m
+	return m.clampScroll()
 }
 
 // Prompt is the text the user has typed so far.
