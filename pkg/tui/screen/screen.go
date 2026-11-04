@@ -5,6 +5,7 @@ package screen
 import (
 	"math"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -47,6 +48,15 @@ const layoutBottomRows = 6
 // wheelStep is how many rows one mouse-wheel notch scrolls.
 const wheelStep = 3
 
+// multiClickGap is how close two prompt clicks must be to count as one gesture.
+const multiClickGap = 400 * time.Millisecond
+
+// A second prompt click on the same cell selects the word. A third selects the line.
+const (
+	clickWord = 2
+	clickLine = 3
+)
+
 // Model is the full-screen view.
 // frameCache holds the last drawn frame. The model copies share it, so a
 // frame is reused until the key below changes.
@@ -84,18 +94,22 @@ type Model struct {
 	// HistoryMax bounds the submitted lines ctrl+p and ctrl+n recall; 0 keeps all.
 	HistoryMax int
 	// Model is the active model name, shown as a chip in the header row.
-	Model     string
-	pills     map[string]string
-	input     []rune
-	cursor    int      // rune index of the prompt cursor
-	anchor    int      // the other end of a selection; equal to cursor when none
-	selecting bool     // a left-button drag in the prompt is extending the selection
-	killed    []rune   // text the last kill removed; ctrl+y inserts it
-	killing   bool     // the previous key was a kill, so the next kill joins it
-	history   []string // submitted lines, oldest first
-	histAt    int      // history position while recalling; len(history) when not recalling
-	histDraft string   // unsent prompt text kept while recalling
-	Feed      *feed.Feed
+	Model      string
+	pills      map[string]string
+	input      []rune
+	cursor     int  // rune index of the prompt cursor
+	anchor     int  // the other end of a selection; equal to cursor when none
+	selecting  bool // a left-button drag in the prompt is extending the selection
+	lastClick  time.Time
+	lastClickX int
+	lastClickY int
+	clickCount int      // prompt clicks on the same cell inside multiClickGap
+	killed     []rune   // text the last kill removed; ctrl+y inserts it
+	killing    bool     // the previous key was a kill, so the next kill joins it
+	history    []string // submitted lines, oldest first
+	histAt     int      // history position while recalling; len(history) when not recalling
+	histDraft  string   // unsent prompt text kept while recalling
+	Feed       *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
 	OnSubmit func(line string)
 	// launchEditor opens the prompt in an external editor. Nil uses the default.
@@ -274,15 +288,44 @@ func (m Model) click(v tea.MouseClickMsg) Model {
 		m.focusFeed = true
 		m.selecting = false
 		m.anchor = m.cursor
+		m.clickCount = 0
 	case inRect(frame.Main, v.X, v.Y):
 		m.focusFeed = false
 		m.selecting = false
 		m.anchor = m.cursor
+		m.clickCount = 0
 	case v.Y == frame.Prompt.Y+1 && inRect(frame.Prompt, v.X, v.Y):
-		m = m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
-		m.anchor = m.cursor
-		m.selecting = true
+		m = m.promptClick(v.X, v.Y, v.X-(frame.Prompt.X+1+layout.BoxPadX))
 	}
+	return m
+}
+
+// promptClick places the cursor, or selects on a repeated click of the same cell.
+// The second click selects the word. The third selects the line. The hit test
+// from the first click is kept, because the caret would shift the later cells.
+func (m Model) promptClick(x, y, rel int) Model {
+	repeat := m.clickCount >= 1 && time.Since(m.lastClick) <= multiClickGap && x == m.lastClickX && y == m.lastClickY
+	if repeat {
+		m.clickCount++
+	} else {
+		m.clickCount = 1
+	}
+	m.lastClick = time.Now()
+	m.lastClickX, m.lastClickY = x, y
+	if repeat && m.clickCount == clickWord {
+		m = m.selectWordAt(m.cursor)
+		m.selecting = false
+		return m
+	}
+	if repeat && m.clickCount >= clickLine {
+		m = m.selectAll()
+		m.clickCount = 0
+		m.selecting = false
+		return m
+	}
+	m = m.placeCursor(rel)
+	m.anchor = m.cursor
+	m.selecting = true
 	return m
 }
 

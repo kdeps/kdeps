@@ -22,7 +22,7 @@ const helpText = `keys
   ctrl+left/right previous / next word
   ctrl+y         put back the last killed text
   ctrl+c         clear the prompt; on an empty prompt, quit
-  click          focus a pane, or move the prompt cursor
+  click          cursor, 2x a word, 3x the line
   shift+left/right select   ctrl+shift+c/x copy/cut
   ctrl+o         edit the prompt in your editor
 press esc, enter or q to close`

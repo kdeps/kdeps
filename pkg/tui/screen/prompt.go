@@ -62,6 +62,35 @@ func wordLeft(input []rune, cursor int) int {
 	return i
 }
 
+// selectWordAt selects the space-delimited word around cursor.
+// A cursor on a space, or on an empty prompt, selects nothing.
+func (m Model) selectWordAt(cursor int) Model {
+	if cursor > len(m.input) {
+		cursor = len(m.input)
+	}
+	if cursor == len(m.input) && cursor > 0 && m.input[cursor-1] != ' ' {
+		cursor--
+	}
+	if cursor >= len(m.input) || m.input[cursor] == ' ' {
+		m.anchor = cursor
+		m.cursor = cursor
+		m.killing = false
+		return m
+	}
+	start := cursor
+	for start > 0 && m.input[start-1] != ' ' {
+		start--
+	}
+	end := cursor
+	for end < len(m.input) && m.input[end] != ' ' {
+		end++
+	}
+	m.anchor = start
+	m.cursor = end
+	m.killing = false
+	return m
+}
+
 // wordRight is the cursor after moving to the end of the next word.
 func wordRight(input []rune, cursor int) int {
 	i := cursor
