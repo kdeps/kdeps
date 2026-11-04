@@ -21,7 +21,7 @@ const helpText = `keys
   ctrl+w         delete the word before the cursor
   ctrl+left/right previous / next word
   ctrl+y         put back the last killed text
-  ctrl+c         clear the prompt; on an empty prompt, quit
+  ctrl+c/ctrl+d  clear or quit / delete under cursor
   click          focus a pane, or move the prompt cursor
   shift+left/right select   ctrl+shift+c/x copy/cut pane
   ctrl+o         edit the prompt in your editor

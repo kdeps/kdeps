@@ -453,7 +453,8 @@ func (m Model) appendOutput(text string) Model {
 }
 
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+O opens the editor, and Ctrl+Z suspends the view.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, and
+// Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -461,6 +462,15 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	switch {
 	case v.Code == 'y' || v.String() == "ctrl+y":
 		return m.yank(), nil, true
+	case (v.Code == 'd' || v.String() == "ctrl+d") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		// Ctrl+D deletes the character under the cursor. An empty prompt
+		// quits, the same way the line editor treats end of input.
+		if len(m.input) == 0 {
+			return m, tea.Quit, true
+		}
+		m = m.deleteAfter()
+		m.killing = false
+		return m, nil, true
 	case v.Code == 'o' || v.String() == "ctrl+o":
 		return m, m.openEditor(), true
 	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
