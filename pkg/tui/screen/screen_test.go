@@ -131,6 +131,26 @@ func TestScroll_UpShowsOlderRowsAndEndReturnsToTheNewest(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.render()), "row 99", "End returns to the newest rows")
 }
 
+func TestCtrlEnd_FollowsTheMainPaneWhileTheFeedIsFocused(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	require.Greater(t, m.mainOff, 0)
+	m = typeText(t, m, "hi")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	require.True(t, m.focusFeed)
+
+	off := m.mainOff
+	m, _ = typed(t, m, keyPress(tea.KeyEnd))
+	assert.Equal(t, off, m.mainOff, "end follows the focused feed")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnd, Mod: tea.ModCtrl})
+	assert.Equal(t, 0, m.mainOff, "ctrl+end follows the main pane")
+	assert.True(t, m.focusFeed, "the feed stays focused")
+	assert.Equal(t, "hi", m.Prompt())
+	assert.Contains(t, ansi.Strip(m.render()), "row 99")
+}
+
 func TestScroll_ClampsAtTheTop(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(5)})
@@ -209,6 +229,94 @@ func TestScroll_HomeJumpsToTheOldestRow(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.render()), "step 0", "the feed offset stops at the top too")
 }
 
+func TestCopy_VisibleMainWhenNothingIsSelected(t *testing.T) {
+	copyKey := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl | tea.ModShift, Text: "c"}
+	m := resized(t, New(&feed.Feed{}))
+	m.killed = []rune("stay")
+	m, _ = typed(t, m, copyKey)
+	assert.Equal(t, "stay", string(m.killed), "an empty pane leaves the yank buffer")
+	assert.Equal(t, "", m.Prompt())
+
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'c', Text: "c"})
+	assert.Equal(t, "c", m.Prompt(), "c still types")
+	assert.Equal(t, "stay", string(m.killed))
+
+	m = m.setPrompt("")
+	m, _ = typed(t, m, copyKey)
+	got := string(m.killed)
+	assert.Equal(t, "", m.Prompt(), "copy does not type c")
+	assert.NotContains(t, got, "\n")
+	assert.Contains(t, got, "row 99")
+	assert.NotContains(t, got, "row 50")
+	assert.False(t, m.killing)
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	m, _ = typed(t, m, copyKey)
+	got = string(m.killed)
+	assert.Contains(t, got, "row 75", "a scrolled pane copies the rows on screen")
+	assert.NotContains(t, got, "row 99")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl, Text: "y"})
+	assert.Contains(t, m.Prompt(), "row 75")
+	assert.NotContains(t, m.Prompt(), "\n")
+
+	m = typeText(t, m.setPrompt(""), "hello")
+	m, _ = typed(t, m, ctrl('a'))
+	right := tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModShift}
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, copyKey)
+	assert.Equal(t, "he", string(m.killed), "a selection wins over the pane")
+	assert.Equal(t, "hello", m.Prompt())
+}
+
+func TestFold_CtrlSpaceHidesTheRestOfTheOutput(t *testing.T) {
+	fold := tea.KeyPressMsg{Code: ' ', Mod: tea.ModCtrl, Text: " "}
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(30)})
+	m, _ = typed(t, m, OutputMsg{Text: "AAA\nBBB\nCCC"})
+	m = typeText(t, m, "keep")
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "AAA")
+	assert.Contains(t, view, "CCC")
+
+	m, _ = typed(t, m, fold)
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "AAA", "the first line stays")
+	assert.NotContains(t, view, "BBB")
+	assert.NotContains(t, view, "CCC")
+	assert.Contains(t, view, "row 29")
+	assert.Equal(t, "keep", m.Prompt(), "ctrl+space does not type a space")
+
+	m, _ = typed(t, m, fold)
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "BBB")
+	assert.Contains(t, view, "CCC", "the same chord opens the output")
+
+	m, _ = typed(t, m, OutputMsg{Text: "ONLY"})
+	m, _ = typed(t, m, fold)
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "ONLY", "a one-line output does not fold")
+	assert.Contains(t, view, "CCC")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: ' ', Text: " "})
+	assert.Equal(t, "keep ", m.Prompt(), "space still types")
+}
+
+func TestFold_TogglesTheOutputAtTheBottom(t *testing.T) {
+	fold := tea.KeyPressMsg{Code: ' ', Mod: tea.ModCtrl}
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(40)})
+	m, _ = typed(t, m, OutputMsg{Text: "AAA\nBBB\nCCC"})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	m, _ = typed(t, m, fold)
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "row 0", "the older output folds to its first line")
+	assert.NotContains(t, view, "row 10")
+	assert.Contains(t, view, "CCC", "the output below the window stays whole")
+}
+
 func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 	var f feed.Feed
 	for i := range 100 {
@@ -218,6 +326,19 @@ func TestScroll_TabMovesFocusToTheFeed(t *testing.T) {
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyTab})
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
 	assert.NotContains(t, ansi.Strip(m.render()), "step 99", "the feed scrolled, not the main pane")
+}
+
+func TestSuspend_CtrlZLeavesThePrompt(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m = typeText(t, m, "keep")
+	m, cmd := typed(t, m, tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl, Text: "z"})
+	assert.Equal(t, "keep", m.Prompt(), "ctrl+z does not type")
+	require.NotNil(t, cmd)
+	_, ok := cmd().(tea.SuspendMsg)
+	assert.True(t, ok, "ctrl+z suspends the view")
+	m, cmd = typed(t, m, tea.KeyPressMsg{Code: 'z', Text: "z"})
+	assert.Equal(t, "keepz", m.Prompt())
+	assert.Nil(t, cmd)
 }
 
 func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
