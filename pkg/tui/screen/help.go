@@ -6,16 +6,17 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// helpText lists the full-screen keys, shown by typing ? into an empty prompt.
+// helpText lists the full-screen keys. ? in an empty prompt opens it, and
+// ctrl+g opens it with the prompt left as it is.
 const helpText = `keys
-  enter          send the prompt
-  up / down      scroll one row, bar   ctrl+space folds
-  pgup / pgdown  scroll a page   ctrl+up/down half a page
+  enter/ctrl+g   send the prompt / key help
+  up / down      scroll one row, bar   shift+up/down one output
+  pgup / pgdown  ctrl+up/down half   ctrl+space folds
   end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
-  tab            complete a slash command, or switch pane
-  ctrl+f/ctrl+z  feed / suspend
-  ctrl+p/ctrl+n  recall; an edit keeps the line
+  tab            complete / or @, or switch pane
+  ctrl+f/ctrl+z  feed / suspend   ctrl+t pills
+  ctrl+p/ctrl+n  recall, edit keeps it   esc restores
   ctrl+a/ctrl+e  start / end of the prompt
   ctrl+u/ctrl+k  delete to the start / end of the prompt
   ctrl+w         delete the word before the cursor
@@ -24,8 +25,8 @@ const helpText = `keys
   ctrl+c/ctrl+d  clear or quit / delete under cursor
   click          pane or cursor; 2x word, 3x line
   shift+left/right select   esc clears   ctrl+shift+c/x pane
-  ctrl+o         edit the prompt in your editor
-press esc, enter or q to close`
+  ctrl+o/ctrl+v  editor / paste an image   ctrl+shift+v text
+press esc, enter, q, or ctrl+g to close`
 
 // helpOverlay shows the key list and the slash commands until the user closes it.
 type helpOverlay struct {
@@ -36,12 +37,17 @@ type helpOverlay struct {
 // Init has no startup command.
 func (h helpOverlay) Init() tea.Cmd { return nil }
 
-// Update closes the overlay on esc, enter or q.
+// Update closes the overlay on esc, enter, q, or ctrl+g.
 func (h helpOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyPressMsg); ok {
 		switch k.String() {
-		case "esc", "enter", "q":
+		case "esc", "enter", "q", "ctrl+g":
 			h.done = true
+		default:
+			if k.Code == 'g' && k.Mod.Contains(tea.ModCtrl) &&
+				!k.Mod.Contains(tea.ModAlt) && !k.Mod.Contains(tea.ModShift) {
+				h.done = true
+			}
 		}
 	}
 	return h, nil

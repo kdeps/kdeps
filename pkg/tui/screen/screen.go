@@ -86,12 +86,12 @@ type frameCache struct {
 // a frame drawn for one profile is not served for another. model, title
 // and pills are the header, so a chip change is not served from the last frame.
 type frameKey struct {
-	width, height, mainOff, feedOff       int
-	mainVer, feedVer                      int
-	feedOpen, focusFeed, mainBar, feedBar bool
-	status, prompt                        string
-	model, title, pills                   string
-	profile                               colorprofile.Profile
+	width, height, mainOff, feedOff                 int
+	mainVer, feedVer                                int
+	feedOpen, focusFeed, mainBar, feedBar, pillsOff bool
+	status, prompt                                  string
+	model, title, pills                             string
+	profile                                         colorprofile.Profile
 }
 
 type Model struct {
@@ -117,6 +117,7 @@ type Model struct {
 	// Model is the active model name, shown as a chip in the header row.
 	Model      string
 	pills      map[string]string
+	pillsOff   bool // ctrl+t hides the header pills; the model chip stays
 	input      []rune
 	cursor     int  // rune index of the prompt cursor
 	anchor     int  // the other end of a selection; equal to cursor when none
@@ -135,6 +136,10 @@ type Model struct {
 	OnSubmit func(line string)
 	// launchEditor opens the prompt in an external editor. Nil uses the default.
 	launchEditor func(text string) tea.Cmd
+	// readClipboard returns clipboard text. Nil reads the system clipboard.
+	readClipboard func() (string, bool)
+	// readImage reads a clipboard image path. Nil uses the system clipboard.
+	readImage func() (string, bool)
 	// Complete lists the slash commands that start with a prefix. Tab completes
 	// a slash command when the prompt starts with "/". Nil disables completion.
 	Complete func(prefix string) []string
@@ -208,6 +213,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		before := string(m.input)
 		return m.setPrompt(v.text).keepEdit(before), nil
+	case imagePasteMsg:
+		if v.path == "" {
+			return m, nil
+		}
+		return m.insertText("@" + v.path + " "), nil
 	}
 	return m, nil
 }
@@ -234,6 +244,85 @@ func (m Model) scroll(delta int) (Model, tea.Cmd) {
 		m.mainOff += delta
 	}
 	return m.revealBar(m.focusFeed)
+}
+
+// arrowKey handles modified Up and Down. Ctrl+Up and Ctrl+Down scroll half a
+// page. Shift+Up and Shift+Down scroll the main pane by one output. Both are
+// matched on the modifier, so a shifted or ctrl letter still types.
+func (m Model) arrowKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
+		delta := m.halfRows()
+		if v.Code == tea.KeyDown {
+			delta = -delta
+		}
+		next, cmd := m.scroll(delta)
+		return next, cmd, true
+	}
+	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) {
+		return m, nil, false
+	}
+	switch v.Code {
+	case tea.KeyUp:
+		next, cmd := m.scrollItem(true).revealBar(false)
+		return next, cmd, true
+	case tea.KeyDown:
+		next, cmd := m.scrollItem(false).revealBar(false)
+		return next, cmd, true
+	default:
+		return m, nil, false
+	}
+}
+
+// scrollItem moves the main pane by one output. older hides the next older
+// output. A move that starts inside an output finishes that output, so the
+// offset lands on a boundary between outputs. The feed stays where it is.
+func (m Model) scrollItem(older bool) Model {
+	heights := m.itemHeights()
+	if len(heights) == 0 {
+		return m.clampScroll()
+	}
+	hidden := m.mainOff
+	acc := 0
+	for i := len(heights) - 1; i >= 0; i-- {
+		h := heights[i]
+		if older {
+			if acc+h > hidden {
+				m.mainOff = acc + h
+				return m.clampScroll()
+			}
+		} else if acc+h >= hidden {
+			m.mainOff = acc
+			return m.clampScroll()
+		}
+		acc += h
+	}
+	if !older {
+		m.mainOff = 0
+	}
+	return m.clampScroll()
+}
+
+// itemHeights is the wrapped row count of each output in the main pane.
+func (m Model) itemHeights() []int {
+	if m.width == 0 || len(m.outEnds) == 0 {
+		return nil
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	width := layout.InnerWidth(frame.Main.W)
+	heights := make([]int, 0, len(m.outEnds))
+	start := 0
+	for i, end := range m.outEnds {
+		if end < start {
+			continue
+		}
+		n := len(wrapRows(m.outputChunk(i, start, end), width))
+		if n < 1 {
+			n = 1
+		}
+		heights = append(heights, n)
+		start = end
+	}
+	return heights
 }
 
 // jumpOldest moves the focused box to its oldest row.
@@ -433,7 +522,7 @@ func (m Model) placeCursor(rel int) Model {
 // key handles one keypress: the feed toggle, prompt editing, and submit.
 func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if v.Text == "?" && len(m.input) == 0 {
-		return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil), nil
+		return m.openHelp(), nil
 	}
 	if next, cmd, handled := m.commandKey(v); handled {
 		return next, cmd
@@ -447,13 +536,8 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
-	// Ctrl+Up and Ctrl+Down scroll half a page. u and d still type.
-	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
-		delta := m.halfRows()
-		if v.Code == tea.KeyDown {
-			delta = -delta
-		}
-		return m.scroll(delta)
+	if next, cmd, handled := m.arrowKey(v); handled {
+		return next, cmd
 	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
@@ -551,14 +635,22 @@ func (m Model) appendOutput(text string) Model {
 	return m.clampScroll()
 }
 
+// openHelp shows the key list over the main pane. The prompt stays.
+func (m Model) openHelp() Model {
+	return m.WithOverlay(helpOverlay{commands: m.commandList()}, nil)
+}
+
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, and
-// Ctrl+Z suspends the view.
+// Ctrl+G opens the key list, Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+V
+// pastes an image, Ctrl+Shift+V pastes text, Ctrl+O opens the editor, Ctrl+T
+// toggles the header pills, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
 	}
 	switch {
+	case (v.Code == 'g' || v.String() == "ctrl+g") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		return m.openHelp(), nil, true
 	case v.Code == 'y' || v.String() == "ctrl+y":
 		return m.yank(), nil, true
 	case (v.Code == 'd' || v.String() == "ctrl+d") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
@@ -570,13 +662,29 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		m = m.deleteAfter()
 		m.killing = false
 		return m, nil, true
+	case (v.Code == 'v' || v.String() == "ctrl+v") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		return m, m.pasteImage(), true
 	case v.Code == 'o' || v.String() == "ctrl+o":
 		return m, m.openEditor(), true
+	case pasteChord(v):
+		return m, m.pasteClipboard(), true
 	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
 		return m, tea.Suspend, true
+	case (v.Code == 't' || v.String() == "ctrl+t") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		// Ctrl+T hides or shows the header pills. t still types.
+		m.pillsOff = !m.pillsOff
+		return m, nil, true
 	default:
 		return m, nil, false
 	}
+}
+
+// pasteChord is Ctrl+Shift+V. v alone still types. Alt is left alone.
+func pasteChord(v tea.KeyPressMsg) bool {
+	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModAlt) {
+		return false
+	}
+	return v.Code == 'v' || v.Code == 'V' || v.String() == "ctrl+shift+v"
 }
 
 // foldKey toggles the output at the bottom of the main pane. Space still types.
@@ -775,7 +883,7 @@ func (m Model) frameKey() frameKey {
 	return frameKey{
 		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
 		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
-		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(),
+		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(), pillsOff: m.pillsOff,
 		status: m.Status, prompt: m.promptText(),
 		model: m.Model, title: m.Title, pills: m.pillsKey(), profile: m.profile,
 	}
@@ -1051,8 +1159,11 @@ func (m Model) pillsKey() string {
 }
 
 // pillsText is the pills in one chip: the values that are set, in the order
-// backend, session, tool, joined by a dot.
+// backend, session, tool, joined by a dot. A hidden chip keeps its values.
 func (m Model) pillsText() string {
+	if m.pillsOff {
+		return ""
+	}
 	var parts []string
 	for _, name := range []string{"backend", "session", "tool"} {
 		if v := m.pills[name]; v != "" {
