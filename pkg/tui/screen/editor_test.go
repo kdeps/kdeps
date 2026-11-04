@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -179,5 +180,8 @@ func TestCommandOutput_KillsASlowTool(t *testing.T) {
 
 func writeTool(t *testing.T, dir, name, body string) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake clipboard tool is a #!/bin/sh script; not executable on Windows")
+	}
 	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755))
 }
