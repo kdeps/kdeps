@@ -64,7 +64,7 @@ The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to
 
 ## Multimodal input
 
-Attach images and other binary files to your prompt using `@`:
+Attach images and other binary files to your prompt using `@`. In the full-screen prompt, Ctrl+V pastes a clipboard image as `@path`. A clipboard path to an image file is pasted the same way. Text and an empty clipboard leave the prompt. `v` still types.
 
 ```bash
 # Attach a local image

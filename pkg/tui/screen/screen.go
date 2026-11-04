@@ -105,6 +105,8 @@ type Model struct {
 	OnSubmit func(line string)
 	// launchEditor opens the prompt in an external editor. Nil uses the default.
 	launchEditor func(text string) tea.Cmd
+	// readImage reads a clipboard image path. Nil uses the system clipboard.
+	readImage func() (string, bool)
 	// Complete lists the slash commands that start with a prefix. Tab completes
 	// a slash command when the prompt starts with "/". Nil disables completion.
 	Complete func(prefix string) []string
@@ -174,6 +176,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m.setPrompt(v.text), nil
+	case imagePasteMsg:
+		if v.path == "" {
+			return m, nil
+		}
+		return m.insertText("@" + v.path + " "), nil
 	}
 	return m, nil
 }
@@ -453,8 +460,8 @@ func (m Model) appendOutput(text string) Model {
 }
 
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+O opens the editor, and
-// Ctrl+Z suspends the view.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+V pastes an image,
+// Ctrl+O opens the editor, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -471,6 +478,8 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		m = m.deleteAfter()
 		m.killing = false
 		return m, nil, true
+	case (v.Code == 'v' || v.String() == "ctrl+v") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
+		return m, m.pasteImage(), true
 	case v.Code == 'o' || v.String() == "ctrl+o":
 		return m, m.openEditor(), true
 	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
