@@ -144,9 +144,11 @@ func TestPrompt_VStillTypes(t *testing.T) {
 	assert.Nil(t, cmd)
 	assert.False(t, called)
 
+	m.readImage = func() (string, bool) { return "", false }
 	_, cmd = typed(t, m, tea.KeyPressMsg{Code: 'v', Mod: tea.ModCtrl, Text: "v"})
-	assert.False(t, called, "ctrl+v is not the paste chord")
-	assert.Nil(t, cmd)
+	require.NotNil(t, cmd, "ctrl+v pastes an image")
+	assert.Nil(t, cmd())
+	assert.False(t, called, "ctrl+v does not read clipboard text")
 }
 
 func TestReadClipboardText_SkipsAMissingTool(t *testing.T) {
