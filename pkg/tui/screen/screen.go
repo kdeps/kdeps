@@ -122,6 +122,8 @@ type Model struct {
 	OnSubmit func(line string)
 	// launchEditor opens the prompt in an external editor. Nil uses the default.
 	launchEditor func(text string) tea.Cmd
+	// readClipboard returns clipboard text. Nil reads the system clipboard.
+	readClipboard func() (string, bool)
 	// readImage reads a clipboard image path. Nil uses the system clipboard.
 	readImage func() (string, bool)
 	// Complete lists the slash commands that start with a prefix. Tab completes
@@ -591,8 +593,8 @@ func (m Model) appendOutput(text string) Model {
 }
 
 // commandKey handles ctrl chords that must not type their letter.
-// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+V pastes an image,
-// Ctrl+O opens the editor, and Ctrl+Z suspends the view.
+// Ctrl+Y yanks, Ctrl+D deletes forward, Ctrl+V pastes an image, Ctrl+Shift+V
+// pastes text, Ctrl+O opens the editor, and Ctrl+Z suspends the view.
 func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	if !v.Mod.Contains(tea.ModCtrl) {
 		return m, nil, false
@@ -613,11 +615,21 @@ func (m Model) commandKey(v tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		return m, m.pasteImage(), true
 	case v.Code == 'o' || v.String() == "ctrl+o":
 		return m, m.openEditor(), true
+	case pasteChord(v):
+		return m, m.pasteClipboard(), true
 	case (v.Code == 'z' || v.String() == "ctrl+z") && !v.Mod.Contains(tea.ModAlt) && !v.Mod.Contains(tea.ModShift):
 		return m, tea.Suspend, true
 	default:
 		return m, nil, false
 	}
+}
+
+// pasteChord is Ctrl+Shift+V. v alone still types. Alt is left alone.
+func pasteChord(v tea.KeyPressMsg) bool {
+	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModAlt) {
+		return false
+	}
+	return v.Code == 'v' || v.Code == 'V' || v.String() == "ctrl+shift+v"
 }
 
 // foldKey toggles the output at the bottom of the main pane. Space still types.
