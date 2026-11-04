@@ -11,7 +11,7 @@ const helpText = `keys
   enter          send the prompt
   up / down      scroll one row   ctrl+space folds
   pgup / pgdown  scroll a page
-  end            jump to the newest output
+  end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
   tab            complete a slash command, or switch pane
   ctrl+f/ctrl+z  feed / suspend

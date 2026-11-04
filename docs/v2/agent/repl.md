@@ -60,7 +60,7 @@ The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to
 
 ## Full-screen scrolling
 
-`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. Home jumps to the oldest row and End returns to the newest. The offset stops at either end, so one PgDown from the top moves forward. While the main pane is on an older row, the status row says `not following` and new output leaves those rows in place. End, or scrolling back to the newest row, follows again. Sending a prompt follows immediately. Ctrl+Space folds the output at the bottom of the main pane down to its first line, and folds it open again. A one-line output stays as it is. Space still types. Ctrl+Z suspends the full-screen view and returns to the shell. The view comes back when that shell exits. z still types.
+`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. Home jumps to the oldest row and End returns to the newest. Ctrl+End follows the main pane even when the feed is focused. The offset stops at either end, so one PgDown from the top moves forward. While the main pane is on an older row, the status row says `not following` and new output leaves those rows in place. End, or scrolling back to the newest row, follows again. Sending a prompt follows immediately. Ctrl+Space folds the output at the bottom of the main pane down to its first line, and folds it open again. A one-line output stays as it is. Space still types. Ctrl+Z suspends the full-screen view and returns to the shell. The view comes back when that shell exits. z still types.
 
 ## Multimodal input
 

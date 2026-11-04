@@ -130,6 +130,26 @@ func TestScroll_UpShowsOlderRowsAndEndReturnsToTheNewest(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.render()), "row 99", "End returns to the newest rows")
 }
 
+func TestCtrlEnd_FollowsTheMainPaneWhileTheFeedIsFocused(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	require.Greater(t, m.mainOff, 0)
+	m = typeText(t, m, "hi")
+	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	require.True(t, m.focusFeed)
+
+	off := m.mainOff
+	m, _ = typed(t, m, keyPress(tea.KeyEnd))
+	assert.Equal(t, off, m.mainOff, "end follows the focused feed")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnd, Mod: tea.ModCtrl})
+	assert.Equal(t, 0, m.mainOff, "ctrl+end follows the main pane")
+	assert.True(t, m.focusFeed, "the feed stays focused")
+	assert.Equal(t, "hi", m.Prompt())
+	assert.Contains(t, ansi.Strip(m.render()), "row 99")
+}
+
 func TestScroll_ClampsAtTheTop(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	m, _ = typed(t, m, OutputMsg{Text: manyLines(5)})
