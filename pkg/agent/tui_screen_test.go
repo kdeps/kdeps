@@ -2,11 +2,16 @@ package agent
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
 	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
 )
 
@@ -97,6 +102,41 @@ func TestSessionPillValue_NewThenShortID(t *testing.T) {
 func TestPromptHistoryLimit_FromTheEvent(t *testing.T) {
 	withEvent(t, Event{Name: eventPromptHistoryLimit, Items: 3, Run: actionCap})
 	assert.Equal(t, 3, promptHistoryLimit())
+}
+
+func TestPromptHistory_SharedWithTheLineEditor(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	path := historyPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("from the line editor\n\n  \n"), 0o600))
+
+	m := newScreenModel(&feed.Feed{})
+	next, _ := m.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	got := next.(screen.Model)
+	assert.Equal(t, "from the line editor", got.Prompt())
+
+	cleared, _ := got.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	got = cleared.(screen.Model)
+	assert.Equal(t, "", got.Prompt(), "ctrl+c clears the recalled line")
+	got = typeScreen(t, got, "from the screen")
+	_, cmd := got.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	require.NotNil(t, cmd)
+	cmd()
+
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "from the line editor\n\n  \nfrom the screen\n", string(body))
+}
+
+func typeScreen(t *testing.T, m screen.Model, s string) screen.Model {
+	t.Helper()
+	for _, r := range s {
+		next, _ := m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		m = next.(screen.Model)
+	}
+	return m
 }
 
 func TestPromptHistoryLimit_ADisabledEventKeepsEverything(t *testing.T) {

@@ -11,6 +11,7 @@ require (
 	github.com/IBM/watsonx-go v1.0.2
 	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/bwmarrin/discordgo v0.29.0
+	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/log v1.0.0
 	github.com/charmbracelet/x/ansi v0.11.9
@@ -101,7 +102,6 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect

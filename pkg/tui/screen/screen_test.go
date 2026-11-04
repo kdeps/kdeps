@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -178,6 +179,40 @@ func TestFrameCache_ChangesWhenTheScreenChanges(t *testing.T) {
 
 	m = typeText(t, m, "x")
 	assert.Contains(t, ansi.Strip(m.render()), "> x|", "a prompt edit redraws the frame")
+}
+
+// TestFrameCache_HeaderAndProfileRedraw checks a model chip, a pill, the
+// title, or the terminal color profile is not served from the previous frame.
+func TestFrameCache_HeaderAndProfileRedraw(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	stale := func(m Model) Model {
+		t.Helper()
+		_ = m.render()
+		m.cache.text = "STALE"
+		return m
+	}
+
+	m = stale(m)
+	m, _ = typed(t, m, tea.ColorProfileMsg{Profile: colorprofile.ANSI})
+	assert.NotContains(t, m.render(), "STALE", "a color profile change redraws")
+
+	m = stale(m)
+	m, _ = typed(t, m, ModelMsg{Name: "llama"})
+	got := m.render()
+	assert.NotContains(t, got, "STALE")
+	assert.Contains(t, ansi.Strip(got), "llama")
+
+	m = stale(m)
+	m.Title = "proj"
+	got = m.render()
+	assert.NotContains(t, got, "STALE")
+	assert.Contains(t, ansi.Strip(got), "proj")
+
+	m = stale(m)
+	m, _ = typed(t, m, PillMsg{Name: "backend", Value: "openrouter"})
+	got = m.render()
+	assert.NotContains(t, got, "STALE")
+	assert.Contains(t, ansi.Strip(got), "openrouter")
 }
 
 // TestFrameCache_OverlayIsNeverCached checks an open overlay is drawn fresh

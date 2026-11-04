@@ -52,7 +52,7 @@ and type there - for example paste a stack trace and type
 
 ## Line editing and history search
 
-The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to the start/end of the line, `Ctrl+U` to clear before the cursor, `Ctrl+K` to clear after it, and Up/Down to step through prompt history.
+The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to the start/end of the line, `Ctrl+U` to clear before the cursor, `Ctrl+K` to clear after it, and Up/Down to step through prompt history. Those lines are stored in `~/.kdeps/repl_history`. The full-screen prompt (`KDEPS_TUI=1`) reads and writes the same file: `Ctrl+P` recalls the previous line and `Ctrl+N` the next.
 
 `Ctrl+R` starts an incremental backward search through history - type any substring and the line fills in with the most recent match, narrowing as you type more; press `Ctrl+R` again to jump to the next older match. `Ctrl+S` searches forward the same way, walking back toward more recent matches - useful when `Ctrl+R` has stepped past the one you wanted. Press Enter to run the matched line, or `Ctrl+G`/Escape to cancel and return to what you were typing.
 
