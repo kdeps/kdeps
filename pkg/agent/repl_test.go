@@ -796,6 +796,20 @@ func TestReplCompleter_AtFile(t *testing.T) {
 	assert.Equal(t, "in.go", found[0])
 }
 
+func TestScreenCompletions_AtFileKeepsTheAt(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte(""), 0o644))
+	repl := NewREPL(t.Context(), makeTestLoop(nil))
+	defer repl.cancel()
+
+	prefix := dir + "/ma"
+	got := repl.screenCompletions("@" + prefix)
+	assert.Contains(t, got, "@"+dir+"/main.go")
+	assert.NotContains(t, got, "@@"+dir+"/main.go")
+
+	assert.Contains(t, repl.screenCompletions("/mo"), "/model")
+}
+
 func TestReplCompleter_SessionSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

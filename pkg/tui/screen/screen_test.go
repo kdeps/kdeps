@@ -269,6 +269,118 @@ func TestScroll_HomeJumpsToTheOldestRow(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.render()), "step 0", "the feed offset stops at the top too")
 }
 
+func shiftUp() tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: tea.KeyUp, Mod: tea.ModShift}
+}
+
+func shiftDown() tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift}
+}
+
+func TestScroll_ShiftUpDownMovesOneOutput(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	for i := range 30 {
+		m, _ = typed(t, m, OutputMsg{Text: "item " + strconv.Itoa(i)})
+	}
+	m = typeText(t, m, "keep")
+	assert.Contains(t, ansi.Strip(m.render()), "item 29")
+
+	m, _ = typed(t, m, shiftUp())
+	view := ansi.Strip(m.render())
+	assert.NotContains(t, view, "item 29", "one shift+up hides the newest output")
+	assert.Contains(t, view, "item 28")
+	assert.Equal(t, "keep", m.Prompt(), "the prompt is not edited")
+	assert.Equal(t, 1, m.mainOff)
+
+	m, _ = typed(t, m, shiftUp())
+	assert.NotContains(t, ansi.Strip(m.render()), "item 28")
+	assert.Equal(t, 2, m.mainOff)
+
+	m, _ = typed(t, m, shiftDown())
+	view = ansi.Strip(m.render())
+	assert.Contains(t, view, "item 28")
+	assert.NotContains(t, view, "item 29")
+	assert.Equal(t, 1, m.mainOff)
+}
+
+func TestScroll_ShiftUpTreatsABlockAsOneOutput(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(40)})
+	m, _ = typed(t, m, OutputMsg{Text: "AAA\nBBB\nCCC\nDDD\nEEE"})
+	m, _ = typed(t, m, OutputMsg{Text: "NEW"})
+	assert.Contains(t, ansi.Strip(m.render()), "NEW")
+
+	m, _ = typed(t, m, shiftUp())
+	assert.Equal(t, 1, m.mainOff, "the newest one-line output is one step")
+	assert.NotContains(t, ansi.Strip(m.render()), "NEW")
+	assert.Contains(t, ansi.Strip(m.render()), "EEE")
+
+	m, _ = typed(t, m, shiftUp())
+	view := ansi.Strip(m.render())
+	assert.Equal(t, 6, m.mainOff, "the five-line block is one step")
+	assert.NotContains(t, view, "AAA")
+	assert.NotContains(t, view, "EEE")
+	assert.Contains(t, view, "row 39")
+
+	m, _ = typed(t, m, shiftDown())
+	assert.Equal(t, 1, m.mainOff, "shift+down lands on the output below")
+	assert.Contains(t, ansi.Strip(m.render()), "AAA")
+	assert.NotContains(t, ansi.Strip(m.render()), "NEW")
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnd})
+	for range 3 {
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyUp})
+	}
+	assert.Equal(t, 3, m.mainOff, "arrow up still moves one row")
+	m, _ = typed(t, m, shiftUp())
+	assert.Equal(t, 6, m.mainOff, "shift+up finishes the output it started inside")
+	m, _ = typed(t, m, shiftDown())
+	assert.Equal(t, 1, m.mainOff, "shift+down returns to the boundary under that output")
+}
+
+func TestScroll_ShiftUpMovesMainWhileTheFeedIsFocused(t *testing.T) {
+	var f feed.Feed
+	for i := range 40 {
+		f.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
+	}
+	m := resized(t, New(&f))
+	for i := range 30 {
+		m, _ = typed(t, m, OutputMsg{Text: "item " + strconv.Itoa(i)})
+	}
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyTab})
+	assert.True(t, m.focusFeed)
+	assert.Equal(t, 0, m.feedOff)
+
+	m, _ = typed(t, m, shiftUp())
+	assert.Equal(t, 0, m.feedOff, "the feed offset stays")
+	assert.Equal(t, 1, m.mainOff, "the main pane moved by one output")
+	assert.Contains(t, ansi.Strip(m.render()), "step 39", "the feed view did not scroll")
+}
+
+func TestScroll_ItemEndsDropWithTrimmedRows(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	for i := range maxMainLines + 3 {
+		m, _ = typed(t, m, OutputMsg{Text: "n " + strconv.Itoa(i)})
+	}
+	assert.Equal(t, maxMainLines, len(m.main))
+	assert.Equal(t, maxMainLines, len(m.outEnds))
+	assert.Equal(t, maxMainLines, m.outEnds[len(m.outEnds)-1])
+
+	m, _ = typed(t, m, shiftUp())
+	assert.Equal(t, 1, m.mainOff, "one trimmed output is still one step")
+}
+
+func TestHelp_ListsOneOutputScroll(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("/model", "/session")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	view := ansi.Strip(m.render())
+	assert.Contains(t, view, "shift+up/down", "the help lists one-output scroll")
+	assert.Contains(t, view, "/model  /session", "the command list still fits")
+	assert.Contains(t, view, "ctrl+o")
+	assert.Contains(t, view, "ctrl+y")
+}
+
 func TestCopy_VisibleMainWhenNothingIsSelected(t *testing.T) {
 	copyKey := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl | tea.ModShift, Text: "c"}
 	m := resized(t, New(&feed.Feed{}))
