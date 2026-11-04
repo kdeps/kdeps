@@ -14,7 +14,7 @@ const helpText = `keys
   end            jump to the newest output
   home           jump to the oldest output
   tab            complete a slash command, or switch pane
-  ctrl+f         show or hide the feed
+  ctrl+f/ctrl+t  feed / header pills
   ctrl+p/ctrl+n  recall earlier prompts
   ctrl+a/ctrl+e  start / end of the prompt
   ctrl+u/ctrl+k  delete to the start / end of the prompt

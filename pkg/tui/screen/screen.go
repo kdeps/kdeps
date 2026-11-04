@@ -63,7 +63,7 @@ type frameCache struct {
 type frameKey struct {
 	width, height, mainOff, feedOff int
 	mainVer, feedVer                int
-	feedOpen, focusFeed             bool
+	feedOpen, focusFeed, pillsOff   bool
 	status, prompt                  string
 	model, title, pills             string
 	profile                         colorprofile.Profile
@@ -86,6 +86,7 @@ type Model struct {
 	// Model is the active model name, shown as a chip in the header row.
 	Model     string
 	pills     map[string]string
+	pillsOff  bool // ctrl+t hides the header pills; the model chip stays
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
 	anchor    int      // the other end of a selection; equal to cursor when none
@@ -363,6 +364,9 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
 	}
+	if next, handled := m.pillKey(v); handled {
+		return next, nil
+	}
 	switch v.String() {
 	case "ctrl+c":
 		// Ctrl+C clears a typed prompt first, so a half-written line is not
@@ -521,7 +525,8 @@ func (m Model) frameKey() frameKey {
 	return frameKey{
 		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
 		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
-		status: m.Status, prompt: m.promptText(),
+		pillsOff: m.pillsOff,
+		status:   m.Status, prompt: m.promptText(),
 		model: m.Model, title: m.Title, pills: m.pillsKey(), profile: m.profile,
 	}
 }
@@ -612,9 +617,24 @@ func (m Model) pillsKey() string {
 	return strings.Join(parts, "\n")
 }
 
+// pillKey hides or shows the header pills. t still types.
+func (m Model) pillKey(v tea.KeyPressMsg) (Model, bool) {
+	if !v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) || v.Mod.Contains(tea.ModShift) {
+		return m, false
+	}
+	if v.Code != 't' && v.String() != "ctrl+t" {
+		return m, false
+	}
+	m.pillsOff = !m.pillsOff
+	return m, true
+}
+
 // pillsText is the pills in one chip: the values that are set, in the order
-// backend, session, tool, joined by a dot.
+// backend, session, tool, joined by a dot. A hidden chip keeps its values.
 func (m Model) pillsText() string {
+	if m.pillsOff {
+		return ""
+	}
 	var parts []string
 	for _, name := range []string{"backend", "session", "tool"} {
 		if v := m.pills[name]; v != "" {
