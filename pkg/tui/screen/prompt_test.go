@@ -383,6 +383,25 @@ func TestPrompt_SelectCopyCutAndReplace(t *testing.T) {
 	assert.Equal(t, "X", m.Prompt(), "typing replaces the selection")
 }
 
+func TestPrompt_EscClearsTheSelection(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "hello")
+	m, _ = typed(t, m, ctrl('a'))
+	right := tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModShift}
+	m, _ = typed(t, m, right)
+	m, _ = typed(t, m, right)
+	assert.True(t, m.hasSel())
+	assert.Equal(t, 2, m.cursor)
+
+	m, cmd := typed(t, m, keyPress(tea.KeyEsc))
+	assert.Nil(t, cmd, "esc does not quit")
+	assert.False(t, m.hasSel(), "esc clears the selection")
+	assert.Equal(t, "hello", m.Prompt(), "the text stays")
+	assert.Equal(t, 2, m.cursor, "the cursor stays")
+
+	m, _ = typed(t, m, keyPress(tea.KeyEsc))
+	assert.Equal(t, "hello", m.Prompt(), "esc with no selection leaves the prompt")
+}
+
 func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("/model", "/session")
@@ -392,6 +411,30 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	assert.Contains(t, view, "home", "the help lists Home")
 	assert.Contains(t, view, "ctrl+y", "the help lists yank")
 	assert.Contains(t, view, "shift+left/right", "the help lists selection")
+}
+
+func TestEdit_OnARecalledLineKeepsTheEdit(t *testing.T) {
+	recall := func() Model {
+		m := newPromptScreen(t)
+		m = m.UseHistory([]string{"older", "newer"}, nil)
+		m = typeText(t, m, "draft")
+		m, _ = typed(t, m, ctrl('p'))
+		return m
+	}
+
+	m := typeText(t, recall(), "!")
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "newer!", m.Prompt(), "an edit leaves history, so ctrl+n does not replace it")
+
+	m = recall()
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "draft", m.Prompt(), "moving the cursor stays in history")
+
+	m = recall()
+	m, _ = typed(t, m, keyPress(tea.KeyDelete))
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "draft", m.Prompt(), "a delete that changes nothing stays in history")
 }
 
 func TestPrompt_SharedHistoryRecallsAndRemembers(t *testing.T) {

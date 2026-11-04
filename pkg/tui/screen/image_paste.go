@@ -24,6 +24,7 @@ const (
 
 // imageByteReads are tools that write image bytes to stdout. A missing tool
 // is skipped. The first bytes that are an image are saved.
+//nolint:gochecknoglobals // clipboard tools; tests swap them for scripts
 var imageByteReads = [][]string{
 	{"pngpaste", "-"},
 	{"wl-paste", "--type", "image/png"},
@@ -32,6 +33,7 @@ var imageByteReads = [][]string{
 
 // imagePathReads are tools that write clipboard text. The first text is used.
 // It is pasted only when it is a path to an image file.
+//nolint:gochecknoglobals // clipboard tools; tests swap them for scripts
 var imagePathReads = [][]string{
 	{"pbpaste"},
 	{"wl-paste", "--no-newline"},
@@ -126,14 +128,14 @@ func writePasteFile(data []byte, ext string) (string, error) {
 		return "", err
 	}
 	name := f.Name()
-	if _, err := f.Write(data); err != nil {
+	if _, werr := f.Write(data); werr != nil {
 		_ = f.Close()
 		_ = os.Remove(name)
-		return "", err
+		return "", werr
 	}
-	if err := f.Close(); err != nil {
+	if cerr := f.Close(); cerr != nil {
 		_ = os.Remove(name)
-		return "", err
+		return "", cerr
 	}
 	return name, nil
 }
