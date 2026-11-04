@@ -193,9 +193,14 @@ func (m Model) replaceWord(text string) Model {
 // Ctrl+Shift+X cuts it into the yank buffer. With no selection, Ctrl+Shift+C
 // copies the visible main pane instead.
 func (m Model) selectKey(v tea.KeyPressMsg) (Model, bool) {
-	// Esc clears a selection and leaves the prompt text.
+	// Esc clears a selection and leaves the prompt text. With no selection it
+	// puts the unsent text back while a recalled line is showing.
 	if !v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyEsc || v.String() == "esc" || v.String() == "alt+esc") {
-		return m.clearSel(), true
+		if m.hasSel() {
+			return m.clearSel(), true
+		}
+		next, _ := m.historyEscape()
+		return next, true
 	}
 	if v.Mod.Contains(tea.ModCtrl) && v.Mod.Contains(tea.ModShift) {
 		switch {
