@@ -60,6 +60,9 @@ const (
 	clickLine = 3
 )
 
+// halfPageDivisor splits a page scroll in two.
+const halfPageDivisor = 2
+
 // Model is the full-screen view.
 // frameCache holds the last drawn frame. The model copies share it, so a
 // frame is reused until the key below changes.
@@ -196,6 +199,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // pageRows is how many rows a page key scrolls: the height of the boxes.
 func (m Model) pageRows() int {
 	return max(m.height-layoutBottomRows, 1)
+}
+
+// halfRows is half a page, and at least one row, so the move keeps some of
+// the rows that were already on screen.
+func (m Model) halfRows() int {
+	return max(m.pageRows()/halfPageDivisor, 1)
 }
 
 // scroll moves the focused box by delta rows (positive is up, into history).
@@ -405,6 +414,14 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
+	}
+	// Ctrl+Up and Ctrl+Down scroll half a page. u and d still type.
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == tea.KeyUp || v.Code == tea.KeyDown) {
+		delta := m.halfRows()
+		if v.Code == tea.KeyDown {
+			delta = -delta
+		}
+		return m.scroll(delta), nil
 	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
