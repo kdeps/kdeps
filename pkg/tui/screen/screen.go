@@ -96,6 +96,8 @@ type Model struct {
 	Feed      *feed.Feed
 	// OnSubmit runs one submitted line. It runs off the UI loop.
 	OnSubmit func(line string)
+	// launchEditor opens the prompt in an external editor. Nil uses the default.
+	launchEditor func(text string) tea.Cmd
 	// Complete lists the slash commands that start with a prefix. Tab completes
 	// a slash command when the prompt starts with "/". Nil disables completion.
 	Complete func(prefix string) []string
@@ -156,6 +158,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.PasteMsg:
 		// The prompt is one line: a pasted newline must not submit it.
 		return m.insertText(strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(v.Content)), nil
+	case editorResultMsg:
+		if !v.ok {
+			return m, nil
+		}
+		return m.setPrompt(v.text), nil
 	}
 	return m, nil
 }
@@ -318,6 +325,10 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// would otherwise be typed.
 	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'y' || v.String() == "ctrl+y") {
 		return m.yank(), nil
+	}
+	// ctrl+o would otherwise type o. Saving replaces the prompt and does not send it.
+	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'o' || v.String() == "ctrl+o") {
+		return m, m.openEditor()
 	}
 	if next, handled := m.wordKey(v); handled {
 		return next, nil
