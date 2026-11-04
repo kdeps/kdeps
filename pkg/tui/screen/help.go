@@ -23,7 +23,7 @@ const helpText = `keys
   ctrl+y         put back the last killed text
   ctrl+c         clear the prompt; on an empty prompt, quit
   click          focus a pane, or move the prompt cursor
-
+  ctrl+o         edit the prompt in your editor
 press esc, enter or q to close`
 
 // helpOverlay shows the key list and the slash commands until the user closes it.
