@@ -211,6 +211,21 @@ func TestHelp_QuestionMarkOpensTheKeysAndEscCloses(t *testing.T) {
 	assert.Equal(t, "", m.Prompt(), "the ? did not reach the prompt")
 }
 
+func TestCtrlG_OpensHelpAndLeavesThePrompt(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "hi")
+	m, _ = typed(t, m, ctrl('g'))
+	assert.True(t, m.HasOverlay(), "ctrl+g opens the key list while a prompt is typed")
+	assert.Equal(t, "hi", m.Prompt())
+	assert.Contains(t, ansi.Strip(m.render()), "ctrl+g")
+
+	m, _ = typed(t, m, ctrl('g'))
+	assert.False(t, m.HasOverlay(), "ctrl+g closes the key list")
+	assert.Equal(t, "hi", m.Prompt())
+
+	m = typeText(t, m, "g")
+	assert.Equal(t, "hig", m.Prompt(), "g still types")
+}
+
 func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
 	m := typeText(t, newPromptScreen(t), "why")
 	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})

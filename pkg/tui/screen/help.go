@@ -6,9 +6,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// helpText lists the full-screen keys, shown by typing ? into an empty prompt.
+// helpText lists the full-screen keys. ? in an empty prompt opens it, and
+// ctrl+g opens it with the prompt left as it is.
 const helpText = `keys
-  enter          send the prompt
+  enter/ctrl+g   send the prompt / key help
   up / down      scroll one row   ctrl+space folds
   pgup / pgdown  scroll a page
   end            jump to the newest output
@@ -25,7 +26,7 @@ const helpText = `keys
   click          focus a pane, or move the prompt cursor
   shift+left/right select   ctrl+shift+c/x copy/cut pane
   ctrl+o         edit the prompt in your editor
-press esc, enter or q to close`
+press esc, enter, q, or ctrl+g to close`
 
 // helpOverlay shows the key list and the slash commands until the user closes it.
 type helpOverlay struct {
@@ -36,12 +37,16 @@ type helpOverlay struct {
 // Init has no startup command.
 func (h helpOverlay) Init() tea.Cmd { return nil }
 
-// Update closes the overlay on esc, enter or q.
+// Update closes the overlay on esc, enter, q, or ctrl+g.
 func (h helpOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyPressMsg); ok {
 		switch k.String() {
-		case "esc", "enter", "q":
+		case "esc", "enter", "q", "ctrl+g":
 			h.done = true
+		default:
+			if k.Code == 'g' && k.Mod.Contains(tea.ModCtrl) && !k.Mod.Contains(tea.ModAlt) && !k.Mod.Contains(tea.ModShift) {
+				h.done = true
+			}
 		}
 	}
 	return h, nil
