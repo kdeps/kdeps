@@ -173,7 +173,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !v.ok {
 			return m, nil
 		}
-		return m.setPrompt(v.text), nil
+		before := string(m.input)
+		return m.setPrompt(v.text).keepEdit(before), nil
 	}
 	return m, nil
 }

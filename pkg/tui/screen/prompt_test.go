@@ -394,6 +394,30 @@ func TestHelp_ListsTheSlashCommands(t *testing.T) {
 	assert.Contains(t, view, "shift+left/right", "the help lists selection")
 }
 
+func TestEdit_OnARecalledLineKeepsTheEdit(t *testing.T) {
+	recall := func() Model {
+		m := newPromptScreen(t)
+		m = m.UseHistory([]string{"older", "newer"}, nil)
+		m = typeText(t, m, "draft")
+		m, _ = typed(t, m, ctrl('p'))
+		return m
+	}
+
+	m := typeText(t, recall(), "!")
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "newer!", m.Prompt(), "an edit leaves history, so ctrl+n does not replace it")
+
+	m = recall()
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "draft", m.Prompt(), "moving the cursor stays in history")
+
+	m = recall()
+	m, _ = typed(t, m, keyPress(tea.KeyDelete))
+	m, _ = typed(t, m, ctrl('n'))
+	assert.Equal(t, "draft", m.Prompt(), "a delete that changes nothing stays in history")
+}
+
 func TestPrompt_SharedHistoryRecallsAndRemembers(t *testing.T) {
 	m := newPromptScreen(t)
 	m.HistoryMax = 1
