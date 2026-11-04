@@ -11,6 +11,7 @@ const helpText = `keys
   enter          send the prompt
   up / down      scroll the main pane
   pgup / pgdown  scroll a page
+  ctrl+up/down   scroll half a page
   end            jump to the newest output
   home           jump to the oldest output
   tab            complete a slash command, else switch focus between panes
@@ -23,7 +24,6 @@ const helpText = `keys
   ctrl+y         put back the last killed text
   ctrl+c         clear the prompt; on an empty prompt, quit
   click          focus a pane, or move the prompt cursor
-
 press esc, enter or q to close`
 
 // helpOverlay shows the key list and the slash commands until the user closes it.
