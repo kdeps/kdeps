@@ -498,6 +498,31 @@ func TestClick_DoubleAndTripleClickSelect(t *testing.T) {
 	assert.False(t, m.hasSel(), "a late second click does not select the word")
 }
 
+func TestPromptWindow_KeepsTheCursorOnScreen(t *testing.T) {
+	m := typeText(t, resized(t, New(&feed.Feed{})), strings.Repeat("a", 200))
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	inner := layout.InnerWidth(frame.Prompt.W)
+	shown := ansi.Strip(m.promptLine(inner))
+	assert.LessOrEqual(t, ansi.StringWidth(shown), inner)
+	assert.Contains(t, shown, "|")
+	assert.NotContains(t, shown, "> ", "a long line scrolls the marker off")
+	assert.NotContains(t, shown, strings.Repeat("a", 200))
+
+	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	y := frame.Prompt.Y + 1
+	clicked, _ := typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
+	assert.NotEqual(t, 0, clicked.cursor, "a click in the scrolled window is not the start")
+	clicked, _ = typed(t, m, tea.MouseClickMsg{X: textX + inner - 1, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 200, clicked.cursor, "a click on the drawn bar stays at the end")
+
+	next, _ := m.Update(ctrl('a'))
+	m = next.(Model)
+	shown = ansi.Strip(m.promptLine(inner))
+	assert.Contains(t, shown, "> |aaa", "the start of the line comes back with the cursor")
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 0, m.cursor, "a click on the bar at the start stays there")
+}
+
 // TestFrameCache_ChangesWhenTheScreenChanges checks a frame is reused only
 // while nothing it is drawn from has changed.
 func TestFrameCache_ChangesWhenTheScreenChanges(t *testing.T) {
@@ -572,6 +597,88 @@ func TestFrame_FillsTheTerminalExactly(t *testing.T) {
 			assert.Equal(t, size[0], ansi.StringWidth(line), "row %d at %dx%d", i, size[0], size[1])
 		}
 	}
+}
+
+func TestScrollBar_ShowsOnScrollAndHidesOnItsMessage(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	before := strings.Count(m.render(), "│")
+	assert.False(t, m.mainBar, "the bar stays hidden until the pane scrolls")
+
+	m, cmd := typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	require.NotNil(t, cmd, "a scroll of a tall pane arms the hide")
+	assert.True(t, m.mainBar)
+	assert.Greater(t, strings.Count(m.render(), "│"), before, "the bar is a column of the pane")
+	lines := strings.Split(m.render(), "\n")
+	require.Len(t, lines, 30)
+	for i, line := range lines {
+		assert.Equal(t, 100, ansi.StringWidth(line), "row %d keeps the terminal width", i)
+	}
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	stale := m.mainBarSeq - 1
+	m, _ = typed(t, m, barHideMsg{seq: stale})
+	assert.True(t, m.mainBar, "a hide from an older scroll does not drop the bar")
+	m, _ = typed(t, m, barHideMsg{seq: m.mainBarSeq})
+	assert.False(t, m.mainBar, "the matching hide drops the bar")
+}
+
+func TestScrollBar_ShortPaneAndTypingStayPlain(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(5)})
+	m, cmd := typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.Nil(t, cmd, "a pane that fits has no bar to hide")
+	assert.False(t, m.mainBar)
+
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: 'b', Text: "b"})
+	assert.Equal(t, "b", m.Prompt(), "b still types")
+	assert.False(t, m.mainBar)
+}
+
+func TestScrollBar_FeedScrollDoesNotMarkTheMainPane(t *testing.T) {
+	var f feed.Feed
+	for i := range 100 {
+		f.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
+	}
+	m := resized(t, New(&f))
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyTab})
+	m, cmd := typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	require.NotNil(t, cmd)
+	assert.True(t, m.feedBar, "scrolling the feed marks the feed")
+	assert.False(t, m.mainBar, "the main pane was not scrolled")
+	lines := strings.Split(m.render(), "\n")
+	require.Len(t, lines, 30)
+	for i, line := range lines {
+		assert.Equal(t, 100, ansi.StringWidth(line), "row %d keeps the terminal width", i)
+	}
+}
+
+func TestScrollBar_ThumbSitsAtTheEndYouAreOn(t *testing.T) {
+	marks := barMarks(10, 40, 0)
+	require.Len(t, marks, 10)
+	assert.Equal(t, barThumb(), marks[9], "offset zero is the newest row, so the thumb is at the bottom")
+	assert.Equal(t, barTrack(), marks[0])
+
+	marks = barMarks(10, 40, 30)
+	assert.Equal(t, barThumb(), marks[0], "the oldest row puts the thumb at the top")
+	assert.Nil(t, barMarks(10, 10, 0), "a pane that fits has no bar")
+	assert.Nil(t, barMarks(10, 4, 0))
+}
+
+func TestScrollBar_HideRedrawsTheFrame(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	_ = m.render()
+	m.cache.text = "STALE"
+	m, _ = typed(t, m, barHideMsg{seq: m.mainBarSeq})
+	assert.NotContains(t, m.render(), "STALE", "hiding the bar is a new frame")
+}
+
+func TestHelp_ListsTheScrollBar(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: '?', Text: "?"})
+	assert.Contains(t, ansi.Strip(m.render()), "scroll one row, bar")
 }
 
 // TestStatusRow_CountersThenKeyHelp checks the status row shows the counters

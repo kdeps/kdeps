@@ -63,6 +63,15 @@ const (
 // halfPageDivisor splits a page scroll in two.
 const halfPageDivisor = 2
 
+// barHold is how long a scroll bar stays after the last scroll.
+const barHold = 2 * time.Second
+
+// barHideMsg drops a scroll bar when it belongs to the latest scroll.
+type barHideMsg struct {
+	feed bool
+	seq  int
+}
+
 // Model is the full-screen view.
 // frameCache holds the last drawn frame. The model copies share it, so a
 // frame is reused until the key below changes.
@@ -77,12 +86,12 @@ type frameCache struct {
 // a frame drawn for one profile is not served for another. model, title
 // and pills are the header, so a chip change is not served from the last frame.
 type frameKey struct {
-	width, height, mainOff, feedOff int
-	mainVer, feedVer                int
-	feedOpen, focusFeed             bool
-	status, prompt                  string
-	model, title, pills             string
-	profile                         colorprofile.Profile
+	width, height, mainOff, feedOff       int
+	mainVer, feedVer                      int
+	feedOpen, focusFeed, mainBar, feedBar bool
+	status, prompt                        string
+	model, title, pills                   string
+	profile                               colorprofile.Profile
 }
 
 type Model struct {
@@ -96,6 +105,10 @@ type Model struct {
 	outFolded     []bool // a folded output shows its first line only
 	feedOff       int    // rows scrolled up from the newest feed row
 	focusFeed     bool   // arrow keys scroll the feed instead of the main pane
+	mainBar       bool   // the main pane is drawing its scroll bar
+	mainBarSeq    int    // latest main-pane scroll; an older hide is ignored
+	feedBar       bool
+	feedBarSeq    int
 	Status        string
 	// Title is shown in the header row, after the product name (for example the folder).
 	Title string
@@ -149,6 +162,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if open, ok := msg.(OpenOverlayMsg); ok {
 		return m.WithOverlay(open.Overlay, open.Done), nil
 	}
+	if hide, ok := msg.(barHideMsg); ok {
+		return m.hideBar(hide), nil
+	}
 	if m.overlay != nil {
 		// The overlay gets every message, resizes included.
 		if ws, ok := msg.(tea.WindowSizeMsg); ok {
@@ -174,7 +190,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.ColorProfileMsg:
 		m.profile = v.Profile
 	case tea.MouseWheelMsg:
-		return m.wheel(v), nil
+		return m.wheel(v)
 	case tea.MouseClickMsg:
 		return m.click(v), nil
 	case tea.MouseMotionMsg:
@@ -209,24 +225,25 @@ func (m Model) halfRows() int {
 
 // scroll moves the focused box by delta rows (positive is up, into history).
 // The offset stops at the oldest row, so a later move in the other direction
-// leaves that row instead of repeating it.
-func (m Model) scroll(delta int) Model {
+// leaves that row instead of repeating it. A pane with more rows than it can
+// show draws a bar until the scrolling stops.
+func (m Model) scroll(delta int) (Model, tea.Cmd) {
 	if m.focusFeed {
 		m.feedOff += delta
 	} else {
 		m.mainOff += delta
 	}
-	return m.clampScroll()
+	return m.revealBar(m.focusFeed)
 }
 
 // jumpOldest moves the focused box to its oldest row.
-func (m Model) jumpOldest() Model {
+func (m Model) jumpOldest() (Model, tea.Cmd) {
 	if m.focusFeed {
 		m.feedOff = math.MaxInt
 	} else {
 		m.mainOff = math.MaxInt
 	}
-	return m.clampScroll()
+	return m.revealBar(m.focusFeed)
 }
 
 // clampScroll limits both offsets to the rows each box can actually show.
@@ -244,18 +261,32 @@ func (m Model) clampScroll() Model {
 
 // mainSpan is the main pane's content height and how many wrapped rows it holds.
 func (m Model) mainSpan() (int, int) {
+	return m.mainRows(m.mainBarOn())
+}
+
+// mainRows counts wrapped main rows. bar reserves the scroll-bar column.
+func (m Model) mainRows(bar bool) (int, int) {
+	if m.width == 0 || m.height == 0 {
+		return 0, len(m.shownLines())
+	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	return frame.Main.H - feedBorder, len(wrapRows(m.shownLines(), layout.InnerWidth(frame.Main.W)))
+	return frame.Main.H - feedBorder, len(wrapRows(m.shownLines(), textWidth(layout.InnerWidth(frame.Main.W), bar)))
 }
 
 // feedSpan is the feed's content height and row count. The bool is false when
 // the feed is hidden, so a closed feed keeps its offset for the next open.
 func (m Model) feedSpan() (int, int, bool) {
+	return m.feedRows(m.feedBarOn())
+}
+
+// feedRows counts feed rows. bar reserves the scroll-bar column.
+func (m Model) feedRows(bar bool) (int, int, bool) {
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
 	if m.Feed == nil || frame.Feed.W == 0 {
 		return 0, 0, false
 	}
-	return frame.Feed.H - feedBorder - 1, m.Feed.Lines(layout.InnerWidth(frame.Feed.W)), true
+	w := textWidth(layout.InnerWidth(frame.Feed.W), bar)
+	return frame.Feed.H - feedBorder - 1, m.Feed.Lines(w), true
 }
 
 // clampOffset limits off to the range the window can show.
@@ -273,7 +304,7 @@ func clampOffset(off, lines, height int) int {
 }
 
 // wheel scrolls the box under the mouse pointer.
-func (m Model) wheel(v tea.MouseWheelMsg) Model {
+func (m Model) wheel(v tea.MouseWheelMsg) (Model, tea.Cmd) {
 	var step int
 	switch v.Button {
 	case tea.MouseWheelUp:
@@ -281,14 +312,14 @@ func (m Model) wheel(v tea.MouseWheelMsg) Model {
 	case tea.MouseWheelDown:
 		step = -wheelStep
 	default:
-		return m
+		return m, nil
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
 	prev := m.focusFeed
 	m.focusFeed = frame.Feed.W > 0 && v.X >= frame.Feed.X
-	m = m.scroll(step)
+	m, cmd := m.scroll(step)
 	m.focusFeed = prev
-	return m
+	return m, cmd
 }
 
 // click focuses the pane under a left click. A click in the prompt moves the
@@ -362,12 +393,13 @@ func inRect(r layout.Rect, x, y int) bool {
 }
 
 // placeCursor moves the cursor to the prompt cell under rel. rel is measured
-// from the left edge of the prompt text, which starts with the "> " marker.
-// The drawn bar is one cell, so a click on a letter lands on that letter.
+// from the left edge of the drawn prompt, which starts with the "> " marker
+// until the line is wider than the row. The drawn bar is one cell, so a
+// click on a letter lands on that letter.
 func (m Model) placeCursor(rel int) Model {
 	m.killing = false
-	prefix := lipgloss.Width(styled(tui.CurrentPickerColors().Accent).Render(">")) + 1
-	cell := rel - prefix
+	prefix := lipgloss.Width(m.promptCaret()) + 1
+	cell := rel + m.promptOrigin() - prefix
 	if cell < 0 {
 		m.cursor = 0
 		return m
@@ -421,7 +453,7 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if v.Code == tea.KeyDown {
 			delta = -delta
 		}
-		return m.scroll(delta), nil
+		return m.scroll(delta)
 	}
 	if next, handled := m.foldKey(v); handled {
 		return next, nil
@@ -440,15 +472,15 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "tab":
 		m.focusFeed = !m.focusFeed
 	case "up":
-		return m.scroll(1), nil
+		return m.scroll(1)
 	case "down":
-		return m.scroll(-1), nil
+		return m.scroll(-1)
 	case "pgup":
-		return m.scroll(m.pageRows()), nil
+		return m.scroll(m.pageRows())
 	case "pgdown":
-		return m.scroll(-m.pageRows()), nil
+		return m.scroll(-m.pageRows())
 	case "home":
-		return m.jumpOldest(), nil
+		return m.jumpOldest()
 	case "ctrl+end":
 		// End follows whichever pane is focused. Ctrl+End always follows
 		// the main pane, including while the feed has the keys.
@@ -460,6 +492,7 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.mainOff = 0
 		}
+		return m.revealBar(m.focusFeed)
 	case "enter":
 		return m.submitLine()
 	default:
@@ -578,7 +611,7 @@ func (m Model) outputAtBottom() int {
 		return len(m.outEnds) - 1
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	width := layout.InnerWidth(frame.Main.W)
+	width := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
 	bottom := len(wrapRows(m.shownLines(), width)) - 1 - max(m.mainOff, 0)
 	if bottom < 0 {
 		bottom = 0
@@ -684,9 +717,10 @@ func (m Model) visibleMain() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}
+	h, _ := m.mainSpan()
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	rows := wrapRows(m.shownLines(), layout.InnerWidth(frame.Main.W))
-	return window(rows, frame.Main.H-feedBorder, m.mainOff)
+	w := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
+	return window(wrapRows(m.shownLines(), w), h, m.mainOff)
 }
 
 // Prompt is the text the user has typed so far.
@@ -741,6 +775,7 @@ func (m Model) frameKey() frameKey {
 	return frameKey{
 		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
 		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
+		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(),
 		status: m.Status, prompt: m.promptText(),
 		model: m.Model, title: m.Title, pills: m.pillsKey(), profile: m.profile,
 	}
@@ -752,19 +787,68 @@ func (m Model) renderFrame() string {
 		return ""
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	mainText := window(wrapRows(m.shownLines(), layout.InnerWidth(frame.Main.W)), frame.Main.H-feedBorder, m.mainOff)
+	mainH := frame.Main.H - feedBorder
+	mainW := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
+	mainText := window(wrapRows(m.shownLines(), mainW), mainH, m.mainOff)
 	if m.overlay != nil {
 		mainText = m.overlay.View().Content
+	} else if m.mainBarOn() {
+		_, n := m.mainSpan()
+		mainText = placeBar(mainText, mainW, mainH, barMarks(mainH, n, m.mainOff))
 	}
 	feedText := ""
 	if m.Feed != nil && frame.Feed.W > 0 {
 		// The side panel has a bold title row, as the reference sidebar does.
-		title := styled(tui.CurrentPickerColors().Accent).Render("activity")
-		window := m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder-1, m.feedOff)
-		feedText = title + "\n" + window
+		inner := layout.InnerWidth(frame.Feed.W)
+		showFeed := m.feedBarOn()
+		feedW := textWidth(inner, showFeed)
+		title := ansi.Truncate(styled(tui.CurrentPickerColors().Accent).Render("activity"), max(feedW, 0), "")
+		bodyH := frame.Feed.H - feedBorder - 1
+		body := m.Feed.RenderWindow(feedW, bodyH, m.feedOff)
+		feedText = title + "\n" + body
+		if showFeed {
+			_, n, _ := m.feedSpan()
+			titleMark := []string{barTrack()}
+			feedText = placeBar(title, feedW, 1, titleMark) + "\n" +
+				placeBar(body, feedW, bodyH, barMarks(bodyH, n, m.feedOff))
+		}
 	}
-	caret := styled(tui.CurrentPickerColors().Accent).Render(">")
-	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), caret+" "+m.promptText())
+	prompt := m.promptLine(layout.InnerWidth(frame.Prompt.W))
+	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), prompt)
+}
+
+// promptCaret is the marker at the start of the prompt row.
+func (m Model) promptCaret() string {
+	return styled(tui.CurrentPickerColors().Accent).Render(">")
+}
+
+// promptRaw is the caret and the prompt, including the cursor bar.
+func (m Model) promptRaw() string {
+	return m.promptCaret() + " " + m.promptText()
+}
+
+// cursorCell is the cell of the cursor bar in promptRaw.
+func (m Model) cursorCell() int {
+	return lipgloss.Width(m.promptCaret()) + 1 + lipgloss.Width(string(m.input[:m.cursor]))
+}
+
+// promptOrigin is how many cells of the prompt line are scrolled off the left.
+func (m Model) promptOrigin() int {
+	if m.width == 0 || m.height == 0 {
+		return 0
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	return promptOrigin(lipgloss.Width(m.promptRaw()), m.cursorCell(), layout.InnerWidth(frame.Prompt.W))
+}
+
+// promptLine is the prompt row windowed so the cursor stays on screen.
+func (m Model) promptLine(width int) string {
+	line := m.promptRaw()
+	if width < 1 || lipgloss.Width(line) <= width {
+		return line
+	}
+	origin := promptOrigin(lipgloss.Width(line), m.cursorCell(), width)
+	return ansi.Cut(line, origin, origin+width)
 }
 
 // wrapRows splits each line into the rows it takes at width cells, so the
@@ -778,6 +862,140 @@ func wrapRows(lines []string, width int) []string {
 		rows = append(rows, strings.Split(ansi.Hardwrap(line, width, true), "\n")...)
 	}
 	return rows
+}
+
+// revealBar draws the scrolled pane's bar and arms the hide. A pane whose
+// rows fit is left alone. The returned command fires barHold later.
+func (m Model) revealBar(feed bool) (Model, tea.Cmd) {
+	m = m.clampScroll()
+	if !m.paneOverflows(feed) {
+		return m, nil
+	}
+	var seq int
+	if feed {
+		m.feedBar = true
+		m.feedBarSeq++
+		seq = m.feedBarSeq
+	} else {
+		m.mainBar = true
+		m.mainBarSeq++
+		seq = m.mainBarSeq
+	}
+	m = m.clampScroll()
+	return m, tea.Tick(barHold, func(time.Time) tea.Msg {
+		return barHideMsg{feed: feed, seq: seq}
+	})
+}
+
+// hideBar drops the bar when seq is still the latest scroll of that pane.
+func (m Model) hideBar(v barHideMsg) Model {
+	if v.feed {
+		if !m.feedBar || v.seq != m.feedBarSeq {
+			return m
+		}
+		m.feedBar = false
+	} else {
+		if !m.mainBar || v.seq != m.mainBarSeq {
+			return m
+		}
+		m.mainBar = false
+	}
+	return m.clampScroll()
+}
+
+// paneOverflows reports that the pane has more rows than it can show, measured
+// without a bar column so the bar itself cannot create the overflow.
+func (m Model) paneOverflows(feed bool) bool {
+	if feed {
+		h, n, ok := m.feedRows(false)
+		return ok && h > 0 && n > h
+	}
+	h, n := m.mainRows(false)
+	return h > 0 && n > h && m.mainBarFits()
+}
+
+// mainBarOn reports that the main pane is drawing its bar.
+func (m Model) mainBarOn() bool {
+	return m.mainBar && m.paneOverflows(false)
+}
+
+// feedBarOn reports that the feed is drawing its bar.
+func (m Model) feedBarOn() bool {
+	if !m.feedBar {
+		return false
+	}
+	h, n, ok := m.feedRows(false)
+	if !ok || h < 1 || n <= h {
+		return false
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	return layout.InnerWidth(frame.Feed.W) > 1
+}
+
+// mainBarFits reports that the main pane has a column to spare for the bar.
+func (m Model) mainBarFits() bool {
+	if m.width == 0 || m.height == 0 {
+		return false
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	return layout.InnerWidth(frame.Main.W) > 1
+}
+
+// textWidth is the columns of text in a pane. A visible bar takes one column.
+func textWidth(inner int, bar bool) int {
+	if bar && inner > 1 {
+		return inner - 1
+	}
+	return inner
+}
+
+// barTrack is the empty part of a scroll bar. barThumb is the part on screen.
+// A reversed space stays one cell wide in every color profile.
+func barTrack() string { return lipgloss.NewStyle().Faint(true).Render("│") }
+
+func barThumb() string { return lipgloss.NewStyle().Reverse(true).Render(" ") }
+
+// barMarks is one cell per row of a pane. offset counts rows above the newest
+// line, so zero puts the thumb at the bottom. The result is nil when the text fits.
+func barMarks(height, lines, offset int) []string {
+	if height < 1 || lines <= height {
+		return nil
+	}
+	thumb := max(1, height*height/lines)
+	if thumb > height {
+		thumb = height
+	}
+	room := height - thumb
+	maxOff := lines - height
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > maxOff {
+		offset = maxOff
+	}
+	fromTop := maxOff - offset
+	pos := 0
+	if room > 0 && maxOff > 0 {
+		pos = fromTop * room / maxOff
+	}
+	marks := make([]string, height)
+	for i := range marks {
+		if i >= pos && i < pos+thumb {
+			marks[i] = barThumb()
+		} else {
+			marks[i] = barTrack()
+		}
+	}
+	return marks
+}
+
+// placeBar puts marks in their own column to the right of content.
+func placeBar(content string, width, height int, marks []string) string {
+	if len(marks) == 0 || width < 1 || height < 1 {
+		return content
+	}
+	body := lipgloss.NewStyle().Width(width).MaxWidth(width).Height(height).MaxHeight(height).Render(content)
+	return lipgloss.JoinHorizontal(lipgloss.Top, body, strings.Join(marks, "\n"))
 }
 
 // statusKeys is the key help shown after the counters in the status row.
