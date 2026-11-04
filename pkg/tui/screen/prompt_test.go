@@ -218,6 +218,46 @@ func TestHelp_QuestionMarkInTextIsTyped(t *testing.T) {
 	assert.Equal(t, "why?", m.Prompt())
 }
 
+func TestCtrlD_DeletesUnderTheCursorAndQuitsWhenEmpty(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "ab")
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, cmd := typed(t, m, ctrl('d'))
+	assert.Equal(t, "a", m.Prompt(), "ctrl+d deletes the character under the cursor")
+	assert.Nil(t, cmd, "a non-empty prompt does not quit")
+
+	m, cmd = typed(t, m, ctrl('d'))
+	assert.Equal(t, "a", m.Prompt(), "ctrl+d at the end of the line leaves it")
+	assert.Nil(t, cmd)
+
+	m = typeText(t, m, "d")
+	assert.Equal(t, "ad", m.Prompt(), "d still types")
+
+	m, _ = typed(t, m, ctrl('u'))
+	_, cmd = typed(t, m, ctrl('d'))
+	assert.NotNil(t, cmd, "ctrl+d on an empty prompt quits")
+}
+
+func TestCtrlD_EndsAKillAndDropsASelection(t *testing.T) {
+	m := typeText(t, newPromptScreen(t), "helloXY")
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, keyPress(tea.KeyLeft))
+	m, _ = typed(t, m, ctrl('u'))
+	assert.Equal(t, "XY", m.Prompt())
+	m, _ = typed(t, m, ctrl('d'))
+	assert.Equal(t, "Y", m.Prompt())
+	m, _ = typed(t, m, ctrl('k'))
+	m, _ = typed(t, m, ctrl('y'))
+	assert.Equal(t, "Y", m.Prompt(), "ctrl+d ends a kill, so the next kill does not join")
+
+	m = typeText(t, newPromptScreen(t), "ab")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModShift})
+	m, cmd := typed(t, m, ctrl('d'))
+	assert.Equal(t, "a", m.Prompt(), "ctrl+d removes a selection")
+	assert.Nil(t, cmd)
+	m, _ = typed(t, m, ctrl('y'))
+	assert.Equal(t, "a", m.Prompt(), "the removed selection is not yanked")
+}
+
 func TestCtrlC_ClearsThePromptBeforeQuitting(t *testing.T) {
 	m := typeText(t, newPromptScreen(t), "draft")
 	m, cmd := typed(t, m, ctrl('c'))
