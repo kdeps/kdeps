@@ -148,6 +148,7 @@ func (m Model) completeCommand() (Model, bool) {
 		if common := longestCommonPrefix(matches); len(common) > len(word) {
 			m = m.replaceWord(common)
 		} else {
+			m.mainOff = 0
 			m = m.appendOutput(strings.Join(matches, "  "))
 		}
 	}
