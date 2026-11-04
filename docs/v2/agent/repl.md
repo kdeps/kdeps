@@ -60,11 +60,7 @@ The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to
 
 ## Full-screen scrolling
 
-<<<<<<< HEAD
-`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. `Ctrl+Up` and `Ctrl+Down` scroll half a page. Home jumps to the oldest row and End returns to the newest. Ctrl+End follows the main pane even when the feed is focused. The offset stops at either end, so one PgDown from the top moves forward. While the main pane is on an older row, the status row says `not following` and new output leaves those rows in place. End, or scrolling back to the newest row, follows again. Sending a prompt follows immediately. Ctrl+Space folds the output at the bottom of the main pane down to its first line, and folds it open again. A one-line output stays as it is. Space still types. Ctrl+Z suspends the full-screen view and returns to the shell. The view comes back when that shell exits. z still types.
-=======
-`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. Home jumps to the oldest row and End returns to the newest. The offset stops at either end, so one PgDown from the top moves forward. While the main pane is on an older row, the status row says `not following` and new output leaves those rows in place. End, or scrolling back to the newest row, follows again. Sending a prompt follows immediately. Ctrl+Space folds the output at the bottom of the main pane down to its first line, and folds it open again. A one-line output stays as it is. Space still types. Scrolling a pane that has more rows than it can show draws a bar on that pane's right edge. The bar goes away shortly after scrolling stops. A pane whose rows fit has no bar.
->>>>>>> b2fb756e2 (feat: draw a scroll bar while a full-screen pane is scrolled)
+`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. `Ctrl+Up` and `Ctrl+Down` scroll half a page. Home jumps to the oldest row and End returns to the newest. Ctrl+End follows the main pane even when the feed is focused. The offset stops at either end, so one PgDown from the top moves forward. While the main pane is on an older row, the status row says `not following` and new output leaves those rows in place. End, or scrolling back to the newest row, follows again. Sending a prompt follows immediately. Ctrl+Space folds the output at the bottom of the main pane down to its first line, and folds it open again. A one-line output stays as it is. Space still types. Ctrl+Z suspends the full-screen view and returns to the shell. The view comes back when that shell exits. z still types. Scrolling a pane that has more rows than it can show draws a bar on that pane's right edge. The bar goes away shortly after scrolling stops. A pane whose rows fit has no bar.
 
 ## Multimodal input
 
@@ -94,8 +90,6 @@ review @notes.txt and summarize the key points
 expands to the file's contents. Any memory id works: pastes (`paste:<id>`),
 entries the model saved with `memory_save`, or ids listed by `/memory`. Tab
 completes memory ids after `@` alongside file paths. The full-screen prompt
-does the same: Tab on an `@` token fills one match, extends a shared prefix,
-or lists the matches. Text before the `@` stays.
 
 ```bash
 # Reuse an earlier paste
