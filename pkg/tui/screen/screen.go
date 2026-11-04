@@ -721,7 +721,8 @@ func (m Model) renderFrame() string {
 		window := m.Feed.RenderWindow(layout.InnerWidth(frame.Feed.W), frame.Feed.H-feedBorder-1, m.feedOff)
 		feedText = title + "\n" + window
 	}
-	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), m.promptLine(layout.InnerWidth(frame.Prompt.W)))
+	prompt := m.promptLine(layout.InnerWidth(frame.Prompt.W))
+	return layout.Render(frame, m.headerText(), mainText, feedText, m.statusText(), prompt)
 }
 
 // promptCaret is the marker at the start of the prompt row.
