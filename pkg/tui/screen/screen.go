@@ -88,6 +88,8 @@ type Model struct {
 	pills     map[string]string
 	input     []rune
 	cursor    int      // rune index of the prompt cursor
+	anchor    int      // the other end of a selection; equal to cursor when none
+	selecting bool     // a left-button drag in the prompt is extending the selection
 	killed    []rune   // text the last kill removed; ctrl+y inserts it
 	killing   bool     // the previous key was a kill, so the next kill joins it
 	history   []string // submitted lines, oldest first
@@ -153,6 +155,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.wheel(v), nil
 	case tea.MouseClickMsg:
 		return m.click(v), nil
+	case tea.MouseMotionMsg:
+		return m.drag(tea.Mouse(v)), nil
+	case tea.MouseReleaseMsg:
+		m.selecting = false
 	case tea.KeyPressMsg:
 		return m.key(v)
 	case tea.PasteMsg:
@@ -266,12 +272,30 @@ func (m Model) click(v tea.MouseClickMsg) Model {
 	switch {
 	case frame.Feed.W > 0 && inRect(frame.Feed, v.X, v.Y):
 		m.focusFeed = true
+		m.selecting = false
+		m.anchor = m.cursor
 	case inRect(frame.Main, v.X, v.Y):
 		m.focusFeed = false
+		m.selecting = false
+		m.anchor = m.cursor
 	case v.Y == frame.Prompt.Y+1 && inRect(frame.Prompt, v.X, v.Y):
 		m = m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
+		m.anchor = m.cursor
+		m.selecting = true
 	}
 	return m
+}
+
+// drag extends a prompt selection while the left button stays down.
+func (m Model) drag(v tea.Mouse) Model {
+	if !m.selecting || v.Button != tea.MouseLeft || m.width == 0 || m.height == 0 {
+		return m
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	if v.Y != frame.Prompt.Y+1 || !inRect(frame.Prompt, v.X, v.Y) {
+		return m
+	}
+	return m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
 }
 
 // inRect reports whether the cell is inside the box.
@@ -329,6 +353,9 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// ctrl+o would otherwise type o. Saving replaces the prompt and does not send it.
 	if v.Mod.Contains(tea.ModCtrl) && (v.Code == 'o' || v.String() == "ctrl+o") {
 		return m, m.openEditor()
+	}
+	if next, handled := m.selectKey(v); handled {
+		return next, nil
 	}
 	if next, handled := m.wordKey(v); handled {
 		return next, nil

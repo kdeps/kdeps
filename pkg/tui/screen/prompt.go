@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // wordKey moves or deletes by word. Alt+letter is matched on the modifier,
@@ -15,14 +16,12 @@ func (m Model) wordKey(v tea.KeyPressMsg) (Model, bool) {
 	case wordDeleteForward(v):
 		return m.deleteWordAfter(), true
 	case wordBack(v):
-		m.cursor = wordLeft(m.input, m.cursor)
+		return m.move(wordLeft(m.input, m.cursor), v.Mod.Contains(tea.ModShift)), true
 	case wordForward(v):
-		m.cursor = wordRight(m.input, m.cursor)
+		return m.move(wordRight(m.input, m.cursor), v.Mod.Contains(tea.ModShift)), true
 	default:
 		return m, false
 	}
-	m.killing = false
-	return m, true
 }
 
 func wordBack(v tea.KeyPressMsg) bool {
@@ -80,24 +79,42 @@ func wordRight(input []rune, cursor int) int {
 func (m Model) editKey(name string) (Model, bool) {
 	switch name {
 	case "ctrl+u":
+		if m.hasSel() {
+			return m.deleteSel(true), true
+		}
 		m = m.killText(m.input[:m.cursor], true)
 		m.input = m.input[m.cursor:]
 		m.cursor = 0
+		m.anchor = 0
 		return m, true
 	case "ctrl+k":
+		if m.hasSel() {
+			return m.deleteSel(true), true
+		}
 		m = m.killText(m.input[m.cursor:], false)
 		m.input = m.input[:m.cursor]
+		m.anchor = m.cursor
 		return m, true
 	case "ctrl+w":
 		return m.deleteWordBefore(), true
 	case "left":
-		m.cursor = max(m.cursor-1, 0)
+		if m.hasSel() {
+			lo, _ := m.selBounds()
+			m = m.move(lo, false)
+			break
+		}
+		m = m.move(m.cursor-1, false)
 	case "right":
-		m.cursor = min(m.cursor+1, len(m.input))
+		if m.hasSel() {
+			_, hi := m.selBounds()
+			m = m.move(hi, false)
+			break
+		}
+		m = m.move(m.cursor+1, false)
 	case "ctrl+a":
-		m.cursor = 0
+		m = m.move(0, false)
 	case "ctrl+e":
-		m.cursor = len(m.input)
+		m = m.move(len(m.input), false)
 	case "backspace":
 		m = m.deleteBefore()
 	case "delete":
@@ -157,10 +174,126 @@ func (m Model) completeCommand() (Model, bool) {
 
 // replaceWord replaces the text before the cursor with text.
 func (m Model) replaceWord(text string) Model {
+	if m.hasSel() {
+		m = m.deleteSel(false)
+	}
 	rest := append([]rune(nil), m.input[m.cursor:]...)
 	m.input = append([]rune(text), rest...)
 	m.cursor = len([]rune(text))
+	m.anchor = m.cursor
 	m.killing = false
+	return m
+}
+
+// selectKey handles selection keys. Shift+Left and Shift+Right extend the
+// selection. Ctrl+Shift+A selects the line, Ctrl+Shift+C copies it, and
+// Ctrl+Shift+X cuts it into the yank buffer.
+func (m Model) selectKey(v tea.KeyPressMsg) (Model, bool) {
+	if v.Mod.Contains(tea.ModCtrl) && v.Mod.Contains(tea.ModShift) {
+		switch {
+		case v.Code == 'a' || v.String() == "ctrl+shift+a":
+			return m.selectAll(), true
+		case v.Code == 'c' || v.String() == "ctrl+shift+c":
+			return m.copySel(), true
+		case v.Code == 'x' || v.String() == "ctrl+shift+x":
+			return m.cutSel(), true
+		}
+	}
+	if !v.Mod.Contains(tea.ModShift) || v.Mod.Contains(tea.ModCtrl) || v.Mod.Contains(tea.ModAlt) {
+		return m, false
+	}
+	switch v.Code {
+	case tea.KeyLeft:
+		return m.move(m.cursor-1, true), true
+	case tea.KeyRight:
+		return m.move(m.cursor+1, true), true
+	default:
+		return m, false
+	}
+}
+
+// move puts the cursor at to. extend keeps the selection anchor.
+func (m Model) move(to int, extend bool) Model {
+	if to < 0 {
+		to = 0
+	}
+	if to > len(m.input) {
+		to = len(m.input)
+	}
+	m.cursor = to
+	if !extend {
+		m.anchor = to
+	}
+	m.killing = false
+	return m
+}
+
+// selBounds is the selection in order, clamped to the prompt.
+func (m Model) selBounds() (int, int) {
+	lo, hi := m.anchor, m.cursor
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if lo < 0 {
+		lo = 0
+	}
+	if hi > len(m.input) {
+		hi = len(m.input)
+	}
+	if lo > hi {
+		lo = hi
+	}
+	return lo, hi
+}
+
+// hasSel reports whether a range of the prompt is selected.
+func (m Model) hasSel() bool {
+	lo, hi := m.selBounds()
+	return lo != hi
+}
+
+// selectAll selects the whole prompt.
+func (m Model) selectAll() Model {
+	if len(m.input) == 0 {
+		return m
+	}
+	m.anchor = 0
+	m.cursor = len(m.input)
+	m.killing = false
+	return m
+}
+
+// copySel stores the selection for Ctrl+Y and leaves the prompt in place.
+func (m Model) copySel() Model {
+	if !m.hasSel() {
+		return m
+	}
+	lo, hi := m.selBounds()
+	m.killed = append([]rune(nil), m.input[lo:hi]...)
+	m.killing = false
+	return m
+}
+
+// cutSel removes the selection and stores it for Ctrl+Y.
+func (m Model) cutSel() Model {
+	return m.deleteSel(true)
+}
+
+// deleteSel removes the selection. kill stores it for Ctrl+Y. Backspace does not.
+func (m Model) deleteSel(kill bool) Model {
+	if !m.hasSel() {
+		return m
+	}
+	lo, hi := m.selBounds()
+	if kill {
+		m.killing = false
+		m = m.killText(m.input[lo:hi], false)
+	} else {
+		m.killing = false
+	}
+	m.input = append(m.input[:lo], m.input[hi:]...)
+	m.cursor = lo
+	m.anchor = lo
 	return m
 }
 
@@ -175,16 +308,31 @@ func longestCommonPrefix(items []string) string {
 	return prefix
 }
 
-// promptText is the prompt with the cursor drawn as a bar at its position.
+// promptText is the prompt with the cursor drawn as a bar. A selection is reversed.
 func (m Model) promptText() string {
-	return string(m.input[:m.cursor]) + "|" + string(m.input[m.cursor:])
+	lo, hi := m.selBounds()
+	before := string(m.input[:lo])
+	mid := string(m.input[lo:hi])
+	after := string(m.input[hi:])
+	if mid != "" {
+		mid = lipgloss.NewStyle().Reverse(true).Render(mid)
+	}
+	if m.cursor == lo && lo != hi {
+		return before + "|" + mid + after
+	}
+	return before + mid + "|" + after
 }
 
 // insertText puts text at the cursor and moves the cursor past it.
+// A selection is replaced, and that removal is not a kill.
 func (m Model) insertText(text string) Model {
+	if m.hasSel() {
+		m = m.deleteSel(false)
+	}
 	runes := []rune(text)
 	m.input = append(m.input[:m.cursor], append(runes, m.input[m.cursor:]...)...)
 	m.cursor += len(runes)
+	m.anchor = m.cursor
 	m.killing = false
 	return m
 }
@@ -220,35 +368,51 @@ func (m Model) yank() Model {
 
 // deleteBefore removes the rune before the cursor.
 func (m Model) deleteBefore() Model {
+	if m.hasSel() {
+		return m.deleteSel(false)
+	}
 	if m.cursor > 0 {
 		m.input = append(m.input[:m.cursor-1], m.input[m.cursor:]...)
 		m.cursor--
+		m.anchor = m.cursor
 	}
 	return m
 }
 
 // deleteAfter removes the rune under the cursor.
 func (m Model) deleteAfter() Model {
+	if m.hasSel() {
+		return m.deleteSel(false)
+	}
 	if m.cursor < len(m.input) {
 		m.input = append(m.input[:m.cursor], m.input[m.cursor+1:]...)
+		m.anchor = m.cursor
 	}
 	return m
 }
 
 // deleteWordBefore removes the word before the cursor, and the spaces before it.
 func (m Model) deleteWordBefore() Model {
+	if m.hasSel() {
+		return m.deleteSel(true)
+	}
 	start := wordLeft(m.input, m.cursor)
 	m = m.killText(m.input[start:m.cursor], true)
 	m.input = append(m.input[:start], m.input[m.cursor:]...)
 	m.cursor = start
+	m.anchor = m.cursor
 	return m
 }
 
 // deleteWordAfter removes the word after the cursor, and the spaces before it.
 func (m Model) deleteWordAfter() Model {
+	if m.hasSel() {
+		return m.deleteSel(true)
+	}
 	end := wordRight(m.input, m.cursor)
 	m = m.killText(m.input[m.cursor:end], false)
 	m.input = append(m.input[:m.cursor], m.input[end:]...)
+	m.anchor = m.cursor
 	return m
 }
 
@@ -320,6 +484,7 @@ func (m Model) historyForward() Model {
 func (m Model) setPrompt(text string) Model {
 	m.input = []rune(text)
 	m.cursor = len(m.input)
+	m.anchor = m.cursor
 	m.killing = false
 	return m
 }

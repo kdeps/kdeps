@@ -255,6 +255,28 @@ func TestClick_FocusesThePaneUnderThePointer(t *testing.T) {
 	assert.False(t, m.focusFeed, "a right click does not move focus")
 }
 
+func TestDrag_SelectsPromptText(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	for _, c := range "hello" {
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: c, Text: string(c)})
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	y := frame.Prompt.Y + 1
+
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
+	// The caret sits on the first cell while the drag starts, so the last
+	// letter is one cell further right than a click with the caret at the end.
+	m, _ = typed(t, m, tea.MouseMotionMsg{X: textX + 8, Y: y, Button: tea.MouseLeft})
+	m, _ = typed(t, m, tea.MouseReleaseMsg{X: textX + 8, Y: y, Button: tea.MouseLeft})
+	lo, hi := m.selBounds()
+	assert.Equal(t, "hello", string(m.input[lo:hi]), "dragging across the prompt selects it")
+	assert.False(t, m.selecting, "release ends the drag")
+
+	m, _ = typed(t, m, tea.MouseClickMsg{X: frame.Main.X + 2, Y: frame.Main.Y + 1, Button: tea.MouseLeft})
+	assert.False(t, m.hasSel(), "a click in the main pane clears the selection")
+}
+
 func TestClick_MovesThePromptCursor(t *testing.T) {
 	m := resized(t, New(&feed.Feed{}))
 	for _, c := range "hello" {
@@ -269,10 +291,12 @@ func TestClick_MovesThePromptCursor(t *testing.T) {
 	assert.Equal(t, 0, m.cursor, "a click on the first letter moves the cursor there")
 
 	m.cursor = len(m.input)
+	m.anchor = m.cursor
 	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 4, Y: y, Button: tea.MouseLeft})
 	assert.Equal(t, 2, m.cursor, "a click on a later letter lands on that letter")
 
 	m.cursor = len(m.input)
+	m.anchor = m.cursor
 	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 7, Y: y, Button: tea.MouseLeft})
 	assert.Equal(t, 5, m.cursor, "a click on the bar at the end stays at the end")
 
