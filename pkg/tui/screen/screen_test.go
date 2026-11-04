@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
 )
 
 func resized(t *testing.T, m Model) Model {
@@ -161,6 +162,53 @@ func TestScroll_WheelScrollsTheBoxUnderThePointer(t *testing.T) {
 	m, _ = typed(t, m, tea.MouseWheelMsg{X: feedX, Y: 3, Button: tea.MouseWheelUp})
 	assert.NotContains(t, ansi.Strip(m.render()), "step 99", "the wheel over the feed scrolls the feed")
 	assert.Contains(t, ansi.Strip(m.render()), "row 99", "the main pane did not move")
+}
+
+func TestClick_FocusesThePaneUnderThePointer(t *testing.T) {
+	var f feed.Feed
+	for i := range 100 {
+		f.Add(feed.Entry{Kind: feed.KindAction, Title: "step " + strconv.Itoa(i)})
+	}
+	m := resized(t, New(&f))
+	m, _ = typed(t, m, OutputMsg{Text: manyLines(100)})
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+
+	m, _ = typed(t, m, tea.MouseClickMsg{X: frame.Feed.X + 2, Y: frame.Feed.Y + 1, Button: tea.MouseLeft})
+	assert.True(t, m.focusFeed, "a click in the feed focuses it")
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyPgUp})
+	view := ansi.Strip(m.render())
+	assert.NotContains(t, view, "step 99", "the focused feed scrolled")
+	assert.Contains(t, view, "row 99", "the main pane did not scroll")
+
+	m, _ = typed(t, m, tea.MouseClickMsg{X: frame.Main.X + 2, Y: frame.Main.Y + 1, Button: tea.MouseLeft})
+	assert.False(t, m.focusFeed, "a click in the main pane focuses it")
+	m, _ = typed(t, m, tea.MouseClickMsg{X: frame.Feed.X + 2, Y: frame.Feed.Y + 1, Button: tea.MouseRight})
+	assert.False(t, m.focusFeed, "a right click does not move focus")
+}
+
+func TestClick_MovesThePromptCursor(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	for _, c := range "hello" {
+		m, _ = typed(t, m, tea.KeyPressMsg{Code: c, Text: string(c)})
+	}
+	assert.Equal(t, 5, m.cursor)
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	y := frame.Prompt.Y + 1
+
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 0, m.cursor, "a click on the first letter moves the cursor there")
+
+	m.cursor = len(m.input)
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 4, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 2, m.cursor, "a click on a later letter lands on that letter")
+
+	m.cursor = len(m.input)
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 7, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 5, m.cursor, "a click on the bar at the end stays at the end")
+
+	m, _ = typed(t, m, tea.MouseClickMsg{X: textX, Y: y, Button: tea.MouseLeft})
+	assert.Equal(t, 0, m.cursor, "a click on the prompt marker moves to the start")
 }
 
 // TestFrameCache_ChangesWhenTheScreenChanges checks a frame is reused only

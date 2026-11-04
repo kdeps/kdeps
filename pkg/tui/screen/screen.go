@@ -144,6 +144,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.profile = v.Profile
 	case tea.MouseWheelMsg:
 		return m.wheel(v), nil
+	case tea.MouseClickMsg:
+		return m.click(v), nil
 	case tea.KeyPressMsg:
 		return m.key(v)
 	case tea.PasteMsg:
@@ -184,6 +186,65 @@ func (m Model) wheel(v tea.MouseWheelMsg) Model {
 	m.focusFeed = frame.Feed.W > 0 && v.X >= frame.Feed.X
 	m = m.scroll(step)
 	m.focusFeed = prev
+	return m
+}
+
+// click focuses the pane under a left click. A click in the prompt moves the
+// cursor instead, so the arrow keys keep scrolling whichever pane was focused.
+func (m Model) click(v tea.MouseClickMsg) Model {
+	if v.Button != tea.MouseLeft || m.width == 0 || m.height == 0 {
+		return m
+	}
+	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	switch {
+	case frame.Feed.W > 0 && inRect(frame.Feed, v.X, v.Y):
+		m.focusFeed = true
+	case inRect(frame.Main, v.X, v.Y):
+		m.focusFeed = false
+	case v.Y == frame.Prompt.Y+1 && inRect(frame.Prompt, v.X, v.Y):
+		m = m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
+	}
+	return m
+}
+
+// inRect reports whether the cell is inside the box.
+func inRect(r layout.Rect, x, y int) bool {
+	return r.W > 0 && r.H > 0 && x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H
+}
+
+// placeCursor moves the cursor to the prompt cell under rel. rel is measured
+// from the left edge of the prompt text, which starts with the "> " marker.
+// The drawn bar is one cell, so a click on a letter lands on that letter.
+func (m Model) placeCursor(rel int) Model {
+	prefix := lipgloss.Width(styled(tui.CurrentPickerColors().Accent).Render(">")) + 1
+	cell := rel - prefix
+	if cell < 0 {
+		m.cursor = 0
+		return m
+	}
+	pos := 0
+	for i := 0; i <= len(m.input); i++ {
+		if i == m.cursor {
+			if cell == pos {
+				m.cursor = i
+				return m
+			}
+			pos++
+		}
+		if i == len(m.input) {
+			break
+		}
+		w := lipgloss.Width(string(m.input[i]))
+		if w < 1 {
+			w = 1
+		}
+		if cell < pos+w {
+			m.cursor = i
+			return m
+		}
+		pos += w
+	}
+	m.cursor = len(m.input)
 	return m
 }
 
