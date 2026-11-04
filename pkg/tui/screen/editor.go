@@ -1,12 +1,26 @@
 package screen
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
+
+// clipboardReadLimit is how long one clipboard tool may run before the next is tried.
+const clipboardReadLimit = 2 * time.Second
+
+// clipboardReads are the read forms of the tools clipboard_copy writes with.
+var clipboardReads = [][]string{
+	{"pbpaste"},
+	{"xclip", "-selection", "clipboard", "-o"},
+	{"xsel", "--clipboard", "--output"},
+	{"powershell", "-NoProfile", "-Command", "Get-Clipboard"},
+}
 
 // editorResultMsg is the text an external editor wrote back. ok is false when
 // the editor failed or the file could not be read, and the prompt stays.
@@ -84,6 +98,70 @@ func defaultLaunchPromptEditor(text string) tea.Cmd {
 	return tea.ExecProcess(editorCommand(path), func(runErr error) tea.Msg {
 		return editorResult(path, runErr)
 	})
+}
+
+// pasteClipboard reads the clipboard off the UI loop and pastes it as one line.
+// An empty clipboard or a failed read leaves the prompt.
+func (m Model) pasteClipboard() tea.Cmd {
+	read := m.readClipboard
+	if read == nil {
+		read = readClipboardText
+	}
+	return func() tea.Msg {
+		text, ok := read()
+		if !ok || text == "" {
+			return nil
+		}
+		text = strings.TrimRight(text, "\r\n")
+		if text == "" {
+			return nil
+		}
+		return tea.PasteMsg{Content: text}
+	}
+}
+
+// readClipboardText returns the first clipboard tool's text. A tool that is
+// missing is skipped. A tool that returns nothing means the clipboard is empty.
+func readClipboardText() (string, bool) {
+	for _, argv := range clipboardReads {
+		out, err := commandOutput(argv, clipboardReadLimit)
+		if err != nil {
+			continue
+		}
+		if len(out) == 0 {
+			return "", false
+		}
+		return string(out), true
+	}
+	return "", false
+}
+
+// commandOutput runs argv and returns stdout. The process is killed at limit.
+func commandOutput(argv []string, limit time.Duration) ([]byte, error) {
+	if len(argv) == 0 {
+		return nil, errors.New("no command")
+	}
+	cmd := exec.Command(argv[0], argv[1:]...) //nolint:gosec,noctx // clipboard tool; no shell
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	case <-time.After(limit):
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-done
+		return nil, errors.New("clipboard read timed out")
+	}
 }
 
 // openEditor starts the external editor on the current prompt.

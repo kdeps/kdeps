@@ -24,7 +24,7 @@ const helpText = `keys
   ctrl+c         clear the prompt; on an empty prompt, quit
   click          focus a pane, or move the prompt cursor
   shift+left/right select   ctrl+shift+c/x copy/cut pane
-  ctrl+o         edit the prompt in your editor
+  ctrl+o         editor   ctrl+shift+v pastes
 press esc, enter or q to close`
 
 // helpOverlay shows the key list and the slash commands until the user closes it.
