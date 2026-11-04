@@ -101,12 +101,46 @@ func Extract(ctx context.Context, v Vault, dir string, ask ExtractFunc, o Extrac
 		pieces, chunkErr := chunks(n, r)
 		docs = append(docs, kgknowledge.ExtractDoc{Key: n.Path, Hash: n.Hash, Pieces: pieces, Err: chunkErr})
 	}
+	prev := make(map[string]Extraction, len(todo))
+	for _, n := range todo {
+		if ex, ok := cache.Notes[n.Path]; ok {
+			prev[n.Path] = ex
+		}
+	}
 	st.Done, st.Failed = kgknowledge.RunExtraction(ctx, docs, cache.Notes, kgknowledge.RunOptions{
 		Model: o.Model, Workers: workers, MaxEntities: policy().MaxEntities, Parse: r.parseOptions(),
 		Ask: func(ctx context.Context, piece string) (string, error) { return ask(ctx, o.System, piece) },
 	})
+	dropStoppedNotes(todo, cache, prev, &st)
 	kgknowledge.PruneCache(cache.Notes, func(p string) bool { return hasNote(notes, p) })
 	return st, kgstore.WriteJSON(filepath.Join(dir, extractFile), cache)
+}
+
+// dropStoppedNotes puts back notes whose call was cancelled with the run.
+// A deadline is the batch clock, not a bad note, so it is not stored as a
+// failed extraction and it is not counted in Failed.
+func dropStoppedNotes(todo []*Note, cache extractCache, prev map[string]Extraction, st *ExtractStats) {
+	for _, n := range todo {
+		ex, ok := cache.Notes[n.Path]
+		if !ok || !contextStopped(ex.Error) {
+			continue
+		}
+		if old, had := prev[n.Path]; had {
+			cache.Notes[n.Path] = old
+		} else {
+			delete(cache.Notes, n.Path)
+		}
+		if st.Failed > 0 {
+			st.Failed--
+		}
+	}
+}
+
+// contextStopped reports an error string that is the run's context ending.
+func contextStopped(msg string) bool {
+	return msg == context.DeadlineExceeded.Error() || msg == context.Canceled.Error() ||
+		strings.HasSuffix(msg, ": "+context.DeadlineExceeded.Error()) ||
+		strings.HasSuffix(msg, ": "+context.Canceled.Error())
 }
 
 // PendingExtractCount is how many notes still need a model pass.

@@ -61,7 +61,7 @@ func TestFormatStaleBranchWarning_Diverged(t *testing.T) {
 	assert.Contains(t, msg, "dev")
 	assert.Contains(t, msg, "2 behind")
 	assert.Contains(t, msg, "5 ahead")
-	assert.Contains(t, msg, "rebasing")
+	assert.NotContains(t, msg, "rebas")
 }
 
 func TestStaleBranchPolicyFromEnv(t *testing.T) {

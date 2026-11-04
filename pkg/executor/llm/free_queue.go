@@ -19,9 +19,7 @@
 package llm
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -116,8 +114,8 @@ type freeQueueTransport struct {
 func (t *freeQueueTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	wait := t.queue.reserve(freeModelPerMinute())
 	if wait >= time.Second {
-		fmt.Fprintf(os.Stderr, "openrouter: queued %s to stay under the free-model cap\n",
-			wait.Round(time.Second))
+		// The wait stays. A line per request is written onto the readline
+		// prompt and onto the status frame, so the queue itself stays quiet.
 		timer := time.NewTimer(wait)
 		select {
 		case <-req.Context().Done():

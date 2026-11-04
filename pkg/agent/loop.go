@@ -3637,14 +3637,15 @@ func (l *Loop) buildChatConfig(
 	files := l.pendingFiles
 	l.pendingFiles = nil // consume; clear for next turn
 	chatCfg := &domain.ChatConfig{
-		Model:    l.config.Model,
-		Backend:  l.config.Backend,
-		BaseURL:  l.config.BaseURL,
-		Role:     l.config.Role,
-		Prompt:   input,
-		Files:    files,
-		Tools:    tools,
-		Thinking: l.config.Thinking,
+		Model:     l.config.Model,
+		Backend:   l.config.Backend,
+		BaseURL:   l.config.BaseURL,
+		Role:      l.config.Role,
+		Prompt:    input,
+		Files:     files,
+		Tools:     tools,
+		Thinking:  l.config.Thinking,
+		TurnMeter: true,
 	}
 
 	chatCfg.MaxTokens = l.callMaxTokens()

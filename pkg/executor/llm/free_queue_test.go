@@ -3,8 +3,10 @@ package llm
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -49,6 +51,34 @@ func TestFreeQueueTransport_CancelWhileQueued(t *testing.T) {
 	_, err := tr.RoundTrip(req)
 	require.ErrorIs(t, err, context.Canceled)
 	require.False(t, called, "a request that is still queued is not sent")
+}
+
+func TestFreeQueueTransport_WaitIsSilent(t *testing.T) {
+	orig := freeModelPerMinute
+	t.Cleanup(func() { freeModelPerMinute = orig })
+	freeModelPerMinute = func() int { return 1 }
+
+	q := &freeQueue{now: func() time.Time { return time.Unix(100, 0) }}
+	require.Zero(t, q.reserve(1))
+
+	read, write, err := os.Pipe()
+	require.NoError(t, err)
+	old := os.Stderr
+	os.Stderr = write
+	t.Cleanup(func() { os.Stderr = old })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "http://example.test/", nil)
+	tr := &freeQueueTransport{base: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("should not be sent")
+	}), queue: q}
+	_, err = tr.RoundTrip(req)
+	require.ErrorIs(t, err, context.Canceled)
+	require.NoError(t, write.Close())
+	out, err := io.ReadAll(read)
+	require.NoError(t, err)
+	require.NotContains(t, string(out), "queued")
 }
 
 func TestIsOpenRouterFree(t *testing.T) {

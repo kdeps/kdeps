@@ -3361,11 +3361,14 @@ func (r *REPL) writeSessionNoteOnExit() {
 	if !r.loop.SessionNoteDue() || !stdinIsTerminal() {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.loopCtx), sessionNoteTimeout)
-	defer cancel()
+	// The note and the extract each get their own clock. One shared budget
+	// let the note and the background pass use it up, then the extract's
+	// calls died as "context deadline exceeded" and were counted as failed notes.
+	noteCtx, noteCancel := context.WithTimeout(context.WithoutCancel(r.loopCtx), sessionNoteTimeout)
 	fmt.Fprintln(os.Stdout, styleReplDim.Render("Writing the session note to the knowledge vault..."))
-	r.loop.WriteSessionNoteNow(ctx, os.Stdout)
-	r.loop.ExtractKnowledge(ctx, os.Stdout, false)
+	r.loop.WriteSessionNoteNow(noteCtx, os.Stdout)
+	noteCancel()
+	r.loop.ExtractKnowledge(context.WithoutCancel(r.loopCtx), os.Stdout, false)
 }
 
 // stdinIsTerminal reports whether the session reads a real terminal
@@ -3374,7 +3377,8 @@ func (r *REPL) writeSessionNoteOnExit() {
 //nolint:gochecknoglobals // test-replaceable
 var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
 
-// sessionNoteTimeout bounds the session-end note and extraction together.
+// sessionNoteTimeout bounds the session-end note. Extraction has its own
+// timeout, applied after the note and after any background pass still running.
 const sessionNoteTimeout = 2 * time.Minute
 
 // cmdEditor opens $EDITOR (fallback: $VISUAL, then vi) with a temp file so the

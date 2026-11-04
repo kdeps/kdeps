@@ -150,7 +150,7 @@ func FormatStaleBranchWarning(r BranchFreshnessResult) string {
 		)
 	case BranchDiverged:
 		return fmt.Sprintf(
-			"Branch '%s' has diverged from %s (%d behind, %d ahead). Consider rebasing.",
+			"Branch '%s' has diverged from %s (%d behind, %d ahead).",
 			r.CurrentBranch, r.Upstream, r.Behind, r.Ahead,
 		)
 	case BranchFresh, BranchUnknown:

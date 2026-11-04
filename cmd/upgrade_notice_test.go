@@ -45,6 +45,13 @@ func TestUpdateAvailabilityNotice_Available(t *testing.T) {
 	assert.Contains(t, notice, "/upgrade")
 }
 
+func TestUpdateAvailabilityNotice_DevBuildIsSilent(t *testing.T) {
+	stubUpdateAvailabilityNoticeFunc(t, func(context.Context) (upgrade.CheckResult, error) {
+		return upgrade.CheckResult{Current: "2.0.0-dev", Latest: "2.65.0", Available: true}, nil
+	})
+	assert.Empty(t, updateAvailabilityNotice(context.Background()))
+}
+
 func TestUpdateAvailabilityNotice_UpToDate(t *testing.T) {
 	stubUpdateAvailabilityNoticeFunc(t, func(context.Context) (upgrade.CheckResult, error) {
 		return upgrade.CheckResult{Current: "2.9.0", Latest: "2.9.0", Available: false}, nil
