@@ -10,7 +10,7 @@ import (
 const helpText = `keys
   enter          send the prompt
   up / down      one row   shift+up/down one output
-  pgup / pgdown  scroll a page   ctrl+space folds
+  pgup / pgdown  ctrl+up/down half   ctrl+space folds
   end/ctrl+end   newest focused pane / main pane
   home           jump to the oldest output
   tab            complete a slash command, or switch pane
