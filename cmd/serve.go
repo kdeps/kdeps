@@ -255,6 +255,7 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	// All derived contexts (REPL, model prefetch, tool execution) derive from this.
 	rootCtx, rootCancel := context.WithCancel(processRoot())
 	defer rootCancel()
+	agent.SetAgentLoopMode() // full-screen REPL by default in a terminal (agent loop only)
 
 	// The REPL owns SIGINT (Ctrl+C cancels the current turn/tool without
 	// exiting); tell the llm package's local-server shutdown hook not to also

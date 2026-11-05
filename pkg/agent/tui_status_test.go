@@ -9,27 +9,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTUIEnabled_DefaultFollowsTerminal(t *testing.T) {
-	origIn, origOut := stdinIsTerminal, stdoutIsTerminal
-	t.Cleanup(func() { stdinIsTerminal, stdoutIsTerminal = origIn, origOut })
+func TestTUIEnabled_DefaultFollowsModeAndTerminal(t *testing.T) {
+	origIn, origOut, origMode := stdinIsTerminal, stdoutIsTerminal, agentLoopMode.Load()
+	t.Cleanup(func() {
+		stdinIsTerminal, stdoutIsTerminal = origIn, origOut
+		agentLoopMode.Store(origMode)
+	})
 
 	cases := []struct {
-		env     string
-		in, out bool
-		want    bool
+		name      string
+		env       string
+		agentLoop bool
+		in, out   bool
+		want      bool
 	}{
-		{"", true, true, true},    // interactive terminal: full-screen by default
-		{"", false, true, false},  // piped stdin: line REPL
-		{"", true, false, false},  // redirected stdout: line REPL
-		{"0", true, true, false},  // forced off
-		{"1", false, false, true}, // forced on
-		{"yes", true, true, true}, // unknown value: default rule
+		{"agent loop in a terminal", "", true, true, true, true},
+		{"workflow or agency run in a terminal", "", false, true, true, false},
+		{"agent loop with piped stdin", "", true, false, true, false},
+		{"agent loop with redirected stdout", "", true, true, false, false},
+		{"forced off", "0", true, true, true, false},
+		{"forced on outside the agent loop", "1", false, false, false, true},
+		{"unknown value uses the default", "yes", true, true, true, true},
 	}
 	for _, c := range cases {
-		t.Setenv(tuiEnv, c.env)
-		stdinIsTerminal = func() bool { return c.in }
-		stdoutIsTerminal = func() bool { return c.out }
-		assert.Equal(t, c.want, tuiEnabled(), "KDEPS_TUI=%q stdin=%v stdout=%v", c.env, c.in, c.out)
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv(tuiEnv, c.env)
+			agentLoopMode.Store(c.agentLoop)
+			stdinIsTerminal = func() bool { return c.in }
+			stdoutIsTerminal = func() bool { return c.out }
+			assert.Equal(t, c.want, tuiEnabled())
+		})
 	}
 }
 

@@ -90,7 +90,7 @@ Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `s
 
 ## Full-screen scrolling
 
-In a terminal, kdeps draws the session full-screen on the alternate screen. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL; `KDEPS_TUI=1` forces full-screen.
+In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL; `KDEPS_TUI=1` forces full-screen.
 
 | Key | Action |
 |---|---|
