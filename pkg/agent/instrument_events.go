@@ -113,11 +113,15 @@ func recordModelResponse(cfg *domain.ChatConfig, content string, calls []domain.
 
 // recordToolCall records a tool call the agent loop ran: the name the model
 // used, the tool it resolved to, its arguments and result, and how long it took.
-func recordToolCall(called, tool, args, result string, took time.Duration) {
+// loop names a side loop such as a judge; it is empty for the main loop.
+func recordToolCall(loop, called, tool, args, result string, took time.Duration) {
 	if instrument.Active() == nil {
 		return
 	}
 	fields := map[string]any{"name": tool, "arguments": args, "result": result, "duration_ms": took.Milliseconds()}
+	if loop != "" {
+		fields["loop"] = loop
+	}
 	if called != tool {
 		fields["called_as"] = called
 	}

@@ -407,6 +407,10 @@ type Loop struct {
 	// onUnofferedTool, when set, runs when the model calls a tool this loop was
 	// not offered. A judge sets it to end its review at once.
 	onUnofferedTool func()
+	// eventLoop names a side loop (a judge) in the instrument log. Empty is
+	// the main loop. A side loop's tool calls are tagged with it, so they are
+	// not read as calls the main loop made with its own tools.
+	eventLoop string
 	// lastSentMessages holds the exact messages array included in the most
 	// recent outgoing LLM request, after any backend-specific transformation
 	// (e.g. folding system-role messages for chat templates that reject
@@ -2874,7 +2878,7 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	started := time.Now()
 	called := tc.Name
 	result := l.runStreamToolCall(&tc, w)
-	recordToolCall(called, tc.Name, tc.Arguments, result, time.Since(started))
+	recordToolCall(l.eventLoop, called, tc.Name, tc.Arguments, result, time.Since(started))
 	feedToolResult(tc.Name, tc.Arguments, result)
 	return result
 }

@@ -518,11 +518,16 @@ func captureErrorLine(raw map[string]json.RawMessage) (string, bool) {
 	if text == "" {
 		return "", false
 	}
-	return fmt.Sprintf("%s kind=%s model=%s name=%s error=%s",
+	loop := ""
+	if l := jsonFieldString(raw["loop"]); l != "" {
+		loop = " loop=" + l
+	}
+	return fmt.Sprintf("%s kind=%s model=%s name=%s%s error=%s",
 		jsonFieldString(raw["ts"]),
 		jsonFieldString(raw["kind"]),
 		jsonFieldString(raw["model"]),
 		jsonFieldString(raw["name"]),
+		loop,
 		text,
 	), true
 }

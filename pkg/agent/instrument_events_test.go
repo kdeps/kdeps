@@ -112,12 +112,13 @@ func TestRunStreaming_RecordsPromptModelAndToolCalls(t *testing.T) {
 
 func TestRecordToolCall_MarksAFailedCall(t *testing.T) {
 	evs := recordedEvents(t, func() {
-		recordToolCall("read_file", "read_file", `{"file_path":"/x"}`, `{"error":"no such file"}`, time.Millisecond)
+		recordToolCall("", "read_file", "read_file", `{"file_path":"/x"}`, `{"error":"no such file"}`, time.Millisecond)
 		recordModelResponse(&domain.ChatConfig{Model: "m"}, "", nil, context.DeadlineExceeded, time.Second)
 	})
 	calls := eventsOf(evs, "tool_call")
 	require.Len(t, calls, 1)
 	assert.Contains(t, calls[0]["error"], "no such file")
+	assert.NotContains(t, calls[0], "loop", "a main-loop call has no loop tag")
 	resp := eventsOf(evs, "model_response")
 	require.Len(t, resp, 1)
 	assert.Equal(t, "context deadline exceeded", resp[0]["error"])
@@ -127,7 +128,7 @@ func TestRecording_NoSessionNoWrites(t *testing.T) {
 	require.Nil(t, instrument.Active())
 	recordPrompt("x")
 	recordModelRequest(&domain.ChatConfig{}, 0)
-	recordToolCall("a", "a", "", "", 0)
+	recordToolCall("", "a", "a", "", "", 0)
 }
 
 func TestRecordModelRequest_EachSessionStartsWithTheFullPrompt(t *testing.T) {
@@ -142,4 +143,28 @@ func TestRecordModelRequest_EachSessionStartsWithTheFullPrompt(t *testing.T) {
 		assert.IsType(t, []any{}, reqs[0]["scenario"], "a session's first request has the system prompt in full")
 		assert.Equal(t, map[string]any{"unchanged_since_request": float64(1)}, reqs[1]["scenario"])
 	}
+}
+
+func TestRecordToolCall_TagsASideLoop(t *testing.T) {
+	evs := recordedEvents(t, func() {
+		recordToolCall("judge:critic", "read_file", "read_file", "{}", `{"error":"not found"}`, 0)
+	})
+	calls := eventsOf(evs, "tool_call")
+	require.Len(t, calls, 1)
+	assert.Equal(t, "judge:critic", calls[0]["loop"])
+}
+
+func TestCaptureErrorLine_ShowsTheLoop(t *testing.T) {
+	raw := map[string]json.RawMessage{
+		"ts": json.RawMessage(`"t0"`), "kind": json.RawMessage(`"tool_call"`),
+		"name": json.RawMessage(`"read_file"`), "loop": json.RawMessage(`"judge:critic"`),
+		"error": json.RawMessage(`"not found"`),
+	}
+	line, ok := captureErrorLine(raw)
+	require.True(t, ok)
+	assert.Equal(t, "t0 kind=tool_call model= name=read_file loop=judge:critic error=not found", line)
+
+	delete(raw, "loop")
+	line, _ = captureErrorLine(raw)
+	assert.Equal(t, "t0 kind=tool_call model= name=read_file error=not found", line)
 }

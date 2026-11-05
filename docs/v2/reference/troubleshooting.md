@@ -263,10 +263,11 @@ The terminal looks as usual (the call-chain trace goes to the file, not the scre
 ```json
 {"ts":"2026-10-17T12:18:39Z","kind":"tool_call","called_as":"bash","name":"bash_exec","arguments":"{\"cmd\":\"echo $((6*7))\"}","result":"42","duration_ms":41}
 {"ts":"2026-10-17T12:18:40Z","kind":"tool_call","name":"read_file","arguments":"{\"file_path\":\"/nonexistent/x.txt\"}","error":"{\"error\":\"path /nonexistent/x.txt is outside the working directory\"}","duration_ms":0}
-{"ts":"2026-10-17T12:18:41Z","kind":"workflow","event":"resource.failed","workflowId":"chatbot","actionId":"llm","detail":"connection refused"}
+{"ts":"2026-10-17T12:18:41Z","kind":"tool_call","name":"read_file","loop":"judge:critic","arguments":"{}","error":"{\"error\":\"tool \\\"read_file\\\" not found; tools offered this turn: judge_verdict\"}","duration_ms":0}
+{"ts":"2026-10-17T12:18:42Z","kind":"workflow","event":"resource.failed","workflowId":"chatbot","actionId":"llm","detail":"connection refused"}
 ```
 
-A `model_request` holds everything the model was sent; the system prompt and tool list are recorded once and then as `{"unchanged_since_request": N}` until they change. A workflow `chat` resource's call (and the agent loop's own internal calls, such as prompt refinement) is recorded with `"source": "workflow"`: its messages and tool names, then the reply or error. A string over 64 KiB is cut, saying how much. A session of the same name is replaced.
+A `model_request` holds everything the model was sent; the system prompt and tool list are recorded once and then as `{"unchanged_since_request": N}` until they change. A workflow `chat` resource's call (and the agent loop's own internal calls, such as prompt refinement) is recorded with `"source": "workflow"`: its messages and tool names, then the reply or error. A tool call made by a judge's review loop has `"loop": "judge:<name>"`; a call without `loop` came from the main agent loop. A judge that calls a tool it was not given stops, and its review counts as approved. A string over 64 KiB is cut, saying how much. A session of the same name is replaced.
 
 ```bash
 kdeps instrument list                 # saved sessions, newest first
