@@ -9,11 +9,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTUIEnabled_OnlyWithTheFlag(t *testing.T) {
-	t.Setenv(tuiEnv, "")
-	assert.False(t, tuiEnabled())
-	t.Setenv(tuiEnv, "1")
-	assert.True(t, tuiEnabled())
+func TestTUIEnabled_DefaultFollowsTerminal(t *testing.T) {
+	origIn, origOut := stdinIsTerminal, stdoutIsTerminal
+	t.Cleanup(func() { stdinIsTerminal, stdoutIsTerminal = origIn, origOut })
+
+	cases := []struct {
+		env     string
+		in, out bool
+		want    bool
+	}{
+		{"", true, true, true},    // interactive terminal: full-screen by default
+		{"", false, true, false},  // piped stdin: line REPL
+		{"", true, false, false},  // redirected stdout: line REPL
+		{"0", true, true, false},  // forced off
+		{"1", false, false, true}, // forced on
+		{"yes", true, true, true}, // unknown value: default rule
+	}
+	for _, c := range cases {
+		t.Setenv(tuiEnv, c.env)
+		stdinIsTerminal = func() bool { return c.in }
+		stdoutIsTerminal = func() bool { return c.out }
+		assert.Equal(t, c.want, tuiEnabled(), "KDEPS_TUI=%q stdin=%v stdout=%v", c.env, c.in, c.out)
+	}
 }
 
 func TestDrawLiveStatus_WindowOwnsTheRowsWhenRunning(t *testing.T) {
