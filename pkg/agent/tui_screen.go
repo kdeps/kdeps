@@ -273,7 +273,7 @@ func screenModelLabel() string {
 	return screenModel.name
 }
 
-// FullScreenEnabled reports whether the full-screen view is on (KDEPS_TUI=1).
+// FullScreenEnabled reports whether the full-screen view is on (see tuiEnabled).
 func FullScreenEnabled() bool { return tuiEnabled() }
 
 // RunInScreen opens o over the full-screen view and blocks until the user

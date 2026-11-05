@@ -52,7 +52,7 @@ and type there - for example paste a stack trace and type
 
 ## Line editing and history search
 
-The prompt supports readline editing. History is stored in `~/.kdeps/repl_history`; the full-screen prompt (`KDEPS_TUI=1`) shares it.
+The prompt supports readline editing. History is stored in `~/.kdeps/repl_history`; the full-screen prompt shares it.
 
 | Key | Action |
 |---|---|
@@ -90,7 +90,7 @@ Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `s
 
 ## Full-screen scrolling
 
-`KDEPS_TUI=1` draws the session on the alternate screen.
+In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL; `KDEPS_TUI=1` forces full-screen.
 
 | Key | Action |
 |---|---|

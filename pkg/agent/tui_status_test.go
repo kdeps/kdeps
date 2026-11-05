@@ -9,11 +9,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTUIEnabled_OnlyWithTheFlag(t *testing.T) {
-	t.Setenv(tuiEnv, "")
-	assert.False(t, tuiEnabled())
-	t.Setenv(tuiEnv, "1")
-	assert.True(t, tuiEnabled())
+func TestTUIEnabled_DefaultFollowsModeAndTerminal(t *testing.T) {
+	origIn, origOut, origMode := stdinIsTerminal, stdoutIsTerminal, agentLoopMode.Load()
+	t.Cleanup(func() {
+		stdinIsTerminal, stdoutIsTerminal = origIn, origOut
+		agentLoopMode.Store(origMode)
+	})
+
+	cases := []struct {
+		name      string
+		env       string
+		agentLoop bool
+		in, out   bool
+		want      bool
+	}{
+		{"agent loop in a terminal", "", true, true, true, true},
+		{"workflow or agency run in a terminal", "", false, true, true, false},
+		{"agent loop with piped stdin", "", true, false, true, false},
+		{"agent loop with redirected stdout", "", true, true, false, false},
+		{"forced off", "0", true, true, true, false},
+		{"forced on outside the agent loop", "1", false, false, false, true},
+		{"unknown value uses the default", "yes", true, true, true, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv(tuiEnv, c.env)
+			agentLoopMode.Store(c.agentLoop)
+			stdinIsTerminal = func() bool { return c.in }
+			stdoutIsTerminal = func() bool { return c.out }
+			assert.Equal(t, c.want, tuiEnabled())
+		})
+	}
 }
 
 func TestDrawLiveStatus_WindowOwnsTheRowsWhenRunning(t *testing.T) {

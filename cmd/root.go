@@ -272,9 +272,24 @@ func ensureAssets(cmd *cobra.Command) error {
 	// Set after the batch install, so it only fetches what is still missing:
 	// a component a workflow calls, or a required item of a set this command
 	// did not list.
-	assets.SetOnDemand(agent.InstallComponentOnDemand(cmd.Context(), cmd.ErrOrStderr()))
+	assets.SetOnDemand(agent.InstallComponentOnDemand(cmd.Context(), onDemandWriter(cmd.ErrOrStderr())))
 	return nil
 }
+
+// onDemandWriter returns w, except that the process stderr becomes a writer
+// that looks up os.Stderr on each write. On-demand installs print later, when
+// the full-screen view may have redirected os.Stderr into its own pane.
+func onDemandWriter(w io.Writer) io.Writer {
+	if f, ok := w.(*os.File); ok && f == os.Stderr {
+		return liveStderr{}
+	}
+	return w
+}
+
+// liveStderr writes to whatever os.Stderr is at the time of the write.
+type liveStderr struct{}
+
+func (liveStderr) Write(p []byte) (int, error) { return os.Stderr.Write(p) }
 
 func initRootLogging(cmd *cobra.Command) {
 	debugFlag, _ := cmd.Flags().GetBool("debug")
