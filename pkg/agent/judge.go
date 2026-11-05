@@ -177,6 +177,7 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 	// A judge that calls a tool it was not offered is not reviewing; end it
 	// here instead of letting it retry the missing tool until its rounds run out.
 	judgeLoop.onUnofferedTool = cancel
+	judgeLoop.eventLoop = "judge:" + spec.Name
 
 	// The error here is expected on the success path (see cancel() above), so
 	// only the settled flag decides the outcome.

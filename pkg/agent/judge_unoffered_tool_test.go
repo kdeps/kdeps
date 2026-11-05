@@ -30,3 +30,14 @@ func TestRunJudge_EndsWhenItCallsAToolItWasNotOffered(t *testing.T) {
 	require.True(t, verdict.Approved, "an unsettled judge approves, as before")
 	assert.LessOrEqual(t, s.calls, 2, "the judge stops at the first missing tool, not after its rounds")
 }
+
+func TestRunJudge_TagsItsToolCallsInTheInstrumentLog(t *testing.T) {
+	evs := recordedEvents(t, func() {
+		loop := freeModelLoop(t, "m", &unofferedToolStreamer{})
+		runJudge(t.Context(), loop, JudgeSpec{Name: "critic", MaxRounds: 5}, "input", "output")
+	})
+	calls := eventsOf(evs, "tool_call")
+	require.NotEmpty(t, calls)
+	assert.Equal(t, "judge:critic", calls[0]["loop"], "a judge's missing tool is not read as the main loop's")
+	assert.Contains(t, calls[0]["error"], "not found")
+}
