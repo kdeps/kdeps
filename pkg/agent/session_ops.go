@@ -28,6 +28,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // sessionOp is one session_ops operation on this REPL's session.
@@ -313,10 +314,13 @@ func (r *REPL) loadSession(store *SessionStore, id string) error {
 	r.loop.RequireHandshake()
 	r.loop.SetSessionID(id) // continue this stored session on exit
 	r.syncScreenPills()
-	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
-		r.loop.config.Model = meta.Model
-		setScreenModel(meta.Model)
-		r.loop.InvalidateSystemPreamble()
+	if meta, metaErr := store.LoadMeta(id); metaErr == nil {
+		r.loop.resumeNote = resumedSessionNote(meta.UpdatedAt, time.Now())
+		if meta.Model != "" {
+			r.loop.config.Model = meta.Model
+			setScreenModel(meta.Model)
+			r.loop.InvalidateSystemPreamble()
+		}
 	}
 	if ms := r.loop.MemoryStore(); ms != nil {
 		if wd, wdErr := os.Getwd(); wdErr == nil && wd != "" {
@@ -364,4 +368,30 @@ func (r *REPL) promptsOp() map[string]any {
 		list = append(list, map[string]any{"name": pt.Name, "hint": pt.ArgumentHint, "description": desc})
 	}
 	return map[string]any{"prompts": list}
+}
+
+// resumedSessionNote tells the model when a resumed session last ran, so it
+// re-checks state the old turns reported instead of repeating it; "" when the
+// time is unknown.
+func resumedSessionNote(updatedMs int64, now time.Time) string {
+	if updatedMs <= 0 {
+		return ""
+	}
+	at := time.UnixMilli(updatedMs)
+	return harnessRender("session-resumed", map[string]string{
+		"LastActive": at.Format("2006-01-02 15:04 MST"), "Ago": agoText(now.Sub(at)),
+	})
+}
+
+// agoText is d in its largest whole unit: minutes, hours or days.
+func agoText(d time.Duration) string {
+	const day = 24 * time.Hour
+	switch {
+	case d < time.Hour:
+		return fmt.Sprintf("%d minutes", max(int(d/time.Minute), 1))
+	case d < 2*day:
+		return fmt.Sprintf("%d hours", int(d/time.Hour))
+	default:
+		return fmt.Sprintf("%d days", int(d/day))
+	}
 }

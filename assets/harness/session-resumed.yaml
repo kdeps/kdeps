@@ -1,0 +1,11 @@
+version: 1.0.0
+name: session-resumed
+kind: standalone
+# Sent with the first turn after a saved session is resumed. .LastActive is
+# when the session's last turn ran, .Ago how long before now.
+body: >-
+  This conversation was resumed from a saved session. Its last turn ran at
+  {{.LastActive}} ({{.Ago}} ago), not just now. What the earlier turns
+  reported about the repository, files, branches, tests or task status may
+  be out of date. Before you report any of it as current, check it again
+  with a tool.

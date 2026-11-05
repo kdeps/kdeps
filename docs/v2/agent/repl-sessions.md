@@ -40,6 +40,11 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 
 - The picker only appears in an interactive terminal with at least one saved
   session for this folder and no `--resume` / `--new`. Piped input starts clean.
+- The first turn after a resume tells the model when the session last ran
+  (for example "2026-11-04 07:17 CET, 30 hours ago") and to check the
+  repository, files and task status again with a tool before reporting them:
+  the old turns describe the project as it was then. The text is the
+  `session-resumed` harness entry (`assets/harness/session-resumed.yaml`).
 - Resuming, continuing, then exiting updates the same session - it does not
   fork a new one. The session is also saved after every turn, so a crash or
   kill still leaves it in the picker.
