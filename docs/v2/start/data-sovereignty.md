@@ -83,7 +83,7 @@ kdeps llm run --engine ollama --model llama3.2 -p 8000        # or run it here
 kdeps llm client-config --url http://192.168.1.50:8000/v1     # prints the block below
 ```
 
-On each desktop, open Settings and set `llm.base_url`. Settings writes `~/.kdeps/config.yaml`, the same file the CLI reads. Or paste this:
+On each desktop, open Settings and set the LLM base URL (`base_url:` under `llm:`). Settings writes `~/.kdeps/config.yaml`, the same file the CLI reads. Or paste this:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -152,7 +152,7 @@ kdeps itself contains no usage telemetry.
 
 ## Compliance checklist
 
-- Keep `llm.backend` on a local engine or on `openai` with a `base_url` you control.
+- Keep `backend:` under `llm:` on a local engine or on `openai` with a `base_url` you control.
 - Never set a hosted-provider API key on a machine that handles regulated data.
 - Pin the model inside the image with `kdeps bundle build` so a rebuild never re-downloads weights.
 - Host the LLM server in the region your data-residency rules require, and put the kdeps hosts in the same region.

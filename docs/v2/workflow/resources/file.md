@@ -1,6 +1,6 @@
 # File component
 
-The `file` component runs one filesystem operation - read, write, patch, list, delete, exists, mkdir, copy, move, append - and returns a structured result (content and lines, entry lists, flags) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. Its operations are the kdeps API's `file_ops` tool; the component only POSTs the arguments.
+The `file` component runs one filesystem operation (read, write, patch, list, delete, exists, mkdir, copy, move, append) and returns a structured result: content and lines, entry lists, flags. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step. The operations are the kdeps API's `file_ops` tool; the component only POSTs the arguments.
 
 ## Where it runs
 

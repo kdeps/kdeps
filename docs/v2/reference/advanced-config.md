@@ -151,7 +151,7 @@ A script run through the [`python` component](/workflow/resources/python) instal
 | `baseOS` | Base Docker image OS (`alpine`, `ubuntu`) |
 | `installOllama` | Force/suppress Ollama installation in Docker image (default: off - chat resources use the llamafile file backend) |
 
-> LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends).
+> The LLM model is set per resource, in `model:` under `chat:`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends).
 
 #### Environment
 
@@ -340,7 +340,7 @@ per-resource in `workflow.yaml`, which always wins over the global default.
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing
 API keys, invalid durations, and agent profiles under `agents:` that do not
-match any installed workflow's `metadata.name`.
+match any installed workflow's `name:` under `metadata:`.
 
 ## Auxiliary model
 

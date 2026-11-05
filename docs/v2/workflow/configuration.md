@@ -61,7 +61,7 @@ Credentials and named connections (HTTP auth, search API keys, bot tokens) belon
 
 ## Metadata and config profiles
 
-`metadata.name` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
+The workflow's `name:` under `metadata:` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -204,7 +204,7 @@ On local runs an already-set process variable always wins, so you can override
 per invocation: `API_KEY=other kdeps run workflow.yaml`. This is also how an
 example pins a backend, e.g. `KDEPS_DEFAULT_BACKEND: ollama`.
 
-Model selection goes in `chat.model` inside each resource file. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing.
+Model selection goes in `model:` under each resource's `chat:`. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing.
 
 ## SQL connections
 

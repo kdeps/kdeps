@@ -16,7 +16,7 @@ Use workflow mode when you know the pipeline upfront. Use agent mode when you wa
 
 ## Do I need to know go to use kdeps?
 
-No. Workflows are written in YAML. The only code you might write is inline Python scripts or shell commands in `python`/`exec` resources.
+No. Workflows are written in YAML. The only code is optional inline Python or shell in `python`/`exec` resources.
 
 ## What LLM providers are supported?
 
@@ -98,7 +98,7 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 ## Where does kdeps store session data?
 
-HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured in `settings.session`. See [Session configuration](/workflow/sessions).
+HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured under `settings:` `session:`. See [Session configuration](/workflow/sessions).
 
 Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
@@ -112,7 +112,7 @@ No. Everything kdeps generates lives under `~/.kdeps`, so nothing it writes can 
 | Agent memory | `<vault>/projects/<project>/memory/` (markdown notes; default vault `~/.kdeps/notes`) |
 | Knowledge graph, caches, report, explorer | `~/.kdeps/knowledge/<vault-id>/` |
 | `search_local` index and graph | `~/.kdeps/projects/<folder name>-<hash>/index.db`, `graph.db` |
-| HTTP sessions (`settings.session`) | `~/.kdeps/sessions.db` unless you set `path` |
+| HTTP sessions (`session:` under `settings:`) | `~/.kdeps/sessions.db` unless you set `path` |
 | Models, config, API keys, connections | `~/.kdeps/models/`, `~/.kdeps/config.yaml` |
 
 kdeps only reads files you write: `KDEPS.md` (or `AGENTS.md`, `CLAUDE.md`, ...), a `.kdeps/` folder of instructions, skills and prompt templates, workflow files, and `.env` for the desktop Run tab. It never writes into a project's `.kdeps/`, so that folder is safe to commit.

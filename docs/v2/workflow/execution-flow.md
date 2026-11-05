@@ -201,7 +201,7 @@ See [Loop](/workflow/loop) for full details.
 
 In agent mode (`kdeps [path]`), the execution model differs:
 
-1. Each workflow is registered as one tool (tool name = `metadata.name`)
+1. Each workflow is registered as one tool (tool name = `name:` under `metadata:`)
 2. Each agency is registered as one tool (tool name = `agency.metadata.name`); internal agents are not exposed individually
 3. Components from each loaded workflow are also registered as individual callable tools
 4. The LLM receives the user prompt and decides which tool to invoke

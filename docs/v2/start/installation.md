@@ -176,7 +176,7 @@ Each choice fills in the matching `llm:` fields:
 - **llamafile / gguf** - sets `backend` and a default model.
 - **cloud** - sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
 - **ollama** - sets `backend: ollama` and the host URL.
-- **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
+- **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `models:` and `strategy:` under `llm:`.
 - **m365** - sets `backend: m365`. No API key: authenticates via a browser-cached
   Microsoft 365 sign-in (or headless credentials for CI/servers). See
   [LLM Provider Reference - M365 Copilot](/llm-server/m365).

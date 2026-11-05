@@ -7,7 +7,7 @@ mode and agent mode.
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/workflow/resources) |
-| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps [path]`. The LLM calls the whole workflow as one tool named after `metadata.name`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/agent/) |
+| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps [path]`. The LLM calls the whole workflow as one tool named after its `name:` under `metadata:`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/agent/) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/workflow/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
@@ -48,9 +48,9 @@ mode and agent mode.
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/workflow/validation) |
 | `sql` | A kdeps component (`component: sql`) for SQL against PostgreSQL, MySQL, SQLite, SQL Server or Oracle. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/workflow/resources/llm-backends) |
-| <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
+| <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set as `targetActionId:` under `metadata:`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
 | <a id="theme"></a>theme | The agent-loop REPL's look: `normal` (bright default) or a disguise (`black`, `linux`, `vim`, `emacs`, or a custom YAML theme from `~/.kdeps/themes/`). Set with `--theme`, `KDEPS_THEME`, or `/theme`. Rendering only; prompts, responses, and logs are unchanged. | [Themes](/agent/repl-themes#themes) |
-| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
+| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in a `chat:` resource's `tools:`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
 | <a id="validations"></a>`validations` | A resource-level block with `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. | [Validation and control flow](/workflow/validation) |
 | workflow | The top-level unit of execution: a YAML file defining resources, dependencies, and configuration. Declared as `kind: Workflow`. | [workflow.yaml](/workflow/configuration) |
 

@@ -143,7 +143,7 @@ chmod +x my-agent-1.0.0-linux-amd64
 my-agent-1.0.0-windows-amd64.exe
 ```
 
-The port configured in `workflow.yaml` under `settings.apiServer.portNum` (default 16395) is automatically used. Workflow routes require `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`):
+The binary listens on `portNum` under `settings:` `apiServer:` in `workflow.yaml` (default 16395). Workflow routes require `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`):
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=dev-token

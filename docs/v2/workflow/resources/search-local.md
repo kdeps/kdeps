@@ -73,7 +73,7 @@ Each result object:
 
 ## What the walk skips
 
-The walk prunes directories that only ever hold binaries, generated output, or caches: every dot-directory (`.git`, `.codeql-db`, `.venv`, `.cache`, ...) and the vendor/build/cache names `node_modules`, `bower_components`, `vendor`, `target`, `build`, `bin`, `obj`, `__pycache__`, `site-packages`, `coverage`, `dist-packages`, `tmp`. Their contents would otherwise crowd real documents out of the `limit`.
+The walk skips directories that hold only binaries, generated output or caches, so they do not crowd real documents out of the `limit`: every dot-directory (`.git`, `.codeql-db`, `.venv`, `.cache`, ...) and `node_modules`, `bower_components`, `vendor`, `target`, `build`, `bin`, `obj`, `__pycache__`, `site-packages`, `coverage`, `dist-packages`, `tmp`.
 
 Files larger than 1 MiB are skipped too - they are neither glob-matched nor content-matched.
 

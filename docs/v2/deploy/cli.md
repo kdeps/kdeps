@@ -67,7 +67,7 @@ kdeps bundle prepackage <package.kdeps|package.kagency> [flags]
 | `--include-models` | Pre-bake the chat models' llamafiles into the executable | off |
 
 **`--include-models`** makes the binary fully offline: every literal
-`chat.model` in the package's workflows is resolved through the llamafile
+A `chat:` resource's `model:` in the package's workflows is resolved through the llamafile
 registry (downloaded into your local cache if missing) and embedded under a
 reserved `.kdeps-models/` directory. At run time the embedded models become
 the llamafile cache, so aliases like `llama3.2:1b` resolve without network.

@@ -446,7 +446,7 @@ See [LLM server appliance](/llm-server/).
 
 ## HTTPS / custom domain
 
-For automatic Let's Encrypt certificates on a custom domain, set `settings.letsEncrypt` in the workflow and publish ports 80 and 443. Persist the certificate cache:
+For automatic Let's Encrypt certificates on a custom domain, add `letsEncrypt:` under `settings:` in the workflow and publish ports 80 and 443. Persist the certificate cache:
 
 ```bash
 docker run -p 80:80 -p 443:443 \

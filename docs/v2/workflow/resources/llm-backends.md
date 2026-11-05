@@ -65,7 +65,7 @@ chat resource --> kdeps resolves GGUF alias --> downloads .gguf (once)
                                             --> request answered
 ```
 
-Known aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `gemma4`, `glm4.5`, `yi34` (see `kdeps llamafile list` for the full registry). The `chat.model` field also accepts a direct URL, absolute/relative path to a `.gguf`, or a bare filename in `~/.kdeps/models/`.
+Known aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `gemma4`, `glm4.5`, `yi34` (see `kdeps llamafile list` for the full registry). The `model:` field also accepts a direct URL, absolute/relative path to a `.gguf`, or a bare filename in `~/.kdeps/models/`.
 
 Environment overrides: `KDEPS_LLAMA_SERVER_BIN` (binary path), `KDEPS_GGUF_CTX_SIZE` (context window).
 

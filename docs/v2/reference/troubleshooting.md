@@ -32,7 +32,7 @@ Fix: check for typos in the `requires` list, or add the missing resource. Action
 Error: target resource 'respond' not found
 ```
 
-`metadata.targetActionId` references a resource that does not exist.
+`targetActionId:` under `metadata:` names a resource that does not exist.
 
 Fix: ensure the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
 

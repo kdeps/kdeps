@@ -103,7 +103,7 @@ With nothing configured, or nothing scoring, `auto` falls through to the install
 
 ## `--model auto-router`: zero-config, fully automatic
 
-`--model auto` still scores *your configured* `llm.models`. `--model auto-router` (or `KDEPS_AGENT_MODEL=auto-router`) skips `llm.models` entirely, every time, and always goes straight to discovery:
+`--model auto` scores *your* `models:` list under `llm:`. `--model auto-router` (or `KDEPS_AGENT_MODEL=auto-router`) skips that list entirely, every time, and always goes straight to discovery:
 
 ```bash
 kdeps --model auto-router

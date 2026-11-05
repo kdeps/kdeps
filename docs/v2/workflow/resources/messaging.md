@@ -13,5 +13,5 @@ Works in workflow and agent mode.
 - Phone assistant tutorial - phone webhooks step by step
 - [Stateless bot](/examples/stateless-bot/) and [Telegram bot](/examples/telegram-bot/) - bot replies in full
 - [Global config](/reference/advanced-config) - where HTTP, search, and bot credentials live
-- [Input sources](/workflow/input-sources) - configuring `settings.input.bot`
+- [Input sources](/workflow/input-sources) - configuring `bot:` under `settings:` `input:`
 - [Resources overview](/workflow/resources) - all resource types
