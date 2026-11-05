@@ -296,7 +296,7 @@ kdeps --upgrade --target-version 2.35.0
 
 ## Assets: `kdeps install`, `update`, `uninstall`, `list`, `profile`
 
-`kdeps install`, `kdeps update` and `kdeps uninstall` install, update and remove kdeps' versioned assets - harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas and components - as well as registry packages. An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package. Same as the REPL's `/update`; see [Updating assets](/agent/repl-updating#updating-assets) for how versions, pins and removal work.
+`kdeps install`, `kdeps update` and `kdeps uninstall` manage registry packages and kdeps' versioned assets (harness, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, templates, schemas, components). An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package. Same as the REPL's `/update`; versions, pins and removal: [Updating assets](/agent/repl-updating#updating-assets).
 
 ```bash
 kdeps update                          # the chosen profile and everything installed since, to their newest versions
@@ -362,7 +362,7 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 Manage the local model registry. Covers llamafile, GGUF (llama.cpp), and Ollama models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately - an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
 
-When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL's `/model` picker shows a hardware-fit score (0-100) and level for each local model - `Perfect`, `Good`, `Marginal`, or `Too Tight` - based on your machine's RAM/VRAM, so you can tell before downloading whether a model will actually run. Fit levels are searchable in the picker: type `perfect` or `tight` to filter. When aria2c or llmfit is not installed, the REPL prints a one-line install tip at startup.
+With [llmfit](https://github.com/AlexsJones/llmfit) installed, the REPL's `/model` picker shows each local model's hardware-fit score (0-100) and level (`Perfect`, `Good`, `Marginal`, `Too Tight`) from your RAM/VRAM, before you download. Type `perfect` or `tight` in the picker to filter. Without aria2c or llmfit, the REPL prints a one-line install tip at startup.
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
@@ -375,7 +375,7 @@ kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps
 
 ## `kdeps knowledge`
 
-Sets up and maintains the [knowledge vault](/agent/knowledge): the markdown notes the agent recalls from each turn without reading them. It is on by default in `~/.kdeps/notes` and set up by the first agent session. The structural graph refreshes itself when a session starts, before recall, on a workflow chat call, when a search inside the vault uses `graphBoost`, and when skill linking reads a vault note. `kdeps knowledge build` is that same build, run by hand. `--extract` is the step that calls a model, and it stays off unless set.
+Manages the [knowledge vault](/agent/knowledge): markdown notes the agent recalls each turn without reading them. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand; `--extract` adds the model step and is off unless set.
 
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)

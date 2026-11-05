@@ -170,7 +170,7 @@ SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflo
 
 ```yaml
 sql_connections:
-  primary:
+  primary:                    # the name a resource's connectionName refers to
     connection: "postgres://user:pass@localhost:5432/mydb?sslmode=disable"
   analytics:
     connection: "mysql://analyst:pass@analytics-db:3306/analytics"

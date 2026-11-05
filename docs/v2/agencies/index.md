@@ -1,9 +1,8 @@
 # kdeps agencies
 
-**Several agents composed into one system.** Each agent is its own `kind: Workflow`
+A kdeps agency composes several agents into one system. Each agent is its own `kind: Workflow`
 with its own model and resources, bundled under one `agency.yaml`. One agent
-delegates to another with the `agent:` resource - like a function call where the
-function is an entire pipeline.
+delegates to another with the `agent:` resource, which runs that agent's whole pipeline and returns its result.
 
 ```bash
 kdeps run ./my-agency/     # run the entry-point agent's pipeline

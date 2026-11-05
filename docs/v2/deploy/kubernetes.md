@@ -191,7 +191,13 @@ spec:
   type: ClusterIP
 ```
 
-Probes follow what the workflow serves: an `apiServer` workflow gets HTTP probes on `/health` at the `api` port; a web-only workflow gets TCP probes on the `web` port (the web server has no `/health` endpoint); a workflow with neither gets no probes.
+Probes follow what the workflow serves:
+
+| Workflow serves | Probes |
+|---|---|
+| API server | HTTP `/health` on the `api` port |
+| web server only | TCP on the `web` port (no `/health` endpoint) |
+| neither | none |
 
 ## NetworkPolicy (opt-in)
 
@@ -321,12 +327,12 @@ Two patterns:
 ```yaml
 settings:
   letsEncrypt:
-    domain: api.example.com
-    email: ops@example.com
-    cacheDir: /var/lib/kdeps/letsencrypt
+    domain: api.example.com          # cert hostname; its A/AAAA record must point here
+    email: ops@example.com           # Let's Encrypt registration email
+    cacheDir: /var/lib/kdeps/letsencrypt   # ACME keys + certs; persist it so renewals survive restarts
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 443
+    hostIp: "0.0.0.0"                # listen on every interface
+    portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
 Full guide: [TLS and HTTPS (custom domains)](/deploy/tls-https).

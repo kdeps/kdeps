@@ -115,7 +115,7 @@ No. Everything kdeps generates lives under `~/.kdeps`, so nothing it writes can 
 | HTTP sessions (`settings.session`) | `~/.kdeps/sessions.db` unless you set `path` |
 | Models, config, API keys, connections | `~/.kdeps/models/`, `~/.kdeps/config.yaml` |
 
-kdeps only reads files you write yourself: `KDEPS.md` (or `AGENTS.md`, `CLAUDE.md`, ...), a `.kdeps/` folder of Markdown instructions, skills and prompt templates, workflow files, and `.env` for the desktop Run tab. It never writes into a project's `.kdeps/`, so that folder is safe to commit.
+kdeps only reads files you write: `KDEPS.md` (or `AGENTS.md`, `CLAUDE.md`, ...), a `.kdeps/` folder of instructions, skills and prompt templates, workflow files, and `.env` for the desktop Run tab. It never writes into a project's `.kdeps/`, so that folder is safe to commit.
 
 ```bash
 export KDEPS_DATA_DIR=/fast-disk/kdeps-projects   # moves ~/.kdeps/projects (index and graph dbs) elsewhere

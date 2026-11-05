@@ -44,7 +44,7 @@ name: LLM Response
 chat:
   messages:
     - role: user
-      content: "{{ input('message') }}"
+      content: "{{ input('message') }}"   # the incoming message text
 ```
 
 ## resources/reply.yaml

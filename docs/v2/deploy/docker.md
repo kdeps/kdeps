@@ -457,12 +457,12 @@ docker run -p 80:80 -p 443:443 \
 ```yaml
 settings:
   letsEncrypt:
-    domain: api.example.com
-    email: ops@example.com
-    cacheDir: /var/lib/kdeps/letsencrypt
+    domain: api.example.com          # cert hostname; its A/AAAA record must point here
+    email: ops@example.com           # Let's Encrypt registration email
+    cacheDir: /var/lib/kdeps/letsencrypt   # ACME keys + certs; persist it so renewals survive restarts
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 443
+    hostIp: "0.0.0.0"                # listen on every interface
+    portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
 See [TLS and HTTPS (custom domains)](/deploy/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.

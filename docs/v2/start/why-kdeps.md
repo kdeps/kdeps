@@ -18,7 +18,7 @@ The [two modes](#two-modes-one-workflow-file) below apply to whichever you use.
 
 ## Deterministic by design
 
-An LLM is probabilistic - ask Claude or GPT the same question twice and you can get two different answers. kdeps workflow mode wraps that in a deterministic shell: the same request always takes the same path through the same resources, `requires:` fixes the order, validations fire before any model is called, and the output is shaped to a fixed schema. The model's wording varies; the pipeline around it does not.
+An LLM is probabilistic: the same question twice can get two answers. Workflow mode wraps it in a deterministic shell. The same request takes the same path through the same resources, `requires:` fixes the order, validations run before any model call, and output follows a fixed schema. The wording varies; the pipeline does not.
 
 If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response. Output is reproducible in structure, auditable, and safe to run unattended - that is what makes kdeps suitable for production, not just demos.
 
@@ -116,11 +116,11 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 | Regulated and public-sector teams | Meet data-residency rules - self-hosted LLM and coding agent in the region you choose |
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
-Concretely: log-file analysis, automated code reviews, JIRA ticket creation from an alert, an incident summary posted to MS Teams - each is a workflow that calls a model and one or two external APIs, deployed as one image.
+Examples: log-file analysis, automated code review, a JIRA ticket from an alert, an incident summary posted to MS Teams. Each is a workflow calling a model and one or two APIs, deployed as one image.
 
 ## The name
 
-kdeps is short for knowledge dependencies. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
+kdeps is short for knowledge dependencies. It grew out of [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge from a model, machine or person can be orchestrated as a graph. A kdeps workflow is that graph of resources, run in order.
 
 ## Built on
 

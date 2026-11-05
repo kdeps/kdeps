@@ -46,7 +46,7 @@ kdeps llamafile list      # all known aliases (the registry has 100+ models)
 kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ```
 
-The `chat.model` field also accepts a direct URL, an absolute/relative path to
+A `chat:` resource's `model:` also accepts a direct URL, an absolute or relative path to
 a `.llamafile`, or a bare filename looked up in `~/.kdeps/models/`.
 
 ## GGUF backend (llama.cpp)
@@ -95,7 +95,7 @@ Backend configuration applies to both [workflow mode](/workflow/) and [agent mod
 
 ## Model configuration
 
-Model is set per resource in `chat.model`:
+Set the model per resource, in `model:` under `chat:`:
 
 ```yaml
 # resources/my-resource.yaml
@@ -124,7 +124,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 
 ## OpenAI-compatible providers
 
-OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps: each is a file in the `providers` asset set, installed and updated with `kdeps update providers`. A provider file declares the chat endpoint and where its key comes from; kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor`, and the `backend:` field's allowed values. OpenRouter's free text models ship in `models/openrouter` (harvested daily; `kdeps update models/openrouter`). That provider file sets no `defaultModel`, so OpenRouter stays out of the auto-router cloud fallback.
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps. Each is a file in the `providers` asset set (`kdeps update providers`) that declares the chat endpoint and the key's source. kdeps registers a chat backend with that name, exports the key from `config.yaml`, and lists the provider in setup, `kdeps doctor` and the `backend:` field's allowed values. OpenRouter's free text models ship in `models/openrouter` (harvested daily; `kdeps update models/openrouter`). Its provider file sets no `defaultModel`, so OpenRouter stays out of the auto-router's cloud fallback.
 
 ```text
 providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath
@@ -149,11 +149,11 @@ hosts: [groq.com]                  # identifies the provider from a base URL
 
 ## Unified models list
 
-`llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a plain allowlist (model names only) or as a router route table (with routing metadata). The `llm.strategy` field switches between the two modes.
+The `models:` list under `llm:` in `~/.kdeps/config.yaml` is either a plain allowlist (model names) or a router table (with routing metadata). `strategy:` under `llm:` switches between them.
 
 ## Allowlist mode (no strategy)
 
-When `strategy` is absent, `llm.models` is a simple list of permitted model names:
+Without `strategy:`, `models:` lists the permitted model names:
 
 ```yaml
 # resources/example.yaml
@@ -193,7 +193,7 @@ llm:
       min_tokens: 501
 ```
 
-Plain string entries in routing mode (no `model:` key) are still allowed - they inherit the default `llm.backend`:
+Plain string entries in routing mode (no `model:` key) are still allowed - they inherit the default `backend:` under `llm:`:
 
 ```yaml
 # resources/example.yaml
@@ -214,7 +214,7 @@ Each model entry supports these fields:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `model` | string | yes | Model identifier (e.g. `gpt-4o`, `llama3.2:1b`) |
-| `backend` | string | no | Backend for this model (overrides `llm.backend`) |
+| `backend` | string | no | Backend for this model (overrides `backend:` under `llm:`) |
 | `base_url` | string | no | Custom API URL for this backend |
 | `priority` | int | no | Fallback order (lower = tried first) |
 | `min_tokens` | int | no | Minimum prompt tokens for token_threshold |
@@ -225,13 +225,13 @@ Each model entry supports these fields:
 
 ## Routing
 
-Routing delegates model selection from resource YAML to `~/.kdeps/config.yaml`. Set a resource's `model` field to `router` (or `auto-router` for a zero-config version that ignores `llm.models` entirely) and the config's `strategy` picks the model: `token_threshold`, `fallback`, `cost_optimized`, `round_robin`, or `auto` (hardware-fit scoring via `llmfit`).
+Routing moves model selection from resource YAML to `~/.kdeps/config.yaml`. Set a resource's `model` to `router`, or `auto-router` for a zero-config version that ignores the `models:` list. The config's `strategy` then picks: `token_threshold`, `fallback`, `cost_optimized`, `round_robin`, or `auto` (hardware fit via `llmfit`).
 
 See [Routing](/workflow/resources/llm-routing) for every strategy's config shape and resolution order.
 
 ## Supported backends
 
-kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, M365 Copilot, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/llm-server/providers) for per-provider config snippets and available model names.
+kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and OpenAI-compatible APIs: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, M365 Copilot, and self-hosted servers (vLLM, TGI, LocalAI, LlamaCpp). Per-provider snippets and model names: [LLM Provider Reference](/llm-server/providers).
 
 ## Vertex AI (google cloud)
 

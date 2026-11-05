@@ -1,9 +1,8 @@
 # kdeps deploy
 
-**Ship the workflow you tested locally, unchanged.** Package it, build an image
-with no Dockerfile, and run it as a Docker container, Kubernetes deployment,
-bootable ISO, or a single self-contained binary. Same `workflow.yaml`, no
-rewrites, no re-config.
+kdeps deploy ships the workflow you tested locally, unchanged. It packages the workflow, builds an image
+with no Dockerfile, and runs it as a Docker container, Kubernetes deployment,
+bootable ISO, or single self-contained binary from the same `workflow.yaml`.
 
 ```bash
 kdeps bundle build .      # workflow + model -> Docker image
@@ -192,11 +191,11 @@ After deploy, enable HTTPS either at the load balancer/Ingress or in-process:
 ```yaml
 settings:
   letsEncrypt:
-    domain: api.example.com
-    email: ops@example.com
+    domain: api.example.com          # cert hostname; its A/AAAA record must point here
+    email: ops@example.com           # Let's Encrypt registration email
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 443
+    hostIp: "0.0.0.0"                # listen on every interface
+    portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
 Open ports 80 and 443, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deploy/tls-https).
