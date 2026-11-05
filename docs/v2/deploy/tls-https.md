@@ -195,7 +195,7 @@ If you already run Caddy, Traefik, or Nginx for TLS:
 
 - Leave kdeps on HTTP (`hostIp: 127.0.0.1`, default port)
 - Do not set `letsEncrypt` or PEM paths on kdeps
-- Proxy `https://api.example.com` → `http://127.0.0.1:16395`
+- Proxy `https://api.example.com` -> `http://127.0.0.1:16395`
 
 ## LLM server appliances
 

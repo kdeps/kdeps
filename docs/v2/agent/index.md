@@ -1,10 +1,6 @@
 # kdeps agent
 
-**An autonomous LLM REPL you run on your machine.** Tool use, persistent memory, multi-step
-reasoning, skills, and a judge panel (the [eval](/reference/glossary#eval), on unless you turn it off). The default model is local, with no API key,
-fully offline. Point `llm.base_url` at an [LLM server](/llm-server/) you run and the same
-REPL sends prompts there. Whole workflows and components register as callable tools; the
-model decides what to invoke.
+kdeps agent is an autonomous LLM REPL that runs on your machine, with tool use, persistent memory, multi-step reasoning, skills, and a judge panel (the [eval](/reference/glossary#eval), on by default). The default model is local: no API key, fully offline. Set `base_url` under `llm:` to an [LLM server](/llm-server/) you run, and the REPL sends prompts there. Workflows and components register as tools; the model decides what to call.
 
 ```bash
 kdeps            # bare REPL - built-in tools only
@@ -22,7 +18,7 @@ llm:
 
 The [desktop app](/desktop/) reads the same file. The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
 
-**Not this?** If you want a deterministic request→response pipeline (same input,
+**Not this?** If you want a deterministic request->response pipeline (same input,
 same execution path, safe to run unattended), that is [kdeps workflow](/workflow/).
 To orchestrate several agents as one system, [kdeps agencies](/agencies/).
 
@@ -30,7 +26,7 @@ To orchestrate several agents as one system, [kdeps agencies](/agencies/).
 
 ## Single workflow vs folder
 
-When you point at a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest - not the filename.
+When you point at a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is the workflow's `name` under `metadata:`, not the filename.
 
 | Target | Workflow/agency/component tools registered |
 |--------|-----------------|

@@ -1,6 +1,6 @@
 # Efficiency enforcement
 
-A model that is stuck "looking around" - `ls`, `read_file`, `grep`, read-only `bash`, over and over - burns tokens without producing anything. **Efficiency enforcement** is a governor inside kdeps (not a prompt hint) that soft-stops that loop and forces the next action to be an output action: write a file, edit, run a command that changes something, call a workflow.
+A model stuck "looking around" (`ls`, `read_file`, `grep`, read-only `bash`, over and over) burns tokens without output. **Efficiency enforcement** is a kdeps governor, not a prompt hint. It soft-stops that loop and forces the next action to produce output: write a file, edit, run a changing command, or call a workflow.
 
 It is like a circuit breaker on read-only exploration: it trips, tells the model why, and only lets the model continue once it has produced something.
 
@@ -54,7 +54,7 @@ Even in verbose mode the note is only mirrored to the output; it is still never 
 
 ## Repeated identical calls
 
-A model that re-issues the same tool call and gets the same result back is not making progress. The stuck-loop guard hands this to the efficiency manager as a soft stop: the model gets a hidden brief saying which call it repeated, how many times, what came back, and what to do instead, and then retries the task.
+A model repeating the same tool call and getting the same result is not progressing. The stuck-loop guard hands this to the efficiency manager as a soft stop. The model gets a hidden brief (which call it repeated, how often, what came back, what to do instead) and retries.
 
 ```text
 [kdeps-efficiency] Soft stop 1/3. Why: you called bash_exec ({"command":"go test"}) 3 times in a row
@@ -67,7 +67,7 @@ Like every efficiency note, the brief is never shown to you (unless `verbose` is
 
 ## Failed tool calls and failed model calls
 
-A failed call is stopped by kdeps itself - the model is not left to notice the error on its own. The moment a tool call fails (an edit that did not match, a missing path, bad arguments, an unknown tool, a denied call) or the model call itself is rejected, kdeps soft-stops, sends the model the error plus whatever it needs to fix it on the hidden channel, and the model tries again with that information.
+kdeps stops a failed call itself; the model does not have to notice. When a tool call fails (an edit that did not match, a missing path, bad arguments, an unknown tool, a denied call) or the model call is rejected, kdeps soft-stops. It sends the error and the context needed to fix it on the hidden channel, and the model retries.
 
 ```d2
 direction: down
@@ -114,15 +114,15 @@ failed; do NOT report it as done. Do not mention this notice.
 
 ## The tool result in history
 
-The tool result in history keeps only the raw error (APIs require a result for every call); the brief, the file lines and the retry example never reach history, the REPL or the desktop app (unless `verbose` is on). You still see that the call failed in its tool line.
+History keeps only the raw error in the tool result (APIs require a result per call). The brief, file lines and retry example never reach history, the REPL or the desktop app unless `verbose` is on. The tool line still shows the failure.
 
 ## Errors the model cannot fix
 
-Model-call errors that the model cannot fix are never retried this way: transient errors (rate limits, 5xx, network) are already retried with backoff, context overflow is compacted, and credential, billing, quota and unknown-model errors are returned to you at once.
+Model-call errors the model cannot fix are never retried this way. Transient errors (rate limits, 5xx, network) retry with backoff, context overflow is compacted, and credential, billing, quota and unknown-model errors return to you at once.
 
 ## The failures budget
 
-Failures have their own per-turn budget, `failures` (default 5), separate from `stops`. Once it is spent the plain `[TOOL FAILED]` banner returns for tool calls, and a failing model call returns its error - also when the turn runs out of rounds first, so a turn never ends silently on a swallowed error.
+Failures have their own per-turn budget, `failures` (default 5), separate from `stops`. Once spent, tool calls get the plain `[TOOL FAILED]` banner and a failing model call returns its error. This also applies when the turn runs out of rounds first, so a turn never ends silently on a swallowed error.
 
 ## Multiple stops, then a forced end
 

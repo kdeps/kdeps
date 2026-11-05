@@ -25,15 +25,15 @@ Your YAML files are the source of truth. Review changes in pull requests, track 
 
 With Kdeps, you can build:
 
-- **AI workflows** — Run tasks in a predictable order.
-- **AI agents** — Let an AI model choose which tools to use to complete a task.
-- **Agent teams** — Connect specialized agents so they can work together.
-- **AI APIs** — Make your AI project available through HTTP endpoints.
-- **Local AI services** — Run supported open-source models on machines you control.
+- **AI workflows** - Run tasks in a predictable order.
+- **AI agents** - Let an AI model choose which tools to use to complete a task.
+- **Agent teams** - Connect specialized agents so they can work together.
+- **AI APIs** - Make your AI project available through HTTP endpoints.
+- **Local AI services** - Run supported open-source models on machines you control.
 
 You can run a project in a terminal, expose it as an HTTP API, or package it for Docker, Kubernetes, a bootable ISO, or a standalone binary.
 
-The goal is simple: write your AI project’s instructions once, then choose where to run it.
+The goal is simple: write your AI project's instructions once, then choose where to run it.
 
 ## Why Kdeps?
 
@@ -144,7 +144,7 @@ resources:
 
 This workflow accepts a question, sends it to an AI model, and returns the answer.
 
-Here’s what the important parts mean:
+Here's what the important parts mean:
 
 - `workflow.yaml` describes the project.
 - `resources` lists the tasks the project can run.
@@ -386,13 +386,13 @@ Installation and downloads: [Desktop app documentation](https://kdeps.com/agent/
 
 Kdeps also includes:
 
-- **Reusable components and providers** — Add tools and AI providers through configuration and shared assets.
-- **Your own tools and slash commands** — Drop a YAML file in `~/.kdeps/tools/` (an `http:`, `exec:`, `sql:` or `python:` tool) or `~/.kdeps/commands/`; kdeps serves it on the kdeps API with no Go code and no registry entry.
-- **Knowledge vault** — Help agents find useful notes and project knowledge.
-- **Search and retrieval** — Find relevant information in supported document collections.
-- **Session history and instrumentation** — Inspect agent sessions, tool calls, errors, and workflow events.
-- **Configuration management** — Manage model settings, connections, and other machine-specific options.
-- **Registry** — Discover and share reusable agents and components.
+- **Reusable components and providers** - Add tools and AI providers through configuration and shared assets.
+- **Your own tools and slash commands** - Drop a YAML file in `~/.kdeps/tools/` (an `http:`, `exec:`, `sql:` or `python:` tool) or `~/.kdeps/commands/`; kdeps serves it on the kdeps API with no Go code and no registry entry.
+- **Knowledge vault** - Help agents find useful notes and project knowledge.
+- **Search and retrieval** - Find relevant information in supported document collections.
+- **Session history and instrumentation** - Inspect agent sessions, tool calls, errors, and workflow events.
+- **Configuration management** - Manage model settings, connections, and other machine-specific options.
+- **Registry** - Discover and share reusable agents and components.
 
 See the [documentation](https://kdeps.com) for the full feature list and configuration details.
 
@@ -420,11 +420,11 @@ For production deployments, follow the [security](https://kdeps.com/reference/se
 
 Kdeps is open source. You can explore the code, report bugs, suggest improvements, and contribute changes through GitHub.
 
-Please read the repository’s [contribution guidelines](CONTRIBUTING.md) before submitting a change.
+Please read the repository's [contribution guidelines](CONTRIBUTING.md) before submitting a change.
 
 ## License
 
-Kdeps uses the Apache License 2.0. See the repository’s [license file](LICENSE) for the full terms.
+Kdeps uses the Apache License 2.0. See the repository's [license file](LICENSE) for the full terms.
 
 ---
 

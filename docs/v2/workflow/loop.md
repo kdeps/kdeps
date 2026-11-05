@@ -115,9 +115,9 @@ apiResponse:
 
 </div>
 
-Three iterations → three `apiResponse` maps → streaming slice of length 3.
+Three iterations -> three `apiResponse` maps -> streaming slice of length 3.
 
-No iterations → empty slice.
+No iterations -> empty slice.
 
 ## `maxIterations` safety cap
 
@@ -168,7 +168,7 @@ The sleep is skipped after the last iteration - the caller receives results with
 loop:
   while: "true"          # run until maxIterations
   every: "30s"           # poll every 30 seconds
-  maxIterations: 1440    # up to 12 hours (1440 × 30 s)
+  maxIterations: 1440    # up to 12 hours (1440 x 30 s)
 component:
   name: exec
   with:

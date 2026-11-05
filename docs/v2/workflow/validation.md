@@ -389,12 +389,12 @@ chat:
 
 ```
 Request
-  ↓ headers / params     → filter inaccessible keys
-  ↓ skip conditions      → skip if any true
-  ↓ methods / routes     → skip if no match
-  ↓ check + error        → abort with error if any false
-  ↓ required/rules/expr  → abort with 422 if invalid
-  ↓ Execute Resource
+  v headers / params     -> filter inaccessible keys
+  v skip conditions      -> skip if any true
+  v methods / routes     -> skip if no match
+  v check + error        -> abort with error if any false
+  v required/rules/expr  -> abort with 422 if invalid
+  v Execute Resource
 ```
 
 ## Use cases

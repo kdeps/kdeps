@@ -4,7 +4,7 @@ Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-sessi
 
 ## Switching models
 
-`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it is not already running, then shows a progress display until the completions endpoint is accepting requests - the first prompt after the switch never gets a "network error" while weights load.
+`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if needed and shows progress until the completions endpoint accepts requests. The first prompt after a switch never hits a "network error" while weights load.
 
 ```
 /model qwen3.5-4b                     # switch to a known alias
@@ -18,7 +18,7 @@ The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded
 
 ## Refusal record
 
-Each model has a record of the refusals the loop caught from it: an invented limit ("I can't access the filesystem"), a sandbox story, or a claimed action with no tool run. kdeps saves the model's own first sentence, keyed by backend and model, in `~/.kdeps/model-records.json`. While the record is not empty, every request to that model carries it in the system prompt as a `<your-record>` block (the `model-refusal-record` harness entry): the excuses word for word, and that every one was false.
+kdeps keeps a record of refusals the loop caught from each model: an invented limit ("I can't access the filesystem"), a sandbox story, or a claimed action with no tool run. It saves the model's first sentence, keyed by backend and model, in `~/.kdeps/model-records.json`. While the record is non-empty, every request to that model carries it as a `<your-record>` block in the system prompt (the `model-refusal-record` harness entry): each excuse word for word, and that every one was false.
 
 ```text
 /model record          # openai/fake: 2 caught refusals ... [invented limit] "I can't access the repository."
@@ -52,7 +52,7 @@ OpenRouter is its own backend. `/model list` shows its free text models from `mo
 ## Same alias, different backends
 
 llamafile, GGUF, and Ollama registries can each have their own, unrelated
-entry under the same bare alias (e.g. `qwen3.5` might exist as a distinct
+entry under the same bare alias (e.g. `qwen3.5` as a distinct
 download in both the llamafile and GGUF catalogs, or as a locally-pulled
 Ollama tag). When kdeps detects this, `/model list` and `/model <tab>` show
 every colliding entry qualified by its backend instead of hiding one:
@@ -82,7 +82,7 @@ unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
 
 ## `--model auto`: route across your configured models
 
-`--model auto` (or `KDEPS_AGENT_MODEL=auto`) picks the best hardware-fit model from your own `llm.models` config (`~/.kdeps/config.yaml`) via [`llmfit`](https://github.com/AlexsJones/llmfit) - the same `auto` strategy the [workflow-mode router](/workflow/resources/llm-routing) uses, so one config drives both modes:
+`--model auto` (or `KDEPS_AGENT_MODEL=auto`) uses [`llmfit`](https://github.com/AlexsJones/llmfit) to pick the best hardware fit from the `models:` list under `llm:` in `~/.kdeps/config.yaml`. The [workflow-mode router](/workflow/resources/llm-routing) uses the same `auto` strategy, so one config drives both modes:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -99,7 +99,7 @@ llm:
 kdeps --model auto
 ```
 
-If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers - it is always at least as good as omitting `--model` entirely.
+With nothing configured, or nothing scoring, `auto` falls through to the installed-model pick and fixed tiers below, so it is never worse than omitting `--model`.
 
 ## `--model auto-router`: zero-config, fully automatic
 
@@ -117,18 +117,18 @@ Workflow mode has the same sentinel via `model: auto-router` on a chat resource 
 
 ## How a model is picked when none is configured
 
-With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether `llmfit` is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.
+With no `--model`, no saved default and no `model:` in `~/.kdeps/config.yaml`, kdeps checks for `llmfit` (`brew install AlexsJones/llmfit/llmfit`). If it is installed and at least one local model (llamafile/GGUF/Ollama) is downloaded, kdeps starts with the one llmfit scores best for this machine and skips the order below.
 
 Otherwise - no `llmfit`, or nothing downloaded yet - kdeps picks the first option that is actually usable, in this fixed order:
 
 1. **llamafile** - the `llamafile` runner binary on `PATH`, or a cached `*.llamafile` in the models directory (a `.llamafile` is self-executing, so no runner is needed).
-2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. Files with an unreadable header or a GGUFv1 container are skipped: current llama.cpp builds refuse them (`GGUFv1 is no longer supported`), so serving one would start a server that exits immediately and fail every request.
+2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. Files with an unreadable header or a GGUFv1 container are skipped: current llama.cpp refuses them (`GGUFv1 is no longer supported`), and the server would exit immediately.
 3. **Cloud** - the first known provider whose API key env var is set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...).
 4. **ollama** - the `ollama` binary on `PATH`.
 
 The models directory is `$KDEPS_MODELS_DIR`, or `~/.kdeps/models` when that is unset. If nothing matches, kdeps starts with no model and `/model` lists what you can download.
 
-Each local model server writes its stdout and stderr next to the model file as `<model>.server.log`. When a server fails to become healthy, the tail of that log is included in the error, so a bad model file reports its real cause instead of a bare connection failure.
+Each local model server writes stdout and stderr to `<model>.server.log` next to the model file. When a server fails to become healthy, the error includes the log's tail, so a bad model file reports its real cause.
 
 ## Registering a model by URL
 

@@ -37,15 +37,15 @@ never reach the visible answer.
 
 ## In-turn tool history
 
-A single turn can make many tool calls (`/model tool set rounds <n>`, default 200). The transcript of those calls and their results is re-sent to the model on every round, so a long tool loop can otherwise grow the request without bound - `/compact` and the auto-compaction that runs between turns do not fire mid-turn.
+A single turn can make many tool calls (`/model tool set rounds <n>`, default 200). Their transcript is resent every round, and `/compact` and auto-compaction do not fire mid-turn, so a long tool loop would grow the request without bound.
 
-kdeps caps the in-flight transcript at roughly 24K tokens. Past that, the oldest complete tool round-trips are dropped (the leading conversation and this turn's question are always kept), and long tool-call arguments on the older kept steps are replaced with a `[N chars omitted]` placeholder. When this happens you see:
+kdeps caps the in-flight transcript at about 24K tokens. Past that, the oldest complete tool round-trips drop (the leading conversation and this turn's question stay), and long arguments on older kept steps become a `[N chars omitted]` placeholder. You see:
 
 ```
 [context] trimmed 3 old tool step(s) to fit the window
 ```
 
-The model keeps the most recent steps in full and a note that earlier ones were dropped. Tool *results* are separately capped at 16 KB each before they ever enter the transcript.
+The model keeps the most recent steps in full and a note that earlier ones were dropped. Tool *results* are capped at 16 KB each before entering the transcript.
 
 ## Compacting the saved conversation
 

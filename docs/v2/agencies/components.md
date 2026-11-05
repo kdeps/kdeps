@@ -36,10 +36,10 @@ Components you build: a `component.yaml` manifest plus resources in a `component
 ```
 my-workflow/
 ├── workflow.yaml
-└── components/                  ← auto-discovered
+└── components/                  <- auto-discovered
     └── greeter/
-        ├── component.yaml       ← component manifest
-        └── resources/           ← component-specific resources
+        ├── component.yaml       <- component manifest
+        └── resources/           <- component-specific resources
 ```
 
 ## How components work

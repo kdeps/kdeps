@@ -1,6 +1,6 @@
 # Persistent memory
 
-Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/workflow/sessions) (which persists across HTTP requests from the same caller), persistent memory is project-scoped - facts saved in one REPL session are available in later sessions for the same project.
+Persistent memory stores and recalls facts across agent sessions for one project. [Session storage](/workflow/sessions) is different: it persists across HTTP requests from one caller.
 
 Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts; the long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
 
@@ -22,15 +22,15 @@ Louvain first, Leiden later.
 
 Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Memory written before this layout (in `~/.kdeps/memory/`) is moved into the vault the first time each folder's memory loads; the old database is renamed `memory.bolt.moved`.
 
-Memory is stored in the [knowledge vault](/agent/knowledge) as markdown notes, one per entry, in the project's `memory/` folder: `<vault>/projects/<project>/memory/` (the project whose card covers the folder, else the one kdeps creates for it, named after the git repository root or the folder). Thinking and tool-result captures go in a hidden `memory/.auto/` folder, so they stay out of the link graph. A note you write in that folder by hand is a memory entry too, keyed by its title. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+Memory lives in the [knowledge vault](/agent/knowledge) as one markdown note per entry, in `<vault>/projects/<project>/memory/`. The project is the one whose card covers the folder, else one kdeps creates, named after the git repository root or folder. Thinking and tool-result captures go in a hidden `memory/.auto/` folder, outside the link graph. A note you write there by hand is an entry too, keyed by its title. Each entry has a key, value, type, timestamps and optional references to other entries.
 
-Set `KDEPS_MEMORY_GLOBAL=1` to share one memory store across every project instead - it is stored in `<vault>/shared/memory/` and every session on the machine reads and writes the same facts, regardless of working directory. Session storage (conversation history) always stays per-directory either way.
+`KDEPS_MEMORY_GLOBAL=1` shares one store across every project, in `<vault>/shared/memory/`. Session storage (conversation history) stays per-directory either way.
 
-The memory store is injected into every turn automatically as a single graph-ordered `<memory>` block, rebuilt each turn and focused on that turn's request (it is not part of the cached system prompt, so memory saved mid-session reaches the next turn). Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
+Every turn gets one graph-ordered `<memory>` block, rebuilt and focused on that turn's request. It is not in the cached system prompt, so memory saved mid-session reaches the next turn. Entries appear in causal order with the newest unfinished task flagged, so a model taking over after a switch knows where to continue. Format: [Memory internals](/agent/memory-internals#prompt-injection).
 
 ## Built-in memory tools
 
-The agent has three LLM-callable tools for interacting with persistent memory. There is no `memory_list` tool. The graph and the recent keys are already in each turn's context; look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text match). The prompt tells the model to look memory up when the task refers to earlier work, when a fact is not already in the prompt, or on its first turn after a model switch, resume or compaction - not before every action.
+The agent has three memory tools; there is no `memory_list`, since the graph and recent keys are already in context. Look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text). The prompt tells the model to look memory up when the task refers to earlier work, a fact is missing from the prompt, or on its first turn after a model switch, resume or compaction. Not before every action.
 
 | Tool | Description |
 |------|-------------|

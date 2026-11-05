@@ -19,7 +19,7 @@ Always available. No environment variables required.
 
 ## Line numbers
 
-Every line `read_file` returns is prefixed with its 1-based line number, and the line itself is rendered `cat -A` style: tabs show as `^I`, other control characters as `^X`, and a `$` marks the true end of the line (`  42⇥code$`) - so indentation, trailing whitespace, and stray control characters are visible instead of silently hidden. Those line numbers are what `edit_file`'s `line` points at.
+`read_file` prefixes every line with its 1-based number and renders it `cat -A` style: tabs as `^I`, other control characters as `^X`, and `$` at the true line end (`  42⇥code$`). Indentation, trailing whitespace and stray control characters stay visible. `edit_file`'s `line` uses these numbers.
 
 ## Size cap
 
@@ -39,11 +39,11 @@ run: reject
 
 ## Colored diff
 
-`write_file` and `edit_file` print a colored diff of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
+`write_file` and `edit_file` print a colored diff under the tool call: removed lines red, added green, with a few context lines. Large diffs (e.g. a whole new file) are capped. The diff is terminal-only; the model gets a short result.
 
 ## Jumping from search_local to read_file with match_id
 
-Every `search_local` result that finds its query in the file carries `match_id`, `line`, and `revision` alongside the usual `path`/`snippet` fields. Pass `match_id` to `read_file` instead of `file_path` to jump straight to that hit - `context_before`/`context_after` (default 20 each) control how much surrounding code comes back, the same defaults `edit_file`'s `anchor` view uses:
+A `search_local` result that finds its query in a file carries `match_id`, `line` and `revision` besides `path`/`snippet`. Pass `match_id` to `read_file` instead of `file_path` to jump to that hit. `context_before`/`context_after` (default 20 each, like `edit_file`'s `anchor` view) set how much code comes back:
 
 ```xml
 <invoke name="search_local">

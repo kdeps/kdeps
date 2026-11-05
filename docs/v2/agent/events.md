@@ -1,6 +1,6 @@
 # Reactive LLM events
 
-An event is a small rule: watch one number, and once it crosses a line, run one action. kdeps uses this for the two things that happen automatically during a long conversation -- compacting old history and folding recent history into a checkpoint -- instead of hardcoding "30000" and "2000" somewhere in the Go source. Both are plain YAML, both ship with sane built-in defaults, and both can be overridden per-machine without a rebuild.
+An event watches one number and runs one action when it crosses a line. kdeps uses events for the two automatic steps in a long conversation, compacting old history and folding recent history into a checkpoint, instead of hardcoded Go constants. Both are YAML with built-in defaults, overridable per machine without a rebuild.
 
 ```text
 measure tokens --> compare to threshold --> fire action (compact / fold)
@@ -29,7 +29,7 @@ items: 5                       # how many recent checkpoints stay in the memory-
 run: compact                    # same action as auto-compact, just a tighter trigger cadence
 ```
 
-`auto-compact` is the full-context-window safety net: once the session gets close to filling the model's window, kdeps summarizes everything except the last few turns so the conversation can keep going. `fold` fires the same `compact` action on a tighter, more frequent cadence -- every time a couple thousand tokens of new conversation accumulate, well before `auto-compact` would ever need to fire. `fold` is not a separate, lighter mechanism today; the two events exist so the *trigger* is tunable independently even though the *action* is currently shared.
+`auto-compact` is the safety net: near a full context window, kdeps summarizes everything except the last few turns. `fold` runs the same `compact` action more often, each time a couple thousand tokens of new conversation accumulate. They share an action; separate events keep the triggers independently tunable.
 
 ## Overriding a built-in
 
@@ -48,7 +48,7 @@ No restart needed for `/konfig import`, `kdeps konfig import`, or `--konfig <pat
 
 ## Relationship to `/model tool set` and `/fold`
 
-The `/model tool set` knobs `compact-threshold` and the `/fold threshold`/`/fold items`/`/fold preset` commands still work exactly as before -- they set an explicit override for the *current session*, on top of whatever the event's own default is. An event's `tokens`/`tokensSinceCheckpoint`/`items` value is where that default comes from; it is no longer a hardcoded Go constant duplicated at every call site that needed it.
+`/model tool set compact-threshold` and `/fold threshold`, `/fold items`, `/fold preset` override the event default for the current session. The event's `tokens`, `tokensSinceCheckpoint` or `items` value supplies that default.
 
 The other events, the actions they run, and the presets are their own pages.
 

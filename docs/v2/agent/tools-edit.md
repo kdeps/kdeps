@@ -39,4 +39,10 @@ edited /repo/app.py at line 12:
     12	    timeout = 60
 ```
 
-A call fails, and the file is left as it was, when: both or neither of `text` and `append` are given; `line` is outside the file; the line does not contain `match`; or no line contains `match`. Empty arguments count as not given, so `text` cannot clear a line to empty. To create a file or rewrite a whole file, use `write_file`.
+A call fails and leaves the file unchanged when:
+
+- both or neither of `text` and `append` are given (empty counts as not given, so `text` cannot clear a line)
+- `line` is outside the file, or the line does not contain `match`
+- no line contains `match`
+
+To create or rewrite a whole file, use `write_file`.

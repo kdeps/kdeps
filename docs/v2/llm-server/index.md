@@ -44,7 +44,7 @@ No workflow path argument - select engine and model only.
 
 ### Interactive wizard (TUI)
 
-On a terminal, pick engine → harvest model → GPU → action (build/run/export):
+On a terminal, pick engine -> harvest model -> GPU -> action (build/run/export):
 
 ```bash
 kdeps llm wizard
@@ -52,7 +52,7 @@ kdeps llm wizard
 kdeps llm
 ```
 
-Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Filter lists by typing; ↑/↓ navigate; enter select; esc cancel.
+Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Filter lists by typing; ↑/v navigate; enter select; esc cancel.
 
 ```bash
 # List stock + user recipes

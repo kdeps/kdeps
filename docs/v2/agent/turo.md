@@ -18,7 +18,7 @@ Phrase-level stages run before word-level ones: a phrase matcher has to see the 
 
 One more stage runs before the rest, also on by default:
 
-- **Arrows** - replaces multi-word causal/sequential connectives (`leads to`, `results in`, `gives rise to`) with a single `->` token (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves at least one token. Disable with `/turo arrows off` or `TURO_ARROWS=off`.
+- **Arrows** - replaces multi-word causal connectives (`leads to`, `results in`, `gives rise to`) with `->` (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves a token. Disable with `/turo arrows off` or `TURO_ARROWS=off`.
 
 Stages 2-5 and arrows are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
 

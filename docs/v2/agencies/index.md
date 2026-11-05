@@ -116,7 +116,7 @@ An entire agency - `agency.yaml` plus all `agents/` sub-trees - can be packed in
 single portable `.kagency` archive (a gzip-compressed tar).
 
 ```bash
-# Pack the agency → produces my-agency-1.0.0.kagency
+# Pack the agency -> produces my-agency-1.0.0.kagency
 kdeps bundle package my-agency/
 
 # Custom name / output directory
@@ -192,7 +192,7 @@ kdeps run examples/agency/agency.yaml
 # Query the API
 curl "http://localhost:17100/api/v1/greet?name=Alice" \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
-# → {"success":true,"data":"Hello, Alice! (from responder-agent)"}
+# -> {"success":true,"data":"Hello, Alice! (from responder-agent)"}
 ```
 
 ## See also

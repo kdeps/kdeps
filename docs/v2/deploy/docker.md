@@ -94,8 +94,8 @@ docker run --device=/dev/kfd --device=/dev/dri myregistry/myagent:latest
 
 kdeps automatically selects the base OS based on GPU requirements:
 
-- **No `--gpu` flag** → Alpine (CPU-only, smallest images ~300MB)
-- **`--gpu` specified** → Ubuntu (GPU support, glibc-based)
+- **No `--gpu` flag** -> Alpine (CPU-only, smallest images ~300MB)
+- **`--gpu` specified** -> Ubuntu (GPU support, glibc-based)
 
 The OS is automatically chosen to ensure compatibility:
 
@@ -140,9 +140,9 @@ image at build time (`/app/.kdeps/models/`). The container is a vanilla
 the llamafile self-serves inside the container, no extra process to manage.
 
 ```text
-default (file backend)     → FROM alpine:latest or ubuntu:latest
+default (file backend)     -> FROM alpine:latest or ubuntu:latest
                              + pre-baked llamafile per chat model (~1.1 GB for llama3.2:1b)
-no chat resources          → FROM alpine:latest or ubuntu:latest (vanilla)
+no chat resources          -> FROM alpine:latest or ubuntu:latest (vanilla)
 ```
 
 ## Ollama Docker images (opt-in)
@@ -150,11 +150,11 @@ no chat resources          → FROM alpine:latest or ubuntu:latest (vanilla)
 Ollama is bundled only when `installOllama: true`, `KDEPS_DEFAULT_BACKEND=ollama` is set with chat resources, or `KDEPS_LLM_ROUTER` routes to Ollama.
 
 ```text
-needs Ollama + alpine CPU  → FROM alpine/ollama:<tag>   (~70MB third-party CPU image)
-needs Ollama + ubuntu CPU  → FROM ollama/ollama:<tag>   (official image)
-needs Ollama + --gpu cuda  → FROM ollama/ollama:<tag>   (runtime: docker run --gpus all)
-needs Ollama + --gpu rocm  → FROM ollama/ollama:rocm    (runtime: --device /dev/kfd --device /dev/dri)
-no Ollama                  → FROM alpine:latest or ubuntu:latest
+needs Ollama + alpine CPU  -> FROM alpine/ollama:<tag>   (~70MB third-party CPU image)
+needs Ollama + ubuntu CPU  -> FROM ollama/ollama:<tag>   (official image)
+needs Ollama + --gpu cuda  -> FROM ollama/ollama:<tag>   (runtime: docker run --gpus all)
+needs Ollama + --gpu rocm  -> FROM ollama/ollama:rocm    (runtime: --device /dev/kfd --device /dev/dri)
+no Ollama                  -> FROM alpine:latest or ubuntu:latest
 ```
 
 | Image | Size | GPU | Source |

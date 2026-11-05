@@ -133,7 +133,7 @@ Generate Deployment + Service YAML for a pre-built appliance image (not agent `e
 | `--name` | Resource name (default `kdeps-llm-<engine>`) |
 | `--replicas` | Replicas (default 1) |
 | `-o` / `--output` | Write file (default stdout) |
-| `--api-key-secret` | Secret name with key `api-key` → `LLM_API_KEY` |
+| `--api-key-secret` | Secret name with key `api-key` -> `LLM_API_KEY` |
 | `--no-client-hint` | Skip client-config hint |
 
 ```bash

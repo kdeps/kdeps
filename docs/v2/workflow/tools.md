@@ -214,15 +214,15 @@ chat:
 
 ```
 User Prompt
-    ↓
+    v
 LLM analyzes prompt
-    ↓
+    v
 LLM decides to call tool(s)
-    ↓
+    v
 kdeps executes tool resource
-    ↓
+    v
 Tool result returned to LLM
-    ↓
+    v
 LLM generates final response
 ```
 

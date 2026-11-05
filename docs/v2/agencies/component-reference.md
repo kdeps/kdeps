@@ -297,7 +297,7 @@ Components auto-load a `.env` file from their directory as a lowest-priority fal
 components/
   web_scraper/
     component.yaml
-    .env            ← auto-loaded when web_scraper runs
+    .env            <- auto-loaded when web_scraper runs
 ```
 
 Example `.env`:
