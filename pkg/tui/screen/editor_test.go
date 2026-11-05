@@ -155,7 +155,7 @@ func TestReadClipboardText_SkipsAMissingTool(t *testing.T) {
 	dir := t.TempDir()
 	writeTool(t, dir, "xclip", "#!/bin/sh\nprintf 'from xclip'\n")
 	t.Setenv("PATH", dir)
-	text, ok := readClipboardText()
+	text, ok := readClipboardTextWithin(fakeToolLimit)
 	assert.True(t, ok)
 	assert.Equal(t, "from xclip", text)
 }
@@ -166,7 +166,7 @@ func TestReadClipboardText_EmptyStops(t *testing.T) {
 	ran := filepath.Join(dir, "ran")
 	writeTool(t, dir, "xclip", "#!/bin/sh\ntouch "+ran+"\nprintf no\n")
 	t.Setenv("PATH", dir)
-	text, ok := readClipboardText()
+	text, ok := readClipboardTextWithin(fakeToolLimit)
 	assert.False(t, ok)
 	assert.Equal(t, "", text)
 	_, err := os.Stat(ran)
@@ -179,6 +179,10 @@ func TestCommandOutput_KillsASlowTool(t *testing.T) {
 	_, err := commandOutput([]string{filepath.Join(dir, "slow")}, 100*time.Millisecond)
 	assert.Error(t, err)
 }
+
+// fakeToolLimit gives a freshly written fake tool time for its first run,
+// which a loaded macOS machine can stretch past clipboardReadLimit.
+const fakeToolLimit = 30 * time.Second
 
 func writeTool(t *testing.T, dir, name, body string) {
 	t.Helper()

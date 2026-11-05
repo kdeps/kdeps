@@ -342,6 +342,9 @@ type Loop struct {
 	// as a [kdeps] system message. The human sees them on the terminal; the
 	// model must see them too so it can adjust. Reset per turn in runToolRounds.
 	modelNotes []string
+	// resumeNote says when a resumed session last ran; it goes on every
+	// request of the first turn after the resume, then is cleared.
+	resumeNote string
 	// cachedSystemPromptSegmentTokens is the size of the cached preamble,
 	// captured when it is built so buildChatConfig can re-add it as a
 	// context-path segment (see context_path.go) every turn without
@@ -526,6 +529,12 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 		sessionID:     cfg.ResumeSessionID,
 		memoryStore:   cfg.MemoryStore,
 		streamer:      cfg.Streamer,
+	}
+
+	if cfg.ResumeSession != nil && cfg.Store != nil && cfg.ResumeSessionID != "" {
+		if meta, err := cfg.Store.LoadMeta(cfg.ResumeSessionID); err == nil {
+			l.resumeNote = resumedSessionNote(meta.UpdatedAt, time.Now())
+		}
 	}
 
 	api.SetSessionToolBackend(sessionToolBridge{loop: l})
@@ -1116,6 +1125,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	// Preserve conversation history
 	l.session.Append(input, response)
+	l.resumeNote = ""
 	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
@@ -1232,6 +1242,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	response = sanitizeLoopArtifacts(response)
 
 	l.session.Append(input, response)
+	l.resumeNote = ""
 	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
@@ -3717,6 +3728,9 @@ func (l *Loop) buildChatConfig(
 	}
 	if item := l.knowledgeRecallItem(input, l.config.ProgressWriter); item != nil {
 		chatCfg.Scenario = append(chatCfg.Scenario, *item)
+	}
+	if l.resumeNote != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: l.resumeNote})
 	}
 
 	return chatCfg

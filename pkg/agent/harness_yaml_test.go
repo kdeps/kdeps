@@ -55,7 +55,7 @@ var (
 		"nudge-sandbox-hallucination-qualifier", "nudge-unbacked-claim", "model-refusal-record",
 		"nudge-unresolved-failure",
 		"nudge-continue", "nudge-self-limit",
-		"nudge-edit-unchanged",
+		"nudge-edit-unchanged", "session-resumed",
 		"tool-call-early-praise", "tool-call-recovery-praise",
 		"tool-call-sandbox-recovery-praise", "handshake-evidence",
 		"handshake-evidence-retry", "handshake-evidence-praise", "handshake-grounding",

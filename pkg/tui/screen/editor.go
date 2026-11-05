@@ -124,9 +124,12 @@ func (m Model) pasteClipboard() tea.Cmd {
 
 // readClipboardText returns the first clipboard tool's text. A tool that is
 // missing is skipped. A tool that returns nothing means the clipboard is empty.
-func readClipboardText() (string, bool) {
+func readClipboardText() (string, bool) { return readClipboardTextWithin(clipboardReadLimit) }
+
+// readClipboardTextWithin is readClipboardText with each tool given limit.
+func readClipboardTextWithin(limit time.Duration) (string, bool) {
 	for _, argv := range clipboardReads() {
-		out, err := commandOutput(argv, clipboardReadLimit)
+		out, err := commandOutput(argv, limit)
 		if err != nil {
 			continue
 		}
