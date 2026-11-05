@@ -13,7 +13,7 @@ Always available. No environment variables required. `memory_save`, `memory_sear
 | `memory_delete` | Remove a memory entry by key. |
 | `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries) and `tool_calls` (recent tool call history). Supports `filter()`, `map()`, `join()`, `union()`. String matching is infix: `.value contains "x"`, `.key startsWith "x"`, `.value matches "regex"`; `contains(...)` is a parse error. |
 
-Memory is stored per-project as markdown notes in the knowledge vault, `<vault>/projects/<project>/memory/` (see [Persistent memory](/agent/memory)). Facts persist across sessions and are auto-extracted from every turn - the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent memory](/agent/memory) for details.
+Memory is stored per-project as markdown notes in the knowledge vault, `<vault>/projects/<project>/memory/` (see [Persistent memory](/agent/memory)). Facts persist across sessions and are auto-extracted from every turn. A `[MEMORY: key] value` line saves a fact without calling `memory_save`.
 
 The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` - see [REPL slash commands](/agent/commands).
 
