@@ -224,7 +224,7 @@ env:
 
 ## Request body size preflight
 
-The agent loop checks the estimated request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests - the preflight catches this before the call is made, returning an actionable error message.
+The agent loop checks the estimated request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests, so the preflight returns an actionable error before the call.
 
 **This check runs automatically in both agent paths** (the agent loop REPL and the engine-based `Loop.Run()`). No code changes needed - configure your backend and the preflight runs.
 

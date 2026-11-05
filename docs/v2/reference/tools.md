@@ -299,7 +299,7 @@ These tools are registered automatically in [agent mode](/agent/) when the relev
 
 ### Google AI cache tools
 
-Available when `google_api_key` is set in `~/.kdeps/config.yaml`. Use these to manage Google AI CachedContent resources - pre-caching large context (documents, long system prompts) reduces latency and cost for repeated calls.
+Available when `google_api_key` is set in `~/.kdeps/config.yaml`. They manage Google AI CachedContent: pre-caching large context (documents, long system prompts) cuts latency and cost on repeated calls.
 
 | Tool | Description |
 |------|-------------|

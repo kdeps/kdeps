@@ -1,6 +1,6 @@
 # Error handling (onError)
 
-`onError` defines what happens when a resource fails. Without it, any error stops the workflow immediately. With it, you can retry, substitute a fallback value, or log the error and continue.
+`onError` sets what happens when a resource fails: retry, use a fallback value, or log and continue. Without it, any error stops the workflow.
 
 Set per resource. When agent mode calls this workflow as a tool, the same `onError` rules apply inside that run.
 
@@ -68,7 +68,7 @@ onError:
   action: continue
 ```
 
-The output will be:
+Output:
 ```json
 {
   "_error": {
@@ -80,7 +80,7 @@ The output will be:
 
 ### Retry with backoff
 
-Automatically retry failed operations:
+Retry failed operations:
 
 ```yaml
 # resources/unreliable-api.yaml
@@ -97,7 +97,7 @@ onError:
   retryDelay: "1s"
 ```
 
-This will:
+Steps:
 1. Execute the resource
 2. On failure, wait 1 second
 3. Retry up to 3 times total
@@ -105,7 +105,7 @@ This will:
 
 ### Explicit fail
 
-Explicitly mark that errors should stop execution (useful for documentation):
+State explicitly that errors stop execution:
 
 ```yaml
 # resources/example.yaml
@@ -136,7 +136,7 @@ If the error does not match any `when` condition, the error is NOT handled and p
 
 ### Execute expressions on error (`expr`)
 
-Run expressions when an error occurs (useful for logging, metrics, etc.):
+Run expressions on error, e.g. for logging or metrics:
 
 ```yaml
 # resources/example.yaml

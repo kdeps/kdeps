@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Daily bug hunt: one task per process. The evaluate reply is filed as a GitHub
 # issue as soon as it arrives. The hunt reports only: it never keeps an edit and
-# never opens a pull request. run shuffles the free catalog. models prints
-# catalog order. BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
+# never opens a pull request. run tries the largest free models first. models
+# prints catalog order. BUG_HUNT_SHUFFLE=0 keeps catalog order for run.
 # BUG_HUNT_TASKS is how many hunts to run (default 3, the /auto-improve list).
 # Each hunt is a new process and a new instrument session (bug-hunt-N).
 # Inside a hunt, the task and the evaluate turn jump to another free model at

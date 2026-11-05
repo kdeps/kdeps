@@ -1,6 +1,6 @@
 # Component resource
 
-The `component:` resource calls a reusable resource bundle - a registry component installed with `kdeps install`, or a custom component in your project's `components/` directory. Think of it like calling a function: you pass typed inputs via `with:`, the component's own resources run, and you get its result back.
+The `component:` resource calls a reusable resource bundle - a registry component installed with `kdeps install`, or a custom component in your project's `components/` directory. You pass typed inputs in `with:`, the component's resources run, and its result comes back.
 
 ## Where it runs
 
