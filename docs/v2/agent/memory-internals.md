@@ -1,38 +1,38 @@
 # Memory internals
 
-How the agent loop decides what to remember, how entries are linked, and what the model sees each turn. This is agent mode only. For the memory tools and entry types, see [Persistent memory](/agent/memory).
+The agent loop decides what to remember, links entries into a graph, and injects them into every turn. For the memory tools and entry types, see [Persistent memory](/agent/memory).
 
 ## Auto-extraction
 
-The agent loop extracts facts from every turn without an explicit `memory_save` call. Four mechanisms run after each turn:
+The loop extracts facts from every turn without a `memory_save` call. Four mechanisms run after each turn:
 
-**1. Explicit markers.** The agent can write `[MEMORY: key] value` on its own line in any response:
+**1. Explicit markers.** The model writes `[MEMORY: key] value` on its own line:
 
 ```
 [MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v2
 ```
 
-The marker is extracted into the store and then removed from the reply before it is shown or written to the transcript - the model's `[MEMORY: ...]` line and any echoed `GOAL:` / `ACTIVE TASK` directive fragment never reach the terminal.
+The marker is saved, then removed from the reply before it is shown or written to the transcript. Echoed `GOAL:` / `ACTIVE TASK` fragments are removed too.
 
-**2. Action sentences.** The first action sentence of the assistant response is captured as a `last_action` entry:
+**2. Action sentences.** The first action sentence of the reply becomes `last_action`:
 
 ```
 "Added rate limiting middleware to the HTTP handler"
 -> last_action = "rate limiting middleware to the HTTP handler"
 ```
 
-**3. File references.** File paths in edit/create/read operations are captured as a `last_files` entry:
+**3. File references.** Paths in edit/create/read sentences become `last_files`:
 
 ```
 "Edited src/api/handler.go and src/api/middleware.go"
 -> last_files = "src/api/handler.go, src/api/middleware.go"
 ```
 
-**4. Tool results.** Every tool-call result is saved with a key derived from the tool name and output, so the LLM can search past results. See [Tool result filtering](#tool-result-filtering) for the caps.
+**4. Tool results.** Each captured tool result is saved under a key from the tool name and output, so the model can search past results. Caps are in [Tool result filtering](#tool-result-filtering).
 
 ## Memory graph
 
-Entries are linked into a directed graph based on their [types](/agent/memory#memory-entry-types). The dependency chain:
+Entries link into a directed graph by [type](/agent/memory#memory-entry-types):
 
 ```
 prompt -> purpose -> progress -> tool_result -> result -> status
@@ -40,11 +40,16 @@ prompt -> purpose -> progress -> tool_result -> result -> status
                                action, error, file, decision, fact, note
 ```
 
-The graph is inlined into the `<memory>` block rather than drawn as a separate diagram: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. Each entry renders on exactly one line - a multiline value has its newlines collapsed to ` / ` so it never breaks the one-entry-per-line reading.
+The graph is inlined in the `<memory>` block. Parents come before their children, and each entry shows its parent as `<- parent`. Each entry is one line; newlines in a value become ` / `.
 
 ## Prompt injection
 
-On every turn the memory store injects one graph-ordered `<memory>` block: a legend, a one-line orientation map (entry counts by type plus the resume target with its relative age), the entries in topological order (parents first) with `<- parent` edges inline, the newest unfinished `progress`/`result`/`status` entry marked `<== RESUME`, and that node's downstream dependencies:
+Every turn gets one `<memory>` block containing:
+
+- a legend
+- a map line: entry counts by type, plus the resume target and its age
+- entries in topological order (parents first) with `<- parent` edges
+- `<== RESUME` on the newest unfinished `progress`/`result`/`status` entry, plus its downstream dependencies
 
 ```
 <memory>
@@ -56,54 +61,67 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 </memory>
 ```
 
-The `(2m ago)` hint is a coarse relative age (`just now`/`Nm`/`Nh`/`Nd ago`) a model uses after an orchestrator model switch to judge whether to re-verify before continuing.
+The age (`just now`, `Nm`, `Nh`, `Nd ago`) tells a model taking over after a switch whether to re-verify before continuing.
 
 ## What the budget keeps
 
-The block is truncated to a token budget, but not oldest-first: the active task chain, entries relevant to the current prompt (matched on significant prompt words at word boundaries), and the **newest unresolved error** are always kept - unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
+The block is cut to a token budget, but not oldest-first. Always kept:
+
+- the active task chain
+- entries matching significant prompt words (whole-word match)
+- the newest unresolved error
+
+Unrelated older entries drop first. Edges to dropped entries are omitted, so no arrow dangles.
 
 ## Unresolved errors
 
-The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front - one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
+The map line names the newest unresolved `error`, so a resuming model sees a known failure first. An error that reads as handled (`resolved`, `fixed`, `closed`, ...) is skipped. A re-opened one (`reopened`, `not fixed`, `still failing`, ...) is shown, even next to "fixed".
 
 ## Duplicate facts
 
-Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool. The graph above is the context.
+A later entry repeating an earlier fact (case- and whitespace-insensitive) is marked `(same as <key>)` instead of counting as new evidence. The model also gets a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool; the graph is the context.
 
 ## Compaction integration
 
-When the agent runs `/compact` (summarizes and clears conversation history), the `AutoCapture` method extracts structured sections from the summary:
+On `/compact` (summarize and clear history), `AutoCapture` saves two summary sections:
 
-- `## Key Decisions` - saved as `decision` type entries
-- `## Critical Context` - saved as `context` type entries
-
-This preserves important information across compaction boundaries.
+- `## Key Decisions` as `decision` entries
+- `## Critical Context` as `context` entries
 
 ## Checkpoint summaries
 
-After every compaction (or [fold](/agent/repl-context#fold)), a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
+Every compaction or [fold](/agent/repl-context#fold) saves a `checkpoint:summary` entry with the Goal, Progress, Key Decisions and Critical Context sections. It persists across sessions.
 
-The previous checkpoint is never silently discarded: it is archived first, under its own key (`checkpoint:archive:<timestamp>`), the same way every other memory entry persists forever. Only the most recent `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) compete for space in the prompt-injected memory block - older ones simply are not in that window, but stay fully retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
+The previous checkpoint is archived first as `checkpoint:archive:<timestamp>`, never discarded. Only the newest `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) enter the memory block. Older ones stay retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
 
 ## Leaf-node limits
 
-The memory graph is a kartographer dependency tree: each entry's `references` field points at its parent keys, and a **leaf** is any entry nothing else references - a terminal node with no children pointing back at it. Most everyday facts (`fact:`, `tool_result:`) are leaves; `purpose:`/`progress:` entries with children pointing at them are not.
+Each entry's `references` field points at its parent keys. A **leaf** is an entry nothing references. Most `fact:` and `tool_result:` entries are leaves; `purpose:`/`progress:` entries with children are not.
 
-Two knobs cap leaves specifically, independent of the checkpoint cap above - `/model tool set leaf-nodes <n>` (max leaf entries kept in the prompt, 0 = unlimited) and `/model tool set leaf-chars <n>` (max characters kept per leaf entry's value, 0 = unlimited, truncated with an ellipsis). Both exempt the active task chain (the resume node, its ancestry, and anything matching the current prompt's focus) the same way the byte-budget truncation pass already does - losing where the agent is and how it got there is worse than overshooting either cap. Neither ever touches the store itself: dropped or truncated leaves stay fully intact and retrievable with `/memory list` / `/memory show`, only this one render is affected.
+Two settings cap leaves, independent of the checkpoint cap:
+
+```text
+/model tool set leaf-nodes 40    # max leaf entries in the memory block; 0 = unlimited
+/model tool set leaf-chars 300   # max characters per leaf value, cut with an ellipsis; 0 = unlimited
+```
+
+Both exempt the active task chain (the resume node, its ancestors, and entries matching the prompt), like the budget pass. They change only the rendered block: the store keeps every leaf intact for `/memory list` and `/memory show`.
 
 ## Session persistence
 
-The agent's full LLM config (model, backend, base URL) is saved to `session:config` on startup and after every `/model` switch. On the next run, the config is restored automatically. The working directory is also saved on start (`session:started`) and resume (`session:resumed`) so the agent always knows where it is.
+The LLM config (model, backend, base URL) is saved to `session:config` at startup and after each `/model` switch, and restored on the next run. The working directory is saved on start (`session:started`) and resume (`session:resumed`).
 
 ## Tool result filtering
 
-To prevent memory bloat, only the tools in the rules' `capture_tools` list produce memory entries (shipped: `write_file`, `edit_file`, `bash_exec`, `read_file`, `search_local`, `sql_query`, `http_request`, `web_search`, `web_scraper`, `wikipedia`). Each tool keeps its newest 20 captures (the `memory-tool-results-limit` event); the oldest are deleted. A tool result longer than its store limit is cut and marked with a trailing `...`, backed off to the nearest character boundary so a multibyte character is never split.
-
-Auto-extracted low-signal entries (the rules' `low_signal` types, shipped `note` and `fact`) are globally capped at 50 combined (the `memory-low-signal-limit` event) - when the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
+- Only tools in the rules' `capture_tools` list create entries. Shipped: `write_file`, `edit_file`, `bash_exec`, `read_file`, `search_local`, `sql_query`, `http_request`, `web_search`, `web_scraper`, `wikipedia`.
+- Each tool keeps its newest 20 captures (the `memory-tool-results-limit` event); older ones are deleted.
+- A result over its store limit is cut and ends with `...`, on a character boundary so no multibyte character splits.
+- Low-signal entries (the rules' `low_signal` types, shipped `note` and `fact`) are capped at 50 combined (the `memory-low-signal-limit` event). The oldest are pruned on write.
+- Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by that cap, so the chain and resume point survive.
 
 ## Memory rules
 
-The memory store's rules are the `memory/rules` asset: how an entry is typed, which entry it links to, which tool results are captured, where a resumed session picks up, and what reads as done or resolved. Change them by installing a newer `memory/rules` (see [Updating assets](/agent/repl-updating)); a file the loader rejects is not installed.
+The `memory/rules` asset defines how entries are typed and linked, which tool results are captured, where a resumed session continues, and what reads as done or resolved. Install a newer `memory/rules` to change them (see [Updating assets](/agent/repl-updating)). A file the loader rejects is not installed.
 
 ```yaml
 version: 1.0.0
@@ -138,9 +156,11 @@ focus_weights:                   # how an entry ranks against the prompt for the
 search_min_word: 2               # memory_search drops the extra words of a query shorter than this
 ```
 
-Memory focus splits the prompt and each entry into words the way the knowledge recall does (letters and digits, camelCase and snake_case split, stemmed), so `billing` matches an entry about `bills`. Status and error markers are matched on whole, unstemmed words.
+Focus matching splits the prompt and each entry into stemmed words, like knowledge recall: letters and digits, camelCase and snake_case split. `billing` matches an entry about `bills`. Status and error markers match whole, unstemmed words:
 
-A marker with a space, hyphen or apostrophe matches as text; a marker of 3 letters or fewer matches a whole word (`wip` does not match `wiped`); a longer one also matches a word that starts with it (`complete` matches `completed`).
+- a marker with a space, hyphen or apostrophe matches as text
+- a marker of 3 letters or fewer matches a whole word (`wip` does not match `wiped`)
+- a longer marker also matches a word starting with it (`complete` matches `completed`)
 
 ## See also
 

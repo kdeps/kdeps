@@ -94,7 +94,7 @@ A name that is neither a tool nor an alias still returns `{"error": "tool \"<nam
 
 ## Declared HTTP tools
 
-A tool whose definition has an `http:` block needs no Go code: kdeps registers it when the block's `env` resolves and runs it as one HTTP call. `exa_search`, `wolfram_alpha`, `zapier_*`, the three rerankers and `retrieve_context` ship this way, and a new HTTP-backed tool is one YAML file published to the `tools` set (or dropped into `$KDEPS_ASSETS_SRC/tools/` while developing).
+A tool whose definition has an `http:` block needs no Go code. kdeps registers it when the block's `env` resolves and runs it as one HTTP call. `exa_search`, `wolfram_alpha`, `zapier_*`, the three rerankers and `retrieve_context` ship this way. A new HTTP tool is one YAML file published to the `tools` set (or dropped into `$KDEPS_ASSETS_SRC/tools/` while developing).
 
 ```text
 model calls tool -> args + parameter defaults -> render url/headers/body -> HTTP call -> render result -> model
@@ -115,7 +115,7 @@ http:
   url: "https://api.wolframalpha.com/v1/result?i={{urlquery .args.query}}&appid={{urlquery .env.APP_ID}}"
 ```
 
-`wolfram_alpha` is on the `tools:` list of the `web-call-budget` event, so a repeat call with the same arguments reuses the answer for the turn and each distinct call counts against that budget. Add a declared tool to a budget's list to get the same; see [call-budget events](/agent/events-guards#call-budget-events).
+`wolfram_alpha` is on the `web-call-budget` event's `tools:` list: a repeat call with the same arguments reuses the turn's answer, and each distinct call counts against the budget. Add a declared tool to a budget's list for the same behavior; see [call-budget events](/agent/events-guards#call-budget-events).
 
 ```yaml
 # tools/cohere_rerank.yaml (shipped, abridged): JSON body and a templated result
@@ -165,7 +165,7 @@ http:
   paths: [file]
 ```
 
-Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index that yields nothing instead of failing on a missing level). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. An `http:` block whose templates do not parse is rejected by `kdeps update`, so a broken download never replaces a working tool.
+Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index; a missing level yields nothing). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. `kdeps update` rejects an `http:` block whose templates do not parse, so a broken download never replaces a working tool.
 
 ## Declared SQL tools
 
@@ -258,7 +258,7 @@ A tool declares at most one of `http:`, `exec:`, `sql:` or `python:`.
 
 ## Your own tools
 
-A tool you write yourself goes in `~/.kdeps/tools/`. A file with an `http:`, `exec:`, `sql:` or `python:` block is a new tool: kdeps registers it for the agent and serves it on `/apis/tools.kdeps.io/v1/tools/<name>/call`, with no registry or lock entry and no Go code. A file named like a shipped tool replaces that tool's definition.
+A tool you write yourself goes in `~/.kdeps/tools/`. A file with an `http:`, `exec:`, `sql:` or `python:` block is a new tool. kdeps registers it for the agent and serves it on `/apis/tools.kdeps.io/v1/tools/<name>/call`, with no registry or lock entry and no Go code. A file named like a shipped tool replaces its definition.
 
 ```yaml
 # ~/.kdeps/tools/git_version.yaml - the file name is the tool name
@@ -344,11 +344,19 @@ tools:
 
 A tier can also name `ask` (T2 in the built-in file, unused by default): a tool on that tier needs a person to approve each call, in every permission mode. With no terminal and no approver, the call is refused. Set `default: deny` to make unlisted tools, including workflow, component and agency tools, run only in `danger-full-access`. To change it without touching the built-in file, put the same YAML at `~/.kdeps/policy/permission.yaml`; that file replaces the built-in policy. A user file that does not parse fails closed to `default: deny`. An unknown tier or mode in the file is rejected, and a listed tool whose tier is missing fails closed to `danger-full-access`.
 
-A tier can also name `token` (T3 in the built-in file, unused by default): a tool or stage on that tier runs only while a valid capability token exists for its scope. An operator issues one with `kdeps token grant <scope> --ttl 1h`, where the scope is a tool name or `stage:<kind>` (for example `stage:exec`). Tokens are YAML files in `~/.kdeps/tokens`. `kdeps token list` shows each token and whether it is valid, and `kdeps token revoke <id>` deletes one. Without a valid token the call is refused and the error names the grant command.
+A tier can name `token` (T3 in the built-in file, unused by default). A tool or stage on that tier runs only while a valid capability token exists for its scope:
 
-Workflow stages use the same tiers. The file's `resources` table maps each primary resource kind (`exec`, `python`, `httpClient`, `sql`-style kinds, `chat`, `agent`, `component`, ...) to a tier. Every run checks each stage before it executes, including plain `kdeps run`, against `KDEPS_PERMISSION_MODE`: a stage whose tier needs a higher mode than the run's is refused and the workflow stops. A kind on the `ask` tier needs approval, and a workflow run has no one to ask, so it is refused. The default run mode is `danger-full-access`, so nothing changes until an operator sets a stricter mode.
+```bash
+kdeps token grant bash_exec --ttl 1h      # scope: a tool name, or stage:<kind> such as stage:exec
+kdeps token list                          # each token and whether it is valid
+kdeps token revoke <id>                   # delete one
+```
 
-Every gate decision is written to the instrument session (when one is recording) as a `permission_decision` event: the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
+Tokens are YAML files in `~/.kdeps/tokens`. Without a valid token the call is refused, and the error names the grant command.
+
+Workflow stages use the same tiers. The file's `resources` table maps each primary resource kind (`exec`, `python`, `httpClient`, `sql`-style kinds, `chat`, `agent`, `component`, ...) to a tier. Every run, including plain `kdeps run`, checks each stage against `KDEPS_PERMISSION_MODE` before it executes. A stage needing a higher mode is refused and the workflow stops. An `ask`-tier kind is refused too, since a workflow run has no one to ask. The default run mode is `danger-full-access`, so nothing changes until an operator sets a stricter one.
+
+While an instrument session records, every gate decision is a `permission_decision` event with the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
 
 ## Lean mode
 

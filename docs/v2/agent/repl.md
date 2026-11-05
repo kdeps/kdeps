@@ -52,15 +52,65 @@ and type there - for example paste a stack trace and type
 
 ## Line editing and history search
 
-The prompt line supports standard readline editing: `Ctrl+A`/`Ctrl+E` to jump to the start/end of the line, `Ctrl+U` to clear before the cursor, `Ctrl+K` to clear after it, and Up/Down to step through prompt history. Those lines are stored in `~/.kdeps/repl_history`. The full-screen prompt (`KDEPS_TUI=1`) reads and writes the same file: `Ctrl+P` recalls the previous line and `Ctrl+N` the next. Typing, pasting, or deleting on a recalled line keeps that edit, so the next `Ctrl+N` does not replace it. A click in the main pane or the feed focuses that pane for the arrow keys. A click in the prompt moves the cursor. `Shift+Left` and `Shift+Right` select, and so does dragging across the prompt. `Ctrl+Shift+C` copies the selection and `Ctrl+Shift+X` cuts it, so `Ctrl+Y` can put it back. With no selection, `Ctrl+Shift+C` copies the visible main pane into that same buffer, as one line. `Ctrl+Shift+A` selects the whole line. Typing or Backspace replaces the selection. `Ctrl+Left` and `Ctrl+Right` move by word (`Alt+Left` and `Alt+Right`, or `Alt+B` and `Alt+F`, do the same). `Alt+D` deletes the next word. `Alt+Backspace` deletes the word before the cursor, the same as `Ctrl+W`. `Ctrl+Y` puts back the text removed by `Ctrl+K`, `Ctrl+U`, `Ctrl+W`, or `Alt+D`. Repeating one of those without typing in between joins the removed text into one yank. `Ctrl+O` opens that line in an external editor (`$KDEPS_EDITOR`, then `$VISUAL`, then `$EDITOR`, then `vi`). Saving replaces the prompt and does not send it. A newline becomes a space. A blank file clears the prompt. A failed editor leaves the prompt as it was. `Ctrl+D` deletes the character under the cursor and does not save it for `Ctrl+Y`. On an empty prompt it quits. `d` still types. A full-screen prompt longer than the row scrolls so the cursor stays on screen. A click lands on the letter that is drawn. Esc clears the selection and leaves the text. Esc while a recalled line is showing puts the unsent text back. It does not quit. A second click on that cell selects the word. A third selects the whole line.
+The prompt supports readline editing. History is stored in `~/.kdeps/repl_history`; the full-screen prompt (`KDEPS_TUI=1`) shares it.
 
-`Ctrl+R` starts an incremental backward search through history - type any substring and the line fills in with the most recent match, narrowing as you type more; press `Ctrl+R` again to jump to the next older match. `Ctrl+S` searches forward the same way, walking back toward more recent matches - useful when `Ctrl+R` has stepped past the one you wanted. Press Enter to run the matched line, or `Ctrl+G`/Escape to cancel and return to what you were typing.
+| Key | Action |
+|---|---|
+| `Ctrl+A` / `Ctrl+E` | Start / end of line |
+| `Ctrl+Left` / `Ctrl+Right` (`Alt+Left` / `Alt+Right`, `Alt+B` / `Alt+F`) | Move by word |
+| `Ctrl+U` / `Ctrl+K` | Delete before / after the cursor |
+| `Ctrl+W`, `Alt+Backspace` | Delete the word before the cursor |
+| `Alt+D` | Delete the next word |
+| `Ctrl+D` | Delete the character under the cursor (not saved for `Ctrl+Y`); quit on an empty prompt |
+| `Ctrl+Y` | Put back text removed by `Ctrl+K`, `Ctrl+U`, `Ctrl+W`, `Alt+D` or `Ctrl+Shift+X`; repeated removals with no typing between join into one yank |
+| Up / Down | Step through history |
+| `Ctrl+P` / `Ctrl+N` | Previous / next history line (full-screen) |
+| `Ctrl+O` | Edit the line in `$KDEPS_EDITOR`, then `$VISUAL`, `$EDITOR`, `vi` |
 
-`Ctrl+S` is intercepted by some terminals or multiplexers for flow control (XON/XOFF) before it reaches the REPL; if it does nothing for you, that is a terminal setting, not kdeps - `stty -ixon` in your shell config re-enables it.
+Full-screen prompt only:
+
+| Input | Action |
+|---|---|
+| `Shift+Left` / `Shift+Right`, drag | Select |
+| `Ctrl+Shift+A` | Select the whole line |
+| `Ctrl+Shift+C` | Copy the selection; with none, copy the visible main pane as one line |
+| `Ctrl+Shift+X` | Cut the selection |
+| Typing, Backspace | Replace the selection |
+| Esc | Clear the selection; on a recalled line, restore the unsent text (does not quit) |
+| Click | Move the cursor (prompt) or focus the pane for arrow keys (main pane, feed) |
+| Double / triple click | Select the word / line |
+
+- An edit on a recalled line is kept, so the next `Ctrl+N` does not replace it.
+- `Ctrl+O`: saving replaces the prompt without sending it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
+- A prompt longer than the row scrolls to keep the cursor visible. A click lands on the drawn letter.
+
+`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match; `Ctrl+S` searches forward. Enter runs the match; `Ctrl+G` or Esc cancels.
+
+Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `stty -ixon` in your shell config frees it.
 
 ## Full-screen scrolling
 
-`KDEPS_TUI=1` draws the session on the alternate screen. Up and Down scroll the focused pane one row. PgUp and PgDown scroll a page. `Ctrl+Up` and `Ctrl+Down` scroll half a page. Home jumps to the oldest row and End returns to the newest. Ctrl+End follows the main pane even when the feed is focused. The offset stops at either end, so one PgDown from the top moves forward. While the main pane is on an older row, the status row says `not following` and new output leaves those rows in place. End, or scrolling back to the newest row, follows again. Sending a prompt follows immediately. Ctrl+Space folds the output at the bottom of the main pane down to its first line, and folds it open again. A one-line output stays as it is. Space still types. Ctrl+Z suspends the full-screen view and returns to the shell. The view comes back when that shell exits. z still types. Scrolling a pane that has more rows than it can show draws a bar on that pane's right edge. The bar goes away shortly after scrolling stops. A pane whose rows fit has no bar. Shift+Up and Shift+Down scroll the main pane by one output, including a block of several lines. Ctrl+Shift+V pastes clipboard text into the prompt. A newline becomes a space. An empty clipboard leaves the prompt. v still types. Ctrl+G opens the key list and closes it again. The prompt stays. g still types. Ctrl+T hides the header pills and shows them again. The model name and the title stay. t still types.
+`KDEPS_TUI=1` draws the session on the alternate screen.
+
+| Key | Action |
+|---|---|
+| Up / Down | Scroll the focused pane one row |
+| `Shift+Up` / `Shift+Down` | Scroll the main pane one output (a multi-line block counts as one) |
+| `Ctrl+Up` / `Ctrl+Down` | Scroll half a page |
+| PgUp / PgDown | Scroll a page |
+| Home / End | Oldest row / newest row (End resumes following) |
+| `Ctrl+End` | Follow the main pane, even when the feed is focused |
+| `Ctrl+Space` | Fold the bottom output of the main pane to its first line, or unfold it |
+| `Ctrl+Shift+V` | Paste clipboard text into the prompt (newlines become spaces) |
+| `Ctrl+G` | Open or close the key list |
+| `Ctrl+T` | Hide or show the header pills (model name and title stay) |
+| `Ctrl+Z` | Suspend to the shell; the view returns when that shell exits |
+
+- Scrolling stops at either end, so one PgDown from the top moves forward.
+- On an older row the status row says `not following`, and new output does not move the view. End, scrolling to the newest row, or sending a prompt follows again.
+- A pane with more rows than it shows draws a scroll bar on its right edge while scrolling. It fades shortly after.
+- One-line outputs do not fold. An empty clipboard leaves the prompt unchanged.
+- Plain `Space`, `z`, `v`, `g` and `t` still type.
 
 ## Multimodal input
 
@@ -127,11 +177,11 @@ is what gets saved to the session. Toggle with `/refine on|off` (persists to
 
 The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It auto-detects the terminal's color depth (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.
 
-When extended reasoning is enabled (`/thinking`), the streamed reasoning is rendered as live markdown, updating in place as tokens arrive, shown in muted gray beneath a `* thinking` header and behind a dim left gutter (`|`) so the whole block reads as a distinct aside from the final answer. Inline code renders styled (by color, not literal backticks) in both the reasoning and the response.
+With `/thinking` on, streamed reasoning renders as live markdown in muted gray under a `* thinking` header, behind a dim `|` gutter. Inline code renders by color, not literal backticks, in reasoning and response.
 
 ## Custom harness
 
-Every piece of text kdeps sends the model to shape its *behavior* - not the conversation itself - is a YAML file too: tool-use rules, the sandbox-hallucination reinforcement, and the system prompts behind compaction, judging, and prompt refinement. Together they are the "harness." Like themes, the built-ins are installed by `kdeps update` (see [Updating assets](/agent/repl-updating#updating-assets)), and you can add your own by dropping a file into `~/.kdeps/harness/<name>.yaml`:
+The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction, judge and prompt-refinement system prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)); add your own as `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml
@@ -155,15 +205,17 @@ A `preamble-section` entry is part of the system prompt. The first request of a 
 
 `auto` keeps the full text on Anthropic and OpenAI. Those backends cache a stable system prefix, so a shorter prompt on the next request saves almost nothing and drops the cache. Ollama, llamafile, GGUF, M365, and every other backend are billed for the prompt on every request, so `auto` sends the summaries there.
 
-A file that reuses a built-in's name (e.g. your own `safety.yaml`) replaces that section outright; this includes the safety/accuracy/honesty rules, so overriding one is possible but is your call, the same as a custom theme picking illegible colors.
+A file with a built-in's name (e.g. your own `safety.yaml`) replaces that section, including the safety, accuracy and honesty rules.
 
-The built-in `preamble-section` names are `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, and `edit-workflow`. The built-in `standalone` names - looked up individually, not auto-assembled, so a brand-new `standalone` name from you has no effect unless it reuses one of these - are `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, and `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)).
+Built-in `preamble-section` names: `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, `edit-workflow`.
+
+Built-in `standalone` names: `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)). Standalone entries are looked up by name, so a new standalone name has no effect.
 
 `/harness list` shows every section. `/harness enable` and `/harness disable` toggle one and persist it, and the next request sends the full sections again.
 
 ## Turn-complete alert
 
-When a turn takes a while (a long research loop, a slow local model), the REPL rings the terminal and posts a desktop notification once the response is ready, so you can step away and come back when it beeps:
+When a turn takes a while, the REPL rings the terminal and posts a desktop notification when the response is ready:
 
 - The terminal bell marks the tab/window as having activity in most terminals, tmux, and screen.
 - An **OSC 9** desktop notification (`kdeps: response ready`) appears in terminals that support it (iTerm2, WezTerm, kitty); it is silently ignored elsewhere.

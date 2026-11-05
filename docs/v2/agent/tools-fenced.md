@@ -1,18 +1,20 @@
 # Fenced tools
 
-Every model is told to call the fenced kdeps tools, and to say what it is about to do before the call. The tool list stays on [Built-in tools](/agent/tools).
+Every model is told to use the fenced kdeps tools and to say what it will do before each call. The tool list is on [Built-in tools](/agent/tools).
 
-## Fenced tools only, and narration
-
-Two instructions go into the system preamble for every model whenever tools are registered:
+Whenever tools are registered, two instructions go into every model's system preamble: use the fenced kdeps tools, and narrate before each call.
 
 ## Use the fenced kdeps tools, not a built-in sandbox
 
-Every capability the model has here is a kdeps tool - including `bash_exec` and the file tools. A model trained with a code-interpreter / "run code" / "analysis" habit will otherwise act against its own empty `/mnt/data`-style environment and conclude it "cannot access" anything. The rule is restated in one line on every turn after the first. Every turn also carries a line of facts kdeps measured itself in the real environment - date and time, OS/arch, how many files and directories are in the working directory, the git branch - so a model that suspects a sandbox can check a `list_files` result against them. M365 Copilot gets an extra, stronger version of this on top (its habit is the most persistent).
+Every capability the model has is a kdeps tool, including `bash_exec` and the file tools. A model with a code-interpreter habit otherwise acts against its own empty `/mnt/data` environment and concludes it "cannot access" anything.
+
+- After the first turn, the rule is restated in one line per turn.
+- Every turn carries facts kdeps measured in the real environment: date and time, OS/arch, file and directory counts in the working directory, the git branch. A model suspecting a sandbox can check a `list_files` result against them.
+- M365 Copilot gets a stronger version on top; its habit is the most persistent.
 
 ## Claimed actions need a tool result
 
-On every backend, a reply that reports an action ("Created notes.md", "I've fixed it", "Remembered: ...") while no tool has run this turn draws the `nudge-unbacked-claim` push-back (at most twice a turn): nothing happened, so the model is told to make the real call. Once any tool has run in the turn, the closing report is accepted as written.
+A reply reporting an action ("Created notes.md", "I've fixed it", "Remembered: ...") when no tool ran this turn draws `nudge-unbacked-claim` (at most twice a turn) on every backend. Once any tool has run in the turn, the closing report is accepted.
 
 ```text
 model: "Created [notes.md](...)"          <- no tool ran this turn
@@ -23,7 +25,7 @@ kdeps: write_file result -> model answers
 
 ## Parser and interpreter
 
-The guidance also tells the model that kdeps is a parser and an interpreter: it parses a matched `<invoke>` block out of the message at runtime and interprets it. That is not the model's built-in code interpreter. Writing the block is the call, not an example. On a backend with no native tool channel, that block is a LITERAL invoke block: the characters `<invoke>` and `</invoke>` written as text in the message. One matched block does it -
+The guidance tells the model that kdeps parses a matched `<invoke>` block out of the message at runtime and runs it; this is not the model's built-in interpreter. Writing the block is the call. On a backend without a native tool channel, it is literal text:
 
 ```
 <invoke name="read_file">
@@ -31,9 +33,13 @@ The guidance also tells the model that kdeps is a parser and an interpreter: it 
 </invoke>
 ```
 
-and the runtime hands back the real output. A literal invoke runs only when those tags sit outside a markdown fence. The same tags inside a ``` or ~~~ block are an example and are not run. A fence inside a parameter value stays part of that value. A fenced `session_handshake` block still counts in the handshake round.
+The runtime returns the real output.
 
-A shell invoke with no `<parameter>` tag still runs. The command is the block body, an attribute on the opening tag, or one `command:` / `command="..."` / JSON line inside the block:
+- A literal invoke runs only outside a markdown fence. Inside a ``` or ~~~ block it is an example.
+- A fence inside a parameter value stays part of the value.
+- A fenced `session_handshake` block still counts in the [handshake](/agent/tools-handshake) round.
+
+A shell invoke without a `<parameter>` tag still runs. The command is the block body, an attribute on the opening tag, or one `command:` / `command="..."` / JSON line in the block:
 
 ```
 <invoke name="bash">
@@ -43,42 +49,67 @@ ls -la && cat README.md
 
 ## The available_tools block
 
-Local backends (file, gguf, ollama, llamafile) and an unset backend get one short `<available_tools>` list in the system preamble: name, one-line description, and parameter names. Cloud backends receive the tools as a native schema and omit that text list. The m365 proxy renders its own list from those schemas, so the preamble does not carry a second copy. Later turns restate a one-line reminder and do not repeat the list. kdeps recovers an `<invoke>` / `<tool_call>` block written as text if a native model emits one anyway, including DeepSeek's DSML-wrapped form (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend emits as plain content.
+| Backend | Tool list |
+|---|---|
+| Local (file, gguf, ollama, llamafile) or unset | one `<available_tools>` list in the preamble: name, one-line description, parameter names |
+| Cloud | native tool schema; no text list |
+| m365 proxy | renders its own list from the schemas; no second copy |
 
-## Simulated sandbox sessions are caught, and escalated
+Later turns carry a one-line reminder instead of the list. kdeps recovers `<invoke>` / `<tool_call>` blocks a native model writes as text, including DeepSeek's DSML form (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`) that its OpenAI-compatible backend returns as plain content.
 
-When a round makes no tool call but the text reads like a failed code-interpreter session - `NO CONTENT AVAILABLE`, `/mnt/data`, an "expired" or "reset" session, "cannot access the filesystem", or a shell diagnostic the model wrote itself (`/bin/bash: line 4: cd: ...: No such file or directory`) - the loop treats it as a hallucination (kdeps never emits those strings and nothing ran). A model that repeats the same hallucination a second time within one turn gets a second, sharper nudge instead of the turn silently accepting the repeat as a real answer - each corrective nudge (sandbox, fabricated `<tool_response>`, silent round) fires up to twice per turn, not once. If the model still has not made a real call after both nudges, the turn does not settle on the fake transcript unflagged: the returned text is prefixed with a clear "this describes a sandbox that doesn't exist here, treat it as unverified" banner (the model's words are kept, just flagged). Separately, once a session has produced even one such hallucination, every later turn resends the full fenced-tools guidance (with the worked `<invoke>` examples) instead of the one-line reminder - a model that has shown this failure mode gets more reinforcement, not less.
+## Simulated sandbox sessions are caught
 
-## A premature "sorry, I can't" is pushed back on when there was real progress
+A round with no tool call whose text reads like a failed code-interpreter session is a hallucination; kdeps never emits these strings:
 
-When a round ends with no tool call and the text reads as declining to continue ("I cannot complete this," "I couldn't complete this," "unable to," "no access," ...), but a tool call already succeeded earlier this turn and nothing is currently failing, the loop does not accept the refusal as final - it tells the model tool calls just worked and to try a different approach, or state exactly what is blocking it, bounded to the same two-nudges-per-turn cap as every other corrective nudge here. A give-up reply with no successful tool yet this turn is not handled by that progress nudge. A fictional limit in that reply is handled by `nudge-self-limit`, below. The nudge fires before the refusal is accepted as final, so a premature refusal is not accepted while the nudge budget remains.
+- `NO CONTENT AVAILABLE`, `/mnt/data`
+- an "expired" or "reset" session, "cannot access the filesystem"
+- a shell diagnostic the model wrote itself (`/bin/bash: line 4: cd: ...: No such file or directory`)
 
-## A fictional "I can't" is pushed back on
+Escalation:
 
-A text-only reply that says the model cannot do the work, has no tools, has no access, cannot emit an invoke, or claims the workspace is not accessible in this environment is a bug. So is a paraphrase that hands the work back ("run it yourself", "out of scope", "no shell", "I lack the ability", "I have to stop") without a tool result. The tools are already registered. The loop sends `nudge-self-limit` (at most four times) and does not show that reply. A real safety stop is left alone: refusing to delete data, force-push, drop a database, or run `rm -rf`. After four pushes, the next reply is accepted so a concrete blocker can be stated. If `nudge-self-limit` is not loaded, that reply is accepted immediately. The loop does not keep appending the invoke example. Each push adds a different wording of that same instruction, one of at least 100 (the same order in another sentence or another language), so the request is not the same bytes as the push before it. The wording never states that the limit is not real and never asks for a restatement: a model answered "say it again, in new words: the limit you named is not real" with "The limit I named was not real. The tool call succeeded, and I should have continued..." and the turn ended there with nothing done. A reply that only acknowledges the push-back - "the limit I named was not real", a promise to call the tool - draws the next push instead of being accepted, within the same four-push cap, and the push tells the model its next output is the tool call itself, not a reply. A provider throttle (`temporarily unable to respond`, `too many requests`) is not a fictional limit.
+1. Each corrective nudge (sandbox, fabricated `<tool_response>`, silent round) fires up to twice per turn. The second is sharper.
+2. With no real call after both, the reply is kept but prefixed with a banner: it describes a sandbox that does not exist here and is unverified.
+3. After one such hallucination, every later turn resends the full fenced-tools guidance with worked `<invoke>` examples instead of the one-line reminder.
+
+## Premature refusals after real progress
+
+A round with no tool call that declines to continue ("I cannot complete this", "unable to", "no access", ...) is pushed back when a tool already succeeded this turn and nothing is failing. The loop says tool calls just worked and asks for a different approach or the exact blocker, within the two-nudges-per-turn cap. The nudge fires before the refusal is accepted.
+
+A give-up with no successful tool yet this turn is not handled here; a fictional limit is handled by `nudge-self-limit`, below.
+
+## Fictional "I can't"
+
+A text-only reply is a bug when it says the model cannot do the work, has no tools or access, cannot emit an invoke, or the workspace is not accessible. So is handing the work back without a tool result ("run it yourself", "out of scope", "no shell", "I lack the ability", "I have to stop"). The tools are registered.
+
+- The loop sends `nudge-self-limit`, at most four times, and hides that reply. After four, the next reply is accepted so a concrete blocker can be stated. Without `nudge-self-limit` loaded, the reply is accepted at once.
+- Real safety stops are left alone: refusing to delete data, force-push, drop a database, or run `rm -rf`.
+- A provider throttle (`temporarily unable to respond`, `too many requests`) is not a fictional limit.
+- Each push uses a different wording of the same instruction, one of at least 100 (reordered or in another language), so it is never the same bytes twice. The invoke example is not re-appended.
+- The wording never says the limit is not real and never asks for a restatement. Asked to restate, a model replied "The limit I named was not real... I should have continued" and the turn ended with nothing done.
+- A reply that only acknowledges the push ("the limit I named was not real", a promise to call the tool) draws the next push, within the four-push cap. The push says the next output is the tool call itself.
 
 ## Continue means do the next action
 
-`continue`, `continue the work`, `continue on the current task`, `make the modifications`, and "do not wait for my instructions" do not end on a status, a plan, or a restatement. The loop sends `nudge-continue` (at most twice) telling the model to call the next tool. A failed tool is not a reason to wait.
+`continue`, `continue the work`, `continue on the current task`, `make the modifications` and "do not wait for my instructions" must not end on a status, plan or restatement. The loop sends `nudge-continue` (at most twice) telling the model to call the next tool. A failed tool is not a reason to wait.
 
 ```text
 continue # present this to yourself on the next run so I won't type continue
 ```
 
-That sentence also saves memory key `preference:continue` for the project. Later turns follow it without another `continue`. A greeting or a `status` request still answers in text.
+That sentence saves memory key `preference:continue` for the project, so later turns continue without being told. A greeting or a `status` request still gets a text answer.
 
-These nudges stop once the tool phase ends. The last allowed round, and any round after an efficiency stop, runs with the tools stripped and a prompt telling the model to answer in plain text without tool-call markup. A text answer there is the turn's final answer; pushing it to call a tool would contradict that directive and no call could run anyway.
+The nudges stop when the tool phase ends. The last allowed round, and any round after an efficiency stop, runs without tools and asks for plain text. A text answer there is final.
 
-## Good tool-calling behavior is praised, not just bad behavior flagged
+## Good tool calls are praised
 
-Three cases, each a `[GOOD]` acknowledgment landing in the tool result message itself - part of conversation history, not just the terminal, so it carries forward into later tasks in the session:
+A `[GOOD]` line lands in the tool result message, so it stays in history:
 
-- A failed call that then succeeds on retry - the positive counterpart to `[TOOL FAILED]`.
-- A real tool call right after a fake sandbox session was detected - specifically calling out that this one reached the real filesystem, not the simulated one.
-- Any of the first 3 successful tool calls in a session, even with no prior failure - building the habit early. After that, an ordinary success gets no banner; constant praise for routine calls would just be noise.
+- a failed call that succeeds on retry (the counterpart to `[TOOL FAILED]`)
+- a real call right after a fake sandbox session, noting it reached the real filesystem
+- each of the first 3 successful calls in a session; after that, routine successes get none
 
-The mandatory handshake's own tool result carries the same kind of line on a correct call, and a retry nudge there reshows the exact `<invoke>` syntax with a running miss count, framed as help rather than a rebuke.
+The handshake's tool result carries the same line on a correct call.
 
 ## Narrate before each tool call
 
-The model is asked to say in one present-tense sentence what it is about to do ("Reading config.yaml to check the timeout.") before every call. That line is printed to the terminal - without it the loop is silent between actions, because the streamer writes tool-round output to an internal buffer. Suppressed when `StreamFinalOnly` is set.
+The model is asked for one present-tense sentence before every call ("Reading config.yaml to check the timeout."). kdeps prints it to the terminal; otherwise the loop is silent between actions, since tool-round output goes to an internal buffer. `StreamFinalOnly` suppresses it.
