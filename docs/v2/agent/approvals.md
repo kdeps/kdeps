@@ -1,6 +1,6 @@
 # Approval tokens
 
-When a tool call is denied by the [permission mode](/agent/tools#permission-modes), the agent can request a one-time exception via an approval token. Tokens let you grant scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
+When the [permission mode](/agent/tools#permission-modes) denies a tool call, the agent can request a one-time exception with an approval token. A token grants one tool+action override without relaxing the permission mode.
 
 ## How it works in practice
 
