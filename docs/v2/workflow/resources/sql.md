@@ -1,6 +1,6 @@
 # SQL component
 
-The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step.
+The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step.
 
 ## Where it runs
 
@@ -35,7 +35,7 @@ component:
 
 ## Connections
 
-Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. The component names the connection; the kdeps API reads its string from `config.yaml` in-process, so the password never crosses the request and is not on any command line.
+Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. The component names the connection and the kdeps API reads its string from `config.yaml` in-process, so the password never crosses the request or a command line.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -135,7 +135,7 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"   # bad: SQL inject
 component: sql -> POST /apis/tools.kdeps.io/v1/tools/sql_ops/call -> rows or change summary
 ```
 
-One `httpClient` POST carrying the eight inputs to the `sql_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named connection from `config.yaml` itself and runs the statements with `database/sql` - the PostgreSQL, MySQL, SQLite, SQL Server and Oracle drivers are compiled in. Placeholder rewriting, result shapes, transactions and the error texts live in the tool. Copy `components/sql/` into your project to change an input default; the SQL itself runs in the kdeps API.
+One `httpClient` POST carrying the eight inputs to the `sql_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named connection from `config.yaml` and runs the statements with `database/sql`; the PostgreSQL, MySQL, SQLite, SQL Server and Oracle drivers are compiled in. Placeholder rewriting, result shapes, transactions and the error texts live in the tool. Copy `components/sql/` into your project to change an input default; the SQL itself runs in the kdeps API.
 
 ## See also
 

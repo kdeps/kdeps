@@ -43,7 +43,7 @@ settings:
 
 ### Default behavior: smart auto-configuration
 
-By default, kdeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., kdeps on `:16395`).
+By default, kdeps enables CORS for all origins, with credentials. This suits local development, where the frontend (e.g. Vite on `:5173`) runs on a different port than the API (kdeps on `:16395`).
 
 kdeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
 

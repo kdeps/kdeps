@@ -1,6 +1,6 @@
 # Example: stateless bot (stdin/stdout)
 
-This workflow runs in workflow mode (`kdeps run`) as a one-shot stdin/stdout bot - reads a message from stdin (or an env var), calls an LLM, and writes the reply to stdout. Useful for cron jobs, CI pipelines, or custom integrations.
+A workflow-mode (`kdeps run`) one-shot bot: it reads a message from stdin (or an env var), calls an LLM, and writes the reply to stdout. Use it in cron jobs, CI pipelines or custom integrations.
 
 ## Files
 
@@ -42,7 +42,7 @@ name: LLM Response
 chat:
   messages:
     - role: user
-      content: "{{ input('message') }}"
+      content: "{{ input('message') }}"   # the incoming message text
 ```
 
 ## resources/reply.yaml

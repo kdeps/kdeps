@@ -1,6 +1,6 @@
 # Transcribe components
 
-Two kdeps components turn audio into text: `transcribe_audio` calls a Whisper API (OpenAI, Groq, or a self-hosted OpenAI-compatible server), and `transcribe_audio_offline` runs a local `whisper-cli` binary with no API key and no network. Both come from the `components` asset set: call them with a `component:` resource, no install step. Each is a thin client over the kdeps API tools of the same name.
+Two kdeps components turn audio into text. `transcribe_audio` calls a Whisper API (OpenAI, Groq, or a self-hosted OpenAI-compatible server). `transcribe_audio_offline` runs a local `whisper-cli` binary, with no API key or network. Both come from the `components` asset set; call them with a `component:` resource, no install step. Each is a thin client over the kdeps API tool of the same name.
 
 ## Where it runs
 

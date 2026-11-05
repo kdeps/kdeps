@@ -2,7 +2,7 @@
 
 The [`loop`](/reference/glossary#loop) block enables conditional, unbounded iteration - making kdeps workflows Turing complete.
 
-Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a repeated scheduled task that pauses for a fixed duration between iterations.
+Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool. `items` iterates over a fixed list; `loop` repeats a resource body while an expression is true, or a fixed count without `while:`, with full `set()`/`get()` state. Add `every:` to pause a fixed duration between iterations, making it a scheduled task.
 
 ## Basic usage
 
@@ -115,9 +115,9 @@ apiResponse:
 
 </div>
 
-Three iterations → three `apiResponse` maps → streaming slice of length 3.
+Three iterations -> three `apiResponse` maps -> streaming slice of length 3.
 
-No iterations → empty slice.
+No iterations -> empty slice.
 
 ## `maxIterations` safety cap
 
@@ -168,7 +168,7 @@ The sleep is skipped after the last iteration - the caller receives results with
 loop:
   while: "true"          # run until maxIterations
   every: "30s"           # poll every 30 seconds
-  maxIterations: 1440    # up to 12 hours (1440 × 30 s)
+  maxIterations: 1440    # up to 12 hours (1440 x 30 s)
 component:
   name: exec
   with:

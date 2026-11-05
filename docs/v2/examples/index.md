@@ -35,7 +35,7 @@ closest to what you are building.
 | Example | What it demonstrates |
 |---|---|
 | [Read a file in the REPL](/examples/agent-repl) | `kdeps` with no YAML and no API key: `read_file`, then `write_file` |
-| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers `metadata.name` as one LLM tool |
+| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers the workflow as one LLM tool, named by `name:` under `metadata:` |
 
 ### kdeps agencies
 
@@ -288,7 +288,7 @@ Best for:
 
 The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
 started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
-`metadata.name`; kdeps runs the full DAG.
+the workflow's `name:` under `metadata:`; kdeps runs the full DAG.
 
 Best for:
 - Turning an API you already wrote into a REPL tool

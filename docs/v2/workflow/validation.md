@@ -53,7 +53,7 @@ chat:
 
 ### How it works
 
-Any true condition skips the resource silently - it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
+Any true condition skips the resource silently. It produces no output, but its slot in the dependency graph stays, so downstream resources can still reference it. Use `get()` to access any data source in skip conditions.
 
 ### Common patterns
 
@@ -99,7 +99,7 @@ chat:
 
 ### How it works
 
-All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller - no LLM call, no HTTP request, no work done.
+All `check` conditions must pass (AND logic). If one fails, execution stops and the caller gets the configured `error`, before any LLM call or HTTP request.
 
 ### Check expressions
 
@@ -389,12 +389,12 @@ chat:
 
 ```
 Request
-  ↓ headers / params     → filter inaccessible keys
-  ↓ skip conditions      → skip if any true
-  ↓ methods / routes     → skip if no match
-  ↓ check + error        → abort with error if any false
-  ↓ required/rules/expr  → abort with 422 if invalid
-  ↓ Execute Resource
+  v headers / params     -> filter inaccessible keys
+  v skip conditions      -> skip if any true
+  v methods / routes     -> skip if no match
+  v check + error        -> abort with error if any false
+  v required/rules/expr  -> abort with 422 if invalid
+  v Execute Resource
 ```
 
 ## Use cases

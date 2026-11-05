@@ -2,7 +2,7 @@
 
 Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 
-Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names the kdeps API operation that runs it. The REPL dispatches through that binding, and the same operation is on the [kdeps API](/reference/api#run-a-slash-command) at `POST /apis/commands.kdeps.io/v1/commands/{name}/call` - see `/apis/commands.kdeps.io/v1/commands` for the list with each operation's display name and usage.
+Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names the kdeps API operation that runs it. The REPL dispatches through that binding. The same operation is on the [kdeps API](/reference/api#run-a-slash-command) at `POST /apis/commands.kdeps.io/v1/commands/{name}/call`; `/apis/commands.kdeps.io/v1/commands` lists each operation with its display name and usage.
 
 | Command | Description |
 |---------|-------------|
@@ -97,7 +97,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 
 ## Auto-detected commands and files
 
-`!cmd` and `@path` require you to know kdeps' own syntax. Auto-context detection covers the common case where you just describe what you want in plain English - but only fires on a command or file mention wrapped in quotes (single or double); an unquoted mention in plain prose is never offered:
+Auto-context runs a command or inlines a file you mention in plain English, without `!cmd` or `@path`. It fires only on a mention in single or double quotes:
 
 ```text
 you type: "can you run \"df -h\" and take a look at \"main.go\"?"
@@ -121,19 +121,22 @@ main.go, sends  unchanged
 the turn
 ```
 
-Only text inside `"..."` or `'...'` is ever scanned - typing `can you check df -h for me` with no quotes triggers nothing, even though `df -h` is a recognized command. Quoting `"df -h"` is what tells auto-context you mean it literally.
+Only text inside `"..."` or `'...'` is scanned. `can you check df -h for me` triggers nothing; `"df -h"` does.
 
 ## Text files and read-only commands
 
-The same scan finds existing, readable text files by name (`look at "main.go"`) and offers to inline them like `@main.go` would - images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
+- A quoted name of an existing, readable text file (`look at "main.go"`) is offered for inlining, like `@main.go`. Images and binaries are never detected; use `@path`.
+- Only allowlisted read-only commands are offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, ...). Destructive ones (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted.
+- One confirmation covers the whole message. Declining or pressing Enter sends your text unchanged.
 
 ## Pipes and command substitution
 
-Pipes and command substitution are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting - its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
+- `"ps aux | grep -i kdeps"` runs as one pipeline when every `|` stage is read-only. One stage like `xargs rm` rejects the whole pipeline.
+- `` $(git rev-parse HEAD) `` needs no extra quoting. Its body is checked the same way. `;`, `&`, `` ` `` or a nested `$(` inside the parens rejects it.
 
 ## Auto-context on and off
 
-Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
+`/autocontext off` disables it for the session, `/autocontext on` re-enables it, and `/autocontext` shows the state.
 
 ## Startup flags
 
@@ -176,13 +179,36 @@ more -> issue: "no"
 issue -> done
 ```
 
-The working directory must be this module, or a folder inside it. Another module stops the walk. When no session is recording, the command starts one named `auto-improve`. An existing session keeps recording. On an OpenRouter backend, or when the current model is an OpenRouter free id, each task and each evaluate turn starts by printing `auto-improve: model <id>` and switching to another free id at random. A local backend stays on the model it was started with. A provider 429 during the capture continues on a random free id. So does a free id the provider refuses (a 400 or 502 "Provider returned error", a 404 "No endpoints found" for tool use, or a 403 "only available on agentic harnesses"). Each task asks for one tool use and does not edit files. The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line). It reports a loop, a refusal of work the tools can do, a call to the wrong tool, or a wrong tool error, with the event that shows it. It does not edit files. A model guess is left as a guess. As soon as each evaluate reply arrives, the command files one GitHub issue and prints `auto-improve: issue <url>`. If an open issue has the same title, that issue's URL is printed and nothing new is filed. The issue title is the first line of the evaluate reply, which states the bug. The issue body holds that whole reply verbatim under `## Conclusion`. If every failure in the session was a provider refusal or rate limit, no issue is filed and it prints `auto-improve: no issue (provider-only failures)`. A kdeps error, a tool error, or a clean run still files one. The issue lists up to 40 events that have an error field. The session stays open after the command finishes.
+**Where it runs.** The working directory must be this module or a folder inside it; another module stops the walk. With no session recording, it starts one named `auto-improve`; an existing session keeps recording and stays open afterwards.
+
+**Model.** On an OpenRouter backend, or an OpenRouter free model, each task and evaluate turn prints `auto-improve: model <id>` and switches to a random free id. A local backend keeps its model. A random free id also replaces one that fails with:
+
+- a provider 429
+- a 400 or 502 "Provider returned error"
+- a 404 "No endpoints found" for tool use
+- a 403 "only available on agentic harnesses"
+
+**Tasks and evaluation.** Each task asks for one tool use. The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line) and reports loops, refused work the tools can do, wrong-tool calls and wrong tool errors, each with its event. A model guess stays a guess. Neither edits files.
+
+**Issue.** After each evaluate reply, it files one GitHub issue and prints `auto-improve: issue <url>`.
+
+- Title: the reply's first line, which states the bug. Body: the whole reply under `## Conclusion`, plus up to 40 events with an error field.
+- An open issue with the same title is reused: its URL is printed, nothing is filed.
+- Only provider refusals or rate limits: no issue, and it prints `auto-improve: no issue (provider-only failures)`. A kdeps error, tool error or clean run still files one.
 
 The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
 
 `/auto-improve 2` runs only task 2, then its evaluate, in the current session. The number is 1, 2, or 3.
 
-A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs one task per process in the kdeps repository and reports only: it never keeps an edit and never opens a pull request. It passes `--backend openrouter`, `--instrument=bug-hunt-N`, and a model id from `assets/models/openrouter.yaml`. `scripts/bug-hunt.sh run` tries the largest parameter count first (the `550b` in `nvidia/nemotron-3-ultra-550b-a55b:free`), so larger free models come before small ones. `scripts/bug-hunt.sh models` stays in catalog order. Each process is hunt N of 3: the task, then the evaluate. The instrument log holds only that hunt. Inside a hunt, free-model requests wait so they stay under the account per-minute cap (`openrouter-free-per-minute`, 20 calls, every free id together). An account 429 waits out the minute and retries the same id. When the process does not print `auto-improve: done`, it tries another id, up to four. If the log has no `auto-improve: issue http` line and no `auto-improve: no issue` line, the job files the issue. Any edit a model made is discarded. The job then runs the next hunt. The workflow needs the `OPENROUTER_API_KEY` and `RELEASE_TOKEN` repository secrets; `RELEASE_TOKEN` files the issues.
+A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs one task per process and only reports. It discards any edit and never opens a pull request.
+
+- It passes `--backend openrouter`, `--instrument=bug-hunt-N`, and a model id from `assets/models/openrouter.yaml`.
+- `scripts/bug-hunt.sh run` tries the largest parameter count first (the `550b` in `nvidia/nemotron-3-ultra-550b-a55b:free`). `scripts/bug-hunt.sh models` keeps catalog order.
+- Each process is hunt N of 3 (task, then evaluate); its instrument log holds only that hunt.
+- Free-model requests wait to stay under the account cap (`openrouter-free-per-minute`: 20 calls per minute across all free ids). An account 429 waits out the minute and retries the same id.
+- Without `auto-improve: done`, it tries another id, up to four.
+- With no `auto-improve: issue http` and no `auto-improve: no issue` line in the log, the job files the issue itself.
+- Secrets: `OPENROUTER_API_KEY`, and `RELEASE_TOKEN` to file issues.
 
 ```bash
 id=$(grep -m1 'id: "' assets/models/openrouter.yaml | sed -E 's/.*"([^"]+)".*/\1/')
@@ -380,7 +406,7 @@ run:
 
 ## Setting commands
 
-A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps owns the setting itself (the live REPL state and saving it across sessions); the accepted values and every line the command prints are in the file. The block reads and writes through the `session_ops` tool's `get` and `set` operations, so any kdeps API caller can do the same, and `set` accepts only the values the command file lists.
+A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps holds the live value and persists it; the file holds the accepted values and every printed line. The block goes through the `session_ops` tool's `get` and `set`, so any kdeps API caller can do the same. `set` accepts only the listed values.
 
 ```text
 /refine        -> prints show:     (current value)
@@ -438,7 +464,7 @@ Templates can call `join` (`{{join .builtin ", "}}`).
 
 Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. A `key` kdeps does not have is skipped with a warning at load.
 
-A numeric setting takes a value of its form instead of a list: `fold-threshold` takes a token count (`3000`, `3k`) and `fold-items` a positive integer, both or `default`, which clears the override so the `fold` event's value applies. Their blocks need no `values:`.
+A numeric setting needs no `values:`. `fold-threshold` takes a token count (`3000`, `3k`) and `fold-items` a positive integer. Both accept `default`, which clears the override so the `fold` event's value applies.
 
 ## Subcommands
 

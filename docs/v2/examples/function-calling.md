@@ -6,7 +6,7 @@ a tool, kdeps runs the target resource, feeds the result back, and the model
 continues.
 
 A tool is a function the LLM can call. In workflow mode you declare tools in
-`chat.tools`: each has a name, a description the model uses to decide when to
+`tools:` on a `chat:` resource: each has a name, a description the model uses to decide when to
 call it, a `script:` naming the resource that runs it, and a parameter schema.
 The tool resource is not in the dependency graph - it runs only when the model
 calls it.

@@ -105,7 +105,7 @@ interface:
       default: 0.7
 ```
 
-`type` is one of `string`, `integer`, `number`, `boolean`, `array`, `object`. A scalar `with:` value is converted to its declared type before the component runs: `limit: 3` reaches a component that calls a kdeps API tool as the number `3`, and `dry_run: true` as the boolean `true`, not as strings. A value that does not parse is left as it is for the component or tool to reject.
+`type` is one of `string`, `integer`, `number`, `boolean`, `array`, `object`. A scalar `with:` value is converted to its declared type before the component runs: `limit: 3` arrives as the number `3` and `dry_run: true` as the boolean `true`, not strings. A value that does not parse is passed as-is for the component or tool to reject.
 
 Inside component resources, reference inputs with `input()`:
 
@@ -297,7 +297,7 @@ Components auto-load a `.env` file from their directory as a lowest-priority fal
 components/
   web_scraper/
     component.yaml
-    .env            ← auto-loaded when web_scraper runs
+    .env            <- auto-loaded when web_scraper runs
 ```
 
 Example `.env`:

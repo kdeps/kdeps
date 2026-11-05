@@ -166,7 +166,7 @@ component:
   with:
     method: GET
     url: "https://crm.example.com/contacts"
-    accountName: crm
+    accountName: crm             # Basic Auth from the agent identity's crm account
 ```
 
 </div>
@@ -304,7 +304,7 @@ component:
   with:
     method: GET
     url: "https://api.example.com/redirect"
-    followRedirects: false
+    followRedirects: false       # return the first 3xx instead of following it
 ```
 
 </div>
@@ -360,7 +360,7 @@ Use preflight checks to validate before making requests:
 ```yaml
 validations:
   check:
-    - get('user_id') != ''
+    - get('user_id') != ''      # false: stop before the request with the error below
   error:
     code: 400
     message: "user_id is required"
@@ -370,7 +370,7 @@ component:
   with:
     method: GET
     url: "https://api.example.com/users/{{ get('user_id') }}"
-    connectionName: myapi
+    connectionName: myapi        # auth + proxy from the myapi connection in ~/.kdeps/config.yaml
 ```
 
 </div>

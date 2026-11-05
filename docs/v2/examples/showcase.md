@@ -210,7 +210,7 @@ before:
         url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
 chat:
   prompt: |
-    Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
+    Trip: {{ get('from') }} -> {{ get('to') }} on {{ get('date') }}
     Data: {{ get('web_scraper') }}
     Best flight option, hotel, and 3-day itinerary.
   jsonResponse: true

@@ -24,7 +24,7 @@ message, and what is saved to the session and the memory bridge for that turn -
 so a later model switch sees exactly what was answered.
 
 **It sees the conversation so far.** The refine call gets the same prior-turn
-history the real turn does, so it can resolve what a reference actually means -
+history the real turn does, so it can resolve what a reference means -
 "change that to use port 465" becomes concrete once the refiner can see the
 config you were just discussing. Only prior turns are included; the prompt
 being refined is not yet part of the history at this point.

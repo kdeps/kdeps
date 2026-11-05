@@ -118,7 +118,14 @@ What will you use kdeps for? (change it later with kdeps profile)
 Choice [5]:
 ```
 
-A later command that needs more installs only the items its loader requires, so a small profile stays small and never blocks you: under `minimum`, the agent loop adds just 23 core commands and its core tools - files (`read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`), shell (`bash_exec` and its job tools), `search_local`, memory and knowledge - so a minimum agent can still read, edit, run, search and remember. Web and search tools come with `kdeps install tools`, or one at a time (`kdeps install tools/web_search`). `kdeps install <set>` adds a set, and `kdeps profile <name>` switches profile, pruning what the new one leaves out. In CI or Docker there is no prompt: set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads. A profile chooses what is installed. A [shelf](/reference/glossary#shelf) is a separate filing of those same items: `kdeps list rag` shows one, and the id stays `set/name`. Details: [Updating assets](/agent/repl-updating#updating-assets).
+A later command that needs more installs only what its loader requires, so a small profile stays small and never blocks you. Under `minimum`, the agent loop adds 23 core commands and core tools: files (`read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`), shell (`bash_exec` and its job tools), `search_local`, memory and knowledge.
+
+- Web and search tools: `kdeps install tools`, or one at a time (`kdeps install tools/web_search`).
+- `kdeps install <set>` adds a set; `kdeps profile <name>` switches profile and prunes the rest.
+- CI or Docker: no prompt. Set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads.
+- A [shelf](/reference/glossary#shelf) files the same items by category: `kdeps list rag` shows one; the id stays `set/name`.
+
+Details: [Updating assets](/agent/repl-updating#updating-assets).
 
 ## Docker (optional)
 
@@ -169,7 +176,7 @@ Each choice fills in the matching `llm:` fields:
 - **llamafile / gguf** - sets `backend` and a default model.
 - **cloud** - sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
 - **ollama** - sets `backend: ollama` and the host URL.
-- **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
+- **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `models:` and `strategy:` under `llm:`.
 - **m365** - sets `backend: m365`. No API key: authenticates via a browser-cached
   Microsoft 365 sign-in (or headless credentials for CI/servers). See
   [LLM Provider Reference - M365 Copilot](/llm-server/m365).

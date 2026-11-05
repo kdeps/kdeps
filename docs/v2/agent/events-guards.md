@@ -4,7 +4,7 @@ These events fire on a round count, a truncation size, a call budget, or a memor
 
 ## Round-count events
 
-The same `{name, on, run}` shape also covers the loop's stuck-loop and task-budget guards -- these fire on a *count of rounds*, not a token measurement, so their `on:` clause uses `rounds:` instead of `tokens:`:
+The same `{name, on, run}` shape covers the stuck-loop and task-budget guards. They fire on a count of rounds, not tokens, so `on:` uses `rounds:`:
 
 ```yaml
 # ~/.kdeps/events/identical-tool-calls.yaml
@@ -24,7 +24,7 @@ run: force_answer
 
 ## A sensible floor of 1
 
-Every one of these has a sensible floor of 1 built in: an override file that omits `rounds:`, or a corrupted one, never accidentally disables the guard by resolving to 0 (which would otherwise fire on the very first round).
+Each has a built-in floor of 1. An override that omits `rounds:`, or a corrupted one, never resolves to 0, which would fire on the first round.
 
 ## Truncation events
 
@@ -46,7 +46,7 @@ run: truncate
 | `history-window-trim` | the in-flight tool-loop message array exceeds this size | drops the oldest complete tool round-trips |
 | `file-read-limit` | a file a builtin tool is about to read (or `write_file`'s own content) exceeds this size | rejects the call with an error instead of reading/writing it |
 
-Like the round-count cluster, each has its own sensible fallback (matching its built-in default) if the event registry is ever unavailable -- an override that omits `bytes:` never resolves to "truncate to nothing" or "reject every file."
+Each also falls back to its built-in default if the registry is unavailable. An override that omits `bytes:` never means "truncate to nothing" or "reject every file".
 
 ## Call-budget events
 
@@ -70,11 +70,11 @@ run: block
 
 A tool removed from a list runs with no budget and no reuse of earlier answers. A tool added to a list is counted by its arguments. These four events must keep a `tools:` list: an override file without one is rejected when it loads, and the shipped event stays in force.
 
-These four already had a per-session override path before events existed -- `/model tool set web-limit <n>` (and `bash-limit`/`file-limit`/`code-limit`) still work exactly as before, on top of whatever the event's own default is, the same relationship `/fold threshold` has with the `fold` event. Setting one to `0` removes the cap entirely (`/model tool set web-limit 0`): the budget never blocks, and the system prompt stops telling the model to synthesize after a fixed number of searches - it states the limit actually enforced, or says there is no cap. Identical repeated calls (same call, same result) stop after as many rounds as the tool's allocated budget; only tools without a budget use the `identical-tool-calls` threshold.
+`/model tool set web-limit <n>` (and `bash-limit`, `file-limit`, `code-limit`) overrides an event's default for the session, as `/fold threshold` does for `fold`. `0` removes the cap (`/model tool set web-limit 0`): the budget never blocks, and the system prompt states the enforced limit or that there is none. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget; tools without a budget use the `identical-tool-calls` threshold.
 
 ## Your own tool budgets
 
-An event with a `tools:` list is a budget you define in YAML, with no Go code that knows its name: in one turn the model may make at most `on.distinctCalls` distinct calls to those tools. A repeat of a call already made does not count again. Once the turn is over the limit, a new call is blocked the same way the built-in call budgets block one, and the model answers with what it has.
+An event with a `tools:` list is a budget defined only in YAML. In one turn the model may make at most `on.distinctCalls` distinct calls to those tools; a repeated call does not count again. Past the limit, a new call is blocked like the built-in budgets, and the model answers with what it has.
 
 ```yaml
 # ~/.kdeps/events/search-budget.yaml - loaded at start, no registry entry needed
@@ -89,7 +89,7 @@ run: block              # the only action a tools: event takes
 
 ## Memory events
 
-The [persistent memory](./memory.md) subsystem's injection/traversal caps are events too. `memory-prompt-limit` fires on a token measurement like `auto-compact`/`fold`; the rest are plain counts with no trigger condition at all -- they always apply, so they set `items:` directly instead of an `on:` clause:
+The [persistent memory](./memory.md) injection and traversal caps are events too. `memory-prompt-limit` fires on a token measurement like `auto-compact` and `fold`. The rest are plain counts that always apply, so they set `items:` instead of `on:`:
 
 ```yaml
 # ~/.kdeps/events/memory-focus-max.yaml

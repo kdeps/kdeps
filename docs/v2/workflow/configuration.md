@@ -61,7 +61,7 @@ Credentials and named connections (HTTP auth, search API keys, bot tokens) belon
 
 ## Metadata and config profiles
 
-`metadata.name` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
+The workflow's `name:` under `metadata:` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -141,11 +141,11 @@ See [Security](/reference/advanced-config#security) for the full security refere
 ```yaml
 settings:
   letsEncrypt:
-    domain: api.example.com
-    email: ops@example.com
+    domain: api.example.com          # cert hostname; its A/AAAA record must point here
+    email: ops@example.com           # Let's Encrypt registration email
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 443
+    hostIp: "0.0.0.0"                # listen on every interface
+    portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
 DNS must point at this host; open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
@@ -204,7 +204,7 @@ On local runs an already-set process variable always wins, so you can override
 per invocation: `API_KEY=other kdeps run workflow.yaml`. This is also how an
 example pins a backend, e.g. `KDEPS_DEFAULT_BACKEND: ollama`.
 
-Model selection goes in `chat.model` inside each resource file. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing.
+Model selection goes in `model:` under each resource's `chat:`. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing.
 
 ## SQL connections
 

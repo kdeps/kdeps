@@ -3,7 +3,7 @@
 The judge panel is the eval. It reviews a turn's answer on its own. Roster generation and each judge use the [auxiliary channel](/agent/auxiliary). That is the session model unless you point it at another model.
 
 Goal enforcement checks that the loop keeps moving; it says nothing about whether
-the final answer is actually right. The panel is an independent review of
+the final answer is right. The panel is an independent review of
 that answer, run after the turn produces it - one or more reviewer personas, each
 with real tool access, check the output and can send it back for revision before
 it reaches you.
@@ -18,7 +18,7 @@ answer -> [judge 1] -> [judge 2] -> [judge 3] -> all approved? -> answer
 
 **A judge is a full agent, not a rubber stamp.** Each judge runs its own
 ephemeral tool-calling loop (the same round loop the main turn uses), so it can
-read a file, run a test, or search the web to verify a claim before ruling - not just re-read the answer and guess. A judge settles its review by calling
+read a file, run a test, or search the web to verify a claim before ruling, not re-read the answer and guess. A judge settles its review by calling
 `judge_verdict{approved, feedback}` exactly once; there is no way to approve or
 reject by prose alone.
 

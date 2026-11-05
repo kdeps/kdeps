@@ -20,7 +20,7 @@ How the model is named depends on where it runs:
 | llamafile | `kdeps (hfuser/gemma4-2-9b llamafile) <noreply@kdeps.com>` |
 | GGUF | `kdeps (hfuser/gemma4-2-9b gguf) <noreply@kdeps.com>` |
 
-Cloud and Ollama models are namespaced by their provider (`provider/model`). Local llamafile and GGUF models already carry their HuggingFace namespace in the name, so the runtime is appended instead - the same repo is often published as both, and the name alone cannot tell them apart.
+Cloud and Ollama models are namespaced by provider (`provider/model`). Local llamafile and GGUF names already carry their HuggingFace namespace, so the runtime is appended instead; the same repo is often published as both.
 
 With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
 

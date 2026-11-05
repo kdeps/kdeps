@@ -1,6 +1,6 @@
 # Git component
 
-The `git` component runs structured version-control operations - status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull - and returns parsed results (file lists, commit objects, branch lists) instead of raw command output. It is a kdeps component (YAML, no Go code) from the `components` asset set: call it with a `component:` resource, no install step. Its operations are the kdeps API's `git_ops` tool; the component only POSTs the arguments.
+The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results: file lists, commit objects, branch lists. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step. The operations are the kdeps API's `git_ops` tool; the component only POSTs the arguments.
 
 ## Where it runs
 

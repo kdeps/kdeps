@@ -46,12 +46,12 @@ Install it with `brew install rtk`, or skip it - kdeps runs your commands unchan
 
 What this does not change:
 
-- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. The same fallback applies when rtk's rewrite does not actually invoke `rtk` - kdeps only executes a rewrite it can identify as an rtk command. rtk can never block execution.
+- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. The same applies when rtk's rewrite does not invoke `rtk`; kdeps runs only a rewrite it can identify as an rtk command. rtk can never block execution.
 - **Permissions are unaffected.** kdeps gates shell commands itself. rtk is only a compressor here, so its own permission verdicts are ignored rather than double-gating you.
 - **A workflow `exec` resource keeps raw output,** because pipelines parse it downstream. `bash_exec` and the shipped `bash_exec` component both use rtk.
 
 ::: tip Verifying the right rtk
-An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name - it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.
+An unrelated crate on crates.io is also named `rtk`. kdeps verifies the binary by behavior, not name, so an impostor on your `PATH` is ignored. Check yours with `rtk gain`: it works on the real one.
 :::
 
 ## See also

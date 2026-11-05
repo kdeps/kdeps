@@ -4,21 +4,25 @@
 
 ## Every prompt and every tool result
 
-Every harness section (the pieces of text kdeps sends the LLM to shape its behavior - see [Custom harness](/agent/repl#custom-harness)) has its own normal home: a preamble section goes into the once-per-session system prompt in order, a standalone entry fires only at its one specific call site (a nudge, a praise line, the m365 sandbox warning, the compaction/judge/refine system prompts). `/harness reminders <name> on` overrides that: it forces the named section's raw text onto every LLM prompt (from the very first turn, not just after turn one like the tools reminder) and onto every tool call result, regardless of whether that section's own trigger condition would ever fire on its own.
+Each harness section (see [Custom harness](/agent/repl#custom-harness)) has a normal place. A preamble section goes into the system prompt; a standalone entry fires only at its call site (a nudge, a praise line, the m365 sandbox warning, the compaction/judge/refine prompts). `/harness reminders <name> on` overrides that. The section's raw text goes onto every prompt, from the first turn, and onto every tool result, whether or not its trigger fires.
 
 ```
 /harness reminders m365-sandbox on
 ```
 
-This is a blunt, session-wide instrument for a specific situation: a model that keeps needing a particular piece of guidance repeated more often than its normal placement provides - a stubborn sandbox-hallucination habit, a persistent unwanted pattern, or house-style text you want reinforced constantly rather than once. Turning it on for several sections at once compounds their token cost every single turn and every single tool result, so treat it as a short-lived escalation, not a permanent setting.
+Use it for a model that needs guidance repeated more often than its normal placement: a stubborn sandbox habit, a recurring unwanted pattern, house style. Each reminder adds its tokens to every turn and every tool result, so keep it short-lived.
 
 ## List, off, and the status line
 
-`/harness reminders list` shows every section with its current on/off state; `/harness reminders <name> off` turns one off again. The setting persists to `~/.kdeps/harness/<name>.yaml` (the same override file `/harness enable|disable` uses - the two flags are independent of each other and of `disabled`: a reminder can be forced on for a section that is itself disabled everywhere else, and vice versa) and is included in [konfig](/agent/konfig) export/import. While any reminder is active, a `reminder:<names>` segment appears in the REPL's status line next to `turo:`, comma-joining every active name; it disappears entirely the moment the last one is turned off.
+`/harness reminders list` shows each section's state; `/harness reminders <name> off` turns one off.
+
+- The setting persists in `~/.kdeps/harness/<name>.yaml`, the file `/harness enable|disable` uses, and is in [konfig](/agent/konfig) export/import.
+- Reminders are independent of enable/disable: a disabled section can still be forced on as a reminder.
+- While any reminder is on, the status line shows `reminder:<names>` next to `turo:`.
 
 ## Reminders for /instruct topics
 
-The same switch works for the [`/instruct`](/agent/commands) topics (`overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files`). Turning one on forces that topic's briefing text onto every LLM prompt and every tool call result - handy for a model that keeps forgetting how to call a tool (`instruct:tools`) or what tools exist (`instruct:available`, rendered live from the session's tool catalog each time).
+The same switch works for [`/instruct`](/agent/commands) topics (`overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files`). Turning one on forces that briefing onto every prompt and tool result. Use `instruct:tools` for a model that forgets how to call a tool, or `instruct:available` (rendered live from the tool catalog) for one that forgets what exists.
 
 ```
 /harness reminders instruct:tools on

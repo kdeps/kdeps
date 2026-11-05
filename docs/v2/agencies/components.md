@@ -36,10 +36,10 @@ Components you build: a `component.yaml` manifest plus resources in a `component
 ```
 my-workflow/
 ├── workflow.yaml
-└── components/                  ← auto-discovered
+└── components/                  <- auto-discovered
     └── greeter/
-        ├── component.yaml       ← component manifest
-        └── resources/           ← component-specific resources
+        ├── component.yaml       <- component manifest
+        └── resources/           <- component-specific resources
 ```
 
 ## How components work
@@ -50,9 +50,9 @@ my-workflow/
 4. Resources invoke components via `component:` with typed inputs in `with:`
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
-7. kdeps ships its own components in the `components` asset set ([ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql), web_search and web_scraper are tools, not components); one is loaded only when a workflow calls it and does not provide a component of that name itself
+7. kdeps ships its own components in the `components` asset set: [ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql) (web_search and web_scraper are tools). One loads only when a workflow calls it and has no component of that name itself
 
-A component's resources run in order when it is called; a resource with `validations.skip` is skipped when a condition is true, so one component can choose between resources from its inputs, and `validations.check` fails the call with its `error.message` when a condition is false:
+A component's resources run in order. A resource whose `skip:` condition (under `validations:`) is true is skipped, so a component can choose resources from its inputs. A false `check:` condition fails the call with its `error.message`:
 
 ```yaml
 # components/fetch/component.yaml (resources, abridged)
@@ -97,7 +97,7 @@ interface:
 
 </div>
 
-`setup.osPackages` are installed by `kdeps build` in the image and, at run time, by the machine's package manager (apk, apt-get, brew). List the programs they provide under `setup.provides`: when every one is already on `PATH`, no package manager runs - a run on a machine that has the tool costs nothing extra.
+`kdeps build` installs the `osPackages` listed under `setup:` into the image; at run time the machine's package manager (apk, apt-get, brew) installs them. List the programs they provide under `provides:`. When all are already on `PATH`, no package manager runs.
 
 ```yaml
 # components/my-tool/component.yaml
@@ -106,7 +106,7 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
-A component shipped in the `components` asset set lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
+A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
 
 ```yaml
 # components/web_search/template.yaml (as shipped)

@@ -18,9 +18,9 @@ Both accept bare scalar expressions. Each item executes in sequence and can call
 actionId: preProcessor
 name: Pre-Processor
 after:
-  - set('normalized_input', lower(get('q')))
+  - set('normalized_input', lower(get('q')))   # runs after the resource; stored for later resources
   - set('timestamp', info('timestamp'))
-  - set('user_id', get('userId', 'session'))
+  - set('user_id', get('userId', 'session'))   # second argument: read from session storage
 
 chat:
   prompt: "Process: {{ get('normalized_input') }}"
@@ -201,7 +201,7 @@ name: Setup Context
 after:
   - set('session_id', info('ID'))
   - set('start_time', info('timestamp'))
-  - set('environment', get('ENV', 'env') ?? 'development')
+  - set('environment', get('ENV', 'env') ?? 'development')   # ?? gives a fallback when ENV is unset
   - set('user_context', get('user', 'session') ?? {})
 ```
 
@@ -289,7 +289,7 @@ after:
       'id': get('request_id'),
       'time': get('request_time'),
       'query': get('q')
-    }, 'memory')
+    }, 'memory')                                 # third argument: write to memory storage
 
 chat:
   prompt: "{{ get('q') }}"
@@ -308,7 +308,7 @@ name: Validated Input
 after:
   - set('email', lower(trim(get('email'))))
   - set('age', int(get('age')))
-  - set('is_valid', get('email') contains '@' && get('age') >= 18)
+  - set('is_valid', get('email') contains '@' && get('age') >= 18)   # read by the check below
 
 validations:
   check:
@@ -333,7 +333,7 @@ actionId: sessionHandler
 name: Session Handler
 after:
   - set('session_id', get('session_id', 'session') ?? info('sessionId'), 'session')
-  - set('visit_count', (get('visit_count', 'session') ?? 0) + 1, 'session')
+  - set('visit_count', (get('visit_count', 'session') ?? 0) + 1, 'session')   # persists across requests in the session
   - set('last_visit', info('timestamp'), 'session')
 
 apiResponse:

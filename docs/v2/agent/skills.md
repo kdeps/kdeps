@@ -30,7 +30,10 @@ The system prompt lists only each skill's name and description - never the full 
 
 ### Related skills
 
-When skills are (re)loaded, kdeps records which skills are related. A skill file in the [knowledge vault](/agent/knowledge) takes its related names from that vault's graph, which is brought current first (no model call): a `references` edge in either direction (a markdown or wiki link) or a shared tag. Every other skill uses a reference/topic graph over each skill-library root, the same graph `search_local` builds for a folder outside the vault. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:` / `tags:` in frontmatter:
+On (re)load, kdeps records which skills are related, without a model call:
+
+- **A skill in the [knowledge vault](/agent/knowledge):** from the vault graph, refreshed first. A `references` edge either way (markdown or wiki link) or a shared tag relates two skills.
+- **Any other skill:** from a reference/topic graph over each skill-library root, the graph `search_local` builds outside the vault. Two skills are related if one's `SKILL.md` links the other (`[other](../other/SKILL.md)`) or both declare the same `topics:` / `tags:` in frontmatter:
 
 ```markdown
 ---
@@ -73,7 +76,7 @@ The agent automatically discovers instruction files by walking up the directory 
 - `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `GEMINI.md` at any ancestor directory
 - every `*.md` file directly in a `.kdeps/` folder at any ancestor directory (`.kdeps/KDEPS.md` first, then the rest by name)
 
-`KDEPS.md` is kdeps' own instruction file and takes the highest priority: it is discovered first, keeps its full character budget, and the agent is told that `KDEPS.md` wins any conflict with `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or the rest.
+`KDEPS.md` is kdeps' own instruction file and has the highest priority. It is discovered first and keeps its full character budget, and the agent is told it wins any conflict with `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` or the rest.
 
 Duplicate content (by hash) is deduplicated. Total injected context is capped at ~12 KB. Instructions are injected into the system prompt at startup.
 

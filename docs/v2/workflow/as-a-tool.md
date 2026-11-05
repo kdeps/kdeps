@@ -2,7 +2,7 @@
 
 Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/agent/). You type a prompt; the model decides when to call the workflow; kdeps runs the full DAG and returns the result.
 
-**Needs:** a workflow directory with `workflow.yaml` and a `metadata.name` (the quickstart project `my-agent` works).
+**Needs:** a workflow directory with `workflow.yaml` and a `name:` under `metadata:` (the quickstart project `my-agent` works).
 
 ## How it works
 
@@ -16,7 +16,7 @@ LLM calls tool "my-agent"
 kdeps runs the full workflow DAG
 ```
 
-The LLM never sees the resource YAML. It sees one tool, named `metadata.name`, and the tool's output (`apiResponse.response`).
+The LLM never sees the resource YAML. It sees one tool, named by `name:` under `metadata:`, and the tool's output (the `response:` of `apiResponse:`).
 
 The tool's parameters are the keys the workflow's resources read with `input()`: a resource that reads `input('name')` gives the tool a `name` parameter, and the model's call fills it. A workflow that reads no named input takes a single `input` message.
 
@@ -31,7 +31,7 @@ component:
 
 ## Step 1: confirm the tool name
 
-Open `workflow.yaml` and read `metadata.name`. That string is the tool name. In the quickstart it is `my-agent`:
+Open `workflow.yaml` and read `name:` under `metadata:`. That string is the tool name. In the quickstart it is `my-agent`:
 
 ```yaml
 # workflow.yaml
@@ -81,7 +81,7 @@ kdeps ./agents/
 ## Summary
 
 - `kdeps [path]` is agent mode. `kdeps run workflow.yaml` is workflow mode. Same file.
-- The tool name is `metadata.name`, not the filename.
+- The tool name is `name:` under `metadata:`, not the filename.
 - The unit of work is the whole workflow, not a single resource.
 
 ## Next steps

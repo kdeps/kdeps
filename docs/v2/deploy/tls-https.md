@@ -129,12 +129,12 @@ Before production, validate the path with staging:
 ```yaml
 settings:
   letsEncrypt:
-    domain: api.example.com
-    email: ops@example.com
-    staging: true
+    domain: api.example.com          # cert hostname; its A/AAAA record must point here
+    email: ops@example.com           # Let's Encrypt registration email
+    staging: true                    # staging CA: untrusted certs, no production rate limits
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 443
+    hostIp: "0.0.0.0"                # listen on every interface
+    portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
 Browsers will warn (staging CA is untrusted). When green, set `staging: false` and clear or use a separate `cacheDir` so production does not reuse staging material.
@@ -173,12 +173,12 @@ Expose Service ports 80 and 443, use a persistent volume for `cacheDir`, and set
 ```yaml
 settings:
   letsEncrypt:
-    domain: api.example.com
-    email: ops@example.com
-    cacheDir: /var/lib/kdeps/letsencrypt
+    domain: api.example.com          # cert hostname; its A/AAAA record must point here
+    email: ops@example.com           # Let's Encrypt registration email
+    cacheDir: /var/lib/kdeps/letsencrypt   # ACME keys + certs; persist it so renewals survive restarts
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 443
+    hostIp: "0.0.0.0"                # listen on every interface
+    portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
 Many clusters prefer Ingress TLS (cert-manager) and keep kdeps on plain HTTP inside the cluster. That remains fully supported - omit `letsEncrypt` and terminate TLS at the Ingress.
@@ -195,7 +195,7 @@ If you already run Caddy, Traefik, or Nginx for TLS:
 
 - Leave kdeps on HTTP (`hostIp: 127.0.0.1`, default port)
 - Do not set `letsEncrypt` or PEM paths on kdeps
-- Proxy `https://api.example.com` → `http://127.0.0.1:16395`
+- Proxy `https://api.example.com` -> `http://127.0.0.1:16395`
 
 ## LLM server appliances
 

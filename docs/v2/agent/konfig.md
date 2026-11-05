@@ -25,7 +25,19 @@ kdeps --konfig <path> [path]   # import, then start the agent loop
 /konfig import [path]          # inside the REPL, applies immediately
 ```
 
-Importing writes every section to where it already lives on disk -- harness entries to `~/.kdeps/harness/<name>.yaml`, themes to `~/.kdeps/themes/<name>.yaml`, events to `~/.kdeps/events/<name>.yaml`, actions to `~/.kdeps/actions/<name>.yaml`, presets to `~/.kdeps/presets/<name>.yaml`, skills to `~/.kdeps/skills/<name>/SKILL.md`, and tuning/registry/active-theme into `~/.kdeps/agent-loop-settings.yaml` -- overriding any built-in or existing user entry of the same name. `kdeps konfig import` and `/konfig import` also reload the in-process harness, theme, event, action, and preset registries and apply the active theme immediately; `--konfig <path>` applies before the rest of startup reads settings, so the freshly imported values take effect for that run without a second step. Imported skills are picked up the next time the process starts (a running REPL's skill list is loaded once at startup).
+Import writes each section to its usual place, replacing any built-in or user entry with the same name:
+
+| Section | Written to |
+|---|---|
+| harness | `~/.kdeps/harness/<name>.yaml` |
+| themes | `~/.kdeps/themes/<name>.yaml` |
+| events | `~/.kdeps/events/<name>.yaml` |
+| actions | `~/.kdeps/actions/<name>.yaml` |
+| presets | `~/.kdeps/presets/<name>.yaml` |
+| skills | `~/.kdeps/skills/<name>/SKILL.md` |
+| tuning, registry, active theme | `~/.kdeps/agent-loop-settings.yaml` |
+
+`kdeps konfig import` and `/konfig import` reload the harness, theme, event, action and preset registries and apply the theme immediately. `--konfig <path>` applies before startup reads settings, so the values take effect for that run. Imported skills load on the next process start.
 
 ## What is in the file
 
@@ -41,7 +53,7 @@ Importing writes every section to where it already lives on disk -- harness entr
 | `skills` | Every loaded skill, with its full `SKILL.md` content inlined - skills travel with the file, not by path |
 | `registry` | Enabled workflow/agency/component/skill lists, default model, model-name display mode, favorite models, custom OpenAI-compatible endpoints |
 
-Harness and themes are exported as the full effective set, not a diff against the binary's built-ins - the file alone fully determines behavior on any machine or kdeps version, independent of what that machine's own `~/.kdeps` happens to contain.
+Harness and themes export as the full effective set, not a diff against built-ins, so the file alone determines behavior on any machine or kdeps version.
 
 ## Status
 

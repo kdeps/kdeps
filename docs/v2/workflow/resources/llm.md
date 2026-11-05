@@ -42,7 +42,7 @@ chat:
   prompt: "{{ get('q') }}"
 ```
 
-If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider API key is missing from `config.yaml`, `kdeps run` prompts for the key at startup, saves `llm.<provider>_api_key`, and - when no default backend is set - points `llm.backend` at that provider so the model routes correctly. This is interactive-only; in CI/pipes the prompt is skipped. See Interactive setup on first run.
+If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider key is missing from `config.yaml`, `kdeps run` prompts for the key at startup and saves it as `<provider>_api_key` under `llm:`. With no default backend set, it also points `backend:` at that provider. Interactive only; CI and pipes skip the prompt.
 
 ## Model resolution order
 
@@ -54,8 +54,12 @@ resource model:  ->  config router (llm.models + strategy)  ->  first llm.models
 ```
 
 - A resource with an explicit `model:` always wins - unless it is the literal `system`, which resolves down this same list.
-- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise - on the local file backend, when [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded - whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` is not installed or nothing is downloaded yet.
-- A cloud/gguf/ollama backend with no model and no `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve - set `model:` on the resource or `llm.models` in `config.yaml`.
+- Omit `model:` to inherit the machine default, first match wins:
+  1. the LLM router, when `strategy:` is set under `llm:`
+  2. the first entry of `models:` under `llm:`
+  3. on the local file backend, the downloaded model that best fits this machine, when [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) is installed and a local model is downloaded
+  4. the built-in `llama3.2:1b` on the local file backend
+- A cloud, gguf or ollama backend with no model and no `models:` list errors at run time; kdeps will not guess a model that backend cannot serve. Set `model:` on the resource or `models:` under `llm:` in `config.yaml`.
 
 ## Basic usage
 
@@ -67,7 +71,7 @@ actionId: llmResource
 name: LLM Chat
 chat:
   prompt: "{{ get('q') }}"
-  timeout: 60s
+  timeout: 60s                  # fail the resource if the model has not answered in 60s
 ```
 
 </div>
@@ -229,7 +233,7 @@ chat:
 
 ## Knowledge recall
 
-Every `chat` call adds the [knowledge vault](/agent/knowledge) notes related to its prompt by default. kdeps brings the structural graph current (links, tags, and frontmatter; no model call), walks it from the prompt's words, and puts the best few notes - their paths and one-line summaries, within the recall token budget - in a system message right after the system prompt. Nothing is added when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write nothing to the vault unless `knowledge.workflow_notes: true`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
+Every `chat` call adds [knowledge vault](/agent/knowledge) notes related to its prompt by default. kdeps refreshes the structural graph (links, tags, frontmatter; no model call), walks it from the prompt's words, and puts the best few note paths and summaries, within the recall token budget, in a system message after the system prompt. Nothing is added when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
 
 <div v-pre>
 
@@ -307,7 +311,7 @@ Output:
 
 ## Vision (file attachments)
 
-Process images (set a vision-capable model in `chat.model` in your resource file):
+Process images (set a vision-capable model in the resource's `model:`):
 
 <div v-pre>
 
@@ -417,7 +421,7 @@ Requires `fewShotSelectK` to be set. Falls back to word-overlap if no embedding 
 
 ## Provider-specific options
 
-Some `chat:` fields only apply to one backend - Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. They are all set per resource, not in `config.yaml`, and are documented with the backend they belong to:
+Some `chat:` fields apply to one backend only: Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. They are set per resource, not in `config.yaml`, and documented with their backend:
 
 - [LLM backends](/workflow/resources/llm-backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, `openAIWebSearch`, Ollama `streaming`
 - [LLM provider reference](/llm-server/providers) - per-provider config snippets and model names

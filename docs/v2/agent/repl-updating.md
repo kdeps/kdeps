@@ -1,41 +1,41 @@
 # Updating kdeps
 
-`/upgrade` checks GitHub and, for a standalone install, downloads and verifies the new binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets) - harness, tool definitions, slash commands, themes, recipes, model registries and templates - without a new binary. The other REPL behaviors stay on [REPL features](/agent/repl).
+`/upgrade` installs a new kdeps binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets): harness, tool definitions, slash commands, themes, recipes, model registries and templates. Other REPL behaviors are on [REPL features](/agent/repl).
 
-kdeps checks GitHub for a newer stable release at startup (throttled to once every 24 hours, cached at `~/.kdeps/update-check.json`, bounded to 3 seconds) and, if one exists, prints a one-line notice under the banner:
+At startup kdeps checks GitHub for a newer stable release and prints a notice under the banner. The check runs at most once every 24 hours, is cached at `~/.kdeps/update-check.json`, and times out after 3 seconds:
 
 ```
 Update available: v2.8.0 -> v2.9.0. Run /upgrade to update.
 ```
 
-A development build does not print that line. `make build` stamps the binary `v2.0.0-dev`, which is older than every release, so the notice would name whatever the 24-hour cache last stored. `/upgrade` still checks when you run it.
+Development builds skip the notice. `make build` stamps `v2.0.0-dev`, which is older than every release. `/upgrade` still checks when you run it.
 
-Run `/upgrade` (or `kdeps --upgrade` outside the REPL) any time to check immediately and install. What happens next depends on how kdeps was installed:
+`/upgrade` (or `kdeps --upgrade` outside the REPL) checks now and installs. The result depends on the install method:
 
-- **Homebrew** (`brew install kdeps/tap/kdeps`): prints `brew upgrade kdeps` instead of touching the binary - self-replacing it would desync Homebrew's own bookkeeping.
-- **.deb / .apk package**: prints the matching package-manager upgrade command.
-- **Standalone** (the `curl | sh` installer, or a manually downloaded binary): after a `[Y/n]` confirmation (skippable with `KDEPS_YES=1`), downloads the release archive for your platform, verifies its SHA256 against `checksums.txt`, and atomically replaces the running binary. Restart kdeps afterward.
+- **Homebrew** (`brew install kdeps/tap/kdeps`): prints `brew upgrade kdeps`. Replacing the binary would desync Homebrew.
+- **.deb / .apk package**: prints the package-manager upgrade command.
+- **Standalone** (`curl | sh` installer or a downloaded binary): asks `[Y/n]` (`KDEPS_YES=1` skips it), downloads the release archive, verifies its SHA256 against `checksums.txt`, and atomically replaces the binary. Restart kdeps afterward.
 
 ## Nightly builds
 
-kdeps also cuts a nightly build from `main` most days. `/upgrade nightly` (or `kdeps --upgrade --nightly`) switches the channel for that one check: it installs the latest nightly instead of the latest stable.
+kdeps builds a nightly from `main` most days. `/upgrade nightly` (or `kdeps --upgrade --nightly`) installs the latest nightly for that one check.
 
-Nightly opt-in only works for a standalone install - Homebrew/.deb/.apk only ever track stable, so on those `/upgrade nightly` prints standalone-install instructions instead of a package-manager command. "Already up to date" for the nightly channel means you are running that exact nightly tag: a nightly reuses the current stable version number until the next stable release ships, so it is always offered until you are actually on it.
+Nightly works only for standalone installs. Homebrew, .deb and .apk track stable only, so `/upgrade nightly` prints standalone-install instructions there. A nightly keeps the current stable version number until the next stable release. "Already up to date" on the nightly channel means you run that exact nightly tag.
 
 ## Installing a specific version (including a downgrade)
 
-`/upgrade <version>` (or `kdeps --upgrade --target-version <version>` outside the REPL) installs exactly that version, skipping the "is an update available" check entirely - the version was named explicitly, so kdeps installs it whether it is newer than the running build (upgrade), older (downgrade), or the same (reinstall):
+`/upgrade <version>` (or `kdeps --upgrade --target-version <version>`) installs exactly that version. It skips the update check, so it upgrades, downgrades or reinstalls:
 
 ```
 /upgrade 2.35.0
 Downgrade to v2.35.0 now? [Y/n]
 ```
 
-Same standalone-only restriction as nightly: Homebrew/.deb/.apk cannot be told to install a specific (especially older) version, so those print a link to the release page instead.
+This is standalone-only, like nightly. Homebrew, .deb and .apk print a link to the release page.
 
 ## Updating assets
 
-kdeps' behavior files are versioned assets that update separately from the binary. They apply to both modes: harness sections, events, actions, presets, themes, tool definitions and slash commands shape agent mode; LLM server recipes, the `kdeps new` project templates, the workflow schemas, executor defaults, kdeps components and the Docker and Kubernetes templates are used in workflow mode.
+kdeps behavior files are versioned assets that update separately from the binary. Harness sections, events, actions, presets, themes, tool definitions and slash commands drive agent mode. LLM server recipes, `kdeps new` templates, workflow schemas, executor defaults, components and Docker/Kubernetes templates drive workflow mode.
 
 | Set | What an item is | Example id |
 |---|---|---|
@@ -47,13 +47,13 @@ kdeps' behavior files are versioned assets that update separately from the binar
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
 | `commands` | A REPL slash command: a built-in's help and aliases, or a [declared command](/agent/commands#declared-commands) run entirely from its steps | `commands/review` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
-| `models` | A model registry: llamafile and GGUF aliases (harvested from HuggingFace), the cloud catalog `models/cloud`, or the OpenRouter free models `models/openrouter` (harvested daily from the public models API) | `models/gguf`, `models/openrouter` |
+| `models` | A model registry: llamafile and GGUF aliases (harvested from HuggingFace), the cloud catalog `models/cloud`, or the OpenRouter free models `models/openrouter` (harvested daily) | `models/gguf`, `models/openrouter` |
 | `templates` | A `kdeps new` project template (all its files) | `templates/api-service` |
-| `schemas` | The JSON schemas `kdeps validate`, `run` and `package` check workflows, resources, components and agencies against (all four files) | `schemas/v1` |
+| `schemas` | The JSON schemas `kdeps validate`, `run` and `package` check workflows, resources, components and agencies against | `schemas/v1` |
 | `defaults` | Executor defaults (timeouts, SQL pool sizes, search limits) used when neither the resource nor `config.yaml` sets a value | `defaults/executors` |
-| `docker` | The Dockerfile, entrypoint and supervisord templates `kdeps build` renders (all five files) | `docker/image` |
-| `k8s` | The Deployment, Service and NetworkPolicy templates `kdeps export k8s` renders (all three files) | `k8s/manifests` |
-| `components` | A kdeps component (YAML, no Go code) a workflow calls with `component:`, e.g. [ocr_image](/workflow/resources/ocr) | `components/ocr_image` |
+| `docker` | The Dockerfile, entrypoint and supervisord templates `kdeps build` renders | `docker/image` |
+| `k8s` | The Deployment, Service and NetworkPolicy templates `kdeps export k8s` renders | `k8s/manifests` |
+| `components` | A YAML kdeps component a workflow calls with `component:`, e.g. [ocr_image](/workflow/resources/ocr) | `components/ocr_image` |
 | `providers` | An [OpenAI-compatible LLM provider](/workflow/resources/llm-backends#openai-compatible-providers): chat endpoint, key variable and config key | `providers/groq` |
 
 ```d2
@@ -73,7 +73,7 @@ update -> store
 store -> loader
 ```
 
-The `kdeps` binary contains none of these files: kdeps loads them only from `~/.kdeps/assets/`. The first run asks what you will use kdeps for and installs that profile:
+The binary contains none of these files. kdeps loads them only from `~/.kdeps/assets/`. The first run asks for a profile and installs it:
 
 ```text
 $ kdeps
@@ -95,7 +95,7 @@ Choice [5]:
 | `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, `memory`, the loop's required tools and the file, shell, web and memory tools |
 | `deploy` | base + `templates`, `components`, `docker`, `k8s`, `recipes` |
 | `full` | every set |
-| `custom` | a checklist of every set and item: tick whole sets, or open a set to tick single items |
+| `custom` | a checklist of every set and item |
 
 ```text
 Asset sets ([x] all, [-] some; the base sets are always installed):
@@ -114,7 +114,9 @@ tools (6/78 ticked; * required):
 Toggle items (e.g. 3 5-9), a = all, n = none, Enter to go back:
 ```
 
-Each asset says what it is for and where kdeps runs it. `kdeps info <set>/<name>` prints that, and the same flow appears on the asset's kdeps.io page:
+In `custom`, a set number toggles the whole set and `o<N>` opens it. Inside a set, numbers and ranges toggle items, `a` ticks all, `n` none. An item marked `*` is required by its set's loader and stays ticked while anything else in the set is. A base set keeps at least its required items (or one item). A fully ticked set is recorded by name, so `kdeps update` installs items published to it later. A partly ticked set is recorded item by item.
+
+`kdeps info <set>/<name>` prints what an asset is for and where kdeps runs it. Its kdeps.io page shows the same flow:
 
 ```text
 $ kdeps info tools/read_file
@@ -135,16 +137,16 @@ Read a file from the local filesystem. ...
 In the code: kdeps (agent loop) -> agent.RegisterBuiltinTools -> agent.definedAs
 ```
 
-The story is written once, as a `//kdeps:flow` line on the function where kdeps uses the set; the bracketed step is the one the set drives:
+The flow is one `//kdeps:flow` line on the function that uses the set. The bracketed step is the one the set drives:
 
 ```go
 //kdeps:flow tools: the agent loop builds the request > [the tool definitions are sent to the model] > the model calls a tool > kdeps runs it > the result goes back to the model
 func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 ```
 
-Everything else is read from kdeps's call graph by `tools/assetflow`. It finds where each set is loaded, follows the value into the variables it is stored in and the functions that read them, and walks back to the commands and slash commands that reach them: that gives "Loaded by" (the agent loop and workflow commands, and the commands nearest the use), the mode, and "In the code" (the call path to the function the story is on). It also checks the story: a set without one, with two, or with one on a function that does not lead to a use of the set fails the run, naming the function to move it to. The asset publish job regenerates all of it from the code it publishes, so the index and kdeps.io match main; `make generate` rewrites `pkg/assets/setflow_gen.go` for `kdeps info`, and CI fails while it is out of date. A set's one-sentence purpose is in `pkg/assets/setinfo.go`, and each item's purpose is its own `description:`.
+`tools/assetflow` derives the rest from the call graph: "Loaded by", the mode, and "In the code". It fails when a set has no flow line, two, or one on a function that does not reach a use of the set, and names the function to move it to. `make generate` rewrites `pkg/assets/setflow_gen.go`; CI fails while it is stale. The asset publish job regenerates it, so kdeps.io matches main. A set's purpose is in `pkg/assets/setinfo.go`; an item's purpose is its `description:`.
 
-Every count marked `~tok` estimates what an item adds to the model's context when kdeps loads it (about 4 bytes per token): harness sections are system-prompt text, tool definitions and components are tool schemas the model sees on every turn. Themes, events, schemas, templates and the other sets never reach the model and show none. The same estimate is published with each version in the asset index, shown on kdeps.io, printed by `kdeps install` and `kdeps update`, and totalled by `kdeps list --assets`:
+`~tok` estimates what an item adds to the model's context (about 4 bytes per token). Harness sections are system-prompt text; tool definitions and components are tool schemas sent every turn. Themes, events, schemas, templates and other sets never reach the model and show no count. The estimate appears in the asset index, on kdeps.io, in `kdeps install` and `kdeps update`, and as a total in `kdeps list --assets`:
 
 ```text
 $ kdeps install tools/bash_exec
@@ -152,11 +154,13 @@ $ kdeps install tools/bash_exec
 LLM context: these added about 159 tokens (prompts, tool definitions) when loaded.
 ```
 
-A set number toggles the whole set; `o<N>` opens it. Inside, numbers and ranges toggle items, `a` ticks all and `n` none. An item marked `*` is one its set's loader needs: it stays ticked while anything else in the set is. A base set keeps at least its required items (or one item). A fully ticked set is recorded by name, so items published to it later are installed by `kdeps update`; a partly ticked one is recorded item by item.
+### Profiles without a terminal
 
-Without a terminal (CI, Docker, scripts) there is no question: `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`, or a list of sets and items such as `KDEPS_PROFILE=docker,k8s,tools/bash_exec`), and without it kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
+CI, Docker and scripts get no question. `KDEPS_PROFILE` names the profile (`KDEPS_PROFILE=agent`) or a list of sets and items (`KDEPS_PROFILE=docker,k8s,tools/bash_exec`). Without it, kdeps installs only the sets the command loads. The profile is recorded in `~/.kdeps/assets/lock.json`.
 
-The profile is respected afterwards. A command that loads a set the profile leaves out installs only the items that set's loader requires, never the whole set: `kdeps` (the agent loop) under `minimum` adds 23 core commands (`help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `judges`, `harness`, `efficiency`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`), the `normal` theme and the loop's required tools and harness, so `/help` lists those 23. Sets with nothing required (`events`, `actions`, `presets`) stay empty and are recorded as empty on purpose in `lock.json`, so the next start makes no network call. A required item that is still missing when code reads it, such as the `knowledge` set's `vault.yaml` the first time `kdeps knowledge build` or a workflow's local search needs it, is installed then, once, and named on the terminal (`Installed knowledge/vault 1.0.0 (first use).`). A Go built-in command (`builtin: true`) runs without its file, which only adds it to `/help`. A YAML command (`run:`, `setting:` or `subcommands:`, such as `/refine` or `/review`) exists only when its file is installed: `kdeps install commands/refine` adds `/refine`, `kdeps install commands` adds them all. A required item cannot be uninstalled.
+### What a profile installs later
+
+A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps` (the agent loop) adds the `normal` theme, the loop's required tools and harness, and 23 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `judges`, `harness`, `efficiency`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
 
 ```text
 $ KDEPS_PROFILE=minimum kdeps
@@ -164,46 +168,52 @@ Installing the minimum profile...
 Installing harness/compaction-system, ..., tools/note_get, ..., commands/help, ..., themes/normal (needed by this command)...
 ```
 
-Switching to a smaller profile prunes: `kdeps profile minimum` after `agent` or `full` deletes every downloaded item the new profile does not cover (`commands/efficiency  remove  not in the profile`), and a set it leaves out entirely loses its required items too, except the base sets and the agent loop's. An item you install by name later is kept by `kdeps update`.
+- Sets with nothing required (`events`, `actions`, `presets`) stay empty and are recorded empty in `lock.json`, so the next start makes no network call.
+- A required item still missing when code reads it is installed once, on first use, and named on the terminal: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).
+- A Go built-in command (`builtin: true`) runs without its file; the file only adds it to `/help`.
+- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/refine` or `/review`) exists only when installed: `kdeps install commands/refine` adds `/refine`, `kdeps install commands` adds all.
+- A required item cannot be uninstalled.
 
-Without a chosen profile (no terminal and no `KDEPS_PROFILE`), a command installs each set it loads whole the first time it needs it (`kdeps export` installs `docker` and `k8s`). Either way, a workflow that calls a component not installed downloads it on that call:
+Switching to a smaller profile prunes. `kdeps profile minimum` after `agent` or `full` deletes every item the new profile does not cover (`commands/efficiency  remove  not in the profile`). A set it leaves out loses its required items too, except the base sets and the agent loop's. An item installed by name later is kept by `kdeps update`.
+
+With no profile chosen (no terminal, no `KDEPS_PROFILE`), a command installs each set it loads in full on first need (`kdeps export` installs `docker` and `k8s`). Either way, a workflow that calls a missing component downloads it on that call:
 
 ```text
 $ kdeps run workflow.yaml
 Installed components/sql 1.0.2 (first use).
 ```
 
-Offline, a missing set stops the command and names the update to run (`kdeps assets docker are not installed; connect to the internet and run kdeps update docker`). `kdeps update` and `kdeps registry` run without assets. Once installed, kdeps runs offline. Images built with `kdeps build` carry the build host's assets in `/app/.kdeps/assets`, so a container needs no download.
+Offline, a missing set stops the command and names the fix: `kdeps assets docker are not installed; connect to the internet and run kdeps update docker`. `kdeps update` and `kdeps registry` run without assets. Once installed, kdeps runs offline. `kdeps build` images carry the build host's assets in `/app/.kdeps/assets`, so containers download nothing.
 
-After that, a startup notice appears when updates are published (checked once a day, cached at `~/.kdeps/assets/check.json`):
+### Update notices and commands
+
+A startup notice appears when updates are published (checked daily, cached at `~/.kdeps/assets/check.json`). The desktop app shows an **Updates available** button in the top bar.
 
 ```text
 2 asset updates available (harness/safety 1.2.0, tools/read_file 1.1.0). Run kdeps update.
 ```
 
-The desktop app shows the same as an **Updates available** button in the top bar.
-
 ```bash
-kdeps update                          # the profile and everything installed since, to their newest versions (skips pinned and removed items)
-kdeps profile agent          # install a profile (or sets and items: docker,tools/bash_exec) and keep it current
-kdeps profile                 # choose the profile again, or tick sets and items (custom)
-kdeps update tools                    # every item in one set
-kdeps update harness/safety           # newest version of one item; unpins and restores it
-kdeps update harness/safety@1.2.0     # exactly that version, pinned until you update it by name
-kdeps update --check                  # what would change
-kdeps list --assets                   # every item: version, state, shelf, ~context tokens; total at the end
-kdeps list rag                         # one shelf: model, context, harness, tools, memory, rag, agent, guardrails, evals, workflow, deploy
-kdeps info tools/read_file            # what an item is for, where kdeps runs it, its installed version and ~tokens
-kdeps info events                     # a set: its purpose, where it runs, its items
+kdeps update                                # profile + everything installed since, to newest (skips pinned and removed items)
+kdeps profile agent                         # install a profile (or sets and items: docker,tools/bash_exec) and keep it current
+kdeps profile                               # choose the profile again, or tick sets and items (custom)
+kdeps update tools                          # every item in one set
+kdeps update harness/safety                 # newest version of one item; unpins and restores it
+kdeps update harness/safety@1.2.0           # exactly that version, pinned until you update it by name
+kdeps update --check                        # what would change
+kdeps list --assets                         # every item: version, state, shelf, ~tokens; total at the end
+kdeps list rag                              # one shelf (see Shelves below)
+kdeps info tools/read_file                  # an item's purpose, where it runs, installed version, ~tokens
+kdeps info events                           # a set: purpose, where it runs, items
 kdeps uninstall themes/vim,presets/frugal   # remove items
 ```
 
-`/update`, `/update check`, `/update list` and `/update remove <item>...` do the same inside the REPL and apply right away; changed tool descriptions reach the model from the next start.
+In the REPL, `/update`, `/update check`, `/update list` and `/update remove <item>...` do the same and apply immediately. Changed tool descriptions reach the model from the next start.
 
-How a version is chosen:
+### How a version is chosen
 
-- Each file starts with `version:` (semver) and may declare `kdeps: ">=X.Y.Z"`, the oldest kdeps that can load it. Versions that need a newer kdeps are skipped (`kdeps --upgrade` first).
-- A file may list other items it needs under `requires:`, each with the versions it accepts. Installing it installs those first, at their newest version in range, when they are missing, removed or too old - and theirs, recursively:
+- Each file starts with `version:` (semver) and may declare `kdeps: ">=X.Y.Z"`, the oldest kdeps that loads it. Versions needing a newer kdeps are skipped (run `kdeps --upgrade` first).
+- `requires:` lists other items and the versions accepted. Installing the file first installs each missing, removed or too-old requirement at its newest version in range, recursively:
 
   ```yaml
   # components/web_search/template.yaml (a bundle's header; a single-file item has these at its top)
@@ -218,17 +228,26 @@ How a version is chosen:
     components/web_search                install   - -> 1.0.1
   ```
 
-  An item whose requirement is not published for your kdeps, or is pinned to a version outside the range, fails instead of installing; update the pinned item by name to unpin it. Events require the action they run, presets the events and actions they tune, the `/frugal` and `/thorough` commands their preset, components the schema version their `component.yaml` needs. Publishing rejects a requirement no published version satisfies.
-- Every download is checked against the published sha256, and against the set's own parser before it replaces anything. A file edited by hand in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
-- A file kdeps cannot read (a corrupt one, or one written for a newer kdeps) is skipped with a warning instead of stopping kdeps, so `kdeps update` can always fix it.
+  Install fails when a requirement is not published for your kdeps or is pinned outside the range; update the pinned item by name to unpin it. Events require their action, presets their events and actions, `/frugal` and `/thorough` their preset, components their schema version. Publishing rejects a requirement no published version satisfies.
+- Every download is checked against the published sha256 and the set's parser before it replaces anything. A hand-edited file in `~/.kdeps/assets/` fails its checksum and is ignored; `kdeps update <item>` restores it.
+- An unreadable file (corrupt, or written for a newer kdeps) is skipped with a warning, so `kdeps update` can always fix it.
 
-Removing an item hides it from kdeps until you update it by name again: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. A few items cannot be removed because kdeps needs them to work: `themes/normal`, the internal harness prompts (compaction, judges, prompt refinement, the session handshake) the loop's control tools (`judge_verdict`, `session_handshake`, `session_ops`) and the model registries (`models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`). Turn a harness section off without removing it with `/harness disable <name>`.
+### Removing and overriding
 
-Your own overrides still win: files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and the like are layered on top of whatever version is installed.
+A removed item stays hidden until you update it by name: a removed tool is not offered to the model, a removed harness section is not sent, a removed theme or template is not listed. These cannot be removed:
 
-`KDEPS_ASSETS_URL` points downloads at a mirror laid out like `assets/` in kdeps/packages (`index.json` plus `<set>/<name>/<version>.yaml`); `KDEPS_ASSETS_URL=off` turns downloads off.
+- `themes/normal`
+- the internal harness prompts: compaction, judges, prompt refinement, session handshake
+- the loop's control tools: `judge_verdict`, `session_handshake`, `session_ops`
+- the model registries: `models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`
 
-To work on assets, point `KDEPS_ASSETS_SRC` at a directory laid out like `assets/` in the kdeps repo (`<set>/<name>.yaml`, one directory per template). kdeps loads it under the store, so an edited file is used as soon as it has a higher `version:` than the installed one:
+`/harness disable <name>` turns a harness section off without removing it.
+
+Files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and similar directories layer on top of the installed version.
+
+`KDEPS_ASSETS_URL` points downloads at a mirror laid out like `assets/` in kdeps/packages (`index.json` plus `<set>/<name>/<version>.yaml`). `KDEPS_ASSETS_URL=off` turns downloads off.
+
+`KDEPS_ASSETS_SRC` loads assets from a directory laid out like `assets/` in the kdeps repo (`<set>/<name>.yaml`, one directory per template). An edited file is used once its `version:` is higher than the installed one:
 
 ```bash
 KDEPS_ASSETS_SRC=~/src/kdeps/assets ./kdeps   # run on a checkout's assets
@@ -236,7 +255,7 @@ KDEPS_ASSETS_SRC=~/src/kdeps/assets ./kdeps   # run on a checkout's assets
 
 ## Shelves
 
-A [shelf](/reference/glossary#shelf) is the engineering word an asset is filed under. The path stays the id (`harness/safety`, `tools/bash_exec`): `kdeps update` installs that id, and the formula is `kdeps-<set>-<name>`. `kdeps list` prints the shelf. `kdeps list <shelf>` shows one. kdeps.io filters by the same words. The set stays the kind of file.
+A [shelf](/reference/glossary#shelf) is the engineering category an asset is filed under. The set stays the kind of file, and the path stays the id (`harness/safety`, `tools/bash_exec`): `kdeps update` installs that id, and the formula is `kdeps-<set>-<name>`. `kdeps list` prints each item's shelf, `kdeps list <shelf>` shows one shelf, and kdeps.io filters by the same names.
 
 | Shelf | What is filed here |
 |---|---|
@@ -252,6 +271,6 @@ A [shelf](/reference/glossary#shelf) is the engineering word an asset is filed u
 | workflow | `schemas/`, `templates/`, `components/`, `defaults/` |
 | deploy | `docker/`, `k8s/` |
 
-`events/` and `actions/` stay their own sets. Each file takes the shelf of the behavior it serves.
+`events/` and `actions/` stay their own sets; each file takes the shelf of the behavior it serves.
 
-Tokens, structured output, embeddings, session, trace, and fine-tune are not shelves. Tokens are counts. Structured output is `jsonResponse`. Embeddings are the rag items. Session resume and `kdeps --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) stay a separate install axis.
+Tokens, structured output, embeddings, session, trace and fine-tune are not shelves. Tokens are counts. Structured output is `jsonResponse`. Embeddings are the rag items. Session resume and `kdeps --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) are a separate axis.

@@ -4,9 +4,9 @@ Per-provider configuration for all backends supported by kdeps. Backend and API 
 
 Works in workflow and agent mode.
 
-The OpenAI-compatible providers on this page (OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie) are files in the `providers` asset set rather than code: `kdeps update providers` refreshes their endpoints, and a new one is a YAML file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
+The OpenAI-compatible providers here (OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie) are YAML files in the `providers` asset set, not code. `kdeps update providers` refreshes their endpoints; a new provider is a new file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
 
-Every model listed here - OpenAI, Anthropic (Claude), Google (Gemini), Groq, Ollama, local llamafile / GGUF, and the rest - is probabilistic: the same prompt can return different text on each call. Determinism in kdeps comes from [workflow mode](/workflow/) wrapping the model, not from the model itself. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
+Every model here is probabilistic: the same prompt can return different text each call. Determinism comes from [workflow mode](/workflow/) wrapping the model, not the model. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 
 ## Local backends
 
@@ -225,7 +225,7 @@ Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` 
 
 ## M365 Copilot
 
-Talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it (`m365` backend) - no API key, authentication is a signed-in Microsoft 365 account via a browser sign-in flow (interactive) or a scripted `secrets.json` (headless/CI).
+The `m365` backend talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it. No API key: authentication is a signed-in Microsoft 365 account, via browser sign-in (interactive) or a scripted `secrets.json` (headless/CI).
 
 See [M365 Copilot](/llm-server/m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
 

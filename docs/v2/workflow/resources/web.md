@@ -12,7 +12,7 @@ Works in workflow and agent mode.
 
 ## Which one
 
-- **Just data from an API** - the `http_request` component. Built-in auth, retry, and cache.
+- **Data from an API** - the `http_request` component. Built-in auth, retry, and cache.
 - **Text from a page you already have a URL for** - the `web_scraper` component. No browser: the page is fetched and converted to markdown.
 - **You need to find the right URL first** - the `web_search` component, then `web_scraper` on the result.
 

@@ -15,19 +15,19 @@ description: >-
   whatever was gathered, instead of letting the model keep spinning.
 ```
 
-Nine actions ship today, one per distinct behavior in the codebase: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_handshake`, `accept_last`. If an event's `run:` names anything else -- a typo, or a name that was renamed or removed -- kdeps prints a warning to stderr at startup naming the event and the unrecognized action, so a broken override is loud, never a silent no-op.
+Nine actions ship, one per distinct behavior: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_handshake`, `accept_last`. An event whose `run:` names anything else (a typo, a renamed or removed action) prints a startup warning to stderr naming the event and the action. A broken override is never a silent no-op.
 
 ## Behavior stays Go code
 
-The action's actual behavior stays Go code (these perform real side effects -- summarizing a conversation, truncating a string, refusing a tool call -- not something a YAML file alone can express). The registry is what is configurable: the name, its `kind`, and its `description`, which is what makes `~/.kdeps/actions/*.yaml`, `~/.kdeps/events/*.yaml`, `~/.kdeps/harness/*.yaml`, and `~/.kdeps/themes/*.yaml` the complete, consistent source of truth for "what can happen and when" -- every one of them the same embed-plus-override shape, every one covered by [konfig](./konfig.md) export/import.
+Each action's behavior is Go code, since it performs a real side effect: summarizing a conversation, truncating a string, refusing a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, `~/.kdeps/harness/` and `~/.kdeps/themes/` share one embed-plus-override shape and are the source of truth for what happens and when. [konfig](./konfig.md) exports and imports all of them.
 
 ## Not every action is freely swappable
 
-Not every action is freely swappable onto any event with the same trigger shape: `handshake-timeout`/`judge-max-rounds` (both `force_answer`) work by setting a sub-loop's round budget and relying on the loop's own generic round-exhaustion behavior rather than a distinct dispatchable step. Renaming that pair's `run:` to something else would be validated (the name exists) but would not change what actually happens -- the call site only implements the one action it already names.
+Actions are not freely swappable between events with the same trigger shape. `handshake-timeout` and `judge-max-rounds` (both `force_answer`) set a sub-loop's round budget and rely on the loop's round-exhaustion behavior. Changing their `run:` validates (the name exists) but changes nothing; the call site implements only its named action.
 
 ## Enforcement: hard vs. soft
 
-None of this asks the model to cooperate. Every action is deterministic Go control flow that runs regardless of what the model wants -- the model does not decide to `compact` or `block`; the system does it around the model, usually by removing the option before the model ever gets a turn:
+No action needs the model's cooperation. Each is deterministic Go control flow: the system, not the model, decides to `compact` or `block`, usually by removing the option before the model's turn:
 
 - **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
 - **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. Once tools are not in the request schema, the model is structurally unable to call one -- not persuaded not to, incapable of it.
@@ -36,8 +36,8 @@ None of this asks the model to cooperate. Every action is deterministic Go contr
 
 ## Real OS-level enforcement, not just Go control flow
 
-`ToolStallTimeout` runs a background goroutine that watches wall-clock silence on a running tool's output; past the timeout, it cancels a real `context.Context`, and `bash_exec` selects on that cancellation to call `killProcessGroup(cmd)` -- an actual `SIGKILL`-equivalent to the whole process group, so a hung shell command (and anything it spawned) is killed outright. The same context-cancellation path ends a judge's ephemeral sub-loop the instant `judge_verdict` settles, and backs Ctrl+C.
+`ToolStallTimeout` watches a running tool's output for wall-clock silence. Past the timeout it cancels a real `context.Context`; `bash_exec` then calls `killProcessGroup(cmd)`, a `SIGKILL`-equivalent to the whole process group, so a hung command and its children die. The same cancellation ends a judge's sub-loop once `judge_verdict` settles, and backs Ctrl+C.
 
 ## The one genuinely soft layer
 
-The one genuinely soft layer is the harness (`~/.kdeps/harness/*.yaml` -- tool-use rules, memory rules, honesty/scope/accuracy sections): prompt text asking the model to behave a certain way, with nothing in code checking whether it actually did. That is the dividing line for anything new: if it must be true regardless of what the model does, it is an event/action; if it is guidance the model is expected to follow, it is harness text.
+The only soft layer is the harness (`~/.kdeps/harness/*.yaml`: tool-use, memory, honesty, scope and accuracy rules): prompt text with no code checking compliance. That is the line for anything new. If it must hold regardless of the model, it is an event or action; if it is guidance, it is harness text.

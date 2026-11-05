@@ -4,9 +4,9 @@ The REPL look is `normal` or a disguise. It changes rendering only. Prompts, res
 
 ## Picking a theme
 
-`/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the REPL's entire look - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries. `normal` is the bright default; every other theme is a disguise that no longer reads as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office. There is no separate on/off flag - picking a theme takes effect immediately.
+`/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the whole look immediately: banner, prompt, typed text, model name, responses, thinking blocks, tool summaries. `normal` is the bright default. Every other theme is a disguise that does not read as "an AI session on model X" to someone glancing at your screen.
 
-The `/model` picker, the `/settings` picker, and the startup resume picker (`--resume`/session history) run outside the REPL's own text rendering, in their own full-screen views - but they pick up the exact same theme colors (accent, success, warning, dim, bold), not just a muted/bright toggle. Switching to `vim` recolors those pickers with vim's yellow/green/red accents; switching to `black` collapses them to the same flat gray as everything else.
+The `/model`, `/settings` and startup resume pickers are separate full-screen views but use the same theme colors (accent, success, warning, dim, bold). `vim` gives them yellow/green/red accents; `black` makes them flat gray.
 
 ```bash
 kdeps --theme black             # start disguised
@@ -32,7 +32,7 @@ kdeps --theme black             # start disguised
 
 ## Model name
 
-Every theme but `normal` renders the model-name color at full legibility, so the literal model name is shortened to initials in the status line by default - `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21` - hidden by content, not color. Override this with `/model name`:
+Every theme but `normal` shortens the model name in the status line to initials: `claude-sonnet-5` becomes `CS5`, `llama3.2:1b` becomes `L21`. Override it with `/model name`:
 
 ```text
 /model name              show the current mode
@@ -46,7 +46,7 @@ Every theme but `normal` renders the model-name color at full legibility, so the
 
 ## The spinner
 
-The spinner that appears while waiting for a response never carries a descriptive word in any theme - no "generating," no "thinking" - just the animated glyph and the token counter.
+The spinner never shows a word like "generating" or "thinking" in any theme: only the glyph and the token counter.
 
 ## Context-path status line
 
@@ -61,11 +61,23 @@ Directly above the session counter, whenever the running model's context window 
 
 ## The session row
 
-The `session` row is cumulative and is never measured against the window; only `turn` is. `sent` is the running total of prompt tokens handed to the model this session, `generated` is the running total the model wrote back, and `total` is their sum (everything spent this session, which is why it can exceed the window). `this turn` is the sent/generated delta since your last message; it appears once the turn has spent anything and resets on the next message. History is sent again on every round, so `sent` grows faster than one turn's window and is not "how full the context is". `generated` is the running total of tokens the model wrote back, including reasoning. Both move while a reply is still streaming and while a tool is running; they are not stuck at 0 until the call finishes. `/compact` and `/fold` replace both with the context that remains: `sent` is that context, `generated` is the model-written part still in it. `web`, `sh`, `file`, and `src` appear beside them only after a call in that budget, as `used/limit`. The turn line and this counter are one frame of two rows. Each tick rewrites those rows in place. A row longer than the terminal is cut so the frame stays two rows. Output that is not a terminal prints the rows again only when the numbers change.
+The `session` row is cumulative and never measured against the window; only `turn` is.
+
+| Field | Meaning |
+|---|---|
+| `sent` | prompt tokens sent this session. History is resent every round, so it outgrows the window; it is not context fullness |
+| `generated` | tokens the model wrote this session, including reasoning |
+| `total` | `sent` + `generated` |
+| `this turn` | the sent/generated delta since your last message; shown once the turn spends anything |
+| `web`, `sh`, `file`, `src` | `used/limit` of a call budget, shown after its first call |
+
+- `sent` and `generated` update while a reply streams and while a tool runs.
+- `/compact` and `/fold` reset both to the remaining context: `sent` is that context, `generated` the model-written part of it.
+- The two rows are one frame, rewritten in place each tick. Rows wider than the terminal are cut. Non-terminal output reprints the rows only when numbers change.
 
 ## The turn figure
 
-The `turn` figure is the prompt size the model actually received on its most recent call: the provider-reported count when the backend returns one, otherwise the size of the messages sent. The per-part numbers (`sys`, `mem`, `hist`, tools) are estimates taken before the call, so they are scaled to add up to that total, and anything they do not cover (your message, tool schemas, framing) shows as `other`. Before the first call of a turn the parts are shown as plain estimates. The modeline `used/limit` shows the same figure against the same window, in the same decimal format (`20.7k/128.0k`).
+`turn` is the prompt size of the latest call: the provider's count when the backend reports one, else the size of the messages sent. The parts (`sys`, `mem`, `hist`, tools) are pre-call estimates scaled to that total; the rest (your message, tool schemas, framing) shows as `other`. Before a turn's first call, parts are plain estimates. The modeline `used/limit` shows the same figure in the same format (`20.7k/128.0k`).
 
 ## Custom themes
 
@@ -86,4 +98,4 @@ palette:
 
 A custom theme can reuse a built-in's name (e.g. your own `vim.yaml`) to override it. An invalid color value in one field is dropped with a warning; the rest of the file still loads.
 
-Every `palette:` field is optional; the full set is `heading`, `link`, `code`, `codeBlock`, `text`, `thinking`, `muted`, `bullet`, `quote`, `borderHr`, `synKeyword`, `synFunc`, `synStr`, `synComment`, `synNum`, `synType`, `synOp`, `replError`, `replMeta`, `replHeading`, `replSuccess`, `replPrompt`, `replInfo`, `replDim`, `bannerText`, `bannerBorder`, `modelsReady`, `modelsNoKey`, `modelsCurrent`, and `modelName` (the model name shown in the status line).
+Every `palette:` field is optional: `heading`, `link`, `code`, `codeBlock`, `text`, `thinking`, `muted`, `bullet`, `quote`, `borderHr`, `synKeyword`, `synFunc`, `synStr`, `synComment`, `synNum`, `synType`, `synOp`, `replError`, `replMeta`, `replHeading`, `replSuccess`, `replPrompt`, `replInfo`, `replDim`, `bannerText`, `bannerBorder`, `modelsReady`, `modelsNoKey`, `modelsCurrent`, and `modelName` (the model name shown in the status line).

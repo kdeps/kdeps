@@ -95,7 +95,7 @@ The WebView2 runtime ships with Windows 11; on Windows 10 install it from Micros
 
 ## Download
 
-Every tagged release attaches the desktop app next to the CLI archives, built on native runners by the `Release Desktop` workflow (it runs when the release is published; `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches to an existing tag):
+Every tagged release attaches the desktop app next to the CLI archives. The `Release Desktop` workflow builds it on native runners when the release is published; `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches it to an existing tag:
 
 | OS | File | Notes |
 |----|------|-------|
@@ -175,7 +175,7 @@ split -> loop: "other: path + size,\nmodel reads with a tool"
 
 ## Models, slash commands and autocomplete
 
-The window is a client of the same REPL the terminal runs, so it behaves the same: every slash command goes through the CLI's own dispatcher and its output streams into the chat live (terminal colors stripped).
+The window is a client of the terminal REPL and behaves the same. Every slash command goes through the CLI's dispatcher, and its output streams into the chat live, with terminal colors stripped.
 
 ```text
 composer ──/cmd──> REPL dispatcher ──stdout──> live output block
@@ -244,7 +244,7 @@ chat -> engine: "when the agent calls it"
 
 ### How the builder writes YAML
 
-Every resource type the engine has (chat, httpClient, sql, python, exec, apiResponse, ...) is offered, with its fields read from the kdeps types, so new executors appear without an app update. A card shows the fields that have a value; **add field** lists the rest with their descriptions. Lists and objects (`tools`, `headers`, `response`) are edited as YAML text.
+Every engine resource type (chat, httpClient, sql, python, exec, apiResponse, ...) is offered, with fields read from the kdeps types, so new executors appear without an app update. A card shows fields that have a value; **add field** lists the rest with descriptions. Lists and objects (`tools`, `headers`, `response`) are edited as YAML text.
 
 Saving a card with type `chat` and three fields writes this file:
 

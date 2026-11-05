@@ -73,4 +73,4 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 
 `/session goto` is non-destructive: the pruned tail is stashed. Use `/session branches` to see stashed entry IDs, then `/session goto <id>` again to navigate back.
 
-`/session` is a YAML command (`commands/session.yaml`) with [subcommands](/agent/commands#subcommands) over the `session_ops` tool's `sessions`, `save`, `load`, `delete`, `import`, `checkpoint`, `goto` and `branches` operations; every line it prints is in that file, and any kdeps API caller can run the same operations.
+`/session` is a YAML command (`commands/session.yaml`) with [subcommands](/agent/commands#subcommands) over the `session_ops` operations `sessions`, `save`, `load`, `delete`, `import`, `checkpoint`, `goto` and `branches`. Every printed line is in that file, and any kdeps API caller can run the same operations.

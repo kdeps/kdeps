@@ -1,7 +1,7 @@
 # kdeps LLM server
 
-**A standalone OpenAI-compatible inference appliance** - no kdeps agent, no
-workflow. Build it once (Docker, ISO, or Kubernetes); every kdeps host on your
+kdeps LLM server builds a standalone OpenAI-compatible inference appliance, with no
+kdeps agent or workflow. Build it once (Docker, ISO, or Kubernetes); every kdeps host on your
 network points at it over `/v1`.
 
 ```bash
@@ -15,7 +15,7 @@ see [Local models](/start/local-models).
 
 ---
 
-Serves workflow hosts, the [coding CLI](/agent/), and the [desktop app](/desktop/). Set `llm.backend: openai` and `llm.base_url` on each client. `models:` names one model or several.
+Serves workflow hosts, the [coding CLI](/agent/), and the [desktop app](/desktop/). On each client, set `backend: openai` and `base_url` under `llm:`. `models:` names one model or several.
 
 ## How it fits
 
@@ -44,7 +44,7 @@ No workflow path argument - select engine and model only.
 
 ### Interactive wizard (TUI)
 
-On a terminal, pick engine → harvest model → GPU → action (build/run/export):
+On a terminal, pick engine -> harvest model -> GPU -> action (build/run/export):
 
 ```bash
 kdeps llm wizard
@@ -52,7 +52,7 @@ kdeps llm wizard
 kdeps llm
 ```
 
-Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Filter lists by typing; ↑/↓ navigate; enter select; esc cancel.
+Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Type to filter; Up/Down navigate; Enter selects; Esc cancels.
 
 ```bash
 # List stock + user recipes
@@ -111,7 +111,7 @@ export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
 
 Generate the same snippet with `kdeps llm client-config`.
 
-Chat resources in workflow mode and agent mode keep using `chat.model`. Only the backend URL changes.
+Chat resources in workflow mode and agent mode keep their `model:` field. Only the backend URL changes.
 
 To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. Unlike `KDEPS_LLM_BASE_URL`, this wins over a resource's own `backend:` and the session's `--backend`, needs no API key, and no llamafile or ollama is started:
 
@@ -230,7 +230,7 @@ Requires Docker and linuxkit (auto-downloaded, same tooling family as agent `exp
 
 ## Auth
 
-Default: no auth (private networks - document the risk). Opt in with recipe `api.auth` and CLI `--require-auth` / `--api-key-env`. On Kubernetes, put the key in a Secret (`--api-key-secret`).
+Default: no auth (private networks - document the risk). Opt in with the recipe's `auth:` under `api:` and CLI `--require-auth` / `--api-key-env`. On Kubernetes, put the key in a Secret (`--api-key-secret`).
 
 ## See also
 

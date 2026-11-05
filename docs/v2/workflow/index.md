@@ -1,8 +1,8 @@
 # kdeps workflow
 
-**A deterministic YAML pipeline.** A request arrives, resources execute in
-dependency order, the result is returned - same input, same execution path,
-every time. Auditable, testable, safe to run unattended. Serve it as an HTTP
+A kdeps workflow is a deterministic YAML pipeline. A request arrives, resources run in
+dependency order, and the result is returned: same input, same execution path,
+every time, so it is auditable, testable and safe to run unattended. Serve it as an HTTP
 API, a bot, or a file processor.
 
 ```bash
