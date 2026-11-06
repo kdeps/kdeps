@@ -438,7 +438,6 @@ func (a *Agent) runWithLifecycle(ctx context.Context, fn func(context.Context) e
 	a.state.errorMessage = ""
 	a.mu.Unlock()
 
-	var runErr error
 	go func() {
 		defer func() {
 			cancel()
@@ -453,7 +452,6 @@ func (a *Agent) runWithLifecycle(ctx context.Context, fn func(context.Context) e
 		}()
 
 		if err := fn(runCtx); err != nil {
-			runErr = err
 			// emit a synthetic failure sequence so listeners see agent_end
 			failMsg := AgentMessage{
 				Role:         RoleAssistant,
@@ -468,7 +466,6 @@ func (a *Agent) runWithLifecycle(ctx context.Context, fn func(context.Context) e
 		}
 	}()
 
-	_ = runErr
 	return nil
 }
 

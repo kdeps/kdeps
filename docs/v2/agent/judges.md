@@ -32,10 +32,10 @@ revision that comes back empty (or with the "model produced nothing" notice) is
 discarded and the previous answer is kept, so a failed revision never replaces a
 real answer with a blank or a canned message.
 
-**You can see the roster as soon as it is generated.** Auto-judges run one LLM
-call at the start of the turn (the same synthetic JSON call the loop uses for
-compaction). The REPL prints the panel before the main tool loop, so you know who will review
-before any work starts:
+**The roster is generated beside the turn.** Auto-judges make one subagent call
+(the same synthetic JSON call the loop uses for compaction). It starts with the
+turn, on the prompt as typed, and runs while prompt refinement and the turn do. The
+REPL prints the panel when the answer is ready, just before the judges review it:
 
 ```
 [judges] panel generated - 2 reviewer(s)
