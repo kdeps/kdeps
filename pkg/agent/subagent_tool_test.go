@@ -146,3 +146,21 @@ func TestSideLoopConfig_UsesTheSubagentChannel(t *testing.T) {
 	assert.Equal(t, 7, cfg.MaxToolRounds)
 	assert.True(t, cfg.Nested)
 }
+
+// TestSideLoop_SendsEveryToolAndNoLoader checks a judge or subagent gets its
+// whole scoped tool set on the first request, with no load_tools to misuse.
+func TestSideLoop_SendsEveryToolAndNoLoader(t *testing.T) {
+	reg := tools.NewRegistry()
+	reg.Register(defined(&tools.Tool{Name: "wikipedia", Execute: func(map[string]any) (string, error) { return "", nil }}))
+	require.NotNil(t, reg.Get("wikipedia"), "wikipedia ships a definition")
+	require.True(t, reg.Get("wikipedia").OnDemand, "and is deferred on a top-level loop")
+
+	l := New(context.Background(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg,
+		Config{Model: "test", Nested: true})
+	assert.Nil(t, l.registry.Get(toolNameLoadTools))
+	names := []string{}
+	for _, td := range l.requestTools() {
+		names = append(names, td.Name)
+	}
+	assert.Contains(t, names, "wikipedia", "a deferred tool is sent in full to a side loop")
+}

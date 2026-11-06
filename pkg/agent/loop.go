@@ -545,7 +545,11 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 
 	api.SetSessionToolBackend(sessionToolBridge{loop: l})
 	l.registerSkillLoader()
-	l.registerToolLoader()
+	// A side loop's tools are already scoped to what it may call, so it gets
+	// every definition up front and no load_tools.
+	if !cfg.Nested {
+		l.registerToolLoader()
+	}
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
 	if !cfg.Nested {
