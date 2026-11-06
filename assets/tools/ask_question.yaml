@@ -1,0 +1,12 @@
+version: 1.0.0
+category: agent
+description: "Ask the user a question and wait for the answer. The question, with its options numbered, is shown and your turn ends; the user's next message is the answer. Use it for a choice only the user can make, such as which mode to run; ask in plain text otherwise."
+outputFormat: confirmation that the question was shown; the answer arrives as the next user message
+parameters:
+  question:
+    type: string
+    description: The question, standing on its own
+    required: true
+  options:
+    type: array
+    description: The choices, in order. Leave it out for an open question

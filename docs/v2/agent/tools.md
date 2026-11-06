@@ -14,8 +14,26 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same tools behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
 | Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 | Subagents | `subagent`: a task for a fresh, read-only agent loop | [Subagents](/agent/subagent) |
+| Questions | `ask_question`: show the user a question (with numbered options) and end the turn; their next message is the answer | [Asking the user](#asking-the-user) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
+
+## Asking the user
+
+`ask_question` puts a choice to you and ends the turn. The question, with its options numbered, is the reply; what you type next is the answer. Skill packs with interactive steps call it by name. A subagent never gets it.
+
+```json
+{"question": "Which review mode?", "options": ["Interactive", "Consolidated report"]}
+```
+
+```text
+Which review mode?
+
+1. Interactive
+2. Consolidated report
+
+Reply with a number, or with your own answer.
+```
 
 ## Tool definitions
 
