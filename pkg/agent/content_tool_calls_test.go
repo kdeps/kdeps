@@ -67,6 +67,24 @@ func TestSalvageContentToolCalls_FunctionAttr(t *testing.T) {
 	assert.Equal(t, "", cleaned)
 }
 
+// TestSalvageContentToolCalls_FunctionWithParameterTags checks the
+// <tool_call><function=NAME><parameter=KEY>VALUE</parameter></function> form,
+// as a free OpenRouter model wrote it during a real session: the call was
+// dropped, the model repeated it, and the turn ended without the read.
+func TestSalvageContentToolCalls_FunctionWithParameterTags(t *testing.T) {
+	text := "<tool_call>\n<function=read_file>\n<parameter=file_path>\n/work/egm/standard.md\n</parameter>\n" +
+		"<parameter=limit>\n40\n</parameter>\n</function>\n</tool_call>"
+	calls, cleaned, _ := salvageContentToolCalls(text)
+	require.Len(t, calls, 1)
+	assert.Equal(t, "read_file", calls[0].Name)
+	assert.JSONEq(t, `{"file_path":"/work/egm/standard.md","limit":40}`, calls[0].Arguments)
+	assert.Equal(t, "", cleaned)
+
+	calls, _, _ = salvageContentToolCalls("<function=list_files>\n<parameter=path>\n.\n</parameter>\n</function>")
+	require.Len(t, calls, 1, "the same form without the tool_call wrapper")
+	assert.JSONEq(t, `{"path":"."}`, calls[0].Arguments)
+}
+
 func TestSalvageContentToolCalls_BareJSONObject(t *testing.T) {
 	calls, cleaned, _ := salvageContentToolCalls(
 		`{"name":"list_files","arguments":{"path":"."}}`)

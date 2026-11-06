@@ -19,12 +19,14 @@
 package agent
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"slices"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -55,8 +57,77 @@ func (l *Loop) registerSubagentTool() {
 	}
 	l.registry.Register(defined(&kdepstools.Tool{
 		Name:    toolNameSubagent,
-		Execute: l.runSubagent,
+		Execute: l.subagentTool,
 	}))
+}
+
+// minParallelSubagents is the subagent calls in one round that are started
+// together; a single call just runs.
+const minParallelSubagents = 2
+
+// subagentResult is one finished subagent run.
+type subagentResult struct {
+	out string
+	err error
+}
+
+// subagentKey identifies a call by its arguments. encoding/json sorts map
+// keys, so the same arguments give the same key.
+func subagentKey(args map[string]any) string {
+	b, _ := json.Marshal(args)
+	return string(b)
+}
+
+// startSubagents starts every subagent call of a round at once when there are
+// two or more, so reviewers asked for together run in parallel; each call
+// then takes its own result when the round reaches it. The returned func
+// drops what the round did not take.
+func (l *Loop) startSubagents(calls []domain.StreamedToolCall) func() {
+	var batch []map[string]any
+	for _, tc := range calls {
+		args := map[string]any{}
+		if tc.Name == toolNameSubagent && json.Unmarshal([]byte(tc.Arguments), &args) == nil {
+			batch = append(batch, args)
+		}
+	}
+	if len(batch) < minParallelSubagents {
+		return func() {}
+	}
+	l.subagentMu.Lock()
+	l.subagentRuns = map[string]<-chan subagentResult{}
+	for _, args := range batch {
+		key := subagentKey(args)
+		if _, dup := l.subagentRuns[key]; dup {
+			continue
+		}
+		done := make(chan subagentResult, 1)
+		l.subagentRuns[key] = done
+		go func() {
+			out, err := l.runSubagent(args)
+			done <- subagentResult{out, err}
+		}()
+	}
+	l.subagentMu.Unlock()
+	return func() {
+		l.subagentMu.Lock()
+		l.subagentRuns = nil
+		l.subagentMu.Unlock()
+	}
+}
+
+// subagentTool is the subagent tool: the result of a run startSubagents
+// already began for these arguments, or a new run.
+func (l *Loop) subagentTool(args map[string]any) (string, error) {
+	key := subagentKey(args)
+	l.subagentMu.Lock()
+	done, started := l.subagentRuns[key]
+	delete(l.subagentRuns, key)
+	l.subagentMu.Unlock()
+	if started {
+		r := <-done
+		return r.out, r.err
+	}
+	return l.runSubagent(args)
 }
 
 // runSubagent runs args.task in a fresh loop on the subagent channel and
@@ -80,7 +151,8 @@ func (l *Loop) runSubagent(args map[string]any) (string, error) {
 	sub := New(l.ctx, l.engine, l.workflow, reg, l.sideLoopConfig(prompt, effectiveRounds(eventSubagentMaxRounds)))
 	sub.eventLoop = toolNameSubagent
 	out, runErr := sub.RunStreaming(l.ctx, task, io.Discard)
-	// A canned "produced nothing" notice is not a report.
+	// A canned "produced nothing" notice is not a report. The loop has
+	// already retried an empty reply by then.
 	if out = strings.TrimSpace(out); out != "" && !isTurnFailureNotice(out) {
 		return out, nil
 	}

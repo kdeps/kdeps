@@ -44,6 +44,21 @@ type Skill struct {
 	Hidden bool
 }
 
+// Body is the skill's text as the model gets it: the folder it lives in
+// (the skill-folder harness entry), so its relative links resolve, then the
+// skill itself.
+func (s *Skill) Body() string {
+	if s.Source == "" {
+		return s.Content
+	}
+	dir := filepath.Dir(s.Source)
+	note := strings.TrimSpace(harnessRender("skill-folder", struct{ Dir string }{dir}))
+	if note == "" {
+		return s.Content
+	}
+	return note + "\n\n" + s.Content
+}
+
 // defaultSkillDirs returns the global skill directories and the project's
 // .kdeps/skills (read-only: kdeps never writes into a project's .kdeps).
 func defaultSkillDirs() []string {

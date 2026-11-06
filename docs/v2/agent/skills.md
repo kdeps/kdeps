@@ -22,7 +22,7 @@ Skills are discovered from:
 - `./.kdeps/skills/` (the project's own, see [The .kdeps folder](#the-kdeps-folder))
 - paths passed with `--skill` (explicit, repeatable)
 
-Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`.
+Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`. The skill's text reaches the model with its folder named first, so a relative link in it (`agents/reviewer.md`, `scripts/run.sh`) resolves.
 
 ### Progressive disclosure
 

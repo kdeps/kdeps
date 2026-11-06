@@ -1,5 +1,5 @@
-version: 1.0.0
-description: Request a one-time permission exception from the user. Use when a tool call is blocked by permission mode and you need user approval. Returns a token ID.
+version: 1.1.0
+description: "Request a one-time permission exception from the user. Use when a tool call is blocked by permission mode and you need user approval. Returns a token ID; tell the user to run /approve <token_id>, then retry the call once they have. You cannot grant it yourself."
 parameters:
   action:
     type: string

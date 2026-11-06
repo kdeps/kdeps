@@ -115,6 +115,10 @@ type Options struct {
 	Emit func(Event)
 	// Engine runs internal loop LLM calls (compaction). Required.
 	Engine *executor.Engine
+	// SubagentEngine makes a fresh engine for each subagent call that runs
+	// beside a turn (judge roster, knowledge extraction). Nil runs the
+	// roster before the turn and skips model extraction.
+	SubagentEngine func() *executor.Engine
 	// Cwd is the workspace folder (sessions and memory are per folder).
 	Cwd string
 	// StateDir is the kdeps state root; "" means ~/.kdeps.
@@ -232,6 +236,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		Approver:       s.approve,
 		Knowledge:      desktopKnowledge(),
 		KnowledgeCtx:   s.ctx,
+		SubagentEngine: s.opts.SubagentEngine,
 	}
 	if resume != nil {
 		cfg.ResumeSession = resume

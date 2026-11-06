@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,9 +160,78 @@ func TestSideLoop_SendsEveryToolAndNoLoader(t *testing.T) {
 	l := New(context.Background(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg,
 		Config{Model: "test", Nested: true})
 	assert.Nil(t, l.registry.Get(toolNameLoadTools))
+	assert.Nil(t, l.registry.Get("identity_get"), "no session tools on a side loop")
+	assert.Nil(t, l.registry.Get("session_handshake"))
 	names := []string{}
 	for _, td := range l.requestTools() {
 		names = append(names, td.Name)
 	}
 	assert.Contains(t, names, "wikipedia", "a deferred tool is sent in full to a side loop")
+}
+
+// slowSubagentStreamer answers every subagent request after a pause and
+// records how many ran at once.
+type slowSubagentStreamer struct {
+	mu      sync.Mutex
+	running int
+	peak    int
+}
+
+func (s *slowSubagentStreamer) StreamChat(
+	_ context.Context, _ *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	s.mu.Lock()
+	s.running++
+	s.peak = max(s.peak, s.running)
+	s.mu.Unlock()
+	time.Sleep(150 * time.Millisecond)
+	s.mu.Lock()
+	s.running--
+	s.mu.Unlock()
+	_, _ = io.WriteString(w, "report")
+	return "report", nil, nil
+}
+
+// TestSubagent_CallsInOneRoundRunInParallel checks reviewers asked for in
+// the same reply run at the same time, and each call gets its own report.
+func TestSubagent_CallsInOneRoundRunInParallel(t *testing.T) {
+	s := &slowSubagentStreamer{}
+	l := newSubagentTestLoop(t, s)
+	calls := []domain.StreamedToolCall{
+		{ID: "1", Name: toolNameSubagent, Arguments: `{"task":"review A"}`},
+		{ID: "2", Name: toolNameSubagent, Arguments: `{"task":"review B"}`},
+		{ID: "3", Name: toolNameSubagent, Arguments: `{"task":"review C"}`},
+	}
+	done := l.startSubagents(calls)
+	defer done()
+	for _, tc := range calls {
+		args := map[string]any{}
+		require.NoError(t, json.Unmarshal([]byte(tc.Arguments), &args))
+		out, err := l.subagentTool(args)
+		require.NoError(t, err)
+		assert.Equal(t, "report", out)
+	}
+	assert.Equal(t, 3, s.peak, "all three subagents ran at once")
+}
+
+func TestSubagent_OneCallRunsOnItsOwn(t *testing.T) {
+	l := newSubagentTestLoop(t, &slowSubagentStreamer{})
+	done := l.startSubagents([]domain.StreamedToolCall{{Name: toolNameSubagent, Arguments: `{"task":"x"}`}})
+	done()
+	assert.Nil(t, l.subagentRuns, "nothing is started ahead for a single call")
+}
+
+// TestSkillBody_NamesTheSkillFolder checks a loaded or invoked skill says
+// where it lives, so links like agents/reviewer.md resolve.
+func TestSkillBody_NamesTheSkillFolder(t *testing.T) {
+	dir := t.TempDir()
+	sk := &Skill{Name: "review", Content: "Read agents/zoom_out.md first.", Source: dir + "/SKILL.md"}
+	body := sk.Body()
+	assert.Contains(t, body, dir)
+	assert.True(t, strings.HasSuffix(body, "Read agents/zoom_out.md first."), "the skill text follows the note")
+	assert.Equal(t, "x", (&Skill{Content: "x"}).Body(), "a skill with no file is unchanged")
+}
+
+func TestCoreTools_IncludeSubagent(t *testing.T) {
+	assert.True(t, coreToolSet()[toolNameSubagent], "subagent is sent in full so skill packs find it")
 }

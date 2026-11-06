@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // Judge roster resolution: an explicit Config.Judges list is used as-is;
@@ -43,9 +44,19 @@ const maxAutoJudges = 3
 // to input. Returns nil on any engine error or unparsable reply — a broken
 // roster generation must not block the turn.
 func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
-	model, backend, baseURL, ok := l.prepareSubagentCall()
+	call, ok := l.judgeRosterCall(input)
 	if !ok {
 		return nil
+	}
+	return runJudgeRosterCall(l.engine, call)
+}
+
+// judgeRosterCall builds the roster request from the loop's config. It reads
+// the config, so it runs on the turn's goroutine even when the call does not.
+func (l *Loop) judgeRosterCall(input string) (*domain.Workflow, bool) {
+	model, backend, baseURL, ok := l.prepareSubagentCall()
+	if !ok {
+		return nil, false
 	}
 	chatCfg := &domain.ChatConfig{
 		Model:   model,
@@ -59,8 +70,12 @@ func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
 		JSONResponse: true,
 	}
 	chatCfg.MaxTokens = sideCallMaxTokens(backend, model)
-	synthetic := l.buildSyntheticWorkflow(judgeRosterActionID, chatCfg)
-	result, err := l.engine.Execute(synthetic, nil)
+	return l.buildSyntheticWorkflow(judgeRosterActionID, chatCfg), true
+}
+
+// runJudgeRosterCall runs a roster request on eng and parses the panel.
+func runJudgeRosterCall(eng *executor.Engine, call *domain.Workflow) []JudgeSpec {
+	result, err := eng.Execute(call, nil)
 	if err != nil {
 		return nil
 	}
@@ -169,6 +184,34 @@ func (l *Loop) resolveJudgeRoster(ctx context.Context, input string) []JudgeSpec
 		l.lastAutoRoster = roster
 	}
 	return roster
+}
+
+// startJudgeRoster resolves the panel for input and delivers it on the
+// returned channel. A generated roster is a subagent call on its own engine
+// that runs beside the turn; the request is built here, on the turn's
+// goroutine, because the turn may change the config (a model fallback)
+// while the call runs. Without SubagentEngine it runs here, before the turn.
+func (l *Loop) startJudgeRoster(ctx context.Context, input string) <-chan []JudgeSpec {
+	ready := make(chan []JudgeSpec, 1)
+	if l == nil || ctx.Err() != nil || len(l.config.Judges) > 0 || !l.config.AutoJudges || looksTrivial(input) {
+		ready <- l.resolveJudgeRoster(ctx, input) // explicit or none: no model call
+		return ready
+	}
+	call, ok := l.judgeRosterCall(input)
+	if !ok {
+		ready <- nil
+		return ready
+	}
+	var eng *executor.Engine
+	if l.config.SubagentEngine != nil {
+		eng = l.config.SubagentEngine()
+	}
+	if eng == nil {
+		ready <- runJudgeRosterCall(l.engine, call)
+		return ready
+	}
+	go func() { ready <- runJudgeRosterCall(eng, call) }()
+	return ready
 }
 
 // LastAutoRoster returns the most recent auto-generated judge panel, or nil.

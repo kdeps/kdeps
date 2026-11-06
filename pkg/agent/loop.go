@@ -294,10 +294,12 @@ type Config struct {
 	// KnowledgeCtx is the parent context of the vault's background graph
 	// builds; the vault stays off without it.
 	KnowledgeCtx context.Context
-	// KnowledgeEngine makes an engine for one knowledge extraction call (a
-	// fresh one each, so calls run in parallel without touching the loop's
-	// engine). Nil: no model extraction.
-	KnowledgeEngine func() *executor.Engine
+	// SubagentEngine makes an engine for one subagent call that runs beside
+	// the turn: knowledge extraction and judge-roster generation. A fresh one
+	// each, because Engine.Execute keeps per-run state and two calls must not
+	// share an engine. Nil: no model extraction, and the roster call runs on
+	// the loop's engine before the turn.
+	SubagentEngine func() *executor.Engine
 	// Observer, when set, receives typed events (tool start/end, narration)
 	// for a graphical front end. It runs on the loop goroutine: never block.
 	Observer func(LoopEvent)
@@ -348,6 +350,10 @@ type Loop struct {
 	// loadedTools are the deferred tools the model loaded with load_tools this
 	// session; their definitions go on every later request (see requestTools).
 	loadedTools map[string]bool
+	// subagentRuns holds this round's subagent calls, started together so
+	// they run in parallel (see startSubagents). Keyed by their arguments.
+	subagentRuns map[string]<-chan subagentResult
+	subagentMu   sync.Mutex
 	// resumeNote says when a resumed session last ran; it goes on every
 	// request of the first turn after the resume, then is cleared.
 	resumeNote string
@@ -502,11 +508,25 @@ func (l *Loop) recordToolCall(name, args, result string) {
 	}
 }
 
+// becomeSessionLoop sets up what only a top-level loop has. It registers the
+// session tools: a side loop (a judge or a subagent) gets exactly the tools
+// it was scoped to, sent in full, with no load_tools, no session tools and no
+// subagent, so a verdict-only judge sees only judge_verdict. It also writes
+// the process-wide state (the free-model queue cap, the loop memory_query
+// reads); a side loop never does, so side loops can be built in parallel.
+func (l *Loop) becomeSessionLoop() {
+	setFreeModelQueueCap()
+	activeLoop = l
+	l.registerToolLoader()
+	l.registerIdentityTool()
+	l.registerSessionHandshakeTool()
+	l.registerSubagentTool()
+}
+
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
 // then to sensible defaults.
 func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
 	cfg = applyConfigDefaults(cfg)
-	setFreeModelQueueCap()
 	skillSlice, skillDirs := loadSkillSliceWithDirs(cfg.SkillPaths)
 
 	var session SessionReadWriter
@@ -545,15 +565,8 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 
 	api.SetSessionToolBackend(sessionToolBridge{loop: l})
 	l.registerSkillLoader()
-	// A side loop's tools are already scoped to what it may call, so it gets
-	// every definition up front and no load_tools.
 	if !cfg.Nested {
-		l.registerToolLoader()
-	}
-	l.registerIdentityTool()
-	l.registerSessionHandshakeTool()
-	if !cfg.Nested {
-		l.registerSubagentTool()
+		l.becomeSessionLoop()
 	}
 	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
 		// A project folder that moves (archived, or back) takes its memory along.
@@ -580,8 +593,6 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 		}
 		l.saveSessionConfig()
 	}
-
-	activeLoop = l
 
 	return l
 }
@@ -622,7 +633,7 @@ func (l *Loop) registerSkillLoader() {
 					"load_skill: no skill named %q; available skills: %s", name, l.visibleSkillNames(),
 				)
 			}
-			content := sk.Content
+			content := sk.Body()
 			if related := l.relatedSkills[sk.Name]; len(related) > 0 {
 				content += "\n\n---\nRelated skills (call load_skill again if relevant): " + strings.Join(
 					related,
@@ -1204,20 +1215,35 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		}
 	}
 
+	// The judge roster is a subagent call that runs beside the turn: it starts
+	// now, on the prompt as typed, and is collected only when the panel needs
+	// it after the answer.
+	rosterReady := l.startJudgeRoster(ctx, input)
+
 	// Pre-turn prompt refinement: rewrite a terse or under-specified prompt
 	// into a clearer, self-contained version and run the turn on that. The
 	// refined string replaces input everywhere below (preamble, chat config,
-	// judge roster, session history).
+	// session history). It runs while the roster call is in flight.
 	input = l.applyPromptRefine(ctx, input, w)
 
 	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
-	// Resolve the judge panel up front so an auto-generated roster prints
-	// before the main tool loop, not after the answer. The panel still runs
-	// against the final output below.
+	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
+	if err != nil && IsContextOverflowError(err) {
+		finalContent, err = l.compactAndRetry(ctx, input, w)
+	}
+	if err != nil {
+		return "", err
+	}
+
+	response := stripContentToolCalls(finalContent)
+
 	explicitRoster := len(l.config.Judges) > 0
-	roster := l.resolveJudgeRoster(ctx, input)
+	roster := <-rosterReady
+	if len(roster) > 0 && !explicitRoster {
+		l.lastAutoRoster = roster
+	}
 	switch {
 	case len(roster) > 0 && !explicitRoster:
 		l.reportJudgeRoster(w, roster)
@@ -1229,16 +1255,6 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 			fmt.Fprintln(pw, "\n[judges] no panel this turn — roster generation returned nothing")
 		}
 	}
-
-	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
-	if err != nil && IsContextOverflowError(err) {
-		finalContent, err = l.compactAndRetry(ctx, input, w)
-	}
-	if err != nil {
-		return "", err
-	}
-
-	response := stripContentToolCalls(finalContent)
 
 	// Judge panel: an independent review of the final output, with the power
 	// to send it back for revision. Never runs for library/test callers with
@@ -2598,6 +2614,7 @@ func (l *Loop) executeToolCalls(
 ) ([]map[string]any, roundOutcome) {
 	var outcome roundOutcome
 	msgs := make([]map[string]any, 0, len(toolCalls))
+	defer l.startSubagents(toolCalls)()
 	for _, tc := range toolCalls {
 		tc.Arguments = unescapeExecutableArgs(tc.Name, tc.Arguments)
 		started := time.Now()

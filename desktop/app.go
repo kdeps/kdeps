@@ -84,12 +84,13 @@ func (a *App) init(ctx context.Context, emit func(desktop.Event), engine *execut
 		return err
 	}
 	svc, err := desktop.New(ctx, desktop.Options{
-		Emit:         emit,
-		Engine:       engine,
-		Cwd:          ws,
-		ResolveModel: cmd.DesktopStartModel,
-		WireREPL:     cmd.DesktopWireREPL,
-		Runner:       cmd.NewDesktopRunner(cliArgv()...),
+		Emit:           emit,
+		Engine:         engine,
+		SubagentEngine: cmd.NewDesktopEngine,
+		Cwd:            ws,
+		ResolveModel:   cmd.DesktopStartModel,
+		WireREPL:       cmd.DesktopWireREPL,
+		Runner:         cmd.NewDesktopRunner(cliArgv()...),
 	})
 	if err != nil {
 		return err
