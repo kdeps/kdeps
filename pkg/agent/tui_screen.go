@@ -70,8 +70,12 @@ func (r *REPL) runFullScreen() error {
 
 	m := newScreenModel(f)
 	m.Complete = r.screenCompletions
+	// Everything off the UI loop reaches the program through the pump, so a
+	// busy frame never blocks the agent loop. Overlays still use Send: their
+	// caller waits for the user anyway.
+	pump := screen.NewPump()
 	var program *tea.Program
-	setScreenStatusSink(func(text string) { program.Send(screen.StatusTextMsg{Text: text}) })
+	setScreenStatusSink(func(text string) { pump.Latest("status", screen.StatusTextMsg{Text: text}) })
 	defer setScreenStatusSink(nil)
 	closed := make(chan struct{})
 	setScreenOverlaySink(func(msg screen.OpenOverlayMsg) { program.Send(msg) }, closed)
@@ -82,18 +86,14 @@ func (r *REPL) runFullScreen() error {
 	if r.loop.config.OfferSessionPicker {
 		m = r.withSessionPicker(m)
 	}
-	m.OnSubmit = func(line string) {
-		if procErr := r.processInput(line); procErr != nil {
-			program.Send(screen.OutputMsg{Text: "error: " + procErr.Error()})
-		}
-		// The status box only refreshes during a turn; show the counters after it too.
-		drawLiveStatus(origOut, "")
-		if r.loopCtx.Err() != nil {
-			program.Quit()
-		}
-	}
+	turns := newSubmitQueue()
+	defer turns.close()
+	m.OnSubmit = turns.push
 	program = tea.NewProgram(m, tea.WithOutput(origOut))
-	defer attachScreenModel(program)()
+	defer attachScreenModel(pump)()
+	go pump.Run(program.Send)
+	defer pump.Close()
+	go r.runSubmitted(turns, pump, origOut, program.Quit)
 	go r.syncScreenPills()
 
 	done := make(chan struct{})
@@ -101,13 +101,12 @@ func (r *REPL) runFullScreen() error {
 		defer close(done)
 		scanner := bufio.NewScanner(pr)
 		for scanner.Scan() {
-			program.Send(screen.OutputMsg{Text: scanner.Text()})
+			pump.Output(scanner.Text())
 		}
 	}()
 
-	// Show the counters before the first turn. Send blocks until the program
-	// runs, so it goes from a goroutine.
-	go drawLiveStatus(origOut, "")
+	// Show the counters before the first turn.
+	drawLiveStatus(origOut, "")
 	_, runErr := program.Run()
 	// Other goroutines may still hold the write end, so closing ours does not
 	// end the scanner. Restore the streams and close the read end to unblock it.
@@ -362,17 +361,18 @@ func sendScreenStatus(text string) bool {
 	return true
 }
 
-// attachScreenModel makes setScreenModel send names to program. The returned
-// function detaches it again.
-func attachScreenModel(program *tea.Program) func() {
+// attachScreenModel makes setScreenModel, feed redraws and pills reach the
+// view through pump. Each kind keeps only its newest value. The returned
+// function detaches them again.
+func attachScreenModel(pump *screen.Pump) func() {
 	screenModelSend.Lock()
-	screenModelSend.send = func(msg screen.ModelMsg) { program.Send(msg) }
+	screenModelSend.send = func(msg screen.ModelMsg) { pump.Latest("model", msg) }
 	screenModelSend.Unlock()
 	tuiFeedSink.Lock()
-	tuiFeedSink.redraw = func() { program.Send(screen.RedrawMsg{}) }
+	tuiFeedSink.redraw = func() { pump.Latest("redraw", screen.RedrawMsg{}) }
 	tuiFeedSink.Unlock()
 	screenPillSend.Lock()
-	screenPillSend.send = func(msg screen.PillMsg) { program.Send(msg) }
+	screenPillSend.send = func(msg screen.PillMsg) { pump.Latest("pill:"+msg.Name, msg) }
 	screenPillSend.Unlock()
 	return func() {
 		tuiFeedSink.Lock()
@@ -384,6 +384,83 @@ func attachScreenModel(program *tea.Program) func() {
 		screenPillSend.Lock()
 		screenPillSend.send = nil
 		screenPillSend.Unlock()
+	}
+}
+
+// submitQueue holds submitted lines until the turn before them ends. push
+// never blocks, so the UI loop can call it.
+type submitQueue struct {
+	mu     sync.Mutex
+	lines  []string
+	closed bool
+	wake   chan struct{}
+}
+
+func newSubmitQueue() *submitQueue { return &submitQueue{wake: make(chan struct{}, 1)} }
+
+// push queues one line.
+func (q *submitQueue) push(line string) {
+	q.mu.Lock()
+	if !q.closed {
+		q.lines = append(q.lines, line)
+	}
+	q.mu.Unlock()
+	q.signal()
+}
+
+// close drops queued lines and makes pop return false.
+func (q *submitQueue) close() {
+	q.mu.Lock()
+	q.closed = true
+	q.lines = nil
+	q.mu.Unlock()
+	q.signal()
+}
+
+// pop waits for the next line. It returns false after close.
+func (q *submitQueue) pop() (string, bool) {
+	for {
+		q.mu.Lock()
+		if q.closed {
+			q.mu.Unlock()
+			return "", false
+		}
+		if len(q.lines) > 0 {
+			line := q.lines[0]
+			q.lines = q.lines[1:]
+			q.mu.Unlock()
+			return line, true
+		}
+		q.mu.Unlock()
+		<-q.wake
+	}
+}
+
+func (q *submitQueue) signal() {
+	select {
+	case q.wake <- struct{}{}:
+	default:
+	}
+}
+
+// runSubmitted runs queued lines one at a time, in the order they were sent,
+// so a prompt typed during a turn waits for that turn instead of racing it.
+// It quits the view once the loop ends (/exit).
+func (r *REPL) runSubmitted(turns *submitQueue, pump *screen.Pump, statusOut io.Writer, quit func()) {
+	for {
+		line, ok := turns.pop()
+		if !ok {
+			return
+		}
+		if err := r.processInput(line); err != nil {
+			pump.Output("error: " + err.Error())
+		}
+		// The status box only refreshes during a turn; show the counters after it too.
+		drawLiveStatus(statusOut, "")
+		if r.loopCtx.Err() != nil {
+			quit()
+			return
+		}
 	}
 }
 

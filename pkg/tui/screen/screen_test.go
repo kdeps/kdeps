@@ -76,10 +76,8 @@ func TestPrompt_TypingBackspaceAndSubmit(t *testing.T) {
 
 	var got []string
 	m.OnSubmit = func(line string) { got = append(got, line) }
-	m, cmd := typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnter})
-	require.NotNil(t, cmd, "Enter on a non-empty prompt submits it")
-	cmd()
-	assert.Equal(t, []string{"hey"}, got)
+	m, _ = typed(t, m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	assert.Equal(t, []string{"hey"}, got, "Enter hands the line over on the UI loop")
 	assert.Equal(t, "", m.Prompt(), "the prompt clears after submit")
 }
 

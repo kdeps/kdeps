@@ -132,7 +132,8 @@ type Model struct {
 	histAt     int      // history position while recalling; len(history) when not recalling
 	histDraft  string   // unsent prompt text kept while recalling
 	Feed       *feed.Feed
-	// OnSubmit runs one submitted line. It runs off the UI loop.
+	// OnSubmit receives each submitted line on the UI loop, in order. It must
+	// not block: hand the line to a worker.
 	OnSubmit func(line string)
 	// launchEditor opens the prompt in an external editor. Nil uses the default.
 	launchEditor func(text string) tea.Cmd
@@ -184,6 +185,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.clampScroll()
 	case OutputMsg:
 		m = m.appendOutput(v.Text)
+	case OutputBatchMsg:
+		for _, text := range v.Texts {
+			m = m.appendOutput(text)
+		}
 	case StatusTextMsg:
 		m.Status = v.Text
 	case ModelMsg:
@@ -587,27 +592,24 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// submitLine records the prompt, shows it in the message area, and runs the
-// submit and history callbacks off the UI loop.
+// submitLine records the prompt, shows it in the message area, and hands it
+// to OnSubmit. Saving it to the history file runs off the UI loop.
 func (m Model) submitLine() (tea.Model, tea.Cmd) {
-	line, recorded := "", false
-	m, line, recorded = m.submitPrompt()
+	m, line, recorded := m.submitPrompt()
 	if line == "" {
 		return m, nil
 	}
 	m.mainOff = 0
 	m = m.appendOutput(userLine(line))
-	submit, remember := m.OnSubmit, m.remember
-	if submit == nil && (!recorded || remember == nil) {
+	if m.OnSubmit != nil {
+		m.OnSubmit(line)
+	}
+	remember := m.remember
+	if !recorded || remember == nil {
 		return m, nil
 	}
 	return m, func() tea.Msg {
-		if recorded && remember != nil {
-			remember(line)
-		}
-		if submit != nil {
-			submit(line)
-		}
+		remember(line)
 		return nil
 	}
 }
