@@ -256,7 +256,7 @@ func TestEfficiency_DefaultsAndPresetsOverwriteAll(t *testing.T) {
 	assert.True(t, EfficiencyEnabled())
 	assert.False(t, EfficiencyVerbose())
 
-	require.NoError(t, ApplyPreset("frugal"))
+	require.NoError(t, ApplyPreset("frugal", nil))
 	e, _ := EventByName(eventEfficiencyReads)
 	assert.Equal(t, 4, e.On.Rounds)
 
@@ -268,14 +268,14 @@ func TestEfficiency_DefaultsAndPresetsOverwriteAll(t *testing.T) {
 	assert.False(t, EfficiencyEnabled())
 	assert.True(t, EfficiencyVerbose())
 
-	require.NoError(t, ApplyPreset("thorough"))
+	require.NoError(t, ApplyPreset("thorough", nil))
 	e, _ = EventByName(eventEfficiencyReads)
 	assert.Equal(t, 12, e.On.Rounds)
 	assert.True(t, EfficiencyEnabled(), "preset overwrites the master switch")
 	assert.False(t, EfficiencyVerbose(), "preset overwrites verbose")
 	assert.False(t, EventEnabled(eventEfficiencyTighten), "thorough disables tighten")
 
-	require.NoError(t, ApplyPreset("balanced"))
+	require.NoError(t, ApplyPreset("balanced", nil))
 	assert.True(t, EventEnabled(eventEfficiencyTighten))
 }
 
@@ -303,12 +303,17 @@ func TestSetEfficiencyValue_Rejects(t *testing.T) {
 	require.Error(t, SetEfficiencyLimitOff("nope"))
 }
 
+// A preset that tunes events sets every limit, so switching presets never
+// leaves one behind. A judge-panel-only preset (no events) changes none.
 func TestEfficiencyEvents_AllRegisteredAndInEveryPreset(t *testing.T) {
 	built := loadBuiltinPresets()
 	for _, name := range efficiencyEventNames() {
 		_, ok := EventByName(name)
 		assert.True(t, ok, "event %s not registered", name)
 		for pn, p := range built {
+			if len(p.Events) == 0 && len(p.Judges) > 0 {
+				continue
+			}
 			found := false
 			for _, e := range p.Events {
 				if e.Name == name {

@@ -1,0 +1,30 @@
+version: 1.0.0
+name: design-review
+description: Four fresh-context reviewers check a design document or plan before it is built. Each reads the files the answer names; any rejection sends the answer back for a revision. Changes no events.
+# The panel replaces the session's judges when applied (/harness preset design-review).
+# Each judge runs on the subagent channel with no memory of the conversation.
+judges:
+  - name: scope
+    criteria: >-
+      The design solves the problem the request states, no smaller and no larger.
+      It names what is out of scope. It says why this approach beats the obvious
+      simpler one, or adopts the simpler one.
+    tools: [read_file, list_files, search_local]
+  - name: clarity
+    criteria: >-
+      A developer who has not seen the conversation can follow it. Every term is
+      defined or obvious, every component and file is named, and nothing relies
+      on a decision that is not written down.
+    tools: [read_file, list_files, search_local]
+  - name: failure-modes
+    criteria: >-
+      The design says what happens on bad input, partial failure, retries, a
+      duplicate request, concurrent use and a slow or missing dependency. Each
+      claim about the existing code matches the code.
+    tools: [read_file, list_files, search_local]
+  - name: readiness
+    criteria: >-
+      The plan can be built as written: the steps are ordered, the files and
+      interfaces to change exist or are named as new, and each step says how it
+      is tested.
+    tools: [read_file, list_files, search_local]

@@ -25,22 +25,22 @@ import (
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
-// Auxiliary channel: knowledge-graph extraction, prompt refinement, and
+// Subagent channel: knowledge-graph extraction, prompt refinement, and
 // judges. The session model stays on its own calls (the turn, compaction,
 // handshake, branch summaries).
 
 const (
-	auxCurrent = "current"
-	auxFree    = "free"
+	subagentCurrent = "current"
+	subagentFree    = "free"
 )
 
-// ResolveAux is the model, backend, and base URL for one auxiliary call.
-// spec is llm.aux or the /aux setting. An empty spec or "current" keeps
+// ResolveSubagent is the model, backend, and base URL for one subagent call.
+// spec is llm.subagent or the /subagent setting. An empty spec or "current" keeps
 // curModel, curBackend, and curBase. overridden is true when spec named a
 // model or the large-random pool and a model was chosen. A pin whose
 // provider matches the session keeps curBase. Any other pin clears it.
-func ResolveAux(spec, curModel, curBackend, curBase string) (string, string, string, bool) {
-	model, backend, ok := selectAux(spec)
+func ResolveSubagent(spec, curModel, curBackend, curBase string) (string, string, string, bool) {
+	model, backend, ok := selectSubagent(spec)
 	if !ok {
 		return curModel, curBackend, curBase, false
 	}
@@ -54,25 +54,25 @@ func ResolveAux(spec, curModel, curBackend, curBase string) (string, string, str
 	return model, backend, base, true
 }
 
-func normalizeAux(v string) string {
+func normalizeSubagent(v string) string {
 	return strings.ToLower(strings.TrimSpace(v))
 }
 
-// selectAux resolves a non-current spec. ok is false for current, empty,
+// selectSubagent resolves a non-current spec. ok is false for current, empty,
 // or a free pool with no catalog. Any other id is a pin. An empty backend
 // means the session backend.
-func selectAux(spec string) (string, string, bool) {
-	switch normalizeAux(spec) {
-	case "", auxCurrent:
+func selectSubagent(spec string) (string, string, bool) {
+	switch normalizeSubagent(spec) {
+	case "", subagentCurrent:
 		return "", "", false
-	case auxFree:
+	case subagentFree:
 		id := pickLargeFreeModel()
 		if id == "" {
 			return "", "", false
 		}
 		return id, openrouterBackend, true
 	default:
-		id, backend := resolvePinnedAux(spec)
+		id, backend := resolvePinnedSubagent(spec)
 		if id == "" {
 			return "", "", false
 		}
@@ -80,14 +80,14 @@ func selectAux(spec string) (string, string, bool) {
 	}
 }
 
-// resolvePinnedAux is the model id and backend for a pin. A catalog id uses
+// resolvePinnedSubagent is the model id and backend for a pin. A catalog id uses
 // that entry. A free-catalog id uses OpenRouter. A slash id that is not a
 // file path is an OpenRouter model that is not in the catalog. Anything else
 // is a name on the session backend, so the backend is empty.
-func resolvePinnedAux(spec string) (string, string) {
+func resolvePinnedSubagent(spec string) (string, string) {
 	spec = strings.TrimSpace(spec)
-	switch normalizeAux(spec) {
-	case "", auxCurrent, auxFree:
+	switch normalizeSubagent(spec) {
+	case "", subagentCurrent, subagentFree:
 		return "", ""
 	}
 	if id, backend, ok := canonicalCatalogID(spec); ok {
@@ -130,74 +130,74 @@ func localModelSpec(spec string) bool {
 	return strings.HasSuffix(lower, ".gguf") || strings.HasSuffix(lower, ".llamafile")
 }
 
-// auxOverrides reports whether spec will leave the session model, without
+// subagentOverrides reports whether spec will leave the session model, without
 // picking a random id.
-func (l *Loop) auxOverrides() bool {
+func (l *Loop) subagentOverrides() bool {
 	if l == nil {
 		return false
 	}
-	switch normalizeAux(l.config.Aux) {
-	case "", auxCurrent:
+	switch normalizeSubagent(l.config.Subagent) {
+	case "", subagentCurrent:
 		return false
-	case auxFree:
+	case subagentFree:
 		return len(preferLargeFreeModels(freeModelIDs())) > 0
 	default:
-		id, _ := resolvePinnedAux(l.config.Aux)
+		id, _ := resolvePinnedSubagent(l.config.Subagent)
 		return id != ""
 	}
 }
 
-// auxChat is the model this auxiliary call should use.
-func (l *Loop) auxChat() (string, string, string) {
+// subagentChat is the model this subagent call should use.
+func (l *Loop) subagentChat() (string, string, string) {
 	if l == nil {
 		return "", "", ""
 	}
-	model, backend, baseURL, _ := ResolveAux(l.config.Aux, l.config.Model, l.config.Backend, l.config.BaseURL)
+	model, backend, baseURL, _ := ResolveSubagent(l.config.Subagent, l.config.Model, l.config.Backend, l.config.BaseURL)
 	return model, backend, baseURL
 }
 
-// prepareAuxCall is auxChat plus the guards a side call already had: an
+// prepareSubagentCall is subagentChat plus the guards a side call already had: an
 // engine, and a served local model when the call stays on the session's
 // local backend. An empty model name on a cloud backend still runs.
-func (l *Loop) prepareAuxCall() (string, string, string, bool) {
+func (l *Loop) prepareSubagentCall() (string, string, string, bool) {
 	if l == nil || l.engine == nil {
 		return "", "", "", false
 	}
-	model, backend, baseURL := l.auxChat()
-	if !l.auxOverrides() && localModelNotServed(l) {
+	model, backend, baseURL := l.subagentChat()
+	if !l.subagentOverrides() && localModelNotServed(l) {
 		return "", "", "", false
 	}
 	return model, backend, baseURL, true
 }
 
-// SetAux stores the auxiliary channel. current uses the session model.
+// SetSubagent stores the subagent channel. current uses the session model.
 // free picks a large OpenRouter free model per call. A catalog model is
 // stored as its model_id. Any other name is stored as given.
-func (l *Loop) SetAux(v string) error {
+func (l *Loop) SetSubagent(v string) error {
 	if l == nil {
 		return errors.New("no session")
 	}
-	switch normalizeAux(v) {
-	case "", auxCurrent:
-		l.config.Aux = auxCurrent
-	case auxFree:
-		l.config.Aux = auxFree
+	switch normalizeSubagent(v) {
+	case "", subagentCurrent:
+		l.config.Subagent = subagentCurrent
+	case subagentFree:
+		l.config.Subagent = subagentFree
 	default:
-		id, backend := resolvePinnedAux(v)
+		id, backend := resolvePinnedSubagent(v)
 		if id == "" {
 			return errors.New("empty model")
 		}
-		// A catalog model is stored as its model_id. Calls and /aux resolve
+		// A catalog model is stored as its model_id. Calls and /subagent resolve
 		// that back to the API id.
-		l.config.Aux = internalModelID(id, backend)
+		l.config.Subagent = internalModelID(id, backend)
 	}
-	l.config.AuxSet = true
+	l.config.SubagentSet = true
 	return nil
 }
 
 func canonicalFreeID(spec string) (string, bool) {
-	spec = normalizeAux(spec)
-	if spec == "" || spec == auxCurrent || spec == auxFree {
+	spec = normalizeSubagent(spec)
+	if spec == "" || spec == subagentCurrent || spec == subagentFree {
 		return "", false
 	}
 	for _, id := range freeModelIDs() {
@@ -208,22 +208,22 @@ func canonicalFreeID(spec string) (string, bool) {
 	return "", false
 }
 
-// auxSettingState is what /aux prints. It does not pick a random model:
+// subagentSettingState is what /subagent prints. It does not pick a random model:
 // free stays a mode, and a pinned id is shown as itself.
-func auxSettingState(l *Loop) map[string]any {
+func subagentSettingState(l *Loop) map[string]any {
 	raw, model, backend := "", "", ""
 	if l != nil {
-		raw = strings.TrimSpace(l.config.Aux)
+		raw = strings.TrimSpace(l.config.Subagent)
 		model, backend = l.config.Model, l.config.Backend
 	}
-	switch normalizeAux(raw) {
-	case auxFree:
+	switch normalizeSubagent(raw) {
+	case subagentFree:
 		model, backend = "", openrouterBackend
-		raw = auxFree
-	case "", auxCurrent:
-		raw = auxCurrent
+		raw = subagentFree
+	case "", subagentCurrent:
+		raw = subagentCurrent
 	default:
-		id, b := resolvePinnedAux(raw)
+		id, b := resolvePinnedSubagent(raw)
 		if id != "" {
 			model = id
 		}

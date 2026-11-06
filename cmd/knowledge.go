@@ -168,7 +168,7 @@ next to the graph, under ~/.kdeps/knowledge/<vault-id>.
 With --extract, a model first reads every note that changed since its
 last extraction and lists what it is about; its findings join the graph as
 inferred edges (with the model's confidence) or ambiguous ones (below the
-knowledge policy's ambiguous_below). The model is --model, or llm.aux
+knowledge policy's ambiguous_below). The model is --model, or llm.subagent
 when that names a model, or knowledge.extract.model, or the current
 model. A slash id outside the catalog goes to OpenRouter. Any other
 name uses the session backend. knowledge.build: off refuses --extract.
@@ -198,13 +198,13 @@ of yours there is never replaced.`,
 	c.Flags().BoolVar(&extract, "extract", false, "have a model read changed notes first (inferred edges)")
 	c.Flags().BoolVar(&export, "export", false, "also copy GRAPH_REPORT.md and graph.html into the vault")
 	c.Flags().StringVar(&model, "model", "",
-		"model for --extract (default: llm.aux, else knowledge.extract.model, else the current model)")
+		"model for --extract (default: llm.subagent, else knowledge.extract.model, else the current model)")
 	c.Flags().IntVar(&limit, "limit", 0, "most notes --extract reads (0: all changed)")
 	return c
 }
 
 // resolveExtractModel picks the model for --extract. --model wins. Then
-// llm.aux when it names a model or the large-random pool. Then
+// llm.subagent when it names a model or the large-random pool. Then
 // knowledge.extract.model. Then the current model.
 func resolveExtractModel(
 	ctx context.Context, flag string, kc *config.KnowledgeConfig,
@@ -213,7 +213,7 @@ func resolveExtractModel(
 		return flag, agent.BackendForModel(flag), ""
 	}
 	if cfg, err := config.LoadStruct(); err == nil {
-		m, b, base, over := agent.ResolveAux(cfg.LLM.Aux, "", cfg.LLM.Backend, cfg.LLM.BaseURL)
+		m, b, base, over := agent.ResolveSubagent(cfg.LLM.Subagent, "", cfg.LLM.Backend, cfg.LLM.BaseURL)
 		if over {
 			return m, b, base
 		}
@@ -239,7 +239,7 @@ func runKnowledgeExtract(
 	}
 	model, backend, baseURL := resolveExtractModel(cmd.Context(), model, kc)
 	if model == "" {
-		return errors.New("no model for --extract: pass --model, set llm.aux, or set knowledge.extract.model")
+		return errors.New("no model for --extract: pass --model, set llm.subagent, or set knowledge.extract.model")
 	}
 	if backend == "" {
 		backend = agent.BackendForModel(model)

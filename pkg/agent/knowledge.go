@@ -1017,7 +1017,7 @@ func KnowledgeAsk(newEngine func() *executor.Engine, model, backend, baseURL str
 	}
 }
 
-// extractModel is the model extraction uses. The auxiliary channel wins
+// extractModel is the model extraction uses. The subagent channel wins
 // when it names a model or the large-random pool. Otherwise an
 // explicit knowledge.extract.model is used, then the session model.
 // An unserved local session model is skipped. "" skips extraction.
@@ -1025,14 +1025,14 @@ func (l *Loop) extractModel() (string, string, string) {
 	if l == nil {
 		return "", "", ""
 	}
-	if !l.auxOverrides() && l.knowledge != nil && l.knowledge.cfg.Extract.Model != "" {
+	if !l.subagentOverrides() && l.knowledge != nil && l.knowledge.cfg.Extract.Model != "" {
 		return l.knowledge.cfg.Extract.Model, l.knowledge.cfg.Extract.Backend, ""
 	}
-	model, backend, baseURL := l.auxChat()
+	model, backend, baseURL := l.subagentChat()
 	if model == "" {
 		return "", "", ""
 	}
-	if !l.auxOverrides() && localExtractUnserved(backend, baseURL) {
+	if !l.subagentOverrides() && localExtractUnserved(backend, baseURL) {
 		return "", "", ""
 	}
 	return model, backend, baseURL
@@ -1179,7 +1179,7 @@ func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
 	model, backend, baseURL := l.extractModel()
 	if model == "" {
 		if all && w != nil {
-			fmt.Fprintln(w, "knowledge: no model for extraction (/aux, llm.aux, or knowledge.extract.model)")
+			fmt.Fprintln(w, "knowledge: no model for extraction (/subagent, llm.subagent, or knowledge.extract.model)")
 		}
 		return
 	}

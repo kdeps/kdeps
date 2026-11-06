@@ -186,7 +186,7 @@ func knownLLMKeys() map[string]bool {
 		"ollama_host": true,
 		"backend":     true,
 		"base_url":    true,
-		"aux":         true,
+		"subagent":    true,
 		"strategy":    true,
 		"models":      true,
 		"models_dir":  true,

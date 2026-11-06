@@ -23,7 +23,7 @@ Each action's behavior is Go code, since it performs a real side effect: summari
 
 ## Not every action is freely swappable
 
-Actions are not freely swappable between events with the same trigger shape. `handshake-timeout` and `judge-max-rounds` (both `force_answer`) set a sub-loop's round budget and rely on the loop's round-exhaustion behavior. Changing their `run:` validates (the name exists) but changes nothing; the call site implements only its named action.
+Actions are not freely swappable between events with the same trigger shape. `handshake-timeout`, `judge-max-rounds` and `subagent-max-rounds` (all `force_answer`) set a sub-loop's round budget and rely on the loop's round-exhaustion behavior. Changing their `run:` validates (the name exists) but changes nothing; the call site implements only its named action.
 
 ## Enforcement: hard vs. soft
 

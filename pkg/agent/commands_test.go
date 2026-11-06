@@ -60,7 +60,7 @@ func TestCommands_EveryGoCommandHasAnAsset(t *testing.T) {
 }
 
 // Windows refuses to check out a path whose name is a reserved device
-// (aux.yaml and aux.md are the AUX device). The slash command can still be /aux.
+// (aux.yaml and aux.md are the AUX device).
 func TestShippedAssetNames_NotWindowsDevices(t *testing.T) {
 	reserved := map[string]bool{"con": true, "prn": true, "aux": true, "nul": true}
 	for i := 1; i <= 9; i++ {

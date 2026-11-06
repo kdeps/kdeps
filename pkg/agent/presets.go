@@ -54,6 +54,27 @@ type Preset struct {
 	Description string             `yaml:"description"`
 	Harness     []yamlHarnessEntry `yaml:"harness,omitempty"`
 	Events      []Event            `yaml:"events,omitempty"`
+	// Judges, when set, replaces the session's judge panel.
+	Judges []PresetJudge `yaml:"judges,omitempty"`
+}
+
+// PresetJudge is one judge of a preset's panel. Tools are the tools it may
+// call to check the answer; maxRounds caps its tool rounds (0: the
+// judge-max-rounds event).
+type PresetJudge struct {
+	Name      string   `yaml:"name"`
+	Criteria  string   `yaml:"criteria"`
+	Tools     []string `yaml:"tools,omitempty"`
+	MaxRounds int      `yaml:"maxRounds,omitempty"`
+}
+
+// judgeSpecs is the panel as the judges run it.
+func (p Preset) judgeSpecs() []JudgeSpec {
+	specs := make([]JudgeSpec, 0, len(p.Judges))
+	for _, j := range p.Judges {
+		specs = append(specs, JudgeSpec{Name: j.Name, Criteria: j.Criteria, Tools: j.Tools, MaxRounds: j.MaxRounds})
+	}
+	return specs
 }
 
 //nolint:gochecknoglobals // built-in + user-merged registry, mirrors eventRegistry/actionRegistry
@@ -89,6 +110,11 @@ func parseYAMLPreset(data []byte, source string) (Preset, error) {
 	p.Name = strings.ToLower(strings.TrimSpace(p.Name))
 	if p.Name == "" {
 		return Preset{}, fmt.Errorf("%s: missing name", source)
+	}
+	for i, j := range p.Judges {
+		if strings.TrimSpace(j.Name) == "" || strings.TrimSpace(j.Criteria) == "" {
+			return Preset{}, fmt.Errorf("%s: judge %d needs a name and criteria", source, i+1)
+		}
 	}
 	return p, nil
 }
@@ -160,9 +186,10 @@ func exportPresetEntries() []Preset {
 // on-disk locations (see writeKonfigHarness/writeKonfigEvents) and reloads
 // both registries immediately. Scoped narrowly: unlike ApplyKonfig, it
 // never touches tuning/registry/theme/skills/actions, so switching presets
-// can never clobber a persisted setting the preset doesn't mention. Errors
-// if name isn't a registered preset.
-func ApplyPreset(name string) error {
+// can never clobber a persisted setting the preset doesn't mention. A preset
+// with judges replaces l's judge panel; l may be nil. Errors if name isn't a
+// registered preset.
+func ApplyPreset(name string, l *Loop) error {
 	p, ok := PresetByName(name)
 	if !ok {
 		return fmt.Errorf("presets: unknown preset %q", name)
@@ -175,5 +202,8 @@ func ApplyPreset(name string) error {
 	}
 	initHarness()
 	initEvents()
+	if len(p.Judges) > 0 {
+		l.SetJudges(p.judgeSpecs())
+	}
 	return nil
 }

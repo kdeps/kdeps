@@ -1,0 +1,15 @@
+version: 1.0.0
+category: agent
+description: Hand a task to a subagent, a fresh agent that has not seen this conversation. It reads files and searches with read-only tools, then returns a report. Use it for a second opinion with no shared assumptions, such as reviewing a design or a change. State everything it needs in task; name files by path.
+outputFormat: the subagent's final answer
+parameters:
+  task:
+    type: string
+    description: The whole task, standing on its own. The subagent knows only this text and instructions
+    required: true
+  instructions:
+    type: string
+    description: The subagent's role and rules, for example a reviewer persona. Becomes its system prompt
+  tools:
+    type: string
+    description: Read-only tools it may call, separated by commas. Default every read-only tool this session has

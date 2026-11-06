@@ -156,6 +156,7 @@ scenario test_memory_limits.sh
 scenario test_tool_aliases.sh
 scenario test_agent_dsml.sh
 scenario test_agent_tool_schemas.sh
+scenario test_agent_subagent.sh
 scenario test_providers.sh
 scenario test_publish_resources.sh
 scenario test_agent_refine.sh

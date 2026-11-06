@@ -159,12 +159,12 @@ type LLMKeys struct {
 	// Serialized to KDEPS_LLM_BASE_URL.
 	BaseURL string `yaml:"base_url,omitempty"`
 
-	// Aux is the model for auxiliary calls (knowledge-graph extraction,
+	// Subagent is the model for subagent calls (knowledge-graph extraction,
 	// prompt refinement, judges). Empty or "current" uses the session
 	// model. "free" picks a large OpenRouter free model for each call.
-	// Any other value is a model name. A saved /aux stores a catalog model's
+	// Any other value is a model name. A saved /subagent stores a catalog model's
 	// model_id instead of that name.
-	Aux string `yaml:"aux,omitempty"`
+	Subagent string `yaml:"subagent,omitempty"`
 
 	// Routing strategy: token_threshold | fallback | cost_optimized | round_robin.
 	// When set, the models list acts as router routes (model: router resources route via this).
@@ -289,7 +289,7 @@ type KnowledgeConfig struct {
 }
 
 // KnowledgeExtractConfig tunes the model pass that finds what notes are
-// about. The model is the auxiliary channel.
+// about. The model is the subagent channel.
 type KnowledgeExtractConfig struct {
 	Model      string `yaml:"model,omitempty"`
 	Backend    string `yaml:"backend,omitempty"`

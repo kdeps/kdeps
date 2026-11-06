@@ -38,12 +38,12 @@ func TestPresets_TuneMemoryLimitEvents(t *testing.T) {
 		"thorough": {40, 1000, 600},
 	}
 	for preset, want := range cases {
-		require.NoError(t, agent.ApplyPreset(preset), preset)
+		require.NoError(t, agent.ApplyPreset(preset, nil), preset)
 		search, ok := agent.EventByName("memory-search-limit")
 		require.True(t, ok)
 		value, _ := agent.EventByName("memory-value-limit")
 		capture, _ := agent.EventByName("memory-capture-limit")
 		assert.Equal(t, want, [3]int{search.Items, value.On.Bytes, capture.On.Bytes}, preset)
 	}
-	require.NoError(t, agent.ApplyPreset("balanced"))
+	require.NoError(t, agent.ApplyPreset("balanced", nil))
 }

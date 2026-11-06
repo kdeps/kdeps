@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.1.0
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -79,7 +79,7 @@ subcommands:
         run:
           - tool: session_ops
             args: {operation: preset_apply, name: "$1"}
-            print: 'Applied preset {{printf "%q" .name}}: {{.harness}} harness override(s), {{.events}} event override(s) (saved)'
+            print: 'Applied preset {{printf "%q" .name}}: {{.harness}} harness override(s), {{.events}} event override(s) (saved){{if .judges}}, judge panel of {{.judges}} for this session{{end}}'
   reminders:
     subcommands:
       "": &reminders

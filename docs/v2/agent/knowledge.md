@@ -295,9 +295,9 @@ changed -> first -> rest -> cache -> build
 | `auto` | also at session end (after the session note, up to `per_session` notes) and before a background build; keeps running after the prompt returns |
 | `off` | never |
 
-Recall waits for the link graph, not for the model. The call uses the [auxiliary channel](/agent/auxiliary): the session model unless `/aux` or `llm.aux` names another; `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only while the channel is `current`. An unserved local model is skipped.
+Recall waits for the link graph, not for the model. The call uses the [subagent channel](/agent/subagent): the session model unless `/subagent` or `llm.subagent` names another; `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only while the channel is `current`. An unserved local model is skipped.
 
-**From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.aux`, then `knowledge.extract.model`, then the current model.
+**From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.subagent`, then `knowledge.extract.model`, then the current model.
 
 A note is re-read only when it changes; a failed note is retried next run. A build without `--extract` prints how many notes are waiting. The graph records the model and time of the latest successful extraction.
 
@@ -312,7 +312,7 @@ A note is re-read only when it changes; a failed note is retried next run. A bui
 knowledge:
   build: manual               # manual | auto | off
   extract:
-    model: llama3.2:3b        # used when llm.aux is current; empty: the session model
+    model: llama3.2:3b        # used when llm.subagent is current; empty: the session model
     workers: 2                # parallel calls after the first
     per_session: 20           # changed notes read on an automatic run
 ```

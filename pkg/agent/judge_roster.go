@@ -43,7 +43,7 @@ const maxAutoJudges = 3
 // to input. Returns nil on any engine error or unparsable reply — a broken
 // roster generation must not block the turn.
 func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
-	model, backend, baseURL, ok := l.prepareAuxCall()
+	model, backend, baseURL, ok := l.prepareSubagentCall()
 	if !ok {
 		return nil
 	}

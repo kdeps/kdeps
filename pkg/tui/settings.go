@@ -98,8 +98,8 @@ type AgentLoopTuning struct {
 	MaxLeafChars         int      `yaml:"max_leaf_chars,omitempty"`
 	InstructReminders    []string `yaml:"instruct_reminders,omitempty"`
 	PromptMode           string   `yaml:"prompt_mode,omitempty"`
-	Aux                  string   `yaml:"aux,omitempty"`
-	AuxSet               bool     `yaml:"aux_set,omitempty"`
+	Subagent             string   `yaml:"subagent,omitempty"`
+	SubagentSet          bool     `yaml:"subagent_set,omitempty"`
 	KnowledgeBuild       string   `yaml:"knowledge_build,omitempty"`
 	KnowledgeBuildSet    bool     `yaml:"knowledge_build_set,omitempty"`
 }
@@ -109,11 +109,11 @@ type AgentLoopTuning struct {
 // back false. A file from before the key existed unmarshals as on.
 func (t *AgentLoopTuning) UnmarshalYAML(value *yaml.Node) error {
 	type plain AgentLoopTuning
-	aux := plain{AutoJudges: true}
-	if err := value.Decode(&aux); err != nil {
+	decoded := plain{AutoJudges: true}
+	if err := value.Decode(&decoded); err != nil {
 		return err
 	}
-	*t = AgentLoopTuning(aux)
+	*t = AgentLoopTuning(decoded)
 	return nil
 }
 
