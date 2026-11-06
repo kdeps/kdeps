@@ -331,11 +331,11 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	// unreadable config.yaml just means no identity, not a startup failure.
 	var identity *config.IdentityConfig
 	var knowledgeCfg *config.KnowledgeConfig
-	var auxSpec string
+	var subagentSpec string
 	if identityCfg, identityErr := config.LoadStructWithAgent(hostWorkflow.Metadata.Name); identityErr == nil {
 		identity = identityCfg.Identity
 		knowledgeCfg = identityCfg.Knowledge
-		auxSpec = identityCfg.LLM.Aux
+		subagentSpec = identityCfg.LLM.Subagent
 	}
 	if knowledgeCfg == nil {
 		// The knowledge vault is on by default for agent sessions.
@@ -359,7 +359,7 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 		// after the prompt returns, and its "LLM resource configuration"
 		// lines must not print over the conversation.
 		KnowledgeEngine: func() *executor.Engine { return setupEngineAt(slog.LevelWarn, flags.Debug) },
-		Aux:             auxSpec,
+		Subagent:        subagentSpec,
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields

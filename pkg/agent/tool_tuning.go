@@ -120,10 +120,10 @@ type ToolTuning struct {
 	// PromptMode persists /efficiency prompt (auto, full, or summary).
 	// Empty means auto, which is also the zero value.
 	PromptMode string
-	// Aux persists /aux. Empty means current. AuxSet is the sentinel: a
-	// snapshot from before this field existed leaves llm.aux in charge.
-	Aux    string
-	AuxSet bool
+	// Subagent persists /subagent. Empty means current. SubagentSet is the sentinel: a
+	// snapshot from before this field existed leaves llm.subagent in charge.
+	Subagent    string
+	SubagentSet bool
 	// KnowledgeBuild persists /knowledge build. KnowledgeBuildSet is the
 	// sentinel: a snapshot from before this field existed leaves knowledge.build
 	// in charge.
@@ -181,8 +181,8 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		MaxLeafChars:         c.MaxLeafChars,
 		InstructReminders:    append([]string(nil), c.InstructReminders...),
 		PromptMode:           c.PromptMode,
-		Aux:                  c.Aux,
-		AuxSet:               c.AuxSet,
+		Subagent:             c.Subagent,
+		SubagentSet:          c.SubagentSet,
 		KnowledgeBuild:       r.loop.knowledgeBuild,
 		KnowledgeBuildSet:    r.loop.knowledgeBuildSet,
 	}
@@ -288,11 +288,11 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	if mode, ok := normalizePromptMode(t.PromptMode); ok {
 		c.PromptMode = mode
 	}
-	// A saved /aux wins over llm.aux. A snapshot that never stored the
+	// A saved /subagent wins over llm.subagent. A snapshot that never stored the
 	// choice leaves the config value applied at startup.
-	if t.AuxSet {
-		c.Aux = t.Aux
-		c.AuxSet = true
+	if t.SubagentSet {
+		c.Subagent = t.Subagent
+		c.SubagentSet = true
 	}
 	if t.KnowledgeBuildSet {
 		r.loop.knowledgeBuild = t.KnowledgeBuild

@@ -73,9 +73,9 @@ var sessionSettings = map[string]sessionSetting{
 		get: func(r *REPL) map[string]any { return onOffState(r.loop.PromptRefineEnabled()) },
 		set: func(r *REPL, v string) error { r.loop.SetPromptRefine(v == toggleOn); return nil },
 	},
-	"aux": {
-		get:     func(r *REPL) map[string]any { return auxSettingState(r.loop) },
-		set:     func(r *REPL, v string) error { return r.loop.SetAux(v) },
+	"subagent": {
+		get:     func(r *REPL) map[string]any { return subagentSettingState(r.loop) },
+		set:     func(r *REPL, v string) error { return r.loop.SetSubagent(v) },
 		accepts: func(v string) bool { return strings.TrimSpace(v) != "" },
 	},
 	"handshake": {

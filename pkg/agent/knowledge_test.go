@@ -522,7 +522,7 @@ func TestExtractKnowledge(t *testing.T) {
 	l.config.KnowledgeEngine = stubEngines(reply, &seen)
 	l.config.Backend, l.config.Model = "openai", "gpt"
 	gotM, gotB, gotU := l.extractModel()
-	assert.Equal(t, "gpt", gotM, "the session model is the auxiliary channel by default")
+	assert.Equal(t, "gpt", gotM, "the session model is the subagent channel by default")
 	assert.Equal(t, "openai", gotB)
 	assert.Empty(t, gotU)
 

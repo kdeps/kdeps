@@ -156,20 +156,11 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 		maxRounds = effectiveRounds(eventJudgeMaxRounds)
 	}
 
-	model, backend, baseURL := l.auxChat()
-	cfg := Config{
-		Model:         model,
-		Backend:       backend,
-		BaseURL:       baseURL,
-		Role:          l.config.Role,
-		Streamer:      l.streamer,
-		SystemPrompt:  judgeSystemPrompt(spec),
-		MaxToolRounds: maxRounds,
-	}
+	cfg := l.sideLoopConfig(judgeSystemPrompt(spec), maxRounds)
 	// A tool-using judge keeps the model ceiling so it can emit a real tool
 	// call. A verdict-only judge uses the small side-call cap.
 	if len(spec.Tools) == 0 {
-		if side := sideCallMaxTokens(backend, model); side != nil {
+		if side := sideCallMaxTokens(cfg.Backend, cfg.Model); side != nil {
 			cfg.OutputTokenCap = *side
 		}
 	}

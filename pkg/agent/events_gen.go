@@ -76,6 +76,7 @@ const (
 	eventProviderSmallThreshold     = "provider-small-threshold"
 	eventRelMemoryLimit             = "rel-memory-limit"
 	eventSideCallMaxTokens          = "side-call-max-tokens"
+	eventSubagentMaxRounds          = "subagent-max-rounds"
 	eventThinkingBudgetAuto         = "thinking-budget-auto"
 	eventThinkingBudgetHigh         = "thinking-budget-high"
 	eventThinkingBudgetLow          = "thinking-budget-low"

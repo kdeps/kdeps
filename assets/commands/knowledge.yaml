@@ -14,7 +14,7 @@ usage:
   - args: "build [auto|manual|off]"
     help: Show or set model graph building (manual by default; auto also runs it in the background; off disables it)
   - args: extract
-    help: Read the changed notes with the auxiliary model and update the graph
+    help: Read the changed notes with the subagent model and update the graph
 subcommands:
   "":
     run:
@@ -45,7 +45,7 @@ subcommands:
       key: knowledge-build
       values: [auto, manual, off]
       show: >-
-        {{if eq .value "auto"}}model graph building is automatic - the auxiliary model reads changed notes at session end and before a background build{{else if eq .value "off"}}model graph building is off{{else}}model graph building is manual - it runs when you use /knowledge extract or kdeps knowledge build --extract{{end}}
+        {{if eq .value "auto"}}model graph building is automatic - the subagent model reads changed notes at session end and before a background build{{else if eq .value "off"}}model graph building is off{{else}}model graph building is manual - it runs when you use /knowledge extract or kdeps knowledge build --extract{{end}}
       set: >-
         {{if eq .value "auto"}}model graph building set to automatic{{else if eq .value "off"}}model graph building turned off{{else}}model graph building set to manual{{end}}
       invalid: "Usage: /knowledge build [auto|manual|off]"
@@ -53,7 +53,7 @@ subcommands:
     run:
       - tool: session_ops
         args: {operation: knowledge}  # a quick first step, so this line shows before the long one
-        print: Reading changed notes with the auxiliary model...
+        print: Reading changed notes with the subagent model...
       - tool: session_ops
         args: {operation: knowledge_extract}
         print: "{{.output}}"

@@ -66,10 +66,13 @@ func (s *Service) Presets() []agent.Preset {
 
 // ApplyPreset persists a preset's overrides and refreshes the system prompt.
 func (s *Service) ApplyPreset(name string) error {
-	if err := agent.ApplyPreset(name); err != nil {
+	s.mu.Lock()
+	loop := s.loop
+	s.mu.Unlock()
+	if err := agent.ApplyPreset(name, loop); err != nil {
 		return err
 	}
-	s.invalidatePreamble()
+	loop.InvalidateSystemPreamble()
 	return nil
 }
 

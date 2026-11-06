@@ -147,7 +147,7 @@ func TestKnowledgeBuild_Extract(t *testing.T) {
 
 func TestResolveExtractModel(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("llm:\n  aux: current\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  subagent: current\n"), 0o600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 	kc := &config.KnowledgeConfig{Extract: config.KnowledgeExtractConfig{Model: "qwen", Backend: "ollama"}}
 
@@ -158,18 +158,18 @@ func TestResolveExtractModel(t *testing.T) {
 	assert.Equal(t, []string{"qwen", "ollama", ""}, []string{m, b, u})
 
 	require.NoError(t, os.WriteFile(path, []byte(
-		"llm:\n  backend: ollama\n  base_url: http://127.0.0.1:11434\n  aux: not-a-free-model\n"), 0o600))
+		"llm:\n  backend: ollama\n  base_url: http://127.0.0.1:11434\n  subagent: not-a-free-model\n"), 0o600))
 	m, b, u = resolveExtractModel(t.Context(), "", kc)
 	assert.Equal(t, []string{"not-a-free-model", "ollama", "http://127.0.0.1:11434"}, []string{m, b, u})
 
-	require.NoError(t, os.WriteFile(path, []byte("llm:\n  aux: acme/paid-model\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  subagent: acme/paid-model\n"), 0o600))
 	m, b, u = resolveExtractModel(t.Context(), "", kc)
 	assert.Equal(t, []string{"acme/paid-model", "openrouter", ""}, []string{m, b, u})
 
-	require.NoError(t, os.WriteFile(path, []byte("llm:\n  aux: free\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  subagent: free\n"), 0o600))
 	m, b, u = resolveExtractModel(t.Context(), "", kc)
 	if m == "" || m == "qwen" {
-		t.Fatalf("free aux = %q %q, want an OpenRouter free id", m, b)
+		t.Fatalf("free subagent = %q %q, want an OpenRouter free id", m, b)
 	}
 	assert.Equal(t, "openrouter", b)
 	assert.Empty(t, u)

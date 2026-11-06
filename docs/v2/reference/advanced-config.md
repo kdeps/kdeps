@@ -342,17 +342,17 @@ Config is validated on load. Warnings go to stderr for unknown keys, missing
 API keys, invalid durations, and agent profiles under `agents:` that do not
 match any installed workflow's `name:` under `metadata:`.
 
-## Auxiliary model
+## Subagent model
 
-The auxiliary channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the session model.
+The subagent channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the session model.
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  aux: current    # current | free | a model id
+  subagent: current    # current | free | a model id
 ```
 
-`free` chooses a large OpenRouter free model for each of those calls. Any other id pins that model. See [Auxiliary model channel](/agent/auxiliary).
+`free` chooses a large OpenRouter free model for each of those calls. Any other id pins that model. See [Subagent channel](/agent/subagent).
 
 ## Knowledge vault
 
@@ -369,7 +369,7 @@ knowledge:
     budget_tokens: 1500       # most tokens of recalled paths and summaries per turn
   build: manual               # manual (default) | auto | off
   extract:                    # model pass over changed notes
-    model: llama3.2:3b        # used when llm.aux is current; empty: the session model
+    model: llama3.2:3b        # used when llm.subagent is current; empty: the session model
     workers: 2
     per_session: 20           # changed notes read on an automatic run
 ```

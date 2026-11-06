@@ -1,6 +1,6 @@
 # Judge panel
 
-The judge panel is the eval. It reviews a turn's answer on its own. Roster generation and each judge use the [auxiliary channel](/agent/auxiliary). That is the session model unless you point it at another model.
+The judge panel is the eval. It reviews a turn's answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
 
 Goal enforcement checks that the loop keeps moving; it says nothing about whether
 the final answer is right. The panel is an independent review of
@@ -112,6 +112,31 @@ needed:
 /judges remove correctness                     # drop it again
 /judges clear                                  # disable the panel entirely
 ```
+
+## Judge-panel presets
+
+A preset can carry a panel. Applying it replaces the session's judges and changes no limits. `design-review` ships with four reviewers for a design document or plan: `scope`, `clarity`, `failure-modes` and `readiness`, each with `read_file`, `list_files` and `search_local`.
+
+```text
+/harness preset design-review    # Applied preset "design-review": ..., judge panel of 4 for this session
+```
+
+Write your own as `~/.kdeps/presets/<name>.yaml`:
+
+```yaml
+name: api-review
+description: Two reviewers for an API change
+judges:
+  - name: compatibility
+    criteria: >-                  # the rubric folded into the judge's system prompt
+      No existing route, field or status code changes meaning.
+    tools: [read_file, search_local]   # tools it may call to check the answer; empty = judge_verdict only
+    maxRounds: 10                 # its tool rounds; 0 = the judge-max-rounds event
+  - name: errors
+    criteria: Every new failure returns a documented status and message.
+```
+
+The panel lasts for the session, like `/judges add`.
 
 ## See also
 

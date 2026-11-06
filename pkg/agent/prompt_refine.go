@@ -86,8 +86,8 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 	}
 	// Local models must be served before the refiner can call them; otherwise
 	// degrade to the original prompt instead of a failed engine.Execute.
-	// The auxiliary channel can point this call at OpenRouter instead.
-	model, backend, baseURL, ok := l.prepareAuxCall()
+	// The subagent channel can point this call at OpenRouter instead.
+	model, backend, baseURL, ok := l.prepareSubagentCall()
 	if !ok {
 		return input
 	}

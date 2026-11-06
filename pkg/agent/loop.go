@@ -242,14 +242,17 @@ type Config struct {
 	// Off by default in the REPL; /refine on enables it. Persisted via
 	// ToolTuning. A saved session that already stored refine-on stays on.
 	PromptRefine bool
-	// Aux is the model for auxiliary calls: knowledge-graph extraction,
+	// Subagent is the model for subagent calls: knowledge-graph extraction,
 	// prompt refinement, and judges. Empty or "current" uses this loop's
 	// model. "free" picks a large OpenRouter free model for each call.
 	// Any other value is a model name, or the catalog model_id stored for one.
-	// AuxSet is true once /aux stored a
-	// choice, so the saved setting wins over llm.aux.
-	Aux    string
-	AuxSet bool
+	// SubagentSet is true once /subagent stored a
+	// choice, so the saved setting wins over llm.subagent.
+	Subagent    string
+	SubagentSet bool
+	// Nested marks a side loop (a judge or a subagent). It gets no subagent
+	// tool, so a subagent never starts another one.
+	Nested bool
 	// OutputTokenCap, when positive, is max_tokens for this loop's model
 	// calls. Side loops set it from the side-call-max-tokens event. Zero
 	// uses the model output ceiling.
@@ -545,6 +548,9 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 	l.registerToolLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
+	if !cfg.Nested {
+		l.registerSubagentTool()
+	}
 	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
 		// A project folder that moves (archived, or back) takes its memory along.
 		l.knowledge.moved = func() {
