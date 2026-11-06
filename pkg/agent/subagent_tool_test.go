@@ -151,7 +151,8 @@ func TestSideLoopConfig_UsesTheSubagentChannel(t *testing.T) {
 // whole scoped tool set on the first request, with no load_tools to misuse.
 func TestSideLoop_SendsEveryToolAndNoLoader(t *testing.T) {
 	reg := tools.NewRegistry()
-	reg.Register(defined(&tools.Tool{Name: "wikipedia", Execute: func(map[string]any) (string, error) { return "", nil }}))
+	noop := func(map[string]any) (string, error) { return "", nil }
+	reg.Register(defined(&tools.Tool{Name: "wikipedia", Execute: noop}))
 	require.NotNil(t, reg.Get("wikipedia"), "wikipedia ships a definition")
 	require.True(t, reg.Get("wikipedia").OnDemand, "and is deferred on a top-level loop")
 
