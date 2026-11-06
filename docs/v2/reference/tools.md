@@ -333,7 +333,7 @@ Use `google_cache_delete` to remove a cache before its `ttl` ends and avoid stor
 These tools read or change the state of the active agent session. The tools routes serve them, and the call runs the same closure the agent uses:
 
 - `judge_verdict` - judge verdict state
-- `identity_get`, `load_skill` - agent identity and skill loading
+- `identity_get`, `load_skill`, `load_tools` - agent identity, skill loading, and loading tool definitions on demand ([details](/agent/repl-context#tool-definitions-on-demand))
 - `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
 - `session_handshake` - session-integrity challenge
 - `session_ops` - read, clear or compact the live session, get or set session settings, and run the tools that live only in the session (`tool` operation); behind `/clear`, `/compact`, `/history`, `/copy` and every setting command (kdeps API only; not offered to the model)

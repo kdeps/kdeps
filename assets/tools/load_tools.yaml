@@ -1,0 +1,9 @@
+version: 1.0.0
+category: agent
+description: Load the full definitions of tools that are listed here by name only. Call it once with every tool you will need; from the next step on, call those tools as usual.
+outputFormat: which tools were loaded, and any names that are not tools
+parameters:
+  names:
+    type: string
+    description: Tool names to load, separated by commas or spaces
+    required: true

@@ -32,6 +32,7 @@ const (
 	eventHandshakeEvidenceAttempts  = "handshake-evidence-attempts"
 	eventHandshakeHistory           = "handshake-history"
 	eventHandshakeTimeout           = "handshake-timeout"
+	eventHistoryWindowOldResult     = "history-window-old-result"
 	eventHistoryWindowTrim          = "history-window-trim"
 	eventIdenticalToolCalls         = "identical-tool-calls"
 	eventJudgeIterations            = "judge-iterations"

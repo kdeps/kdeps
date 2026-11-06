@@ -51,7 +51,7 @@ var setPurposes = map[string]string{
 	"harness":    "The text kdeps sends the model in agent mode: the sections of the system prompt, and the prompts behind compaction, goals, judges, prompt refinement and nudges.",
 	"events":     "Thresholds the agent loop watches - tokens, rounds, bytes, repeated calls - and the action each runs when crossed.",
 	"actions":    "The vocabulary of what an event can do when it fires: compact, truncate, block, cap, force an answer, fail a task.",
-	"policy":     "The one tool policy: each built-in tool names a tier (T0 read, T1 write), each tier names the permission mode it needs, and default sets whether an unlisted tool is allowed or denied.",
+	"policy":     "Tool policies. permission.yaml: each built-in tool names a tier (T0 read, T1 write), each tier names the permission mode it needs, and default sets whether an unlisted tool is allowed or denied. tool-schemas.yaml: the core tools whose full definition goes on every request; the model loads the rest with load_tools.",
 	"presets":    "Named bundles of event and harness overrides, such as frugal (fewest tokens) or thorough (most context).",
 	"themes":     "Colors, prompt and syntax highlighting of the agent loop's terminal.",
 	"tools":      "What the model is told about each built-in tool: its description, usage notes and parameters. kdeps runs the tool itself.",

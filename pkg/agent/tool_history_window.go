@@ -19,6 +19,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // toolLoopMessageBudget returns the "history-window-trim" event's byte cap on
@@ -115,6 +116,7 @@ func windowToolHistory(history []map[string]any, model string) ([]map[string]any
 	if len(history) == 0 {
 		return history, 0
 	}
+	shortenOldResults(history)
 	budgetLimit := toolLoopMessageBudget()
 	// Cheap byte-length pre-check: at ~2 bytes/token minimum, a transcript under
 	// budget*2 bytes cannot exceed the token budget, so skip the (per-round)
@@ -259,5 +261,52 @@ func shrinkArgFields(fn map[string]any) {
 		if b, err := json.Marshal(parsed); err == nil {
 			fn["arguments"] = string(b)
 		}
+	}
+}
+
+// oldResultMarker starts the note on a shortened result, so it is cut once.
+const oldResultMarker = "[older tool result shortened:"
+
+// oldToolResultBytes is the history-window-old-result event's size for a tool
+// result older than the most recent windowKeepRecentRoundTrips steps.
+func oldToolResultBytes() int {
+	const fallback = 1024 // used only if the event registry is unavailable
+	return effectiveBytes(eventHistoryWindowOldResult, fallback)
+}
+
+// shortenOldResults cuts the tool results of every round-trip except the most
+// recent windowKeepRecentRoundTrips to oldToolResultBytes, in place. Each later
+// round re-sends them, and the model has already acted on them. Already-short
+// results are left alone, so running it every round changes nothing twice.
+func shortenOldResults(history []map[string]any) {
+	limit := oldToolResultBytes()
+	if limit == disabledSentinel {
+		return
+	}
+	var starts []int
+	for i, m := range history {
+		if isRoundTripStart(m) {
+			starts = append(starts, i)
+		}
+	}
+	if len(starts) <= windowKeepRecentRoundTrips {
+		return
+	}
+	end := starts[len(starts)-windowKeepRecentRoundTrips]
+	for i := starts[0]; i < end; i++ {
+		if msgRole(history[i]) != roleTool {
+			continue
+		}
+		content, ok := history[i][toolParamContent].(string)
+		if !ok || len(content) <= limit || strings.Contains(content, oldResultMarker) {
+			continue
+		}
+		cut := content[:limit]
+		if idx := strings.LastIndexByte(cut, '\n'); idx > 0 {
+			cut = cut[:idx]
+		}
+		history[i][toolParamContent] = fmt.Sprintf(
+			"%s\n%s %d of %d bytes kept; run the tool again for the rest]",
+			cut, oldResultMarker, len(cut), len(content))
 	}
 }

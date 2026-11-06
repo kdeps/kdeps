@@ -34,16 +34,17 @@ The same shape covers the loop's token-economy limits -- these fire on a *measur
 # ~/.kdeps/events/tool-result-truncate.yaml
 name: tool-result-truncate
 on:
-  bytes: 16384   # any single tool result past this size is truncated
+  bytes: 8192   # any single tool result past this size keeps its start and end
 run: truncate
 ```
 
 | Event | Fires when | Action |
 |---|---|---|
-| `tool-result-truncate` | a single tool result fed back to the LLM exceeds this size | truncates on a line boundary, appends a marker |
+| `tool-result-truncate` | a single tool result fed back to the LLM exceeds this size | keeps its start and end on line boundaries, marks the cut |
 | `tool-error-truncate` | a tool's failure text exceeds this size | truncates before display and before feeding it back to the LLM |
 | `force-answer-digest` | the gathered-output digest inlined into a forced answer exceeds this size | truncates the digest |
 | `history-window-trim` | the in-flight tool-loop message array exceeds this size | drops the oldest complete tool round-trips |
+| `history-window-old-result` | a tool result older than the two most recent steps of the turn exceeds this size | cuts it to its start, notes how much was dropped |
 | `file-read-limit` | a file a builtin tool is about to read (or `write_file`'s own content) exceeds this size | rejects the call with an error instead of reading/writing it |
 
 Each also falls back to its built-in default if the registry is unavailable. An override that omits `bytes:` never means "truncate to nothing" or "reject every file".
@@ -101,7 +102,7 @@ run: cap
 | Event | Caps | Default |
 |---|---|---|
 | `memory-prompt-limit` | tokens of memory content injected into the system preamble each turn | 500 |
-| `memory-keys-limit` | key names listed in the `<memory-keys>` preamble block | 100 |
+| `memory-keys-limit` | key names listed in the `<memory-keys>` preamble block | 25 |
 | `memory-focus-max` | prompt-relevant entries force-kept when memory is truncated | 5 |
 | `memory-chain-max` | entries the active task chain force-keeps (its nearest ancestors) | 8 |
 | `rel-memory-limit` | base memory rows fed into a `memory_query` join, bounding its worst case | 500 |

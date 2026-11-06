@@ -77,9 +77,10 @@ func TestWindowToolHistory_DropsOldestKeepsHeadAndRecent(t *testing.T) {
 	h := []map[string]any{
 		{"role": RoleUser, "content": "the question"},
 	}
-	// 20 round-trips, each ~2k tokens of result -> ~40k, well over the 24k budget.
-	for i := range 20 {
-		id := "c" + string(rune('A'+i))
+	// 200 round-trips: even with older results shortened to ~1KB each, well
+	// over the budget.
+	for i := range 200 {
+		id := "c" + strconv.Itoa(i)
 		h = append(h, rtAssistant(id, 0), rtTool(id, 8*1024))
 	}
 	out, dropped := windowToolHistory(h, "")

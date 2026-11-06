@@ -137,7 +137,7 @@ func TestCmdHarnessEvents_ShowsTriggerFields(t *testing.T) {
 	repl := newHarnessTestREPL(t)
 	out := captureStdout(t, func() { require.NoError(t, repl.dispatchCommand("/harness events")) })
 	assert.Regexp(t, `auto-compact\s+on: .*ctxWindowFraction=`, out)
-	assert.Regexp(t, `memory-keys-limit\s+on: items=100`, out)
+	assert.Regexp(t, `memory-keys-limit\s+on: items=25`, out)
 	assert.Contains(t, out, "run: compact")
 }
 

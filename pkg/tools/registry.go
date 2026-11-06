@@ -58,6 +58,10 @@ type Tool struct {
 	OutputFormat string
 	// SeeAlso lists related tool names. Shown as "See also: a, b".
 	SeeAlso string
+	// OnDemand marks a tool kdeps ships: unless it is in the core set, its
+	// definition is sent only after the model loads it (see load_tools). Tools
+	// from anywhere else (the project, MCP, an embedding app) are always sent.
+	OnDemand bool
 }
 
 // Registry holds all registered tools.
@@ -103,6 +107,17 @@ func (r *Registry) List() []*Tool {
 		result = append(result, t)
 	}
 	slices.SortFunc(result, func(a, b *Tool) int { return strings.Compare(a.Name, b.Name) })
+	return result
+}
+
+// ToLLMToolsWhere is ToLLMTools for the tools keep accepts, in name order.
+func (r *Registry) ToLLMToolsWhere(keep func(*Tool) bool) []domain.Tool {
+	result := make([]domain.Tool, 0, len(r.tools))
+	for _, t := range r.List() {
+		if keep(t) {
+			result = append(result, convertToDomainTool(t))
+		}
+	}
 	return result
 }
 

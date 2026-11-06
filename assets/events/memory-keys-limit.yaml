@@ -1,4 +1,4 @@
-version: 1.0.3
+version: 1.0.4
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/cap: ""
@@ -19,7 +19,7 @@ name: memory-keys-limit
 # cap, a store with thousands of entries would dump every key into the
 # system prompt on every session -- the model instead sees the most
 # recently updated entries and a count of how many more exist.
-items: 100
+items: 25
 # run: selects the action performed for this event's "items" cap.
 # Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint
