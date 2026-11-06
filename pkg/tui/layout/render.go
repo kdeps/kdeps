@@ -7,7 +7,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Render draws the frame: each box with a rounded border, sized to its rect.
+// Render draws the frame: each box between a top and a bottom rule, sized to
+// its rect. Boxes have no side borders.
 // main, feed, status and prompt are the box contents; text beyond a box is cut.
 func Render(f Frame, header, main, feed, status, prompt string) string {
 	top := box(f.Main, main)
@@ -33,25 +34,28 @@ func clampRows(frame string, rows, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// BoxPadX is the number of blank columns between a box border and its text,
+// BoxPadX is the number of blank columns between a box edge and its text,
 // on each side.
 const BoxPadX = 1
 
 // boxBorderRows is the rows a box's top and bottom border take.
 const boxBorderRows = 2
 
-// InnerWidth is the columns of text a box of width w holds: the border and
-// the padding on both sides are taken out.
-func InnerWidth(w int) int { return max(w-2-2*BoxPadX, 0) }
+// InnerWidth is the columns of text a box of width w holds: the padding on
+// both sides is taken out.
+func InnerWidth(w int) int { return max(w-2*BoxPadX, 0) }
 
-// box draws content inside a rounded border of exactly r.W x r.H cells. Text
+// tabWidth is the spaces a tab becomes, as Lip Gloss would render it.
+const tabWidth = 4
+
+// box draws content between a top and a bottom rule, exactly r.W x r.H cells. Text
 // is cut to the inside of the box first: a line Lip Gloss wrapped would add a
 // row, and MaxHeight would then cut the bottom border instead of the text.
 func box(r Rect, content string) string {
 	content = fitInside(content, InnerWidth(r.W), max(r.H-boxBorderRows, 0))
 	// Lip Gloss v2 counts the border inside Width and Height.
 	style := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.RoundedBorder(), true, false).
 		PaddingLeft(BoxPadX).
 		PaddingRight(BoxPadX).
 		Width(max(r.W, 0)).
@@ -62,13 +66,15 @@ func box(r Rect, content string) string {
 }
 
 // fitInside keeps at most rows lines of content, each cut to width cells. A
-// line whose text is cut ends in an ellipsis.
+// line whose text is cut ends in an ellipsis. Tabs become spaces first: a tab
+// measures 0 cells but renders as tabWidth, so it would overflow the box.
 func fitInside(content string, width, rows int) string {
 	lines := strings.Split(strings.TrimRight(content, "\n"), "\n")
 	if len(lines) > rows {
 		lines = lines[:rows]
 	}
 	for i, line := range lines {
+		line = strings.ReplaceAll(line, "\t", strings.Repeat(" ", tabWidth))
 		// Only cut text gets an ellipsis: padding past the edge is just dropped.
 		tail := ""
 		if ansi.StringWidth(strings.TrimRight(ansi.Strip(line), " ")) > width {

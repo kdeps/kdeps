@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -88,7 +89,7 @@ func (r *REPL) runFullScreen() error {
 	}
 	turns := newSubmitQueue()
 	defer turns.close()
-	m.OnSubmit = turns.push
+	m.OnSubmit = r.screenSubmit(turns, pump)
 	// The filter thins trackpad wheel and motion floods before they queue
 	// ahead of key presses in the update loop.
 	program = tea.NewProgram(m, tea.WithOutput(origOut), tea.WithFilter(screen.NewInputFilter().Filter))
@@ -402,10 +403,11 @@ func attachScreenModel(pump *screen.Pump) func() {
 // submitQueue holds submitted lines until the turn before them ends. push
 // never blocks, so the UI loop can call it.
 type submitQueue struct {
-	mu     sync.Mutex
-	lines  []string
-	closed bool
-	wake   chan struct{}
+	mu      sync.Mutex
+	lines   []string
+	closed  bool
+	running bool // a popped line has not finished yet
+	wake    chan struct{}
 }
 
 func newSubmitQueue() *submitQueue { return &submitQueue{wake: make(chan struct{}, 1)} }
@@ -440,12 +442,27 @@ func (q *submitQueue) pop() (string, bool) {
 		if len(q.lines) > 0 {
 			line := q.lines[0]
 			q.lines = q.lines[1:]
+			q.running = true
 			q.mu.Unlock()
 			return line, true
 		}
 		q.mu.Unlock()
 		<-q.wake
 	}
+}
+
+// finished marks the popped line done.
+func (q *submitQueue) finished() {
+	q.mu.Lock()
+	q.running = false
+	q.mu.Unlock()
+}
+
+// busy reports whether a line is running or waiting to run.
+func (q *submitQueue) busy() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.running || len(q.lines) > 0
 }
 
 func (q *submitQueue) signal() {
@@ -464,7 +481,9 @@ func (r *REPL) runSubmitted(turns *submitQueue, pump *screen.Pump, statusOut io.
 		if !ok {
 			return
 		}
-		if err := r.processInput(line); err != nil {
+		err := r.processInput(line)
+		turns.finished()
+		if err != nil {
 			pump.Output("error: " + err.Error())
 		}
 		// The status box only refreshes during a turn; show the counters after it too.
@@ -473,6 +492,40 @@ func (r *REPL) runSubmitted(turns *submitQueue, pump *screen.Pump, statusOut io.
 			quit()
 			return
 		}
+	}
+}
+
+// screenSubmit queues each submitted line. A bare /model sent while a turn
+// runs opens the model picker at once instead of waiting for the turn; the
+// model picked is queued as "/model <name>", so it switches after the turn.
+// Only one such picker is open at a time.
+func (r *REPL) screenSubmit(turns *submitQueue, pump *screen.Pump) func(string) {
+	var picking atomic.Bool
+	return func(line string) {
+		if strings.TrimSpace(line) == "/model" && r.modelPickerFn != nil && turns.busy() {
+			if picking.CompareAndSwap(false, true) {
+				go func() {
+					defer picking.Store(false)
+					r.pickModelAfterTurn(turns, pump)
+				}()
+			}
+			return
+		}
+		turns.push(line)
+	}
+}
+
+// pickModelAfterTurn opens the model picker over the running turn and queues
+// the switch to the model picked. Cancelling queues nothing.
+func (r *REPL) pickModelAfterTurn(turns *submitQueue, pump *screen.Pump) {
+	name, err := r.modelPickerFn("")
+	if err != nil {
+		pump.Output("error: " + err.Error())
+		return
+	}
+	if name = stripModelIndicators(name); name != "" {
+		pump.Output("model: switching to " + name + " after this turn")
+		turns.push("/model " + name)
 	}
 }
 

@@ -39,7 +39,7 @@ const maxMainLines = 2000
 // foldMinLines is the shortest output that can fold. A one-line output stays.
 const foldMinLines = 2
 
-// feedBorder is the rows the boxes' rounded borders take on each axis.
+// feedBorder is the rows a box's top and bottom rules take.
 const feedBorder = 2
 
 // headerRule is the diagonal rule drawn between the product name and the title.
@@ -473,7 +473,7 @@ func (m Model) click(v tea.MouseClickMsg) Model {
 		m.anchor = m.cursor
 		m.clickCount = 0
 	case v.Y == frame.Prompt.Y+1 && inRect(frame.Prompt, v.X, v.Y):
-		m = m.promptClick(v.X, v.Y, v.X-(frame.Prompt.X+1+layout.BoxPadX))
+		m = m.promptClick(v.X, v.Y, v.X-(frame.Prompt.X+layout.BoxPadX))
 	}
 	return m
 }
@@ -535,7 +535,7 @@ func (m Model) drag(v tea.Mouse) Model {
 	if v.Y != frame.Prompt.Y+1 || !inRect(frame.Prompt, v.X, v.Y) {
 		return m
 	}
-	return m.placeCursor(v.X - (frame.Prompt.X + 1 + layout.BoxPadX))
+	return m.placeCursor(v.X - (frame.Prompt.X + layout.BoxPadX))
 }
 
 // inRect reports whether the cell is inside the box.

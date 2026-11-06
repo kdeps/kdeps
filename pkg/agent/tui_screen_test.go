@@ -1,10 +1,10 @@
 package agent
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -35,28 +35,6 @@ func TestDrawLiveStatus_IdleSendsTheCountersToTheScreen(t *testing.T) {
 	drawLiveStatus(io.Discard, "")
 	if assert.Len(t, got, 1, "the counters show before any turn runs") {
 		assert.Contains(t, got[0], "session")
-	}
-}
-
-func TestDrawLiveStatus_LeadsWithTheModel(t *testing.T) {
-	resetLiveStatus(t)
-	var got []string
-	setScreenStatusSink(func(text string) { got = append(got, text) })
-	t.Cleanup(func() {
-		setScreenStatusSink(nil)
-		setScreenModel("")
-	})
-
-	setScreenModel("llama-3.2-1b")
-	drawLiveStatus(io.Discard, "")
-	if assert.Len(t, got, 1) {
-		assert.True(t, strings.HasPrefix(got[0], "llama-3.2-1b  "), "the model leads the status: %q", got[0])
-	}
-
-	setScreenModel("")
-	drawLiveStatus(io.Discard, "")
-	if assert.Len(t, got, 2) {
-		assert.False(t, strings.Contains(got[1], "llama-3.2-1b"), "a cleared model leaves no label")
 	}
 }
 
@@ -142,4 +120,35 @@ func typeScreen(t *testing.T, m screen.Model, s string) screen.Model {
 func TestPromptHistoryLimit_ADisabledEventKeepsEverything(t *testing.T) {
 	withEvent(t, Event{Name: eventPromptHistoryLimit, Items: 3, Run: actionCap, Disabled: true})
 	assert.Equal(t, 0, promptHistoryLimit())
+}
+
+// TestDrawLiveStatus_LeavesTheModelToTheHeader checks the status box does not
+// repeat the model name the header already shows.
+func TestDrawLiveStatus_LeavesTheModelToTheHeader(t *testing.T) {
+	resetLiveStatus(t)
+	setScreenModel("gpt-header-only")
+	t.Cleanup(func() { setScreenModel("") })
+	var got []string
+	setScreenStatusSink(func(text string) { got = append(got, text) })
+	t.Cleanup(func() { setScreenStatusSink(nil) })
+
+	drawLiveStatus(io.Discard, "")
+	require.Len(t, got, 1)
+	assert.NotContains(t, got[0], "gpt-header-only")
+}
+
+// TestCurrentModel_ReadsTheScreenCopyWhileItRuns checks the picker reads the
+// locked model name while the view is up.
+func TestCurrentModel_ReadsTheScreenCopyWhileItRuns(t *testing.T) {
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	repl.loop.config.Model = "loop-model"
+	assert.Equal(t, "loop-model", repl.CurrentModel())
+
+	closed := make(chan struct{})
+	setScreenOverlaySink(func(screen.OpenOverlayMsg) {}, closed)
+	t.Cleanup(func() { setScreenOverlaySink(nil, nil) })
+	setScreenModel("screen-model")
+	t.Cleanup(func() { setScreenModel("") })
+	assert.Equal(t, "screen-model", repl.CurrentModel())
 }
