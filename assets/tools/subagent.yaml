@@ -1,6 +1,6 @@
-version: 1.0.0
+version: 1.1.0
 category: agent
-description: Hand a task to a subagent, a fresh agent that has not seen this conversation. It reads files and searches with read-only tools, then returns a report. Use it for a second opinion with no shared assumptions, such as reviewing a design or a change. State everything it needs in task; name files by path.
+description: "Hand a task to a subagent, a fresh agent that has not seen this conversation. It reads files and searches with read-only tools, then returns a report. Use it for a second opinion with no shared assumptions, such as reviewing a design or a change. State everything it needs in task, and name every file it must read by absolute path: it does not know this skill's or project's folders. Several subagent calls in one reply run in parallel."
 outputFormat: the subagent's final answer
 parameters:
   task:
@@ -12,4 +12,4 @@ parameters:
     description: The subagent's role and rules, for example a reviewer persona. Becomes its system prompt
   tools:
     type: string
-    description: Read-only tools it may call, separated by commas. Default every read-only tool this session has
+    description: "Read-only tools it may call, separated by commas. Leave it out to give every read-only tool this session has (read_file, list_files, search_local, ...); name tools only to narrow that"

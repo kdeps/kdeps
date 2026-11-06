@@ -633,7 +633,7 @@ func (l *Loop) registerSkillLoader() {
 					"load_skill: no skill named %q; available skills: %s", name, l.visibleSkillNames(),
 				)
 			}
-			content := sk.Content
+			content := sk.Body()
 			if related := l.relatedSkills[sk.Name]; len(related) > 0 {
 				content += "\n\n---\nRelated skills (call load_skill again if relevant): " + strings.Join(
 					related,

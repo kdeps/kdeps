@@ -1,0 +1,7 @@
+version: 1.0.0
+name: skill-folder
+kind: standalone
+# Put in front of a skill's text when it is loaded or invoked, so the skill's
+# relative links (agents/reviewer.md, scripts/run.sh, ../../docs/x.md) resolve.
+body: |-
+  This skill's folder is {{.Dir}}. Its relative paths start there: read {{.Dir}}/<path> for a file it names.

@@ -151,7 +151,8 @@ func (l *Loop) runSubagent(args map[string]any) (string, error) {
 	sub := New(l.ctx, l.engine, l.workflow, reg, l.sideLoopConfig(prompt, effectiveRounds(eventSubagentMaxRounds)))
 	sub.eventLoop = toolNameSubagent
 	out, runErr := sub.RunStreaming(l.ctx, task, io.Discard)
-	// A canned "produced nothing" notice is not a report.
+	// A canned "produced nothing" notice is not a report. The loop has
+	// already retried an empty reply by then.
 	if out = strings.TrimSpace(out); out != "" && !isTurnFailureNotice(out) {
 		return out, nil
 	}

@@ -220,3 +220,18 @@ func TestSubagent_OneCallRunsOnItsOwn(t *testing.T) {
 	done()
 	assert.Nil(t, l.subagentRuns, "nothing is started ahead for a single call")
 }
+
+// TestSkillBody_NamesTheSkillFolder checks a loaded or invoked skill says
+// where it lives, so links like agents/reviewer.md resolve.
+func TestSkillBody_NamesTheSkillFolder(t *testing.T) {
+	dir := t.TempDir()
+	sk := &Skill{Name: "review", Content: "Read agents/zoom_out.md first.", Source: dir + "/SKILL.md"}
+	body := sk.Body()
+	assert.Contains(t, body, dir)
+	assert.True(t, strings.HasSuffix(body, "Read agents/zoom_out.md first."), "the skill text follows the note")
+	assert.Equal(t, "x", (&Skill{Content: "x"}).Body(), "a skill with no file is unchanged")
+}
+
+func TestCoreTools_IncludeSubagent(t *testing.T) {
+	assert.True(t, coreToolSet()[toolNameSubagent], "subagent is sent in full so skill packs find it")
+}

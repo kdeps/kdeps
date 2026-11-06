@@ -3430,7 +3430,7 @@ func (r *REPL) cmdEditor() error {
 // cmdInvokeSkill runs a skill by injecting its content as the prompt, with any
 // extra user-supplied tokens appended after a newline.
 func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
-	prompt := sk.Content
+	prompt := sk.Body()
 	if len(extra) > 0 {
 		prompt = prompt + "\n" + strings.Join(extra, " ")
 	}

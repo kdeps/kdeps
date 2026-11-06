@@ -49,7 +49,7 @@ The model keeps the most recent steps in full and a note that earlier ones were 
 
 ## Tool definitions on demand
 
-Every tool definition is re-sent on every round, so 70+ tools cost about 12K tokens a round. kdeps sends the full definition of a core set only (`bash_exec`, the file tools, `search_local`, the memory tools, `web_search`, `web_scraper`, `load_skill`, `load_tools`, `session_handshake`). The project's own workflows, components and agencies are always sent. `load_tools` names every other tool; the model loads the ones it needs, and their definitions go on every later request of the session:
+Every tool definition is re-sent on every round, so 70+ tools cost about 12K tokens a round. kdeps sends the full definition of a core set only (`bash_exec`, the file tools, `search_local`, the memory tools, `web_search`, `web_scraper`, `load_skill`, `load_tools`, `session_handshake`, `subagent`). The project's own workflows, components and agencies are always sent. `load_tools` names every other tool; the model loads the ones it needs, and their definitions go on every later request of the session:
 
 ```text
 round 1: core definitions + load_tools ("Tools you can load: - git_ops: ...")
