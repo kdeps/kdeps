@@ -92,9 +92,9 @@ scenario test_features_cors.sh
 scenario test_features_health_check.sh
 scenario test_features_api_auth.sh
 scenario test_features_management_api.sh
-scenario test_features_kdeps_api.sh
 scenario test_features_memory_storage.sh
 scenario test_features_python_executor.sh
+scenario test_features_kdeps_api.sh
 scenario test_features_multi_resource.sh
 scenario test_features_expression_eval.sh
 scenario test_features_items_iteration.sh
@@ -130,8 +130,8 @@ scenario test_native_scraper.sh
 scenario test_bundle_export.sh
 scenario test_export_k8s.sh
 scenario test_chat_cmd.sh
-scenario test_chat_cmd_repl.sh
 scenario test_agent_theme.sh
+scenario test_chat_cmd_repl.sh
 scenario test_agent_model_name.sh
 scenario test_agent_paste.sh
 scenario test_agent_fullscreen.sh

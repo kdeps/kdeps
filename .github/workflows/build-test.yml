@@ -474,6 +474,25 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
+          # setup-go's cache key is go.sum only, with no fallback: after any
+          # go.sum change every Windows job built from cold (~4 min each), and
+          # main never saved the new key because its pushes skip these jobs.
+          # The Go cache is restored below with a fallback key instead.
+          cache: false
+
+      - name: Restore Go build cache
+        # The newest cache windows-go-cache saved on main: this go.sum first,
+        # else any older one. Go's build cache is content-addressed, so a
+        # stale entry only costs the packages that changed.
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/go-build
+            ~/go/pkg/mod
+          key: go-windows-${{ hashFiles('go.sum') }}-
+          restore-keys: |
+            go-windows-${{ hashFiles('go.sum') }}-
+            go-windows-
 
       - name: Add MSYS2 mingw64 (gcc) to PATH
         # windows-latest ships MSYS2 at C:\msys64 but doesn't put it on PATH.
@@ -495,6 +514,10 @@ jobs:
         run: python3 -m pip install --quiet pyyaml requests beautifulsoup4
 
       - name: Build
+        # The unit job proves the whole module builds on Windows. The e2e jobs
+        # build only the kdeps binary below; go test compiles what integration
+        # needs.
+        if: matrix.suite == 'unit'
         shell: bash
         run: go build ./...
 
@@ -532,13 +555,84 @@ jobs:
       - name: Test E2E
         if: matrix.suite == 'e2e'
         shell: bash
-        # A shard takes 5-12 minutes; a stalled one fails here with its log
+        # A shard takes 3-7 minutes; a stalled one fails here with its log
         # instead of holding the runner for most of an hour.
         timeout-minutes: 20
         env:
           KDEPS_MEMORY_DB_PATH: ":memory:"
           E2E_SHARD: ${{ matrix.shard }}  # tests/e2e/e2e.sh runs every 3rd scenario
         run: bash tests/e2e/e2e.sh
+
+  windows-go-cache:
+    # Saves the Windows Go build cache that test-windows-suites restores. Runs
+    # on main pushes that change code, and only builds when this go.sum has no
+    # cache yet this week, so Windows minutes are spent once per go.sum change
+    # (or once a week), not on every merge. Not a required check.
+    needs: changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: key
+        shell: bash
+        run: echo "key=go-windows-${{ hashFiles('go.sum') }}-$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - id: lookup
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/go-build
+            ~/go/pkg/mod
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+
+      - name: Set up Go
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Restore the previous cache
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/go-build
+            ~/go/pkg/mod
+          key: ${{ steps.key.outputs.key }}
+          restore-keys: |
+            go-windows-${{ hashFiles('go.sum') }}-
+            go-windows-
+
+      - name: Add MSYS2 mingw64 (gcc) to PATH
+        if: steps.lookup.outputs.cache-hit != 'true'
+        shell: bash
+        run: echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
+
+      - name: Build packages and test binaries
+        if: steps.lookup.outputs.cache-hit != 'true'
+        shell: bash
+        # -run '^$' compiles and links every test binary without running a
+        # test; -p 1 for the same page-file limit as the test steps.
+        run: |
+          go build ./...
+          go build -o kdeps .
+          go test -p 1 -count=1 -run '^$' ./pkg/... ./cmd/... ./ ./tests/integration/...
+
+      - name: Save Go build cache
+        if: steps.lookup.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/go-build
+            ~/go/pkg/mod
+          key: ${{ steps.key.outputs.key }}
 
   coverage-badge:
     # Gated on `changes`, not `test`: a squash-merge of an already-green PR
