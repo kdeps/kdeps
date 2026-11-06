@@ -44,7 +44,10 @@ func init() {
 const approvalTokenDuration = 5 * time.Minute
 
 func registerApprovalTokenTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerAPITool(ctx, reg, "approval_grant", api.ApprovalGrant)
+	// Granting is the user's decision (/approve), so the model never gets
+	// approval_grant: it is served on the kdeps API only. A model that could
+	// call it would approve its own requests.
+	registerAPITool(ctx, kdepstools.NewRegistry(), "approval_grant", api.ApprovalGrant)
 	registerAPITool(ctx, reg, "approval_list", api.ApprovalList)
 	registerAPITool(ctx, reg, "approval_request", api.ApprovalRequest)
 	registerAPITool(ctx, reg, "approval_revoke", api.ApprovalRevoke)

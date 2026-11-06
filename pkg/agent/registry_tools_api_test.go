@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/v2/pkg/api"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -44,7 +45,12 @@ func TestApprovalAPITools_RoundTrip(t *testing.T) {
 	if err != nil || !strings.Contains(got, tokenID) {
 		t.Fatalf("approval list %q %v", got, err)
 	}
-	if got, err = toolExec(t, reg, "approval_grant", map[string]any{"token_id": tokenID}); err != nil ||
+	// The model is never offered approval_grant: only the user grants, with
+	// /approve, which reaches the tool through the kdeps API.
+	if reg.Get("approval_grant") != nil {
+		t.Fatal("approval_grant is in the model's registry; the model could approve its own request")
+	}
+	if got, err = api.CallTool(t.Context(), "approval_grant", map[string]any{"token_id": tokenID}); err != nil ||
 		got != "Granted approval token "+tokenID {
 		t.Fatalf("approval grant %q %v", got, err)
 	}
@@ -52,7 +58,8 @@ func TestApprovalAPITools_RoundTrip(t *testing.T) {
 		got != "Revoked approval token "+tokenID {
 		t.Fatalf("approval revoke %q %v", got, err)
 	}
-	if _, err = toolExec(t, reg, "approval_grant", map[string]any{"token_id": "token-missing-api"}); err == nil ||
+	missing := map[string]any{"token_id": "token-missing-api"}
+	if _, err = api.CallTool(t.Context(), "approval_grant", missing); err == nil ||
 		err.Error() != `token "token-missing-api" not found or not in pending state` {
 		t.Fatalf("approval missing %v", err)
 	}

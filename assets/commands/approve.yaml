@@ -1,0 +1,22 @@
+version: 1.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/approval_grant: ""
+  tools/approval_list: ""
+name: approve
+order: 255
+usage:
+  - args: ""
+    help: List approval tokens; a pending one waits for you to grant it
+  - args: "<token_id>"
+    help: Grant a pending approval token. Only you can; the agent cannot grant its own
+subcommands:
+  "":
+    run:
+      - tool: approval_list
+        args: {}
+        print: '{{if .output}}{{.output}}{{else}}no approval tokens{{end}}'
+  "*":                     # /approve <token_id>
+    run:
+      - tool: approval_grant
+        args: {token_id: "$1"}
