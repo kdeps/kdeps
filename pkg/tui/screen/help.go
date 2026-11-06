@@ -23,7 +23,7 @@ const helpText = `keys
   ctrl+left/right previous / next word
   ctrl+y         put back the last killed text
   ctrl+c/ctrl+d  clear or quit / delete under cursor
-  click          pane or cursor; 2x word, 3x line
+  click          pane or cursor; 2x word, 3x line; drag feed edge
   shift+left/right select   esc clears   ctrl+shift+c/x pane
   ctrl+o/ctrl+v  editor / paste an image   ctrl+shift+v text
 press esc, enter, q, or ctrl+g to close`
@@ -58,7 +58,7 @@ func (h helpOverlay) View() tea.View {
 	if len(h.commands) == 0 {
 		return tea.NewView(helpText)
 	}
-	return tea.NewView(helpText + "\n\ncommands\n  " + strings.Join(h.commands, "  "))
+	return tea.NewView(helpText + "\ncommands\n  " + strings.Join(h.commands, "  "))
 }
 
 // Done reports that the user closed the help.

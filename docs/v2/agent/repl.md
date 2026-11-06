@@ -79,6 +79,7 @@ Full-screen prompt only:
 | Esc | Clear the selection; on a recalled line, restore the unsent text (does not quit) |
 | Click | Move the cursor (prompt) or focus the pane for arrow keys (main pane, feed) |
 | Double / triple click | Select the word / line |
+| Drag the feed border | Resize the feed; the main pane keeps at least 20 columns, the feed at least 30 |
 
 - An edit on a recalled line is kept, so the next `Ctrl+N` does not replace it.
 - `Ctrl+O`: saving replaces the prompt without sending it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.

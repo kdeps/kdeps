@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRender_FillsTheTerminalExactly(t *testing.T) {
@@ -60,4 +61,18 @@ func TestRender_LongTextNeverGrowsABox(t *testing.T) {
 func TestClampRows_CutsLinesAndRowsToTheFrame(t *testing.T) {
 	out := clampRows("abcdefgh\nxy\nthird\nfourth", 3, 5)
 	assert.Equal(t, "abcde\nxy\nthird", out)
+}
+
+// TestRender_LongStatusKeepsItsBorder checks a status line wider than the box
+// is cut on its row, so the box keeps its bottom border and the prompt box
+// below stays in place.
+func TestRender_LongStatusKeepsItsBorder(t *testing.T) {
+	f := Compute(60, 20, true)
+	out := Render(f, "", "main", "feed", strings.Repeat("status ", 40), "> ")
+	lines := strings.Split(out, "\n")
+	require.Len(t, lines, 20)
+	bottom := f.Status.Y + f.Status.H - 1
+	assert.True(t, strings.HasPrefix(lines[bottom], "╰"), "status box keeps its bottom border: %q", lines[bottom])
+	assert.Contains(t, lines[f.Status.Y+1], "…", "the cut status ends in an ellipsis")
+	assert.True(t, strings.HasPrefix(lines[f.Prompt.Y], "╭"), "prompt box starts on its own row")
 }
