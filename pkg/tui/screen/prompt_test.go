@@ -315,20 +315,41 @@ func TestComplete_AmbiguousListsTheMatches(t *testing.T) {
 	assert.Contains(t, strings.Join(m.main, "\n"), "/model  /mesh")
 }
 
+// tabComplete presses tab on an @ token and delivers the lookup it starts, the
+// way the program would once the command returns.
+func tabComplete(t *testing.T, m Model) Model {
+	t.Helper()
+	m, cmd := typed(t, m, keyPress(tea.KeyTab))
+	require.NotNil(t, cmd, "tab on an @ token looks the matches up off the UI loop")
+	m, _ = typed(t, m, cmd())
+	return m
+}
+
+func TestComplete_AtTokenMatchesForAnEditedPromptAreDropped(t *testing.T) {
+	m := newPromptScreen(t)
+	m.Complete = completeFrom("@main.go")
+	m = typeText(t, m, "see @m")
+	m, cmd := typed(t, m, keyPress(tea.KeyTab))
+	require.NotNil(t, cmd)
+	m = typeText(t, m, "x")
+	m, _ = typed(t, m, cmd())
+	assert.Equal(t, "see @mx", m.Prompt(), "the user kept typing: the late matches do not overwrite it")
+}
+
 func TestComplete_AtTokenFillsAndKeepsTheTextBeforeIt(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("@main.go", "@map.txt")
 	m = typeText(t, m, "see @m")
-	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	m = tabComplete(t, m)
 	assert.Equal(t, "see @ma", m.Prompt(), "a shared prefix extends the token")
 	assert.False(t, m.focusFeed, "completing an @ token does not switch panes")
 
-	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	m = tabComplete(t, m)
 	assert.Equal(t, "see @ma", m.Prompt(), "a shared prefix that is already typed stays")
 	assert.Contains(t, strings.Join(m.main, "\n"), "@main.go  @map.txt")
 
 	m.Complete = completeFrom("@main.go")
-	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	m = tabComplete(t, m)
 	assert.Equal(t, "see @main.go ", m.Prompt(), "one match fills the token and leaves the words before it")
 	assert.False(t, m.focusFeed, "completing an @ token does not switch panes")
 }
@@ -337,7 +358,7 @@ func TestComplete_AtTokenWithNoMatchStays(t *testing.T) {
 	m := newPromptScreen(t)
 	m.Complete = completeFrom("@main.go")
 	m = typeText(t, m, "see @zzz")
-	m, _ = typed(t, m, keyPress(tea.KeyTab))
+	m = tabComplete(t, m)
 	assert.Equal(t, "see @zzz", m.Prompt())
 	assert.False(t, m.focusFeed, "an @ token with no match still consumes tab")
 }

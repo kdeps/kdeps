@@ -89,7 +89,9 @@ func (r *REPL) runFullScreen() error {
 	turns := newSubmitQueue()
 	defer turns.close()
 	m.OnSubmit = turns.push
-	program = tea.NewProgram(m, tea.WithOutput(origOut))
+	// The filter thins trackpad wheel and motion floods before they queue
+	// ahead of key presses in the update loop.
+	program = tea.NewProgram(m, tea.WithOutput(origOut), tea.WithFilter(screen.NewInputFilter().Filter))
 	defer attachScreenModel(pump)()
 	go pump.Run(program.Send)
 	defer pump.Close()

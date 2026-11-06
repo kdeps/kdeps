@@ -75,6 +75,14 @@ type barHideMsg struct {
 // Model is the full-screen view.
 // frameCache holds the last drawn frame. The model copies share it, so a
 // frame is reused until the key below changes.
+// rowsCache holds the main pane's wrapped rows for one width. Like frameCache
+// it is shared by the model copies, so the scroll keys, the bar checks and the
+// frame reuse one wrap instead of re-wrapping every line on each event.
+type rowsCache struct {
+	ver, lines, outs int
+	byWidth          map[int][]string // the pane is measured with and without its bar column
+}
+
 type frameCache struct {
 	valid bool
 	key   frameKey
@@ -97,6 +105,7 @@ type frameKey struct {
 
 type Model struct {
 	cache         *frameCache
+	rows          *rowsCache
 	mainVer       int
 	width, height int
 	feedOpen      bool
@@ -159,7 +168,7 @@ func New(f *feed.Feed) Model {
 	if f == nil {
 		f = &feed.Feed{}
 	}
-	return Model{feedOpen: true, Feed: f, cache: &frameCache{}}
+	return Model{feedOpen: true, Feed: f, cache: &frameCache{}, rows: &rowsCache{}}
 }
 
 // Init has no startup command.
@@ -197,20 +206,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pills = withPill(m.pills, v.Name, v.Value)
 	case tea.ColorProfileMsg:
 		m.profile = v.Profile
-	case tea.MouseWheelMsg:
-		return m.wheel(v)
-	case tea.MouseClickMsg:
-		return m.click(v), nil
-	case tea.MouseMotionMsg:
-		return m.drag(tea.Mouse(v)), nil
-	case tea.MouseReleaseMsg:
-		m.selecting = false
-		m.resizing = false
+	case tea.MouseWheelMsg, WheelMsg, tea.MouseClickMsg, tea.MouseMotionMsg, tea.MouseReleaseMsg:
+		return m.mouse(v)
 	case tea.KeyPressMsg:
 		return m.key(v)
 	case tea.PasteMsg:
 		// The prompt is one line: a pasted newline must not submit it.
 		return m.insertText(strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(v.Content)), nil
+	case mentionMatchesMsg:
+		return m.applyMentionMatches(v), nil
 	case editorResultMsg:
 		if !v.ok {
 			return m, nil
@@ -363,7 +367,7 @@ func (m Model) mainRows(bar bool) (int, int) {
 		return 0, len(m.shownLines())
 	}
 	frame := m.frame()
-	return frame.Main.H - feedBorder, len(wrapRows(m.shownLines(), textWidth(layout.InnerWidth(frame.Main.W), bar)))
+	return frame.Main.H - feedBorder, len(m.wrappedMain(textWidth(layout.InnerWidth(frame.Main.W), bar)))
 }
 
 // feedSpan is the feed's content height and row count. The bool is false when
@@ -398,18 +402,48 @@ func clampOffset(off, lines, height int) int {
 
 // wheel scrolls the box under the mouse pointer.
 func (m Model) wheel(v tea.MouseWheelMsg) (Model, tea.Cmd) {
-	var step int
 	switch v.Button {
 	case tea.MouseWheelUp:
-		step = wheelStep
+		return m.wheelAt(v.X, 1)
 	case tea.MouseWheelDown:
-		step = -wheelStep
+		return m.wheelAt(v.X, -1)
 	default:
 		return m, nil
 	}
+}
+
+// mouse handles the wheel, clicks, drags and the button release.
+func (m Model) mouse(msg tea.Msg) (Model, tea.Cmd) {
+	switch v := msg.(type) {
+	case tea.MouseWheelMsg:
+		return m.wheel(v)
+	case WheelMsg:
+		return m.wheelAt(v.X, v.Steps)
+	case tea.MouseClickMsg:
+		return m.click(v), nil
+	case tea.MouseMotionMsg:
+		return m.drag(tea.Mouse(v)), nil
+	case tea.MouseReleaseMsg:
+		if m.resizing && m.width > 0 {
+			// Motion is sampled; the release has where the drag really ended.
+			m.feedW = layout.FeedWidth(m.width, m.width-v.X)
+			m = m.clampScroll()
+		}
+		m.selecting = false
+		m.resizing = false
+	}
+	return m, nil
+}
+
+// wheelAt scrolls the pane at column x by notches wheel steps (positive is up).
+func (m Model) wheelAt(x, notches int) (Model, tea.Cmd) {
+	if notches == 0 {
+		return m, nil
+	}
+	step := notches * wheelStep
 	frame := m.frame()
 	prev := m.focusFeed
-	m.focusFeed = frame.Feed.W > 0 && v.X >= frame.Feed.X
+	m.focusFeed = frame.Feed.W > 0 && x >= frame.Feed.X
 	m, cmd := m.scroll(step)
 	m.focusFeed = prev
 	return m, cmd
@@ -560,6 +594,11 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if next, handled := m.wordKey(v); handled {
 		return next, nil
+	}
+	if v.String() == "tab" {
+		if cmd, ok := m.mentionCompleteCmd(); ok {
+			return m, cmd
+		}
 	}
 	if next, handled := m.editKey(v.String()); handled {
 		return next, nil
@@ -745,7 +784,7 @@ func (m Model) outputAtBottom() int {
 	}
 	frame := m.frame()
 	width := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
-	bottom := len(wrapRows(m.shownLines(), width)) - 1 - max(m.mainOff, 0)
+	bottom := len(m.wrappedMain(width)) - 1 - max(m.mainOff, 0)
 	if bottom < 0 {
 		bottom = 0
 	}
@@ -853,7 +892,7 @@ func (m Model) visibleMain() string {
 	h, _ := m.mainSpan()
 	frame := m.frame()
 	w := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
-	return window(wrapRows(m.shownLines(), w), h, m.mainOff)
+	return window(m.wrappedMain(w), h, m.mainOff)
 }
 
 // Prompt is the text the user has typed so far.
@@ -922,7 +961,7 @@ func (m Model) renderFrame() string {
 	frame := m.frame()
 	mainH := frame.Main.H - feedBorder
 	mainW := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
-	mainText := window(wrapRows(m.shownLines(), mainW), mainH, m.mainOff)
+	mainText := window(m.wrappedMain(mainW), mainH, m.mainOff)
 	if m.overlay != nil {
 		mainText = m.overlay.View().Content
 	} else if m.mainBarOn() {
@@ -986,6 +1025,24 @@ func (m Model) promptLine(width int) string {
 
 // wrapRows splits each line into the rows it takes at width cells, so the
 // scroll offset counts screen rows and a long line scrolls in full.
+// wrappedMain is the main pane's rows wrapped to width, from the cache while
+// the pane's lines are unchanged (mainVer moves on every change to them).
+func (m Model) wrappedMain(width int) []string {
+	c := m.rows
+	if c == nil {
+		return wrapRows(m.shownLines(), width)
+	}
+	if c.byWidth == nil || c.ver != m.mainVer || c.lines != len(m.main) || c.outs != len(m.outEnds) {
+		*c = rowsCache{ver: m.mainVer, lines: len(m.main), outs: len(m.outEnds), byWidth: map[int][]string{}}
+	}
+	if rows, ok := c.byWidth[width]; ok {
+		return rows
+	}
+	rows := wrapRows(m.shownLines(), width)
+	c.byWidth[width] = rows
+	return rows
+}
+
 func wrapRows(lines []string, width int) []string {
 	if width < 1 {
 		return lines

@@ -173,23 +173,42 @@ func (m Model) commandList() []string {
 
 // completeTab completes an @ path at the cursor, or else a slash command.
 func (m Model) completeTab() (Model, bool) {
-	if next, ok := m.completeMention(); ok {
-		return next, true
-	}
 	return m.completeCommand()
 }
 
-// completeMention completes the @ token at the cursor. A prompt with no @
-// token is not handled, so tab can still move focus.
-func (m Model) completeMention() (Model, bool) {
+// mentionMatchesMsg carries an @ token's matches back to the UI loop, with the
+// prompt as it was when tab was pressed.
+type mentionMatchesMsg struct {
+	input         string
+	cursor, start int
+	token         string
+	matches       []string
+}
+
+// mentionCompleteCmd looks up the @ token at the cursor off the UI loop: file
+// and memory matches read the disk. A prompt with no @ token is not handled,
+// so tab can still complete a command or move focus.
+func (m Model) mentionCompleteCmd() (tea.Cmd, bool) {
 	if m.Complete == nil {
-		return m, false
+		return nil, false
 	}
 	token, start := tokenBeforeCursor(m.input, m.cursor)
 	if !strings.HasPrefix(token, "@") {
-		return m, false
+		return nil, false
 	}
-	return m.completeToken(token, start), true
+	complete, input, cursor := m.Complete, string(m.input), m.cursor
+	return func() tea.Msg {
+		return mentionMatchesMsg{input: input, cursor: cursor, start: start, token: token, matches: complete(token)}
+	}, true
+}
+
+// applyMentionMatches completes the token when the prompt is still the one tab
+// was pressed on; matches for an edited prompt are dropped.
+func (m Model) applyMentionMatches(v mentionMatchesMsg) Model {
+	if string(m.input) != v.input || m.cursor != v.cursor {
+		return m
+	}
+	return m.completeTokenWith(v.token, v.start, v.matches)
 }
 
 // tokenBeforeCursor is the word ending at the cursor, and where it starts.
@@ -210,10 +229,10 @@ func tokenBeforeCursor(input []rune, cursor int) (string, int) {
 // completeToken replaces the token with the completion, the same way a slash
 // command completes: one match fills it, a shared prefix extends it, and
 // anything else is listed.
-func (m Model) completeToken(token string, start int) Model {
+func (m Model) completeTokenWith(token string, start int, candidates []string) Model {
 	m.killing = false
 	var matches []string
-	for _, c := range m.Complete(token) {
+	for _, c := range candidates {
 		if strings.HasPrefix(c, token) {
 			matches = append(matches, c)
 		}
