@@ -1,4 +1,4 @@
-version: 1.2.0
+version: 1.2.1
 # kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
@@ -34,6 +34,7 @@ requires:
   events/file-call-budget: ""
   events/fold: ""
   events/force-answer-digest: ""
+  events/history-window-old-result: ""
   events/history-window-trim: ""
   events/memory-capture-limit: ""
   events/memory-chain-max: ""
@@ -103,6 +104,10 @@ events:
   - name: force-answer-digest
     on:
       bytes: 4096
+    run: truncate
+  - name: history-window-old-result
+    on:
+      bytes: 512
     run: truncate
   - name: history-window-trim
     on:

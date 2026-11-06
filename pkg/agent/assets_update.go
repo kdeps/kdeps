@@ -54,6 +54,7 @@ func ReloadAssets() {
 	initHarness()
 	initEvents()
 	initPermissionPolicy()
+	initToolSchemaPolicy()
 	initMemoryRules()
 	initPresets()
 	initCommands()

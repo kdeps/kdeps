@@ -342,6 +342,9 @@ type Loop struct {
 	// as a [kdeps] system message. The human sees them on the terminal; the
 	// model must see them too so it can adjust. Reset per turn in runToolRounds.
 	modelNotes []string
+	// loadedTools are the deferred tools the model loaded with load_tools this
+	// session; their definitions go on every later request (see requestTools).
+	loadedTools map[string]bool
 	// resumeNote says when a resumed session last ran; it goes on every
 	// request of the first turn after the resume, then is cleared.
 	resumeNote string
@@ -539,6 +542,7 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 
 	api.SetSessionToolBackend(sessionToolBridge{loop: l})
 	l.registerSkillLoader()
+	l.registerToolLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
 	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
@@ -2537,6 +2541,10 @@ func (l *Loop) appendToolRoundTrip(
 	history = append(history, toolMsgs...)
 
 	updated := *cfg
+	if cfg.Tools != nil {
+		// A load_tools call this round adds definitions from the next round on.
+		updated.Tools = l.requestTools()
+	}
 	// Bound the in-flight transcript: auto-compaction only runs at turn
 	// boundaries, so a long tool loop (up to MaxToolRounds round trips in one
 	// turn) would otherwise re-send an ever-growing message array on every
@@ -3011,20 +3019,35 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 	return result
 }
 
-// capToolResult truncates an oversized tool result to maxToolResultBytes() on
-// a line boundary, appending a marker. Keeps a single tool call from flooding
-// the LLM context (and every subsequent round's re-sent history).
+// toolResultHeadShare of toolResultShares of a cut result is its start; the
+// rest is its end. A layout ratio, not a limit (the limit is the event).
+const (
+	toolResultHeadShare = 2
+	toolResultShares    = 3
+)
+
+// capToolResult cuts an oversized tool result to maxToolResultBytes() on line
+// boundaries, keeping its start and its end around a marker. Keeps a single
+// tool call from flooding the LLM context (and every later round's history).
 func capToolResult(result string) string {
 	limit := maxToolResultBytes()
 	if len(result) <= limit {
 		return result
 	}
-	cutoff := result[:limit]
-	if idx := strings.LastIndexByte(cutoff, '\n'); idx > 0 {
-		cutoff = cutoff[:idx]
+	// Keep the start and the end: a command's summary (test totals, an
+	// error, an exit status) is usually at the end.
+	headLimit := limit * toolResultHeadShare / toolResultShares
+	head := result[:headLimit]
+	if idx := strings.LastIndexByte(head, '\n'); idx > 0 {
+		head = head[:idx]
 	}
-	return fmt.Sprintf("%s\n[tool result truncated: %d bytes total, showing first %d]",
-		cutoff, len(result), len(cutoff))
+	tail := result[len(result)-(limit-headLimit):]
+	if idx := strings.IndexByte(tail, '\n'); idx >= 0 && idx < len(tail)-1 {
+		tail = tail[idx+1:]
+	}
+	omitted := len(result) - len(head) - len(tail)
+	return fmt.Sprintf("%s\n[tool result truncated: %d bytes total, %d bytes omitted here]\n%s",
+		head, len(result), omitted, tail)
 }
 
 // toolFailure names a tool whose call returned an error.
@@ -3645,10 +3668,7 @@ func (l *Loop) buildChatConfig(
 	input, systemPreamble string,
 ) *domain.ChatConfig {
 	resetContextSegments(l.config.Model, l.config.Backend)
-	var tools []domain.Tool
-	if l.registry != nil {
-		tools = l.registry.ToLLMTools()
-	}
+	tools := l.requestTools()
 	files := l.pendingFiles
 	l.pendingFiles = nil // consume; clear for next turn
 	chatCfg := &domain.ChatConfig{

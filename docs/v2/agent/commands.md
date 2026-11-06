@@ -357,7 +357,7 @@ run:
 | `servers` | - | `servers` (`pid`, `port`, `backend`, `model`, `status`) |
 | `server_kill` | `model` | `model` |
 | `hf_download` | `repo`, `file` | `path`, `alias` |
-| `tool` | `tool`: a tool that lives only in the agent session (`judge_verdict`, `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `load_skill`, `identity_get`, `session_handshake`); `args`: its arguments | that tool's answer. A tool with its own route (`bash_exec`, `read_file`, ...) is refused |
+| `tool` | `tool`: a tool that lives only in the agent session (`judge_verdict`, `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `load_skill`, `load_tools`, `identity_get`, `session_handshake`); `args`: its arguments | that tool's answer. A tool with its own route (`bash_exec`, `read_file`, ...) is refused |
 
 A tool step's `as:` names its result for the steps after it. Their string `args` and `print:` templates read it as `{{.steps.<as>.<field>}}`. `/copy` hands the last reply to the clipboard this way:
 

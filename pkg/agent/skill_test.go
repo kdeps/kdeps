@@ -156,6 +156,9 @@ func TestFormatSkillsForPrompt(t *testing.T) {
 	if !strings.Contains(result, "<skill name=\"review\"") {
 		t.Fatal("expected skill tag with name")
 	}
+	if strings.Contains(result, "/path/SKILL.md") {
+		t.Fatal("the skill's file path is not sent; load_skill takes the name")
+	}
 	if !strings.Contains(result, "</available_skills>") {
 		t.Fatal("expected closing tag")
 	}

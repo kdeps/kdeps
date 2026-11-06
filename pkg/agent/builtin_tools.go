@@ -50,6 +50,19 @@ const (
 // wikipedia, list_files, git_ops, sql_query, google_cache_*, ...) to the registry. A declared
 // tool whose env: entries do not resolve is not registered.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
+	before := map[string]bool{}
+	for _, t := range reg.List() {
+		before[t.Name] = true
+	}
+	// Every tool added here ships with kdeps, so its definition can wait for
+	// load_tools; a tool the caller registered first is left as it is.
+	defer func() {
+		for _, t := range reg.List() {
+			if !before[t.Name] {
+				t.OnDemand = true
+			}
+		}
+	}()
 	registerBashExec(ctx, reg)
 	registerCodeGraphTools(reg)
 	registerBashJobList(ctx, reg)

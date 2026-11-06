@@ -39,13 +39,35 @@ never reach the visible answer.
 
 A single turn can make many tool calls (`/model tool set rounds <n>`, default 200). Their transcript is resent every round, and `/compact` and auto-compaction do not fire mid-turn, so a long tool loop would grow the request without bound.
 
-kdeps caps the in-flight transcript at about 24K tokens. Past that, the oldest complete tool round-trips drop (the leading conversation and this turn's question stay), and long arguments on older kept steps become a `[N chars omitted]` placeholder. You see:
+kdeps caps the in-flight transcript at about 12K tokens. Past that, the oldest complete tool round-trips drop (the leading conversation and this turn's question stay), and long arguments on older kept steps become a `[N chars omitted]` placeholder. You see:
 
 ```
 [context] trimmed 3 old tool step(s) to fit the window
 ```
 
-The model keeps the most recent steps in full and a note that earlier ones were dropped. Tool *results* are capped at 16 KB each before entering the transcript.
+The model keeps the most recent steps in full and a note that earlier ones were dropped. Each tool result is capped at 8 KB before entering the transcript, keeping its start and its end (where test totals and errors usually are). Results older than the two most recent steps are cut to 1 KB with a note; the model re-runs the tool if it needs the rest.
+
+## Tool definitions on demand
+
+Every tool definition is re-sent on every round, so 70+ tools cost about 12K tokens a round. kdeps sends the full definition of a core set only (`bash_exec`, the file tools, `search_local`, the memory tools, `web_search`, `web_scraper`, `load_skill`, `load_tools`, `session_handshake`). The project's own workflows, components and agencies are always sent. `load_tools` names every other tool; the model loads the ones it needs, and their definitions go on every later request of the session:
+
+```text
+round 1: core definitions + load_tools ("Tools you can load: - git_ops: ...")
+model:   load_tools {"names": "git_ops"}
+round 2: core definitions + git_ops
+```
+
+The core set is `assets/policy/tool-schemas.yaml`:
+
+```yaml
+# ~/.kdeps/policy/tool-schemas.yaml overrides the built-in file
+core:
+  - bash_exec
+  - read_file    # tools listed here always send their full definition
+  - load_tools   # keep it: it is how the model reaches the rest
+```
+
+Delete the file to send every definition on every request. A tool can still be called without loading it.
 
 ## Compacting the saved conversation
 

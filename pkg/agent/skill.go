@@ -232,7 +232,9 @@ func formatSkillsForPrompt(skills []Skill) string {
 		if desc == "" {
 			desc = "(no description)"
 		}
-		fmt.Fprintf(&sb, "<skill name=%q source=%q>%s</skill>\n", sk.Name, sk.Source, desc)
+		// No source path: load_skill takes the name, and 80+ absolute paths
+		// cost ~2k tokens on every request.
+		fmt.Fprintf(&sb, "<skill name=%q>%s</skill>\n", sk.Name, desc)
 	}
 	sb.WriteString("</available_skills>")
 	return sb.String()

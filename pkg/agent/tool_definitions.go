@@ -185,6 +185,7 @@ func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 	if d.Name != "" {
 		t.Name = d.Name
 	}
+	t.OnDemand = true // a shipped definition: may be loaded on demand
 	t.Category = d.Category
 	t.Description = d.Description
 	t.Constraints = d.Constraints

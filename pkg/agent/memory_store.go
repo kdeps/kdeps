@@ -785,6 +785,11 @@ func (m *MemoryStore) FormatForPromptCapped(
 	if len(keep) == 0 {
 		return ""
 	}
+	// The active chain is kept past the budget; when it overshoots, its values
+	// are cut to a summary line so the block stays near the budget.
+	if keptBytes(byKey, keep) > maxTokens*charsPerToken {
+		shortenKeptValues(byKey, keep, memorySummaryLen())
+	}
 	ordered := m.topoOrder(entries, keep)
 
 	var sb strings.Builder
@@ -821,6 +826,27 @@ func (m *MemoryStore) FormatForPromptCapped(
 	}
 	sb.WriteString("</memory>")
 	return sb.String()
+}
+
+// keptBytes is the size selectKeptEntries counts for the kept entries.
+func keptBytes(byKey map[string]MemoryEntry, keep map[string]bool) int {
+	n := 0
+	for k := range keep {
+		e := byKey[k]
+		n += len(e.Key) + len(e.Value) + memoryXMLOverhead
+	}
+	return n
+}
+
+// shortenKeptValues cuts each kept entry's value to limit characters.
+func shortenKeptValues(byKey map[string]MemoryEntry, keep map[string]bool, limit int) {
+	for k := range keep {
+		e := byKey[k]
+		if len([]rune(e.Value)) > limit {
+			e.Value = truncateEllipsis(e.Value, limit)
+			byKey[k] = e
+		}
+	}
 }
 
 // selectKeptEntries returns the set of keys to render. Priority keys (the active

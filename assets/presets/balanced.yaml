@@ -1,4 +1,4 @@
-version: 1.2.0
+version: 1.2.1
 # kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
@@ -34,6 +34,7 @@ requires:
   events/file-call-budget: ""
   events/fold: ""
   events/force-answer-digest: ""
+  events/history-window-old-result: ""
   events/history-window-trim: ""
   events/memory-capture-limit: ""
   events/memory-chain-max: ""
@@ -69,7 +70,7 @@ events:
       tokens: 500
     run: truncate
   - name: memory-keys-limit
-    items: 100
+    items: 25
     run: cap
   - name: memory-focus-max
     items: 5
@@ -93,7 +94,7 @@ events:
     run: truncate
   - name: tool-result-truncate
     on:
-      bytes: 16384
+      bytes: 8192
     run: truncate
   - name: tool-error-truncate
     on:
@@ -103,9 +104,13 @@ events:
     on:
       bytes: 12288
     run: truncate
+  - name: history-window-old-result
+    on:
+      bytes: 1024
+    run: truncate
   - name: history-window-trim
     on:
-      bytes: 24576
+      bytes: 12288
     run: drop_oldest
   - name: web-call-budget
     tools: [web_search, wikipedia, web_scraper, exa_search, wolfram_alpha]

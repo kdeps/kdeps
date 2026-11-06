@@ -1,4 +1,4 @@
-version: 1.0.3
+version: 1.0.4
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/truncate: ""
@@ -18,7 +18,7 @@ on:
   # (searches, scrapers, workflow/agency calls) can return arbitrarily large
   # payloads that would otherwise pile into history and get re-sent every
   # round.
-  bytes: 16384
+  bytes: 8192
 # run: selects the action fired once the trigger above is met.
 # Valid actions (assets/actions/*.yaml -- override at ~/.kdeps/actions/*.yaml):
 #   compact         summarize older history into a checkpoint

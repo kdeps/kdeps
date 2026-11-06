@@ -41,7 +41,13 @@ class H(h.BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         msgs = body.get("messages", [])
-        tools = [t.get("function", {}).get("name") for t in body.get("tools", []) or []]
+        fns = [t.get("function", {}) for t in body.get("tools", []) or []]
+        tools = [f.get("name") for f in fns]
+        # A shipped tool outside the core set is named in load_tools' catalog
+        # and can be called without loading it.
+        catalog = " ".join(f.get("description", "") for f in fns if f.get("name") == "load_tools")
+        if "- e2e_echo:" in catalog:
+            tools.append("e2e_echo")
         print("REQ has_e2e=%s" % ("e2e_echo" in tools), file=sys.stderr, flush=True)
         tool_msgs = [m for m in msgs if m.get("role") == "tool"]
         if tool_msgs:

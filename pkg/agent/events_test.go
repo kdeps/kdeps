@@ -85,10 +85,11 @@ func TestLoadBuiltinEvents_HasTruncationCluster(t *testing.T) {
 		wantBytes int
 		wantRun   string
 	}{
-		{eventToolResultTruncate, 16384, "truncate"},
+		{eventToolResultTruncate, 8192, "truncate"},
 		{eventToolErrorTruncate, 500, "truncate"},
 		{eventForceAnswerDigest, 12288, "truncate"},
-		{eventHistoryWindowTrim, 24576, "drop_oldest"},
+		{eventHistoryWindowTrim, 12288, "drop_oldest"},
+		{eventHistoryWindowOldResult, 1024, "truncate"},
 		{eventFileReadLimit, 1048576, "reject"},
 	}
 	for _, c := range cases {
@@ -150,7 +151,7 @@ func TestLoadBuiltinEvents_HasMemoryCluster(t *testing.T) {
 		wantItems int
 		wantRun   string
 	}{
-		{eventMemoryKeysLimit, 100, "cap"},
+		{eventMemoryKeysLimit, 25, "cap"},
 		{eventMemoryFocusMax, 5, "cap"},
 		{eventMemoryChainMax, 8, "cap"},
 		{eventRelMemoryLimit, 500, "cap"},
@@ -183,7 +184,7 @@ func TestLoadBuiltinEvents_HasSideCallMaxTokens(t *testing.T) {
 func TestMemoryKeysLimit_ReadsEvent(t *testing.T) {
 	isolateEventsHome(t)
 	initEvents()
-	assert.Equal(t, 100, memoryKeysLimit())
+	assert.Equal(t, 25, memoryKeysLimit())
 }
 
 func TestMemoryFocusMax_ReadsEvent(t *testing.T) {
@@ -245,15 +246,15 @@ func TestEffectiveBytes_FallsBackWhenEventUnset(t *testing.T) {
 }
 
 func TestEffectiveBytes_UsesEventValueWhenSet(t *testing.T) {
-	assert.Equal(t, 16384, effectiveBytes(eventToolResultTruncate, 1))
+	assert.Equal(t, 8192, effectiveBytes(eventToolResultTruncate, 1))
 	assert.Equal(t, 500, effectiveBytes(eventToolErrorTruncate, 1))
 	assert.Equal(t, 12288, effectiveBytes(eventForceAnswerDigest, 1))
-	assert.Equal(t, 24576, effectiveBytes(eventHistoryWindowTrim, 1))
+	assert.Equal(t, 12288, effectiveBytes(eventHistoryWindowTrim, 1))
 	assert.Equal(t, 1048576, effectiveBytes(eventFileReadLimit, 1))
 }
 
 func TestMaxToolResultBytes_ReadsEvent(t *testing.T) {
-	assert.Equal(t, 16384, maxToolResultBytes())
+	assert.Equal(t, 8192, maxToolResultBytes())
 }
 
 func TestToolErrorMaxLen_ReadsEvent(t *testing.T) {
@@ -261,7 +262,7 @@ func TestToolErrorMaxLen_ReadsEvent(t *testing.T) {
 }
 
 func TestToolLoopMessageBudget_ReadsEvent(t *testing.T) {
-	assert.Equal(t, 24576, toolLoopMessageBudget())
+	assert.Equal(t, 12288, toolLoopMessageBudget())
 }
 
 func TestMaxFileReadBytes_ReadsEvent(t *testing.T) {
