@@ -89,6 +89,7 @@ type frameKey struct {
 	width, height, mainOff, feedOff                 int
 	mainVer, feedVer                                int
 	feedOpen, focusFeed, mainBar, feedBar, pillsOff bool
+	feedW                                           int
 	status, prompt                                  string
 	model, title, pills                             string
 	profile                                         colorprofile.Profile
@@ -122,6 +123,8 @@ type Model struct {
 	cursor     int  // rune index of the prompt cursor
 	anchor     int  // the other end of a selection; equal to cursor when none
 	selecting  bool // a left-button drag in the prompt is extending the selection
+	resizing   bool // a left-button drag on the main/feed border is resizing the feed
+	feedW      int  // the feed's dragged width; 0 is the default share
 	lastClick  time.Time
 	lastClickX int
 	lastClickY int
@@ -132,7 +135,8 @@ type Model struct {
 	histAt     int      // history position while recalling; len(history) when not recalling
 	histDraft  string   // unsent prompt text kept while recalling
 	Feed       *feed.Feed
-	// OnSubmit runs one submitted line. It runs off the UI loop.
+	// OnSubmit receives each submitted line on the UI loop, in order. It must
+	// not block: hand the line to a worker.
 	OnSubmit func(line string)
 	// launchEditor opens the prompt in an external editor. Nil uses the default.
 	launchEditor func(text string) tea.Cmd
@@ -184,6 +188,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.clampScroll()
 	case OutputMsg:
 		m = m.appendOutput(v.Text)
+	case OutputBatchMsg:
+		for _, text := range v.Texts {
+			m = m.appendOutput(text)
+		}
 	case StatusTextMsg:
 		m.Status = v.Text
 	case ModelMsg:
@@ -202,6 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.drag(tea.Mouse(v)), nil
 	case tea.MouseReleaseMsg:
 		m.selecting = false
+		m.resizing = false
 	case tea.KeyPressMsg:
 		return m.key(v)
 	case tea.PasteMsg:
@@ -307,7 +316,7 @@ func (m Model) itemHeights() []int {
 	if m.width == 0 || len(m.outEnds) == 0 {
 		return nil
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	width := layout.InnerWidth(frame.Main.W)
 	heights := make([]int, 0, len(m.outEnds))
 	start := 0
@@ -358,7 +367,7 @@ func (m Model) mainRows(bar bool) (int, int) {
 	if m.width == 0 || m.height == 0 {
 		return 0, len(m.shownLines())
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	return frame.Main.H - feedBorder, len(wrapRows(m.shownLines(), textWidth(layout.InnerWidth(frame.Main.W), bar)))
 }
 
@@ -370,7 +379,7 @@ func (m Model) feedSpan() (int, int, bool) {
 
 // feedRows counts feed rows. bar reserves the scroll-bar column.
 func (m Model) feedRows(bar bool) (int, int, bool) {
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	if m.Feed == nil || frame.Feed.W == 0 {
 		return 0, 0, false
 	}
@@ -403,7 +412,7 @@ func (m Model) wheel(v tea.MouseWheelMsg) (Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	prev := m.focusFeed
 	m.focusFeed = frame.Feed.W > 0 && v.X >= frame.Feed.X
 	m, cmd := m.scroll(step)
@@ -417,7 +426,12 @@ func (m Model) click(v tea.MouseClickMsg) Model {
 	if v.Button != tea.MouseLeft || m.width == 0 || m.height == 0 {
 		return m
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
+	if onFeedBorder(frame, v.X, v.Y) {
+		m.resizing = true
+		m.selecting = false
+		return m
+	}
 	switch {
 	case frame.Feed.W > 0 && inRect(frame.Feed, v.X, v.Y):
 		m.focusFeed = true
@@ -433,6 +447,20 @@ func (m Model) click(v tea.MouseClickMsg) Model {
 		m = m.promptClick(v.X, v.Y, v.X-(frame.Prompt.X+1+layout.BoxPadX))
 	}
 	return m
+}
+
+// frame is the layout at the current size, with the feed at its dragged width.
+func (m Model) frame() layout.Frame {
+	return layout.ComputeWith(m.width, m.height, m.feedOpen, m.feedW)
+}
+
+// onFeedBorder reports whether x, y is on the border between the main pane
+// and the feed: the main pane's right edge or the feed's left edge.
+func onFeedBorder(f layout.Frame, x, y int) bool {
+	if f.Feed.W == 0 || y < f.Feed.Y || y >= f.Feed.Y+f.Feed.H {
+		return false
+	}
+	return x == f.Feed.X || x == f.Feed.X-1
 }
 
 // promptClick places the cursor, or selects on a repeated click of the same cell.
@@ -464,12 +492,17 @@ func (m Model) promptClick(x, y, rel int) Model {
 	return m
 }
 
-// drag extends a prompt selection while the left button stays down.
+// drag resizes the feed while its border is held, and otherwise extends a
+// prompt selection while the left button stays down.
 func (m Model) drag(v tea.Mouse) Model {
+	if m.resizing && v.Button == tea.MouseLeft && m.width > 0 {
+		m.feedW = layout.FeedWidth(m.width, m.width-v.X)
+		return m.clampScroll()
+	}
 	if !m.selecting || v.Button != tea.MouseLeft || m.width == 0 || m.height == 0 {
 		return m
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	if v.Y != frame.Prompt.Y+1 || !inRect(frame.Prompt, v.X, v.Y) {
 		return m
 	}
@@ -587,27 +620,24 @@ func (m Model) key(v tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// submitLine records the prompt, shows it in the message area, and runs the
-// submit and history callbacks off the UI loop.
+// submitLine records the prompt, shows it in the message area, and hands it
+// to OnSubmit. Saving it to the history file runs off the UI loop.
 func (m Model) submitLine() (tea.Model, tea.Cmd) {
-	line, recorded := "", false
-	m, line, recorded = m.submitPrompt()
+	m, line, recorded := m.submitPrompt()
 	if line == "" {
 		return m, nil
 	}
 	m.mainOff = 0
 	m = m.appendOutput(userLine(line))
-	submit, remember := m.OnSubmit, m.remember
-	if submit == nil && (!recorded || remember == nil) {
+	if m.OnSubmit != nil {
+		m.OnSubmit(line)
+	}
+	remember := m.remember
+	if !recorded || remember == nil {
 		return m, nil
 	}
 	return m, func() tea.Msg {
-		if recorded && remember != nil {
-			remember(line)
-		}
-		if submit != nil {
-			submit(line)
-		}
+		remember(line)
 		return nil
 	}
 }
@@ -718,7 +748,7 @@ func (m Model) outputAtBottom() int {
 	if m.width == 0 || m.height == 0 {
 		return len(m.outEnds) - 1
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	width := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
 	bottom := len(wrapRows(m.shownLines(), width)) - 1 - max(m.mainOff, 0)
 	if bottom < 0 {
@@ -826,7 +856,7 @@ func (m Model) visibleMain() string {
 		return ""
 	}
 	h, _ := m.mainSpan()
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	w := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
 	return window(wrapRows(m.shownLines(), w), h, m.mainOff)
 }
@@ -883,7 +913,7 @@ func (m Model) frameKey() frameKey {
 	return frameKey{
 		width: m.width, height: m.height, mainOff: m.mainOff, feedOff: m.feedOff,
 		mainVer: m.mainVer, feedVer: feedVer, feedOpen: m.feedOpen, focusFeed: m.focusFeed,
-		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(), pillsOff: m.pillsOff,
+		mainBar: m.mainBarOn(), feedBar: m.feedBarOn(), pillsOff: m.pillsOff, feedW: m.feedW,
 		status: m.Status, prompt: m.promptText(),
 		model: m.Model, title: m.Title, pills: m.pillsKey(), profile: m.profile,
 	}
@@ -894,7 +924,7 @@ func (m Model) renderFrame() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	mainH := frame.Main.H - feedBorder
 	mainW := textWidth(layout.InnerWidth(frame.Main.W), m.mainBarOn())
 	mainText := window(wrapRows(m.shownLines(), mainW), mainH, m.mainOff)
@@ -945,7 +975,7 @@ func (m Model) promptOrigin() int {
 	if m.width == 0 || m.height == 0 {
 		return 0
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	return promptOrigin(lipgloss.Width(m.promptRaw()), m.cursorCell(), layout.InnerWidth(frame.Prompt.W))
 }
 
@@ -1036,7 +1066,7 @@ func (m Model) feedBarOn() bool {
 	if !ok || h < 1 || n <= h {
 		return false
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	return layout.InnerWidth(frame.Feed.W) > 1
 }
 
@@ -1045,7 +1075,7 @@ func (m Model) mainBarFits() bool {
 	if m.width == 0 || m.height == 0 {
 		return false
 	}
-	frame := layout.Compute(m.width, m.height, m.feedOpen)
+	frame := m.frame()
 	return layout.InnerWidth(frame.Main.W) > 1
 }
 

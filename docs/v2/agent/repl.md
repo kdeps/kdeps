@@ -79,6 +79,7 @@ Full-screen prompt only:
 | Esc | Clear the selection; on a recalled line, restore the unsent text (does not quit) |
 | Click | Move the cursor (prompt) or focus the pane for arrow keys (main pane, feed) |
 | Double / triple click | Select the word / line |
+| Drag the feed border | Resize the feed; the main pane keeps at least 20 columns, the feed at least 30 |
 
 - An edit on a recalled line is kept, so the next `Ctrl+N` does not replace it.
 - `Ctrl+O`: saving replaces the prompt without sending it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
@@ -90,7 +91,7 @@ Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `s
 
 ## Full-screen scrolling
 
-In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL; `KDEPS_TUI=1` forces full-screen.
+In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL; `KDEPS_TUI=1` forces full-screen. The view stays live during a turn: a prompt sent before the turn ends waits and runs next, in order.
 
 | Key | Action |
 |---|---|

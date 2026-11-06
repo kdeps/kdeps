@@ -37,13 +37,18 @@ func clampRows(frame string, rows, width int) string {
 // on each side.
 const BoxPadX = 1
 
+// boxBorderRows is the rows a box's top and bottom border take.
+const boxBorderRows = 2
+
 // InnerWidth is the columns of text a box of width w holds: the border and
 // the padding on both sides are taken out.
 func InnerWidth(w int) int { return max(w-2-2*BoxPadX, 0) }
 
-// box draws content inside a rounded border of exactly r.W x r.H cells.
-// box draws content inside a rounded border of exactly r.W x r.H cells.
+// box draws content inside a rounded border of exactly r.W x r.H cells. Text
+// is cut to the inside of the box first: a line Lip Gloss wrapped would add a
+// row, and MaxHeight would then cut the bottom border instead of the text.
 func box(r Rect, content string) string {
+	content = fitInside(content, InnerWidth(r.W), max(r.H-boxBorderRows, 0))
 	// Lip Gloss v2 counts the border inside Width and Height.
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -54,4 +59,17 @@ func box(r Rect, content string) string {
 		Height(max(r.H, 0)).
 		MaxHeight(r.H)
 	return style.Render(strings.TrimRight(content, "\n"))
+}
+
+// fitInside keeps at most rows lines of content, each cut to width cells with
+// an ellipsis.
+func fitInside(content string, width, rows int) string {
+	lines := strings.Split(strings.TrimRight(content, "\n"), "\n")
+	if len(lines) > rows {
+		lines = lines[:rows]
+	}
+	for i, line := range lines {
+		lines[i] = ansi.Truncate(line, width, "…")
+	}
+	return strings.Join(lines, "\n")
 }

@@ -134,6 +134,7 @@ scenario test_chat_cmd_repl.sh
 scenario test_agent_theme.sh
 scenario test_agent_model_name.sh
 scenario test_agent_paste.sh
+scenario test_agent_fullscreen.sh
 scenario test_update.sh
 scenario test_assets.sh
 scenario test_asset_profiles.sh
