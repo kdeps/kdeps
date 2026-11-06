@@ -358,8 +358,8 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 		// Warn, same as the loop engine: an automatic extract keeps running
 		// after the prompt returns, and its "LLM resource configuration"
 		// lines must not print over the conversation.
-		KnowledgeEngine: func() *executor.Engine { return setupEngineAt(slog.LevelWarn, flags.Debug) },
-		Subagent:        subagentSpec,
+		SubagentEngine: func() *executor.Engine { return setupEngineAt(slog.LevelWarn, flags.Debug) },
+		Subagent:       subagentSpec,
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields

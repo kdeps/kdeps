@@ -59,6 +59,9 @@ var (
 		`(?s)<(?:[a-z]+:)?parameter\s+name\s*=\s*"([^"]+)"\s*>(.*?)</(?:[a-z]+:)?parameter\s*>`,
 	)
 	functionCallsWrapRe = regexp.MustCompile(`(?i)</?(?:[a-z]+:)?function_calls\s*>`)
+	// parameterEqRe is the <parameter=KEY>VALUE</parameter> tag of the
+	// <function=NAME> form, rewritten to <parameter name="KEY"> for parameterRe.
+	parameterEqRe = regexp.MustCompile(`<parameter\s*=\s*"?([A-Za-z0-9_.\-]+)"?\s*>`)
 
 	toolResponseRe = regexp.MustCompile(
 		`(?s)<(tool_response|tool_output|observation)>.*?</(tool_response|tool_output|observation)>`,
@@ -243,7 +246,7 @@ func salvageUnfencedContentToolCalls(content string) ([]domain.StreamedToolCall,
 	for _, m := range functionAttrRe.FindAllStringSubmatch(cleaned, -1) {
 		args := toolcall.FirstJSONObject(m[2])
 		if args == "" {
-			args = "{}"
+			args = parametersToJSON(parameterEqRe.ReplaceAllString(m[2], `<parameter name="$1">`))
 		}
 		calls = append(calls, domain.StreamedToolCall{Name: m[1], Arguments: args})
 	}
@@ -294,12 +297,20 @@ func salvageHandshakeToolCall(content string) ([]domain.StreamedToolCall, string
 func collectTagCalls(
 	calls []domain.StreamedToolCall, text string, re *regexp.Regexp,
 ) ([]domain.StreamedToolCall, string) {
-	for _, m := range re.FindAllStringSubmatch(text, -1) {
-		if c := toolcall.ParseJSON(m[1]); c != nil {
+	// A body that is not a JSON call stays in the text without its wrapper,
+	// so the <function=...> and <invoke> parsers below still see it.
+	text = re.ReplaceAllStringFunc(text, func(tag string) string {
+		body := re.FindStringSubmatch(tag)[1]
+		if c := toolcall.ParseJSON(body); c != nil {
 			calls = append(calls, *c)
+			return ""
 		}
-	}
-	return calls, re.ReplaceAllString(text, "")
+		if strings.Contains(body, "<function") || strings.Contains(body, "invoke") {
+			return body
+		}
+		return ""
+	})
+	return calls, text
 }
 
 // invokeArguments turns one <invoke> into a JSON arguments object.

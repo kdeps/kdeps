@@ -26,6 +26,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,7 @@ import (
 // offered, and otherwise answers with plain text — standing in for both the
 // judge's ephemeral loop and the parent loop's own rounds.
 type verdictStreamer struct {
+	mu        sync.Mutex // judges call it in parallel
 	approved  bool
 	feedback  string
 	answer    string
@@ -51,6 +53,8 @@ type verdictStreamer struct {
 func (s *verdictStreamer) StreamChat(
 	_ context.Context, cfg *domain.ChatConfig, w io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, t := range cfg.Tools {
 		if t.Name == "judge_verdict" {
 			s.judgeHits++

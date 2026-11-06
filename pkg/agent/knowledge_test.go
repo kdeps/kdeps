@@ -439,7 +439,7 @@ func TestKnowledgeBuildMode(t *testing.T) {
 func TestExtractBackground_OnlyWhenAutomatic(t *testing.T) {
 	l, _ := knowledgeLoop(t)
 	var seen []string
-	l.config.KnowledgeEngine = stubEngines(`{"entities":[],"relations":[]}`, &seen)
+	l.config.SubagentEngine = stubEngines(`{"entities":[],"relations":[]}`, &seen)
 	l.config.Backend, l.config.Model = "openai", "gpt"
 	l.extractBackground()
 	assert.Empty(t, seen, "manual is the default")
@@ -458,7 +458,7 @@ func TestExtractBackground_LeavesTheTurn(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	var once sync.Once
-	l.config.KnowledgeEngine = func() *executor.Engine {
+	l.config.SubagentEngine = func() *executor.Engine {
 		eng := executor.NewEngine(t.Context(), nil)
 		eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
 			once.Do(func() { close(started) })
@@ -519,7 +519,7 @@ func TestExtractKnowledge(t *testing.T) {
 	l.ExtractKnowledge(t.Context(), &out, true) // no engine factory: nothing
 	assert.Empty(t, out.String())
 
-	l.config.KnowledgeEngine = stubEngines(reply, &seen)
+	l.config.SubagentEngine = stubEngines(reply, &seen)
 	l.config.Backend, l.config.Model = "openai", "gpt"
 	gotM, gotB, gotU := l.extractModel()
 	assert.Equal(t, "gpt", gotM, "the session model is the subagent channel by default")

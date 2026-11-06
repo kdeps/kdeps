@@ -13,6 +13,16 @@ turn -> subagent {task, instructions, tools}
         report -> tool result of the turn
 ```
 
+Each runs beside the turn where it can:
+
+| Subagent | When it runs |
+|---|---|
+| Judge-roster generation | starts with the turn, collected after the answer |
+| Judges | in parallel, after the answer |
+| Knowledge-graph extraction | in the background; recall never waits for it |
+| `subagent` calls in one reply | in parallel; each call gets its own report |
+| Prompt refinement | before the turn, beside roster generation: the turn runs on its rewrite |
+
 ## The subagent tool
 
 The model calls `subagent` when a task needs a second opinion with no shared assumptions, such as reviewing a design or a change.

@@ -1092,7 +1092,7 @@ func (l *Loop) SetKnowledgeBuild(v string) error {
 // caller goes on, and recall does not wait for it.
 func (l *Loop) extractBackground() {
 	k := l.knowledge
-	if k == nil || l.knowledgeBuildMode() != KnowledgeBuildAuto || l.config.KnowledgeEngine == nil {
+	if k == nil || l.knowledgeBuildMode() != KnowledgeBuildAuto || l.config.SubagentEngine == nil {
 		return
 	}
 	k.extractMu.Lock()
@@ -1140,7 +1140,7 @@ func (l *Loop) runBackgroundExtract() {
 	}
 	ctx, cancel := context.WithTimeout(k.ctx, knowledgeExtractTimeout())
 	defer cancel()
-	st, err := knowledge.Extract(ctx, k.vault, k.dir, KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
+	st, err := knowledge.Extract(ctx, k.vault, k.dir, KnowledgeAsk(l.config.SubagentEngine, model, backend, baseURL),
 		knowledge.ExtractOptions{
 			Model: model, Workers: k.cfg.Extract.Workers, Limit: limit,
 			System: harnessText("knowledge-extract-system"),
@@ -1155,7 +1155,7 @@ func (l *Loop) runBackgroundExtract() {
 // Session end passes all=false and runs only in automatic mode. An explicit
 // request prints why a disabled mode did not run.
 func (l *Loop) knowledgeExtractRuns(w io.Writer, all bool) bool {
-	if !l.knowledgeOn() || l.config.KnowledgeEngine == nil {
+	if !l.knowledgeOn() || l.config.SubagentEngine == nil {
 		return false
 	}
 	mode := l.knowledgeBuildMode()
@@ -1199,7 +1199,7 @@ func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
 		ctx,
 		k.vault,
 		k.dir,
-		KnowledgeAsk(l.config.KnowledgeEngine, model, backend, baseURL),
+		KnowledgeAsk(l.config.SubagentEngine, model, backend, baseURL),
 		knowledge.ExtractOptions{
 			Model:   model,
 			Workers: k.cfg.Extract.Workers,
