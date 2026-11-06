@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
 )
 
 func TestTUIEnabled_DefaultFollowsModeAndTerminal(t *testing.T) {
@@ -70,4 +72,16 @@ func TestStartTUIStatus_StopIsSafeTwice(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("stop hung")
 	}
+}
+
+// TestFullScreenEnabled_TrueWhileTheViewRuns checks the view stays "on" while
+// it runs, although it has redirected stdout into a pipe (a /model picker in
+// the view must open as an overlay, not as a second program).
+func TestFullScreenEnabled_TrueWhileTheViewRuns(t *testing.T) {
+	t.Setenv(tuiEnv, "0")
+	assert.False(t, FullScreenEnabled())
+	closed := make(chan struct{})
+	setScreenOverlaySink(func(screen.OpenOverlayMsg) {}, closed)
+	t.Cleanup(func() { setScreenOverlaySink(nil, nil) })
+	assert.True(t, FullScreenEnabled(), "a running view is on whatever stdout is now")
 }

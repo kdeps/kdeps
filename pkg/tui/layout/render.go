@@ -61,15 +61,20 @@ func box(r Rect, content string) string {
 	return style.Render(strings.TrimRight(content, "\n"))
 }
 
-// fitInside keeps at most rows lines of content, each cut to width cells with
-// an ellipsis.
+// fitInside keeps at most rows lines of content, each cut to width cells. A
+// line whose text is cut ends in an ellipsis.
 func fitInside(content string, width, rows int) string {
 	lines := strings.Split(strings.TrimRight(content, "\n"), "\n")
 	if len(lines) > rows {
 		lines = lines[:rows]
 	}
 	for i, line := range lines {
-		lines[i] = ansi.Truncate(line, width, "…")
+		// Only cut text gets an ellipsis: padding past the edge is just dropped.
+		tail := ""
+		if ansi.StringWidth(strings.TrimRight(ansi.Strip(line), " ")) > width {
+			tail = "…"
+		}
+		lines[i] = ansi.Truncate(line, width, tail)
 	}
 	return strings.Join(lines, "\n")
 }
