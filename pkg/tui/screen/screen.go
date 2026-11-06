@@ -175,12 +175,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.hideBar(hide), nil
 	}
 	if m.overlay != nil {
-		// The overlay gets every message, resizes included.
-		if ws, ok := msg.(tea.WindowSizeMsg); ok {
-			m.width, m.height = ws.Width, ws.Height
-			m = m.clampScroll()
-		}
-		return m.updateOverlay(msg)
+		return m.toOverlay(msg)
 	}
 	switch v := msg.(type) {
 	case tea.WindowSizeMsg:

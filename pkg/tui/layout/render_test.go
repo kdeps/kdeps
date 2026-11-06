@@ -76,3 +76,11 @@ func TestRender_LongStatusKeepsItsBorder(t *testing.T) {
 	assert.Contains(t, lines[f.Status.Y+1], "…", "the cut status ends in an ellipsis")
 	assert.True(t, strings.HasPrefix(lines[f.Prompt.Y], "╭"), "prompt box starts on its own row")
 }
+
+// TestRender_PaddingPastTheBoxIsDroppedQuietly checks a line that is only too
+// wide because of trailing spaces gets no ellipsis.
+func TestRender_PaddingPastTheBoxIsDroppedQuietly(t *testing.T) {
+	assert.Equal(t, "abc", strings.TrimRight(fitInside("abc"+strings.Repeat(" ", 20), 10, 1), " "))
+	assert.NotContains(t, fitInside("abc"+strings.Repeat(" ", 20), 10, 1), "…")
+	assert.Contains(t, fitInside(strings.Repeat("x", 20), 10, 1), "…")
+}

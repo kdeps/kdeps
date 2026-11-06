@@ -272,8 +272,18 @@ func screenModelLabel() string {
 	return screenModel.name
 }
 
-// FullScreenEnabled reports whether the full-screen view is on (see tuiEnabled).
-func FullScreenEnabled() bool { return tuiEnabled() }
+// FullScreenEnabled reports whether the full-screen view is on: running now,
+// or chosen for this process (see tuiEnabled). The running check comes first
+// because the view redirects stdout into a pipe, so tuiEnabled's terminal
+// check is false for as long as the view is up.
+func FullScreenEnabled() bool { return screenRunning() || tuiEnabled() }
+
+// screenRunning reports whether a full-screen view is up and taking overlays.
+func screenRunning() bool {
+	screenOverlay.Lock()
+	defer screenOverlay.Unlock()
+	return screenOverlay.send != nil
+}
 
 // RunInScreen opens o over the full-screen view and blocks until the user
 // closes it. It returns the finished overlay, or false when no full-screen view

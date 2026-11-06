@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
 )
 
 // fakeOverlay closes on Enter and reports the key it saw.
@@ -58,4 +59,34 @@ func TestOverlay_DoneClosesItAndHandsBackTheResult(t *testing.T) {
 	assert.True(t, got.Done())
 	assert.Equal(t, "enter", got.(fakeOverlay).last)
 	assert.True(t, strings.Contains(ansi.Strip(m.render()), "> "), "the prompt is back")
+}
+
+// sizeOverlay records the last size it was given.
+type sizeOverlay struct{ w, h int }
+
+func (o sizeOverlay) Init() tea.Cmd { return nil }
+func (o sizeOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		o.w, o.h = ws.Width, ws.Height
+	}
+	return o, nil
+}
+func (o sizeOverlay) View() tea.View { return tea.NewView("") }
+func (o sizeOverlay) Done() bool     { return false }
+
+// TestOverlay_IsSizedToTheMainPane checks an overlay is laid out for the main
+// pane it is drawn in, on open and on a resize, not for the whole terminal.
+func TestOverlay_IsSizedToTheMainPane(t *testing.T) {
+	m := resized(t, New(&feed.Feed{}))
+	pane := layout.InnerWidth(m.frame().Main.W)
+	m = m.WithOverlay(sizeOverlay{}, nil)
+	got := m.overlay.(sizeOverlay)
+	assert.Equal(t, pane, got.w, "opened at the pane's inner width")
+	assert.Less(t, got.h, 30)
+
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = next.(Model)
+	got = m.overlay.(sizeOverlay)
+	assert.Equal(t, layout.InnerWidth(m.frame().Main.W), got.w, "a resize passes the new pane width")
+	assert.Less(t, got.w, 140)
 }
