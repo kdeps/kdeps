@@ -191,6 +191,7 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 var sessionOpsTools = []string{ //nolint:gochecknoglobals // fixed list
 	"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
 	"knowledge_note_save", "knowledge_recall", "load_skill", "load_tools", "session_handshake", "subagent",
+	"ask_question",
 }
 
 // TestEveryToolAssetHasAPIRoute guards the YAML side of the API contract: a

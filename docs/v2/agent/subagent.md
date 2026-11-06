@@ -20,7 +20,7 @@ Each runs beside the turn where it can:
 | Judge-roster generation | starts with the turn, collected after the answer |
 | Judges | in parallel, after the answer |
 | Knowledge-graph extraction | in the background; recall never waits for it |
-| `subagent` calls in one reply | in parallel; each call gets its own report |
+| `subagent` calls a reply opens with | in parallel, in one round; each call gets its own report |
 | Prompt refinement | before the turn, beside roster generation: the turn runs on its rewrite |
 
 ## The subagent tool

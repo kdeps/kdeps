@@ -353,7 +353,11 @@ type Loop struct {
 	// subagentRuns holds this round's subagent calls, started together so
 	// they run in parallel (see startSubagents). Keyed by their arguments.
 	subagentRuns map[string]<-chan subagentResult
-	subagentMu   sync.Mutex
+	// askedQuestion is the question ask_question put this round; the round
+	// loop ends the turn with it. askedThisTurn skips the judges for it.
+	askedQuestion string
+	askedThisTurn bool
+	subagentMu    sync.Mutex
 	// resumeNote says when a resumed session last ran; it goes on every
 	// request of the first turn after the resume, then is cleared.
 	resumeNote string
@@ -521,6 +525,7 @@ func (l *Loop) becomeSessionLoop() {
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
 	l.registerSubagentTool()
+	l.registerAskQuestionTool()
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -1219,6 +1224,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// now, on the prompt as typed, and is collected only when the panel needs
 	// it after the answer.
 	rosterReady := l.startJudgeRoster(ctx, input)
+	l.askedThisTurn = false
 
 	// Pre-turn prompt refinement: rewrite a terse or under-specified prompt
 	// into a clearer, self-contained version and run the turn on that. The
@@ -1259,7 +1265,8 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// Judge panel: an independent review of the final output, with the power
 	// to send it back for revision. Never runs for library/test callers with
 	// no roster configured, and never blocks the turn on any failure.
-	if len(roster) > 0 {
+	// A turn that ends on a question to the user has no answer to review.
+	if len(roster) > 0 && !l.askedThisTurn {
 		response, _ = l.iterateWithJudges(ctx, chatCfg, roster, input, response, finalContent, w)
 	}
 
@@ -1538,16 +1545,24 @@ func (l *Loop) runToolRounds(
 		// so tell the model the rest were not executed -- otherwise they vanish
 		// from the transcript and the model has no way to know it must re-issue
 		// them.
-		if len(toolCalls) > 1 {
-			l.queueModelNote(deferredToolCallsNote(toolCalls))
+		run := roundCalls(toolCalls)
+		if len(toolCalls) > len(run) {
+			l.queueModelNote(deferredToolCallsNote(run, toolCalls[len(run):]))
 		}
-		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
+		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, run, w)
 		nudges.acted = true
 		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
 			return finalContent, ctx.Err()
+		}
+		// ask_question ends the turn: its question is the reply, and the
+		// user's next message answers it.
+		if q := l.takeAskedQuestion(); q != "" {
+			l.askedThisTurn = true
+			finalContent = q
+			break
 		}
 		// Detect a model stuck re-issuing the same tool call AND getting the
 		// same result back. The loop dispatches toolCalls[0], so track that
@@ -3095,20 +3110,30 @@ func (l *Loop) queueModelNote(text string) {
 	l.modelNotes = append(l.modelNotes, text)
 }
 
+// roundCalls is the calls a round runs: the first, or every subagent call
+// the reply opens with, since those run in parallel (startSubagents).
+func roundCalls(calls []domain.StreamedToolCall) []domain.StreamedToolCall {
+	n := 1
+	for n < len(calls) && calls[0].Name == toolNameSubagent && calls[n].Name == toolNameSubagent {
+		n++
+	}
+	return calls[:n]
+}
+
 // deferredToolCallsNote names the tool calls a multi-call round did not run.
 // The loop dispatches one call per round so the model can re-evaluate after
 // each result (a long build must not chain into a redundant batched call);
 // the remaining calls are absent from the replayed assistant turn, so without
 // this note the model never learns they still have to be issued.
-func deferredToolCallsNote(calls []domain.StreamedToolCall) string {
-	names := make([]string, 0, len(calls)-1)
-	for _, c := range calls[1:] {
+func deferredToolCallsNote(ran, rest []domain.StreamedToolCall) string {
+	names := make([]string, 0, len(rest))
+	for _, c := range rest {
 		names = append(names, c.Name)
 	}
 	return fmt.Sprintf(
 		"you requested %d tool calls in one round; only %q ran so you can re-evaluate after it. "+
 			"Not run: %s. Re-issue each one you still need, one per round.",
-		len(calls), calls[0].Name, strings.Join(names, ", "),
+		len(ran)+len(rest), ran[0].Name, strings.Join(names, ", "),
 	)
 }
 

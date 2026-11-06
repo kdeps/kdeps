@@ -128,3 +128,36 @@ func TestDesignReviewPreset_SetsTheJudgePanel(t *testing.T) {
 	}
 	assert.Equal(t, []string{"scope", "clarity", "failure-modes", "readiness"}, names)
 }
+
+// askStreamer calls ask_question once, then would answer "never".
+type askStreamer struct{ calls int }
+
+func (s *askStreamer) StreamChat(
+	_ context.Context, _ *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	s.calls++
+	if s.calls == 1 {
+		return "", []domain.StreamedToolCall{{
+			ID: "1", Name: "ask_question", Arguments: `{"question":"Which mode?","options":["Fast","Thorough"]}`,
+		}}, nil
+	}
+	_, _ = io.WriteString(w, "never")
+	return "never", nil, nil
+}
+
+// TestAskQuestion_AgentTurnEndsOnTheQuestion checks a real turn that calls
+// ask_question ends with the question as its answer.
+func TestAskQuestion_AgentTurnEndsOnTheQuestion(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	s := &askStreamer{}
+	loop := subagentTestLoop(t, s)
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(t.Context(), "set up the review", &buf)
+	require.NoError(t, err)
+	assert.Contains(t, result, "Which mode?")
+	assert.Contains(t, result, "2. Thorough")
+	assert.NotContains(t, result, "never")
+}

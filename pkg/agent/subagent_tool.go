@@ -169,7 +169,10 @@ func (l *Loop) subagentRegistry(names []string) (*kdepstools.Registry, error) {
 	var readOnly []string
 	if l.registry != nil {
 		for _, t := range l.registry.List() {
-			if t.Name != toolNameSubagent && requiredPermission(t.Name) == PermissionReadOnly {
+			// subagent and ask_question act on this session's turn, so a
+			// subagent never gets them.
+			if t.Name != toolNameSubagent && t.Name != toolNameAskQuestion &&
+				requiredPermission(t.Name) == PermissionReadOnly {
 				readOnly = append(readOnly, t.Name)
 			}
 		}

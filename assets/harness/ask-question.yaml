@@ -1,0 +1,11 @@
+version: 1.0.0
+name: ask-question
+kind: standalone
+# The reply a turn ends with when the model calls ask_question. Options come
+# numbered ("1. Interactive review").
+body: |-
+  {{.Question}}
+  {{range .Options}}
+  {{.}}{{end}}
+  {{if .Options}}
+  Reply with a number, or with your own answer.{{end}}
