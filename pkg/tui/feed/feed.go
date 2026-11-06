@@ -5,8 +5,10 @@ package feed
 
 import (
 	"strings"
+	"sync"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Kind is what an entry is about.
@@ -25,23 +27,69 @@ type Entry struct {
 	Body  string
 }
 
-// Feed holds the entries in the order they happened.
+// Feed holds the entries in the order they happened. The agent adds entries
+// while the view reads them, so every method takes the lock.
 type Feed struct {
+	mu      sync.Mutex
 	entries []Entry
 	version int // bumped by every change, so a renderer can cache a frame
+
+	// Rendered lines per width, kept across calls (the view measures the feed
+	// with and without its scroll-bar column). Entries never change once
+	// added, so only the entries added since are rendered.
+	rendered map[int]*renderedLines
+}
+
+// renderedLines is every entry rendered at one width so far.
+type renderedLines struct {
+	lines []string
+	done  int // entries already in lines
 }
 
 // Add appends an entry.
 func (f *Feed) Add(e Entry) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.entries = append(f.entries, e)
 	f.version++
 }
 
 // Version changes whenever the feed changes.
-func (f *Feed) Version() int { return f.version }
+func (f *Feed) Version() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.version
+}
 
 // Len returns the number of entries.
-func (f *Feed) Len() int { return len(f.entries) }
+func (f *Feed) Len() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.entries)
+}
+
+// renderedLocked is every entry's lines at width, from the cache. f.mu is held.
+func (f *Feed) renderedLocked(width int) []string {
+	if f.rendered == nil {
+		f.rendered = map[int]*renderedLines{}
+	}
+	r := f.rendered[width]
+	if r == nil {
+		if len(f.rendered) >= maxRenderedWidths {
+			clear(f.rendered) // a resize drag leaves widths nobody asks for again
+		}
+		r = &renderedLines{}
+		f.rendered[width] = r
+	}
+	for _, e := range f.entries[r.done:] {
+		r.lines = append(r.lines, entryLines(e, width)...)
+	}
+	r.done = len(f.entries)
+	return r.lines
+}
+
+// maxRenderedWidths bounds the per-width cache; a buffer size, not policy.
+const maxRenderedWidths = 4
 
 // Render returns the newest entries that fit in width x height. Each entry is
 // a header line and its body; the oldest are dropped first.
@@ -56,10 +104,9 @@ func (f *Feed) RenderWindow(width, height, offset int) string {
 	if width < 1 || height < 1 {
 		return ""
 	}
-	var lines []string
-	for _, e := range f.entries {
-		lines = append(lines, entryLines(e, width)...)
-	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	lines := f.renderedLocked(width)
 	if top := len(lines) - height; offset > top {
 		offset = max(top, 0)
 	}
@@ -75,11 +122,12 @@ func (f *Feed) RenderWindow(width, height, offset int) string {
 
 // Lines returns how many rendered lines the feed has at width.
 func (f *Feed) Lines(width int) int {
-	n := 0
-	for _, e := range f.entries {
-		n += len(entryLines(e, width))
+	if width < 1 {
+		return 0
 	}
-	return n
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.renderedLocked(width))
 }
 
 // entryHeader is the "[kind] title" line, cut to width. The kind is bold so
@@ -104,14 +152,8 @@ func entryLines(e Entry, width int) []string {
 	return out
 }
 
-// truncate cuts s to width cells.
+// truncate cuts s to width cells, ending in an ellipsis when it cuts. One
+// pass: it runs for every feed line the view lays out.
 func truncate(s string, width int) string {
-	if lipgloss.Width(s) <= width {
-		return s
-	}
-	runes := []rune(s)
-	for len(runes) > 0 && lipgloss.Width(string(runes)) > width-1 {
-		runes = runes[:len(runes)-1]
-	}
-	return string(runes) + "…"
+	return ansi.Truncate(s, width, "…")
 }
