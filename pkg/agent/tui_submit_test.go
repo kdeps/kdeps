@@ -145,3 +145,117 @@ func TestAttachScreenModel_CoalescesThroughThePump(t *testing.T) {
 		screen.RedrawMsg{},
 	}, got)
 }
+
+func TestSubmitQueue_BusyWhileALineRunsOrWaits(t *testing.T) {
+	q := newSubmitQueue()
+	assert.False(t, q.busy())
+	q.push("one")
+	assert.True(t, q.busy(), "a waiting line")
+	_, _ = q.pop()
+	assert.True(t, q.busy(), "a running line")
+	q.finished()
+	assert.False(t, q.busy())
+}
+
+// busyQueue is a queue with one line running, as during a turn.
+func busyQueue(t *testing.T) *submitQueue {
+	t.Helper()
+	q := newSubmitQueue()
+	q.push("a long turn")
+	_, _ = q.pop()
+	return q
+}
+
+// TestScreenSubmit_ModelDuringATurnOpensThePickerNow checks /model typed while
+// a turn runs opens the picker at once and queues the switch after the turn.
+func TestScreenSubmit_ModelDuringATurnOpensThePickerNow(t *testing.T) {
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	picked := make(chan struct{})
+	repl.SetModelPickerFn(func(string) (string, error) {
+		close(picked)
+		return "gpt-y", nil
+	})
+	q := busyQueue(t)
+	pump := screen.NewPump()
+	defer pump.Close()
+
+	repl.screenSubmit(q, pump)("/model")
+	select {
+	case <-picked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the picker waited for the turn")
+	}
+	q.finished()
+	line, ok := q.pop()
+	require.True(t, ok)
+	assert.Equal(t, "/model gpt-y", line, "the switch runs after the turn")
+}
+
+func TestScreenSubmit_CancelledPickerQueuesNothing(t *testing.T) {
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	var calls atomic.Int32
+	repl.SetModelPickerFn(func(string) (string, error) {
+		calls.Add(1)
+		return "", nil
+	})
+	q := busyQueue(t)
+	pump := screen.NewPump()
+	defer pump.Close()
+
+	repl.screenSubmit(q, pump)("/model")
+	require.Eventually(t, func() bool { return calls.Load() == 1 }, 5*time.Second, 5*time.Millisecond)
+	q.finished()
+	assert.Eventually(t, func() bool { return !q.busy() }, time.Second, 5*time.Millisecond)
+}
+
+// TestScreenSubmit_IdleOrOtherLinesAreQueued checks the queue keeps every
+// other line, and /model with no turn running, in order.
+func TestScreenSubmit_IdleOrOtherLinesAreQueued(t *testing.T) {
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	repl.SetModelPickerFn(func(string) (string, error) {
+		t.Error("the picker opened outside the queue")
+		return "", nil
+	})
+	q := newSubmitQueue()
+	pump := screen.NewPump()
+	defer pump.Close()
+	submit := repl.screenSubmit(q, pump)
+
+	submit("/model")
+	line, _ := q.pop()
+	assert.Equal(t, "/model", line, "with no turn running /model runs from the queue")
+	submit("/model gpt-z")
+	submit("hello")
+	line, _ = q.pop()
+	assert.Equal(t, "/model gpt-z", line)
+	line, _ = q.pop()
+	assert.Equal(t, "hello", line)
+}
+
+// TestScreenSubmit_OnePickerAtATime checks a second /model while the first
+// picker is open does not open another over it.
+func TestScreenSubmit_OnePickerAtATime(t *testing.T) {
+	repl := NewREPL(context.Background(), makeTestLoop(nil))
+	defer repl.cancel()
+	var calls atomic.Int32
+	release := make(chan struct{})
+	repl.SetModelPickerFn(func(string) (string, error) {
+		calls.Add(1)
+		<-release
+		return "", nil
+	})
+	q := busyQueue(t)
+	pump := screen.NewPump()
+	defer pump.Close()
+	submit := repl.screenSubmit(q, pump)
+
+	submit("/model")
+	require.Eventually(t, func() bool { return calls.Load() == 1 }, 5*time.Second, 5*time.Millisecond)
+	submit("/model")
+	close(release)
+	time.Sleep(50 * time.Millisecond)
+	assert.Equal(t, int32(1), calls.Load())
+}

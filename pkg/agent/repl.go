@@ -3463,8 +3463,17 @@ func (r *REPL) CloudModelBackends() map[string]string { return r.cloudModelBacke
 // ProviderStatus returns the provider API key status.
 func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
 
-// CurrentModel returns the active model name.
-func (r *REPL) CurrentModel() string { return r.loop.config.Model }
+// CurrentModel returns the active model name. While the full-screen view runs
+// it reads the view's copy, which is locked, so the model picker can open
+// during a turn that may switch models.
+func (r *REPL) CurrentModel() string {
+	if screenRunning() {
+		if name := screenModelLabel(); name != "" {
+			return name
+		}
+	}
+	return r.loop.config.Model
+}
 
 // SetLlamaFitScores stores llmfit recommendation results indexed by model
 // alias. score is 0-100 composite; fitLevel is one of Perfect/Good/Marginal.

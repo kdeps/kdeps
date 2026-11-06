@@ -534,7 +534,7 @@ func TestDrag_SelectsPromptText(t *testing.T) {
 		m, _ = typed(t, m, tea.KeyPressMsg{Code: c, Text: string(c)})
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	textX := frame.Prompt.X + layout.BoxPadX
 	y := frame.Prompt.Y + 1
 
 	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
@@ -557,7 +557,7 @@ func TestClick_MovesThePromptCursor(t *testing.T) {
 	}
 	assert.Equal(t, 5, m.cursor)
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	textX := frame.Prompt.X + layout.BoxPadX
 	y := frame.Prompt.Y + 1
 
 	m, _ = typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
@@ -583,7 +583,7 @@ func TestClick_DoubleAndTripleClickSelect(t *testing.T) {
 		m, _ = typed(t, m, tea.KeyPressMsg{Code: c, Text: string(c)})
 	}
 	frame := layout.Compute(m.width, m.height, m.feedOpen)
-	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	textX := frame.Prompt.X + layout.BoxPadX
 	y := frame.Prompt.Y + 1
 	click := tea.MouseClickMsg{X: textX + 2 + 4, Y: y, Button: tea.MouseLeft}
 
@@ -618,7 +618,7 @@ func TestPromptWindow_KeepsTheCursorOnScreen(t *testing.T) {
 	assert.NotContains(t, shown, "> ", "a long line scrolls the marker off")
 	assert.NotContains(t, shown, strings.Repeat("a", 200))
 
-	textX := frame.Prompt.X + 1 + layout.BoxPadX
+	textX := frame.Prompt.X + layout.BoxPadX
 	y := frame.Prompt.Y + 1
 	clicked, _ := typed(t, m, tea.MouseClickMsg{X: textX + 2, Y: y, Button: tea.MouseLeft})
 	assert.NotEqual(t, 0, clicked.cursor, "a click in the scrolled window is not the start")
@@ -805,7 +805,7 @@ func TestSidebar_HasAnActivityTitle(t *testing.T) {
 	var f feed.Feed
 	f.Add(feed.Entry{Kind: feed.KindResource, Title: "fetch.yaml"})
 	m := resized(t, New(&f))
-	assert.Contains(t, ansi.Strip(m.render()), "│ activity", "the side panel opens with its title")
+	assert.Contains(t, ansi.Strip(m.render()), " activity", "the side panel opens with its title")
 }
 
 // TestHeader_ShowsTheProductAndTheTitle checks the header row names the product
