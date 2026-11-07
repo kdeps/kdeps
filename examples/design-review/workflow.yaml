@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: design-review
+  description: Four reviewers check a design document in parallel; a rejection ends with a question the next request answers.
+  version: "1.0.0"
+  targetActionId: reply
+
+settings:
+  apiServer:
+    portNum: 16400
+    routes:
+      - path: /api/v1/review
+        methods: [POST]
+
+  agentSettings:
+    timezone: Etc/UTC
+
+  # The session keeps the reviewed doc between the question and its answer.
+  session:
+    type: sqlite
+    ttl: 30m

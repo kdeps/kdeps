@@ -1,0 +1,28 @@
+actionId: reply
+name: Reply
+requires: [scope, clarity, failure-modes, readiness]
+
+before:
+  # A new doc: keep it and the findings for the answer that may follow.
+  - "get('doc') != nil ? set('reviewed_doc', get('doc'), 'session') : nil"
+  - >-
+    get('doc') != nil ? set('review_findings', {
+      "scope": output('scope').findings,
+      "clarity": output('clarity').findings,
+      "failure-modes": output('failure-modes').findings,
+      "readiness": output('readiness').findings
+    }, 'session') : nil
+  - >-
+    set('passed', get('doc') != nil && all(
+      [output('scope'), output('clarity'), output('failure-modes'), output('readiness')],
+      {.pass == true}))
+
+apiResponse:
+  success: true
+  response:
+    passed: "{{ get('passed') }}"
+    findings: "{{ get('review_findings', 'session') }}"
+    # Asked only when a reviewer rejects; the next request sends {"answer": "1"} or {"answer": "2"}.
+    question: "{{ get('doc') != nil && !get('passed') ? 'Revise the design or ship it as is?' : '' }}"
+    options: "{{ get('doc') != nil && !get('passed') ? ['1. Revise and resubmit', '2. Ship as is'] : [] }}"
+    decision: "{{ get('answer') == '1' ? 'Send the revised doc as {\"doc\": ...}.' : get('answer') == '2' ? 'Shipping with the open findings above.' : '' }}"

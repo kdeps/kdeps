@@ -19,6 +19,7 @@ closest to what you are building.
 | [SQL-backed API](/examples/sql-api) | `sql` component: parameterized queries, CSV output, batch transactions |
 | [Chat web app](/examples/chat-web-app) | API + static frontend together, `public` routes, `scenario:` |
 | [File upload](/examples/file-upload) | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
+| [Design review panel](/examples/design-review) | Parallel reviewers, a question in the reply, the answer in the next request (session) |
 | [Conditionals and lists](/examples/control-flow) | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
 | [Authenticated API call](/examples/http-auth) | `component: http_request` bearer/API-key auth, `retry:`, `cache:` |
 | [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |

@@ -128,6 +128,17 @@ Session management with persistent storage.
 cd session-auth && kdeps run workflow.yaml --dev
 ```
 
+### 🧑‍⚖️ [Design Review](./design-review/)
+Four reviewers check a design document in parallel; a rejection ends with a question.
+- Parallel reviewer resources
+- A question with numbered options in the reply
+- The answer request reads the findings from the session
+
+**Run:**
+```bash
+cd design-review && kdeps run workflow.yaml
+```
+
 ### 🌍 [Auto-Env](./auto-env/)
 Demonstrates automatic environment variable scoping per component and an optional per-component `.env` fallback.
 - `TRANSLATOR_OPENAI_API_KEY` overrides `OPENAI_API_KEY` inside `translator` only

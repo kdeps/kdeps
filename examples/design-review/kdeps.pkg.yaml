@@ -1,0 +1,8 @@
+name: design-review
+version: "1.0.0"
+type: workflow
+description: "Four parallel reviewers check a design document; a rejection asks what to do next"
+tags:
+  - review
+  - parallel
+  - session

@@ -203,6 +203,10 @@ chat:
 
 </div>
 
+### Ask, then answer
+
+A reply can end with a question (`question` plus numbered `options`) and keep what the answer needs in the session. The next request sends `{"answer": "2"}` with the same session cookie. Store under key names the request doesn't use: `get(name)` also reads the session. Full example: [Design review panel](/examples/design-review).
+
 ## Session ID
 
 Each session has a unique ID accessible via:
