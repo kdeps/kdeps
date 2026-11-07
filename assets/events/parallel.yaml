@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: parallel
+# How many independent tasks run at once, in both modes: workflow resources
+# and component calls, subagents, judges and agent tool calls. Work still waits
+# for what it depends on. Turning the event off runs everything one at a time.
+items: 4
+run: cap

@@ -27,6 +27,7 @@ import (
 	"sync"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -36,11 +37,6 @@ import (
 // so a judge run is a second, ephemeral *Loop built via New() rather than a
 // synthetic single-shot engine call. Judges settle by calling the
 // judge_verdict tool — never by parsing prose.
-
-// maxJudgeConcurrency caps how many judges run at once. Independent judges
-// reviewing the same output have no reason to run sequentially, but an
-// unbounded fan-out could open too many concurrent LLM connections.
-const maxJudgeConcurrency = 4
 
 // JudgeSpec describes one reviewer in the panel.
 type JudgeSpec struct {
@@ -182,25 +178,17 @@ func runJudge(ctx context.Context, l *Loop, spec JudgeSpec, input, output string
 	return verdict
 }
 
-// runJudgePanel runs every judge in roster against output concurrently
-// (bounded by maxJudgeConcurrency) and collects all verdicts.
+// runJudgePanel runs every judge in roster against output, up to the
+// "parallel" cap at once, and collects all verdicts.
 func runJudgePanel(ctx context.Context, l *Loop, roster []JudgeSpec, input, output string) []JudgeVerdict {
 	if len(roster) == 0 {
 		return nil
 	}
 	verdicts := make([]JudgeVerdict, len(roster))
-	sem := make(chan struct{}, maxJudgeConcurrency)
-	var wg sync.WaitGroup
-	for i, spec := range roster {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(i int, spec JudgeSpec) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			verdicts[i] = runJudge(ctx, l, spec, input, output)
-		}(i, spec)
-	}
-	wg.Wait()
+	_ = parallel.Run(len(roster), nil, func(i int) error {
+		verdicts[i] = runJudge(ctx, l, roster[i], input, output)
+		return nil
+	})
 	return verdicts
 }
 

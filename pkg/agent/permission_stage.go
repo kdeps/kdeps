@@ -26,9 +26,14 @@ import (
 )
 
 // InstallStagePermission makes every resource run pass the policy's resources
-// table. Called once at process start, so workflow runs are gated too.
+// table, and tells the workflow engine which component calls are read-only
+// (they may run in parallel). Called once at process start, so workflow runs
+// are gated too.
 func InstallStagePermission() {
 	executor.SetStagePermission(stageGate)
+	executor.SetReadOnlyTool(func(name string) bool {
+		return requiredPermission(name) == PermissionReadOnly
+	})
 }
 
 // stageGate decides one primary resource kind against the run's permission

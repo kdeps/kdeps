@@ -99,6 +99,11 @@ type ExecutionContext struct {
 	// Priority for env() lookups: scoped os env > plain os env > .env file.
 	componentDotEnv map[string]map[string]string
 
+	// componentInputs holds a component call's with: values as
+	// "<componentName>.<input>" keys. Each call has its own (forComponent), so
+	// calls of one component can run at once.
+	componentInputs map[string]interface{}
+
 	// AgentMemoryStore is the agent's persistent memory store (JSONL-backed
 	// with graph relationships, auto-capture, and turn extraction). Set by
 	// the workflow runner when --memory is enabled. Nil when not configured.

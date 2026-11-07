@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -129,8 +130,9 @@ func coerceInputValue(val interface{}, typ string) interface{} {
 	return val
 }
 
-// injectComponentInputs writes each input into ctx under both caller-scoped and
-// component-scoped keys. Each with: value is evaluated against the caller's
+// injectComponentInputs writes each input into the caller's ctx under its
+// caller-scoped key and into the call's own context (call) under its
+// component-scoped key. Each with: value is evaluated against the caller's
 // context first, so a component receives the resolved value (e.g. "hello")
 // rather than the raw template ("{{ get('q') }}"). This does not rely on the
 // interpolator re-scanning substituted output. Declared types are enforced on
@@ -140,7 +142,7 @@ func (e *Engine) injectComponentInputs(
 	injected map[string]interface{},
 	iface *domain.ComponentInterface,
 	callerID, componentName string,
-	ctx *ExecutionContext,
+	ctx, call *ExecutionContext,
 ) {
 	_ = e.ensureResponseEvaluator(ctx)
 	env := e.buildEvaluationEnvironment(ctx)
@@ -151,7 +153,7 @@ func (e *Engine) injectComponentInputs(
 	resolved = coerceDeclaredInputs(resolved, iface)
 	for key, val := range resolved {
 		_ = ctx.Set(callerID+"."+key, val)
-		_ = ctx.Set(componentName+"."+key, val)
+		call.componentInputs[componentName+"."+key] = asStored(val)
 	}
 }
 
@@ -229,4 +231,18 @@ func (e *Engine) resolveComponentInput(s string, env map[string]interface{}) str
 		return s
 	}
 	return fmt.Sprintf("%v", val)
+}
+
+// asStored is val as memory storage returns it (a JSON round trip: numbers
+// become float64), so a component input reads the same as a get() value.
+func asStored(val interface{}) interface{} {
+	raw, err := json.Marshal(val)
+	if err != nil {
+		return val
+	}
+	var out interface{}
+	if json.Unmarshal(raw, &out) != nil {
+		return val
+	}
+	return out
 }

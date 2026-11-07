@@ -77,12 +77,13 @@ func TestInjectComponentInputs_CoercedValuesKeepTheirType(t *testing.T) {
 		"limit":   "{{ get('caller.limit') }}",
 		"dry_run": "{{ get('caller.dry') }}",
 	}
-	e.injectComponentInputs(injected, iface, "caller", "comp", ctx)
+	call := ctx.forComponent("comp")
+	e.injectComponentInputs(injected, iface, "caller", "comp", ctx, call)
 
-	limit, err := ctx.Get("comp.limit")
+	limit, err := call.Get("comp.limit")
 	require.NoError(t, err)
 	require.Equal(t, float64(10), limit)
-	dry, err := ctx.Get("comp.dry_run")
+	dry, err := call.Get("comp.dry_run")
 	require.NoError(t, err)
 	require.Equal(t, true, dry)
 }
@@ -96,16 +97,17 @@ func TestInjectComponentInputs_InterpolatesWithValues(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ctx.Set("q", "hello"))
 
+	call := ctx.forComponent("comp")
 	e.injectComponentInputs(map[string]interface{}{
 		"msg":   "{{ get('q') }}",
 		"plain": "static",
-	}, nil, "caller", "comp", ctx)
+	}, nil, "caller", "comp", ctx, call)
 
-	msg, err := ctx.Get("comp.msg")
+	msg, err := call.Get("comp.msg")
 	require.NoError(t, err)
 	require.Equal(t, "hello", msg)
 
-	plain, err := ctx.Get("comp.plain")
+	plain, err := call.Get("comp.plain")
 	require.NoError(t, err)
 	require.Equal(t, "static", plain)
 }
@@ -120,27 +122,28 @@ func TestInjectComponentInputs_KeepsListsAndMaps(t *testing.T) {
 	require.NoError(t, ctx.Set("who", "bob@example.com"))
 	require.NoError(t, ctx.Set("n", 10))
 
+	call := ctx.forComponent("comp")
 	e.injectComponentInputs(map[string]interface{}{
 		"params": []interface{}{"{{ get('n') }}", "x {{ get('n') }}"},
 		"to":     []interface{}{"{{ get('who') }}", "ann@example.com", 3},
 		"search": map[string]interface{}{"subject": "{{ get('who') }}", "unseen": true},
 		"limit":  10,
 		"html":   false,
-	}, nil, "caller", "comp", ctx)
+	}, nil, "caller", "comp", ctx, call)
 
-	to, err := ctx.Get("comp.to")
+	to, err := call.Get("comp.to")
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{"bob@example.com", "ann@example.com", float64(3)}, to)
-	search, err := ctx.Get("comp.search")
+	search, err := call.Get("comp.search")
 	require.NoError(t, err)
 	require.Equal(t, map[string]interface{}{"subject": "bob@example.com", "unseen": true}, search)
-	params, err := ctx.Get("comp.params")
+	params, err := call.Get("comp.params")
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{float64(10), "x 10"}, params, "a lone expression keeps its type")
-	limit, err := ctx.Get("comp.limit")
+	limit, err := call.Get("comp.limit")
 	require.NoError(t, err)
 	require.Equal(t, "10", limit)
-	html, err := ctx.Get("comp.html")
+	html, err := call.Get("comp.html")
 	require.NoError(t, err)
 	require.Equal(t, "false", html)
 }

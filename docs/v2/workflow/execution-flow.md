@@ -130,16 +130,18 @@ The engine also orders resources that share a key without `requires`:
 | `set('k')` after another resource's `get('k')` or `set('k')` | keeps their order |
 | `output('id')` or `get('id')` of another resource | waits for that resource |
 
-A resource whose effects the YAML can't show runs alone, in its usual place: `component:` calls (`http_request`, `exec`, `python` and the rest), `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
+A `component:` call runs beside others when the component is read-only in the [permission policy](/agent/tools#permission-modes) (`web_search`, `read_file`, `web_scraper`, ...) and has no `teardown:`. Each call gets its own inputs and outputs, so three `web_search` calls with different queries run at once. Other components (`write_file`, `bash_exec`, `http_request`, ...) run alone.
 
-The cap is the `workflow-parallel` event:
+A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
+
+One cap covers both modes: workflow resources, subagents, judges and agent tool calls. It is the `parallel` event:
 
 ```yaml
-# ~/.kdeps/events/workflow-parallel.yaml
-name: workflow-parallel
-items: 4          # independent resources one run executes at once
+# ~/.kdeps/events/parallel.yaml
+name: parallel
+items: 4          # tasks that run at once, in each batch
 run: cap
-disabled: false   # true runs every resource one at a time
+disabled: false   # true runs everything one at a time
 ```
 
 ## Cycle detection

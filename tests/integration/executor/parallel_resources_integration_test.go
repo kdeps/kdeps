@@ -31,17 +31,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
 // Independent httpClient resources hit the server at the same time; the
 // resource that requires them runs after all three.
 func TestParallelResources_IndependentHTTPCallsOverlap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	executor.SetMaxParallelResources(4)
+	parallel.SetLimit(4)
 
 	var mu sync.Mutex
 	active, peak := 0, 0
@@ -96,7 +98,7 @@ func TestParallelResources_IndependentHTTPCallsOverlap(t *testing.T) {
 // Independent chat resources share the real LLM executor while they overlap.
 func TestParallelResources_ChatCallsShareLLMExecutor(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	executor.SetMaxParallelResources(4)
+	parallel.SetLimit(4)
 
 	srv, peak := slowLLMServer(t)
 
@@ -184,7 +186,7 @@ resources:
 // run in parallel, each on its own sub-engine.
 func TestParallelResources_AgentCallsOverlap(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	executor.SetMaxParallelResources(4)
+	parallel.SetLimit(4)
 	srv, peak := slowLLMServer(t)
 
 	reviewerPath := filepath.Join(t.TempDir(), "workflow.yaml")
@@ -242,4 +244,99 @@ func holdUntilPeak(mu *sync.Mutex, peak *int, want int) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// Three calls of a read-only component (web_search, T0 in the permission
+// policy) reach the server at the same time, each with its own query; a
+// write component (write_file, T1) runs alone.
+func TestParallelResources_ReadOnlyComponentCallsOverlap(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	parallel.SetLimit(4)
+	agent.InstallStagePermission()
+	t.Cleanup(func() {
+		executor.SetStagePermission(nil)
+		executor.SetReadOnlyTool(nil)
+	})
+
+	var mu sync.Mutex
+	active, peak, want := 0, 0, 3
+	var queries []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		active++
+		peak = max(peak, active)
+		queries = append(queries, r.URL.Query().Get("q"))
+		hold := want
+		mu.Unlock()
+		holdUntilPeak(&mu, &peak, hold)
+		mu.Lock()
+		active--
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"q":"` + r.URL.Query().Get("q") + `"}`))
+	}))
+	defer srv.Close()
+
+	comp := func(name string) *domain.Component {
+		return &domain.Component{
+			Metadata: domain.ComponentMetadata{Name: name},
+			Interface: &domain.ComponentInterface{
+				Inputs: []domain.ComponentInput{{Name: "q", Type: "string"}},
+			},
+			Resources: []*domain.Resource{{
+				ActionID:   "fetch",
+				HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: srv.URL + "/?q={{ input('q') }}"},
+			}},
+		}
+	}
+	call := func(id, name string) *domain.Resource {
+		return &domain.Resource{
+			ActionID:  id,
+			Component: &domain.ComponentCallConfig{Name: name, With: map[string]interface{}{"q": id}},
+		}
+	}
+	wf := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name: "parallel-components", Version: "1.0.0", TargetActionID: "report",
+		},
+		Components: map[string]*domain.Component{
+			"web_search": comp("web_search"), "write_file": comp("write_file"),
+		},
+		Resources: []*domain.Resource{
+			call("a", "web_search"), call("b", "web_search"), call("c", "web_search"),
+			{
+				ActionID: "report",
+				Requires: []string{"a", "b", "c"},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"a": "{{ output('a') }}", "b": "{{ output('b') }}", "c": "{{ output('c') }}",
+					},
+				},
+			},
+		},
+	}
+
+	engine := executor.NewEngine(t.Context(), slog.Default())
+	registry := executor.NewRegistry()
+	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
+	engine.SetRegistry(registry)
+
+	_, err := engine.Execute(wf, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 3, peak)
+	assert.ElementsMatch(t, []string{"a", "b", "c"}, queries)
+
+	// The same calls of a write component run one at a time.
+	mu.Lock()
+	active, peak, want, queries = 0, 0, 1, nil
+	mu.Unlock()
+	for _, r := range wf.Resources[:3] {
+		r.Component.Name = "write_file"
+	}
+	_, err = engine.Execute(wf, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, peak)
+	assert.ElementsMatch(t, []string{"a", "b", "c"}, queries)
 }

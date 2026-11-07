@@ -27,7 +27,7 @@ import (
 // runComponentResources executes the component's resources in order.
 func (e *Engine) runComponentResources(
 	comp *domain.Component,
-	componentName, callerID string,
+	componentName string,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	if len(comp.Resources) == 0 {
@@ -68,9 +68,6 @@ func (e *Engine) runComponentResources(
 		lastResult = shaped
 	}
 
-	if lastResult != nil {
-		ctx.SetOutput(callerID, lastResult)
-	}
 	return lastResult, nil
 }
 

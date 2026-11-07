@@ -39,10 +39,14 @@ func (e *Engine) runComponentSetup(comp *domain.Component, ctx *ExecutionContext
 		return nil
 	}
 
-	if e.componentSetupAlreadyDone(comp.Metadata.Name) {
+	owner := e.setupEngine()
+	// Parallel calls of one component wait here for the first setup.
+	owner.componentSetupMu.Lock()
+	defer owner.componentSetupMu.Unlock()
+	if owner.componentSetupAlreadyDone(comp.Metadata.Name) {
 		return nil
 	}
-	defer e.componentSetupCache.Store(comp.Metadata.Name, struct{}{})
+	defer owner.componentSetupCache.Store(comp.Metadata.Name, struct{}{})
 
 	setup := comp.Setup
 	if setup == nil {
@@ -57,6 +61,14 @@ func (e *Engine) runComponentSetup(comp *domain.Component, ctx *ExecutionContext
 		}
 	}
 	return nil
+}
+
+// setupEngine is the engine that owns the component setup cache.
+func (e *Engine) setupEngine() *Engine {
+	if e.setupOwner != nil {
+		return e.setupOwner
+	}
+	return e
 }
 
 // componentNeedsSetup reports whether a component declares setup work beyond scaffolding.

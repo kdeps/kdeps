@@ -52,3 +52,14 @@ func checkStagePermission(resource *domain.Resource) error {
 	}
 	return nil
 }
+
+// readOnlyTool reports whether the permission policy puts a tool (a component
+// name) in the read-only tier. Read-only component calls may run in parallel;
+// the rest run alone. The agent package installs it at startup with the stage
+// check. Nil treats every component as not read-only.
+//
+//nolint:gochecknoglobals // set once at startup by the agent package
+var readOnlyTool func(name string) bool
+
+// SetReadOnlyTool installs the read-only check for component calls.
+func SetReadOnlyTool(check func(name string) bool) { readOnlyTool = check }

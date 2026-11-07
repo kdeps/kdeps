@@ -21,6 +21,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -65,7 +66,12 @@ func NewExecutionContext(
 		Config:          cfg,
 	}
 
-	// Initialize unified API.
+	ctx.bindAPI()
+	return ctx, nil
+}
+
+// bindAPI points the unified API at ctx's own methods.
+func (ctx *ExecutionContext) bindAPI() {
 	ctx.API = &domain.UnifiedAPI{
 		Get:             ctx.Get,
 		Set:             ctx.Set,
@@ -81,6 +87,52 @@ func NewExecutionContext(
 		SetConfigField:  ctx.SetConfigField,
 		ConfigNamespace: ctx.ConfigNamespace,
 	}
+}
 
-	return ctx, nil
+// forComponent is the context one component call runs in. It shares the
+// request, memory, session and config with ctx, and has its own copies of the
+// outputs, items and .env cache, so the component's resources and inputs never
+// touch another call's: calls run in parallel without sharing them.
+func (ctx *ExecutionContext) forComponent(name string) *ExecutionContext {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	child := &ExecutionContext{
+		Ctx:              ctx.Ctx,
+		Workflow:         ctx.Workflow,
+		Resources:        ctx.Resources,
+		Request:          ctx.Request,
+		Memory:           ctx.Memory,
+		Session:          ctx.Session,
+		Outputs:          maps.Clone(ctx.Outputs),
+		Items:            maps.Clone(ctx.Items),
+		ItemValues:       maps.Clone(ctx.ItemValues),
+		FSRoot:           ctx.FSRoot,
+		LLMMetadata:      ctx.LLMMetadata,
+		InputMediaFile:   ctx.InputMediaFile,
+		InputTranscript:  ctx.InputTranscript,
+		InputFileContent: ctx.InputFileContent,
+		InputFilePath:    ctx.InputFilePath,
+		AgentPaths:       ctx.AgentPaths,
+		CurrentComponent: name,
+		componentDotEnv:  maps.Clone(ctx.componentDotEnv),
+		componentInputs:  map[string]interface{}{},
+		AgentMemoryStore: ctx.AgentMemoryStore,
+		Config:           ctx.Config,
+		Agency:           ctx.Agency,
+		allowedHeaders:   ctx.allowedHeaders,
+		allowedParams:    ctx.allowedParams,
+	}
+	for _, m := range []*map[string]interface{}{&child.Outputs, &child.Items} {
+		if *m == nil {
+			*m = map[string]interface{}{}
+		}
+	}
+	if child.ItemValues == nil {
+		child.ItemValues = map[string][]interface{}{}
+	}
+	if child.componentDotEnv == nil {
+		child.componentDotEnv = map[string]map[string]string{}
+	}
+	child.bindAPI()
+	return child
 }

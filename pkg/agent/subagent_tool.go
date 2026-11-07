@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -78,9 +79,10 @@ func subagentKey(args map[string]any) string {
 	return string(b)
 }
 
-// startSubagents starts every subagent call of a round at once when there are
-// two or more, so reviewers asked for together run in parallel; each call
-// then takes its own result when the round reaches it. The returned func
+// startSubagents starts the subagent calls of a round together, up to the
+// "parallel" cap at once, when there are two or more, so reviewers asked for
+// together run in parallel; each call then takes its own result when the
+// round reaches it. The returned func
 // drops what the round did not take.
 func (l *Loop) startSubagents(calls []domain.StreamedToolCall) func() {
 	var batch []map[string]any
@@ -95,6 +97,8 @@ func (l *Loop) startSubagents(calls []domain.StreamedToolCall) func() {
 	}
 	l.subagentMu.Lock()
 	l.subagentRuns = map[string]<-chan subagentResult{}
+	var runs []map[string]any
+	var dones []chan subagentResult
 	for _, args := range batch {
 		key := subagentKey(args)
 		if _, dup := l.subagentRuns[key]; dup {
@@ -102,12 +106,16 @@ func (l *Loop) startSubagents(calls []domain.StreamedToolCall) func() {
 		}
 		done := make(chan subagentResult, 1)
 		l.subagentRuns[key] = done
-		go func() {
-			out, err := l.runSubagent(args)
-			done <- subagentResult{out, err}
-		}()
+		runs, dones = append(runs, args), append(dones, done)
 	}
 	l.subagentMu.Unlock()
+	go func() {
+		_ = parallel.Run(len(runs), nil, func(i int) error {
+			out, err := l.runSubagent(runs[i])
+			dones[i] <- subagentResult{out, err}
+			return nil
+		})
+	}()
 	return func() {
 		l.subagentMu.Lock()
 		l.subagentRuns = nil

@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
 func TestLoadBuiltinEvents_HasAutoCompactAndFold(t *testing.T) {
@@ -496,13 +496,13 @@ func TestLiveNoteLimits_ReadEvents(t *testing.T) {
 	assert.Equal(t, 160, liveNoteLineChars())
 }
 
-func TestWorkflowParallelEvent_SetsEngineCap(t *testing.T) {
+func TestParallelEvent_SetsCap(t *testing.T) {
 	isolateEventsHome(t)
-	assert.Equal(t, 4, executor.MaxParallelResources())
+	assert.Equal(t, 4, parallel.Limit())
 
-	require.NoError(t, SetEventEnabled(eventWorkflowParallel, false))
-	assert.Equal(t, 1, executor.MaxParallelResources(), "off runs resources one at a time")
+	require.NoError(t, SetEventEnabled(eventParallel, false))
+	assert.Equal(t, 1, parallel.Limit(), "off runs everything one at a time")
 
-	require.NoError(t, SetEventEnabled(eventWorkflowParallel, true))
-	assert.Equal(t, 4, executor.MaxParallelResources())
+	require.NoError(t, SetEventEnabled(eventParallel, true))
+	assert.Equal(t, 4, parallel.Limit())
 }

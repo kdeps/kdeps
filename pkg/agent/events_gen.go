@@ -68,6 +68,7 @@ const (
 	eventOpenrouterProviderLimit    = "openrouter-provider-limit"
 	eventOpenrouterRateLimit        = "openrouter-rate-limit"
 	eventOpenrouterRefusal          = "openrouter-refusal"
+	eventParallel                   = "parallel"
 	eventPreambleTokenLimit         = "preamble-token-limit"
 	eventPromptHistoryLimit         = "prompt-history-limit"
 	eventProviderBodyLimitDashscope = "provider-body-limit-dashscope"
@@ -90,5 +91,4 @@ const (
 	eventTrivialPromptShort         = "trivial-prompt-short"
 	eventTuiActivityLines           = "tui-activity-lines"
 	eventWebCallBudget              = "web-call-budget"
-	eventWorkflowParallel           = "workflow-parallel"
 )
