@@ -26,7 +26,7 @@ func TestRunJudge_EndsWhenItCallsAToolItWasNotOffered(t *testing.T) {
 	loop := freeModelLoop(t, "m", s)
 	loop.config.MaxToolRounds = 50
 
-	verdict := runJudge(t.Context(), loop, JudgeSpec{Name: "critic", MaxRounds: 50}, "input", "output")
+	verdict := runJudge(t.Context(), loop, domain.Judge{Name: "critic", MaxRounds: 50}, "input", "output")
 	require.True(t, verdict.Approved, "an unsettled judge approves, as before")
 	assert.LessOrEqual(t, s.calls, 2, "the judge stops at the first missing tool, not after its rounds")
 }
@@ -34,7 +34,7 @@ func TestRunJudge_EndsWhenItCallsAToolItWasNotOffered(t *testing.T) {
 func TestRunJudge_TagsItsToolCallsInTheInstrumentLog(t *testing.T) {
 	evs := recordedEvents(t, func() {
 		loop := freeModelLoop(t, "m", &unofferedToolStreamer{})
-		runJudge(t.Context(), loop, JudgeSpec{Name: "critic", MaxRounds: 5}, "input", "output")
+		runJudge(t.Context(), loop, domain.Judge{Name: "critic", MaxRounds: 5}, "input", "output")
 	})
 	calls := eventsOf(evs, "tool_call")
 	require.NotEmpty(t, calls)

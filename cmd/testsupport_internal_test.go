@@ -26,6 +26,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -444,13 +445,24 @@ resources:
 `
 }
 
+// mustFreePort returns a port free on 127.0.0.1 and on [::], the two
+// addresses CheckPortAvailable binds: a port free only on IPv4 can be taken
+// on IPv6 by a parallel test package.
 func mustFreePort(t *testing.T) int {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	port := l.Addr().(*net.TCPAddr).Port
-	require.NoError(t, l.Close())
-	return port
+	for range 50 {
+		l, err := net.Listen("tcp4", "127.0.0.1:0")
+		require.NoError(t, err)
+		port := l.Addr().(*net.TCPAddr).Port
+		l6, err6 := net.Listen("tcp6", fmt.Sprintf("[::]:%d", port))
+		require.NoError(t, l.Close())
+		if err6 == nil {
+			require.NoError(t, l6.Close())
+			return port
+		}
+	}
+	t.Fatal("no port free on both 127.0.0.1 and [::]")
+	return 0
 }
 
 // captureStdout redirects os.Stdout to a pipe for the duration of f.

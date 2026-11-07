@@ -309,6 +309,44 @@ Output:
 }
 ```
 
+## Judges
+
+`judges:` reviews the answer before the resource finishes. The judges run in parallel; if any rejects, the chat runs again with their feedback, and the panel reviews the revision. Agent mode's [judge panel](/agent/judges) runs on the same engine.
+
+```text
+chat -> judges (parallel) -> all approve? -> output
+              | any rejects
+              v
+        chat again with the feedback -> judges again
+```
+
+<div v-pre>
+
+```yaml
+# resources/notes.yaml
+chat:
+  prompt: "Write release notes for {{ get('version') }}"
+  tools:
+    - name: changelog            # a tool of this chat; judges may borrow it
+      description: Read the changelog
+      script: changelogTool      # the resource that runs the tool
+  judges:
+    - name: complete
+      criteria: Every change in the changelog is listed.   # the rubric the judge reviews against
+      tools: [changelog]         # only this chat's tools or componentTools
+      maxRounds: 5               # its tool rounds; 0 = the judge-max-rounds event
+    - name: format
+      graders:                   # checks without a model call; a failure rejects
+        - kind: not_contains     # exact | contains | not_contains | regex | json | expr
+          pattern: TODO
+```
+
+</div>
+
+- Each judge uses the chat's model and replies with a JSON verdict; it sees the rendered prompt and the answer, not the conversation.
+- Reviews per answer: the `judge-iterations` event (2). The last revision is the output when the budget runs out.
+- A judge that fails or replies without a verdict approves: judges never fail the resource.
+
 ## Vision (file attachments)
 
 Process images (set a vision-capable model in the resource's `model:`):

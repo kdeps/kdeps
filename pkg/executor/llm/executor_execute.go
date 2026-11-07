@@ -32,27 +32,45 @@ func (e *Executor) Execute(
 	config *domain.ChatConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	result, run, err := e.executeChat(ctx, config)
+	if err != nil || len(config.Judges) == 0 {
+		return result, err
+	}
+	return e.reviewWithJudges(ctx, run, result), nil
+}
+
+// chatRun is what one chat call resolved: its config and rendered prompt.
+type chatRun struct {
+	cfg    *domain.ChatConfig
+	prompt string
+}
+
+// executeChat runs one chat call: no judges.
+func (e *Executor) executeChat(
+	ctx *executor.ExecutionContext,
+	config *domain.ChatConfig,
+) (interface{}, chatRun, error) {
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
 	if err != nil {
-		return nil, err
+		return nil, chatRun{}, err
 	}
 	applyOverrideURL(resolvedConfig)
 
 	modelStr, promptStr, fallbackRoutes, err := e.resolveModelForExecution(evaluator, ctx, resolvedConfig)
 	if err != nil {
-		return nil, err
+		return nil, chatRun{}, err
 	}
 
 	messages, msgErr := e.buildMessages(evaluator, ctx, resolvedConfig, promptStr)
 	if msgErr != nil {
-		return nil, msgErr
+		return nil, chatRun{}, msgErr
 	}
 
 	backendName, baseURL, backendErr := e.resolveBackendAndBaseURL(resolvedConfig)
 	if backendErr != nil {
-		return nil, backendErr
+		return nil, chatRun{}, backendErr
 	}
 	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
 	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools, backendName)
@@ -81,7 +99,7 @@ func (e *Executor) Execute(
 			response,
 		)
 		if err != nil {
-			return nil, err
+			return nil, chatRun{}, err
 		}
 	}
 
@@ -89,5 +107,5 @@ func (e *Executor) Execute(
 	if err == nil {
 		logWorkflowRun(ctx, resolvedConfig, promptStr, result)
 	}
-	return result, err
+	return result, chatRun{cfg: resolvedConfig, prompt: promptStr}, err
 }

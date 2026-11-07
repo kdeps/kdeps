@@ -20,10 +20,12 @@ package validator
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 )
 
 // ValidateLoopConfig validates a LoopConfig.
@@ -52,8 +54,36 @@ func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error 
 	if config.Prompt == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "chat.prompt is required", nil)
 	}
+	for i, j := range config.Judges {
+		if err := judge.Validate(j); err != nil {
+			return domain.NewError(domain.ErrCodeInvalidResource, fmt.Sprintf("chat.judges[%d]: %v", i, err), nil)
+		}
+		for _, name := range j.Tools {
+			if !chatHasTool(config, name) {
+				return domain.NewError(
+					domain.ErrCodeInvalidResource,
+					fmt.Sprintf(
+						"chat.judges[%d]: tool %q is not one of this chat's tools or componentTools",
+						i,
+						name,
+					),
+					nil,
+				)
+			}
+		}
+	}
 
 	return nil
+}
+
+// chatHasTool reports whether name is one of the chat's tools or componentTools.
+func chatHasTool(config *domain.ChatConfig, name string) bool {
+	for _, t := range config.Tools {
+		if t.Name == name {
+			return true
+		}
+	}
+	return slices.Contains(config.ComponentTools, name)
 }
 
 // ValidateHTTPConfig validates HTTP configuration.

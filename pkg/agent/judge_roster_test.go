@@ -66,7 +66,7 @@ func TestParseJudgeRoster_CapsAtMax(t *testing.T) {
 
 func TestResolveJudgeRoster_ExplicitTakesPriority(t *testing.T) {
 	l := &Loop{config: Config{
-		Judges:     []JudgeSpec{{Name: "manual", Criteria: "check it"}},
+		Judges:     []domain.Judge{{Name: "manual", Criteria: "check it"}},
 		AutoJudges: true,
 	}}
 	got := l.resolveJudgeRoster(context.Background(), "any input")
@@ -172,7 +172,7 @@ func TestGenerateJudgeRoster_NoLocalServer(t *testing.T) {
 // actually produced for the turn.
 func TestReportJudgeRoster_ShowsEachJudgeAndCriteria(t *testing.T) {
 	l := &Loop{}
-	roster := []JudgeSpec{
+	roster := []domain.Judge{
 		{Name: "correctness", Criteria: "checks the output is factually correct"},
 		{Name: "security", Criteria: "checks for injection or unsafe patterns"},
 	}
@@ -196,7 +196,7 @@ func TestReportJudgeRoster_PrefersConfigProgressWriter(t *testing.T) {
 	l := &Loop{config: Config{}}
 	var progress, passed bytes.Buffer
 	l.config.ProgressWriter = &progress
-	l.reportJudgeRoster(&passed, []JudgeSpec{{Name: "correctness", Criteria: "checks correctness"}})
+	l.reportJudgeRoster(&passed, []domain.Judge{{Name: "correctness", Criteria: "checks correctness"}})
 	if !strings.Contains(progress.String(), "correctness") {
 		t.Fatalf("expected the roster on ProgressWriter, got %q", progress.String())
 	}

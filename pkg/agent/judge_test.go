@@ -34,6 +34,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -104,7 +105,7 @@ func newJudgeTestLoop(streamer Streamer) *Loop {
 
 func TestRunJudge_Approves(t *testing.T) {
 	l := newJudgeTestLoop(&verdictStreamer{approved: true})
-	spec := JudgeSpec{Name: "correctness", Criteria: "the answer must be accurate"}
+	spec := domain.Judge{Name: "correctness", Criteria: "the answer must be accurate"}
 	v := runJudge(context.Background(), l, spec, "what is 2+2?", "4")
 	if !v.Approved {
 		t.Fatalf("expected approval, got %+v", v)
@@ -116,7 +117,7 @@ func TestRunJudge_Approves(t *testing.T) {
 
 func TestRunJudge_Rejects(t *testing.T) {
 	l := newJudgeTestLoop(&verdictStreamer{approved: false, feedback: "missing citation"})
-	spec := JudgeSpec{Name: "rigor", Criteria: "claims must be cited"}
+	spec := domain.Judge{Name: "rigor", Criteria: "claims must be cited"}
 	v := runJudge(context.Background(), l, spec, "explain X", "X is true")
 	if v.Approved {
 		t.Fatal("expected rejection")
@@ -128,7 +129,7 @@ func TestRunJudge_Rejects(t *testing.T) {
 
 func TestRunJudge_FallsBackWhenNoStreamer(t *testing.T) {
 	l := newJudgeTestLoop(nil)
-	v := runJudge(context.Background(), l, JudgeSpec{Name: "x", Criteria: "y"}, "in", "out")
+	v := runJudge(context.Background(), l, domain.Judge{Name: "x", Criteria: "y"}, "in", "out")
 	if !v.Approved {
 		t.Fatal("expected approval fallback with no streamer")
 	}
@@ -136,7 +137,7 @@ func TestRunJudge_FallsBackWhenNoStreamer(t *testing.T) {
 
 func TestRunJudge_FallsBackOnEngineError(t *testing.T) {
 	l := newJudgeTestLoop(errStreamerJudge{})
-	v := runJudge(context.Background(), l, JudgeSpec{Name: "x", Criteria: "y"}, "in", "out")
+	v := runJudge(context.Background(), l, domain.Judge{Name: "x", Criteria: "y"}, "in", "out")
 	if !v.Approved {
 		t.Fatal("expected approval fallback on stream error")
 	}
@@ -147,7 +148,7 @@ func TestRunJudge_FallsBackWhenVerdictNeverCalled(t *testing.T) {
 	v := runJudge(
 		context.Background(),
 		l,
-		JudgeSpec{Name: "x", Criteria: "y", MaxRounds: 2},
+		domain.Judge{Name: "x", Criteria: "y", MaxRounds: 2},
 		"in",
 		"out",
 	)
@@ -158,7 +159,7 @@ func TestRunJudge_FallsBackWhenVerdictNeverCalled(t *testing.T) {
 
 func TestRunJudgePanel_AggregatesMultipleJudges(t *testing.T) {
 	l := newJudgeTestLoop(&verdictStreamer{approved: false, feedback: "needs work"})
-	roster := []JudgeSpec{
+	roster := []domain.Judge{
 		{Name: "a", Criteria: "check a"},
 		{Name: "b", Criteria: "check b"},
 		{Name: "c", Criteria: "check c"},
@@ -190,7 +191,7 @@ func TestRunJudgePanel_Empty(t *testing.T) {
 
 func TestIterateWithJudges_ApprovedReturnsAsIs(t *testing.T) {
 	l := newJudgeTestLoop(&verdictStreamer{approved: true})
-	roster := []JudgeSpec{{Name: "a", Criteria: "check a"}}
+	roster := []domain.Judge{{Name: "a", Criteria: "check a"}}
 	cfg := &domain.ChatConfig{Model: "test"}
 	response, final := l.iterateWithJudges(
 		context.Background(),
@@ -208,7 +209,7 @@ func TestIterateWithJudges_ApprovedReturnsAsIs(t *testing.T) {
 
 func TestIterateWithJudges_ReportsReviewingAndApproved(t *testing.T) {
 	l := newJudgeTestLoop(&verdictStreamer{approved: true})
-	roster := []JudgeSpec{{Name: "correctness", Criteria: "check it"}}
+	roster := []domain.Judge{{Name: "correctness", Criteria: "check it"}}
 	cfg := &domain.ChatConfig{Model: "test"}
 	var buf bytes.Buffer
 	l.iterateWithJudges(context.Background(), cfg, roster, "in", "final answer", "final answer", &buf)
@@ -224,7 +225,7 @@ func TestIterateWithJudges_ReportsReviewingAndApproved(t *testing.T) {
 func TestIterateWithJudges_RevisesOnRejectionThenApproves(t *testing.T) {
 	// The panel rejects the first ruling and approves the second; runToolRounds
 	// re-runs between them and the model's non-tool reply becomes the revision.
-	roster := []JudgeSpec{{Name: "a", Criteria: "check a"}}
+	roster := []domain.Judge{{Name: "a", Criteria: "check a"}}
 	flipStreamer := &flippingJudgeStreamer{approveAfter: 1}
 	l := newJudgeTestLoop(flipStreamer)
 	l.config.JudgeMaxIterations = 2
@@ -281,7 +282,7 @@ func TestIterateWithJudges_StopsAtBudgetWithoutBlocking(t *testing.T) {
 	stream := &flippingJudgeStreamer{approveAfter: 99} // never approves
 	l := newJudgeTestLoop(stream)
 	l.config.JudgeMaxIterations = 2
-	roster := []JudgeSpec{{Name: "a", Criteria: "check a"}}
+	roster := []domain.Judge{{Name: "a", Criteria: "check a"}}
 	cfg := &domain.ChatConfig{Model: "test"}
 	response, _ := l.iterateWithJudges(
 		context.Background(),
@@ -323,7 +324,7 @@ func (s *emptyRevisionJudgeStreamer) StreamChat(
 func TestIterateWithJudges_EmptyRevisionKeepsLastGoodResponse(t *testing.T) {
 	l := newJudgeTestLoop(&emptyRevisionJudgeStreamer{})
 	l.config.JudgeMaxIterations = 2
-	roster := []JudgeSpec{{Name: "a", Criteria: "check a"}}
+	roster := []domain.Judge{{Name: "a", Criteria: "check a"}}
 	response, final := l.iterateWithJudges(
 		context.Background(),
 		&domain.ChatConfig{Model: "test"},
@@ -376,7 +377,7 @@ func TestRunJudge_VerdictOnlyCapsOutput(t *testing.T) {
 	}})
 	l.registry.Register(&tools.Tool{Name: "read_file"})
 
-	v := runJudge(context.Background(), l, JudgeSpec{Name: "correctness", Criteria: "check"}, "q", "a")
+	v := runJudge(context.Background(), l, domain.Judge{Name: "correctness", Criteria: "check"}, "q", "a")
 	if !v.Approved {
 		t.Fatalf("expected approval, got %+v", v)
 	}
@@ -385,7 +386,7 @@ func TestRunJudge_VerdictOnlyCapsOutput(t *testing.T) {
 	assert.NotContains(t, names, "read_file")
 
 	got = nil
-	_ = runJudge(context.Background(), l, JudgeSpec{
+	_ = runJudge(context.Background(), l, domain.Judge{
 		Name: "correctness", Criteria: "check", Tools: []string{"read_file"},
 	}, "q", "a")
 	assert.Nil(t, got, "a tool-using judge on an unknown model keeps the provider ceiling")
@@ -407,16 +408,27 @@ func (s *recordingJudgeStreamer) StreamChat(
 }
 
 func TestJudgeSystemPrompt_ToolsBranch(t *testing.T) {
-	empty := judgeSystemPrompt(JudgeSpec{Name: "correctness", Criteria: "check the answer"})
+	empty := judgeSystemPrompt(domain.Judge{Name: "correctness", Criteria: "check the answer"}, false)
 	assert.Contains(t, empty, "Do not re-run the task and do not call any tool except judge_verdict.")
 	assert.NotContains(t, empty, "Use the tools you were given")
 	assert.Contains(t, empty, "call judge_verdict exactly once")
 
-	withTools := judgeSystemPrompt(JudgeSpec{
+	withTools := judgeSystemPrompt(domain.Judge{
 		Name: "correctness", Criteria: "check the answer", Tools: []string{"read_file"},
-	})
+	}, false)
 	assert.Contains(t, withTools, "Use the tools you were given to check claims in the answer before ruling.")
 	assert.NotContains(t, withTools, "Do not re-run the task")
+
+	reply := judgeSystemPrompt(domain.Judge{Name: "correctness", Criteria: "check the answer"}, true)
+	assert.Contains(t, reply, `{"approved": true|false, "feedback": "..."}`)
+	assert.NotContains(t, reply, "judge_verdict")
+}
+
+func TestConfigureJudges_InstallsSettings(t *testing.T) {
+	configureJudges()
+	assert.Equal(t, effectiveRounds(eventJudgeIterations), judge.Iterations())
+	assert.Equal(t, effectiveRounds(eventJudgeMaxRounds), judge.MaxRounds(domain.Judge{}))
+	assert.Contains(t, judge.SystemPrompt(domain.Judge{Name: "x", Criteria: "c"}, true), "approved")
 }
 
 func TestScopedRegistry_FiltersByName(t *testing.T) {
@@ -431,29 +443,11 @@ func TestScopedRegistry_FiltersByName(t *testing.T) {
 
 func TestWithReviewDirective_ReplacesPreviousRevision(t *testing.T) {
 	base := &domain.ChatConfig{Scenario: []domain.ScenarioItem{{Role: "user", Prompt: "hi"}}}
-	first := withReviewDirective(base, reviewDirectiveMarker+"\n- fix a")
-	second := withReviewDirective(first, reviewDirectiveMarker+"\n- fix b")
+	first := withReviewDirective(base, judge.DirectiveMarker+"\n- fix a")
+	second := withReviewDirective(first, judge.DirectiveMarker+"\n- fix b")
 	require.Len(t, second.Scenario, 2, "one user item plus one directive")
-	assert.Equal(t, reviewDirectiveMarker+"\n- fix b", second.Scenario[1].Prompt)
+	assert.Equal(t, judge.DirectiveMarker+"\n- fix b", second.Scenario[1].Prompt)
 	assert.Len(t, base.Scenario, 1, "the input config is not mutated")
 	assert.Nil(t, withReviewDirective(nil, "x"))
 	assert.Same(t, base, withReviewDirective(base, "   "))
-}
-
-func TestVerdictApproved(t *testing.T) {
-	cases := []struct {
-		v        any
-		feedback string
-		want     bool
-	}{
-		{true, "", true}, {false, "fix it", false},
-		{"true", "", true}, {"false", "", false}, {"yes", "", true}, {"no", "", false},
-		{nil, "", true}, {nil, "missing the sum", false},
-		{3, "", false},
-	}
-	for _, c := range cases {
-		if got := verdictApproved(c.v, c.feedback); got != c.want {
-			t.Errorf("verdictApproved(%v, %q) = %v, want %v", c.v, c.feedback, got, c.want)
-		}
-	}
 }

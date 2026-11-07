@@ -42,6 +42,15 @@ def reply_for(msgs):
         # design-review example: a doc marked TBD fails every reviewer.
         ok = "TBD" not in last.split("Design document:", 1)[1]
         return json.dumps({"pass": ok, "findings": [] if ok else ["TBD left in the doc"]})
+    if "independent reviewer named" in last and "reply with JSON only" in last:
+        # workflow chat judges: reject a candidate that is still a DRAFT.
+        candidate = last.split("Candidate output to review:", 1)[-1]
+        ok = "DRAFT" not in candidate
+        return json.dumps({"approved": ok, "feedback": "" if ok else "still a DRAFT"})
+    if "The previous answer was rejected by the review panel." in last:
+        return "REVISED notes"
+    if "JUDGED" in last:
+        return "DRAFT notes"
     if "<conversation>" in everything:
         return SUMMARY
     calls = [i for i, m in enumerate(msgs) if m.get("role") == "user"

@@ -24,6 +24,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestDispatchCommand_JudgesEmptyByDefault(t *testing.T) {
@@ -68,7 +70,7 @@ func TestDispatchCommand_JudgesRemoveUnknownIsNoop(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	loop.SetJudges([]JudgeSpec{{Name: "a", Criteria: "x"}})
+	loop.SetJudges([]domain.Judge{{Name: "a", Criteria: "x"}})
 	if err := repl.dispatchCommand("/judges remove nonexistent"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -101,7 +103,7 @@ func TestDispatchCommand_JudgesClearDisablesBoth(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	loop.SetJudges([]JudgeSpec{{Name: "a", Criteria: "x"}})
+	loop.SetJudges([]domain.Judge{{Name: "a", Criteria: "x"}})
 	loop.SetAutoJudges(true)
 
 	if err := repl.dispatchCommand("/judges clear"); err != nil {
@@ -115,7 +117,7 @@ func TestDispatchCommand_JudgesClearDisablesBoth(t *testing.T) {
 func TestPrintJudgesStatus_ShowsLastAutoRoster(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.SetAutoJudges(true)
-	loop.lastAutoRoster = []JudgeSpec{{Name: "correctness", Criteria: "must be accurate"}}
+	loop.lastAutoRoster = []domain.Judge{{Name: "correctness", Criteria: "must be accurate"}}
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 

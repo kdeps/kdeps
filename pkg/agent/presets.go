@@ -29,6 +29,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 )
 
 // A Preset is a named, coherent bundle of harness/event overrides -- e.g.
@@ -54,27 +56,9 @@ type Preset struct {
 	Description string             `yaml:"description"`
 	Harness     []yamlHarnessEntry `yaml:"harness,omitempty"`
 	Events      []Event            `yaml:"events,omitempty"`
-	// Judges, when set, replaces the session's judge panel.
-	Judges []PresetJudge `yaml:"judges,omitempty"`
-}
-
-// PresetJudge is one judge of a preset's panel. Tools are the tools it may
-// call to check the answer; maxRounds caps its tool rounds (0: the
-// judge-max-rounds event).
-type PresetJudge struct {
-	Name      string   `yaml:"name"`
-	Criteria  string   `yaml:"criteria"`
-	Tools     []string `yaml:"tools,omitempty"`
-	MaxRounds int      `yaml:"maxRounds,omitempty"`
-}
-
-// judgeSpecs is the panel as the judges run it.
-func (p Preset) judgeSpecs() []JudgeSpec {
-	specs := make([]JudgeSpec, 0, len(p.Judges))
-	for _, j := range p.Judges {
-		specs = append(specs, JudgeSpec{Name: j.Name, Criteria: j.Criteria, Tools: j.Tools, MaxRounds: j.MaxRounds})
-	}
-	return specs
+	// Judges, when set, replaces the session's judge panel (same shape as a
+	// workflow chat's judges:, graders included).
+	Judges []domain.Judge `yaml:"judges,omitempty"`
 }
 
 //nolint:gochecknoglobals // built-in + user-merged registry, mirrors eventRegistry/actionRegistry
@@ -112,8 +96,8 @@ func parseYAMLPreset(data []byte, source string) (Preset, error) {
 		return Preset{}, fmt.Errorf("%s: missing name", source)
 	}
 	for i, j := range p.Judges {
-		if strings.TrimSpace(j.Name) == "" || strings.TrimSpace(j.Criteria) == "" {
-			return Preset{}, fmt.Errorf("%s: judge %d needs a name and criteria", source, i+1)
+		if err := judge.Validate(j); err != nil {
+			return Preset{}, fmt.Errorf("%s: judge %d: %w", source, i+1, err)
 		}
 	}
 	return p, nil
@@ -203,7 +187,7 @@ func ApplyPreset(name string, l *Loop) error {
 	initHarness()
 	initEvents()
 	if len(p.Judges) > 0 {
-		l.SetJudges(p.judgeSpecs())
+		l.SetJudges(p.Judges)
 	}
 	return nil
 }

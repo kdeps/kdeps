@@ -23,6 +23,9 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 )
 
 // judgesOps are the session_ops operations behind /judges: the explicit
@@ -45,7 +48,7 @@ func (r *REPL) judgesState() map[string]any {
 	}
 }
 
-func judgeRows(judges []JudgeSpec) []map[string]any {
+func judgeRows(judges []domain.Judge) []map[string]any {
 	rows := make([]map[string]any, 0, len(judges))
 	for _, j := range judges {
 		graders := make([]map[string]any, 0, len(j.Graders))
@@ -63,7 +66,7 @@ func (r *REPL) judgeAddOp(args map[string]any) (map[string]any, error) {
 	if name == "" || criteria == "" {
 		return nil, errors.New("give a name and criteria: /judges add <name> <criteria>")
 	}
-	r.loop.SetJudges(append(r.loop.Judges(), JudgeSpec{Name: name, Criteria: criteria}))
+	r.loop.SetJudges(append(r.loop.Judges(), domain.Judge{Name: name, Criteria: criteria}))
 	return map[string]any{"name": name}, nil
 }
 
@@ -72,7 +75,7 @@ func (r *REPL) judgeRemoveOp(args map[string]any) (map[string]any, error) {
 	if name == "" {
 		return nil, errors.New("give a name: /judges remove <name>")
 	}
-	var kept []JudgeSpec
+	var kept []domain.Judge
 	for _, j := range r.loop.Judges() {
 		if j.Name != name {
 			kept = append(kept, j)
@@ -89,17 +92,17 @@ func (r *REPL) judgeGradeOp(args map[string]any) (map[string]any, error) {
 	name := strings.TrimSpace(stringArgValue(args, "name"))
 	kind := strings.TrimSpace(stringArgValue(args, "kind"))
 	pattern := strings.TrimSpace(stringArgValue(args, "pattern"))
-	if name == "" || !knownGraderKind(kind) || (pattern == "" && kind != "json") {
+	if name == "" || !judge.KnownGraderKind(kind) || (pattern == "" && kind != "json") {
 		return nil, fmt.Errorf("give a name, a kind and a pattern: /judges grade <name> <kind> <pattern> (kind: %s)",
-			graderKindList())
+			judge.GraderKinds())
 	}
 	if kind == "regex" {
 		if _, err := regexp.Compile(pattern); err != nil {
 			return nil, fmt.Errorf("regex: %w", err)
 		}
 	}
-	judges := append([]JudgeSpec(nil), r.loop.Judges()...)
-	g := JudgeGrader{Kind: kind, Pattern: pattern}
+	judges := append([]domain.Judge(nil), r.loop.Judges()...)
+	g := domain.JudgeGrader{Kind: kind, Pattern: pattern}
 	found := false
 	for i := range judges {
 		if judges[i].Name == name {
@@ -109,7 +112,7 @@ func (r *REPL) judgeGradeOp(args map[string]any) (map[string]any, error) {
 		}
 	}
 	if !found {
-		judges = append(judges, JudgeSpec{Name: name, Graders: []JudgeGrader{g}})
+		judges = append(judges, domain.Judge{Name: name, Graders: []domain.JudgeGrader{g}})
 	}
 	r.loop.SetJudges(judges)
 	return map[string]any{"name": name, "kind": kind}, nil
