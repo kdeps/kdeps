@@ -146,11 +146,12 @@ func (e *Executor) executeTool(
 		return nil, storeErr
 	}
 
-	if e.toolExecutor == nil {
+	toolExec := e.tools()
+	if toolExec == nil {
 		return nil, errors.New("tool executor not available (tools cannot be executed)")
 	}
 
-	result, err := e.toolExecutor.ExecuteResource(resource, ctx)
+	result, err := toolExec.ExecuteResource(resource, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("tool resource execution failed: %w", err)
 	}

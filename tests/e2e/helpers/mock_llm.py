@@ -34,6 +34,10 @@ def reply_for(msgs):
     last = text(msgs[-1]) if msgs else ""
     if "You rewrite a user's request" in everything:
         return last.split("Request:\n", 1)[-1]
+    slow = re.search(r"SLOW (\w+)", last)
+    if slow:
+        time.sleep(1)  # a slow model call: parallel workflow resources overlap these
+        return "SLOW-DONE " + slow.group(1)
     if "<conversation>" in everything:
         return SUMMARY
     calls = [i for i, m in enumerate(msgs) if m.get("role") == "user"

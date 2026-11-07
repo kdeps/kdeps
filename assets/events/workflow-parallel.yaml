@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: workflow-parallel
+# How many independent resources one workflow run executes at once. Resources
+# still wait for their requires and for set()/get() keys they share. Turning
+# the event off runs resources one at a time.
+items: 4
+run: cap

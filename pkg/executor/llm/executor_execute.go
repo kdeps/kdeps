@@ -70,7 +70,7 @@ func (e *Executor) Execute(
 	// Run the tool dispatch loop when tools are present AND the executor can handle them.
 	// toolExecutor is needed for resource-based tools (workflow mode); Execute/MCP functions
 	// are self-contained (agent loop mode). Either path suffices to enable the loop.
-	if len(allTools) > 0 && (e.toolExecutor != nil || hasDirectlyExecutableTools(allTools)) {
+	if len(allTools) > 0 && (e.tools() != nil || hasDirectlyExecutableTools(allTools)) {
 		response, err = e.handleToolCalls(
 			ctx,
 			resolvedConfig,

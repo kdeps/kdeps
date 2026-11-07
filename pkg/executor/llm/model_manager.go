@@ -22,6 +22,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"sync/atomic"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -32,7 +33,7 @@ import (
 type ModelManager struct {
 	service     ModelServiceInterface
 	logger      *slog.Logger
-	offlineMode bool
+	offlineMode atomic.Bool // set per workflow run; parallel resources read it
 }
 
 // NewModelManager creates a new model manager.
@@ -42,9 +43,8 @@ func NewModelManager(ctx context.Context, logger *slog.Logger) *ModelManager {
 		logger = slog.Default()
 	}
 	return &ModelManager{
-		service:     NewModelService(ctx, logger),
-		logger:      logger,
-		offlineMode: false,
+		service: NewModelService(ctx, logger),
+		logger:  logger,
 	}
 }
 
@@ -54,11 +54,12 @@ func NewModelManagerWithOfflineMode(ctx context.Context, logger *slog.Logger, of
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &ModelManager{
-		service:     NewModelService(ctx, logger),
-		logger:      logger,
-		offlineMode: offlineMode,
+	m := &ModelManager{
+		service: NewModelService(ctx, logger),
+		logger:  logger,
 	}
+	m.offlineMode.Store(offlineMode)
+	return m
 }
 
 // NewModelManagerFromService creates a new model manager from an existing service.
@@ -83,7 +84,7 @@ func NewModelManagerFromServiceInterface(service ModelServiceInterface) *ModelMa
 // SetOfflineMode sets the offline mode flag.
 func (m *ModelManager) SetOfflineMode(offline bool) {
 	kdeps_debug.Log("enter: SetOfflineMode")
-	m.offlineMode = offline
+	m.offlineMode.Store(offline)
 }
 
 // EnsureModel ensures a model is downloaded and served for the given chat configuration.

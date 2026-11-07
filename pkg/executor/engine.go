@@ -64,10 +64,8 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		return nil, err
 	}
 
-	for _, resource := range resources {
-		if runErr := e.runWorkflowResource(workflow, resource, ctx, reqCtx); runErr != nil {
-			return nil, runErr
-		}
+	if runErr := e.runResources(workflow, resources, ctx, reqCtx); runErr != nil {
+		return nil, runErr
 	}
 
 	return e.finalizeWorkflowOutput(workflow, ctx, targetActionID)

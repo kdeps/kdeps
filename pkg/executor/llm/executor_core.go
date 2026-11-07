@@ -21,6 +21,7 @@ package llm
 import (
 	"log/slog"
 	stdhttp "net/http"
+	"sync"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -45,6 +46,7 @@ type Executor struct {
 	ollamaURL    string
 	client       HTTPClient
 	toolExecutor toolExecutorInterface
+	toolMu       sync.RWMutex // SetToolExecutor runs per resource; parallel resources share the executor
 	modelManager *ModelManager
 	logger       *slog.Logger
 }
@@ -94,7 +96,16 @@ func NewExecutor(ollamaURL string) *Executor {
 // SetToolExecutor sets the tool executor for executing tool resources.
 func (e *Executor) SetToolExecutor(executor toolExecutorInterface) {
 	kdeps_debug.Log("enter: SetToolExecutor")
+	e.toolMu.Lock()
+	defer e.toolMu.Unlock()
 	e.toolExecutor = executor
+}
+
+// tools returns the tool executor SetToolExecutor last set.
+func (e *Executor) tools() toolExecutorInterface {
+	e.toolMu.RLock()
+	defer e.toolMu.RUnlock()
+	return e.toolExecutor
 }
 
 // SetModelManager sets the model manager for downloading and serving models.

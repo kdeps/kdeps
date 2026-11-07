@@ -81,7 +81,7 @@ curl -s -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "Explain entropy in one sentence."}'
 ```
 
-Resources run in dependency order: the model's wording varies, the path does not. `kdeps test .` runs a workflow's `tests:` in-process, with no port bound.
+Resources run in dependency order, independent ones in parallel: the model's wording varies, the path does not. `kdeps test .` runs a workflow's `tests:` in-process, with no port bound.
 
 More: [workflow docs](https://kdeps.com/workflow/), [examples](https://kdeps.com/examples/), [agencies](https://kdeps.com/agencies/) (several agents as one system).
 
