@@ -147,7 +147,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the call runs or is refused"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "agent.stageGate", "agent.loadPermissionPolicy"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "agent.InstallStagePermission", "agent.loadPermissionPolicy"},
 	},
 	"presets": {
 		Mode: "both",

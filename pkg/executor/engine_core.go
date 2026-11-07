@@ -51,6 +51,10 @@ type Engine struct {
 	debugMode           bool
 	emitter             events.Emitter
 	componentSetupCache sync.Map // keyed by component name, value struct{}{}
+	componentSetupMu    sync.Mutex
+	// setupOwner is the engine whose setup cache a component sub-engine uses
+	// (forComponentCall); nil uses this engine's.
+	setupOwner *Engine
 	// agentMemoryStore is the agent's persistent memory store (JSONL-backed
 	// with graph relationships, auto-capture, and turn extraction). Set by
 	// the workflow runner when --memory is enabled. Nil when not configured.

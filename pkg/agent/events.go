@@ -33,7 +33,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
 // Events replace scattered hardcoded thresholds (auto-compact, fold, ...)
@@ -307,18 +307,17 @@ func initEvents() {
 	mergeUserEvents(userEvents)
 	validateEventActions()
 	applyConvergenceCacheDefaults()
-	applyWorkflowParallel()
+	applyParallel()
 }
 
-// applyWorkflowParallel hands the workflow engine its parallel-resource cap
-// from the "workflow-parallel" event; turning the event off runs resources one
-// at a time.
-func applyWorkflowParallel() {
-	if !EventEnabled(eventWorkflowParallel) {
-		executor.SetMaxParallelResources(1)
+// applyParallel sets the one cap on concurrent work for both modes from the
+// "parallel" event; turning the event off runs everything one at a time.
+func applyParallel() {
+	if !EventEnabled(eventParallel) {
+		parallel.SetLimit(1)
 		return
 	}
-	executor.SetMaxParallelResources(effectiveItems(eventWorkflowParallel, 1))
+	parallel.SetLimit(effectiveItems(eventParallel, 1))
 }
 
 //nolint:gochecknoinits // one-time load of the event registry

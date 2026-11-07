@@ -20,6 +20,8 @@ package executor
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -29,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
 func chatRes(id, prompt string, requires ...string) *domain.Resource {
@@ -41,9 +44,9 @@ func chatRes(id, prompt string, requires ...string) *domain.Resource {
 
 func withParallelCap(t *testing.T, n int) {
 	t.Helper()
-	prev := maxParallelResources.Load()
-	SetMaxParallelResources(n)
-	t.Cleanup(func() { maxParallelResources.Store(prev) })
+	prev := parallel.Limit()
+	parallel.SetLimit(n)
+	t.Cleanup(func() { parallel.SetLimit(prev) })
 }
 
 // peakExecutor records how many calls overlap and fails prompts named in fail.
@@ -105,7 +108,7 @@ func runPeak(t *testing.T, p *peakExecutor, resources ...*domain.Resource) error
 }
 
 func TestAccessOf(t *testing.T) {
-	a := accessOf(chatRes("x", "{{ set('k', get('in')) }}"))
+	a := accessOf(chatRes("x", "{{ set('k', get('in')) }}"), nil)
 	assert.False(t, a.barrier)
 	assert.True(t, a.writes["k"])
 	assert.True(t, a.reads["in"])
@@ -121,11 +124,12 @@ func TestAccessOf(t *testing.T) {
 		"exec":         {ActionID: "x", Exec: &domain.ExecConfig{}},
 		"response":     {ActionID: "x", APIResponse: &domain.APIResponseConfig{}},
 		"filters":      {ActionID: "x", Validations: &domain.ValidationsConfig{Headers: []string{"h"}}},
+		"no component": {ActionID: "x", Component: &domain.ComponentCallConfig{Name: "gone"}},
 		"chat tools": {ActionID: "x", Chat: &domain.ChatConfig{
 			Tools: []domain.Tool{{Name: "t"}},
 		}},
 	} {
-		assert.True(t, accessOf(r).barrier, name)
+		assert.True(t, accessOf(r, nil).barrier, name)
 	}
 }
 
@@ -139,7 +143,7 @@ func TestResourceDeps(t *testing.T) {
 		chatRes("ww", "{{ set('k', 2) }}"),            // 5 rewrites k after w and rd
 		{ActionID: "bar", Exec: &domain.ExecConfig{}}, // 6 barrier
 		chatRes("after", "y"),                         // 7 after the barrier
-	})
+	}, nil)
 	assert.Empty(t, deps[1])
 	assert.Equal(t, []int{0}, deps[2])
 	assert.Equal(t, []int{1}, deps[3])
@@ -207,7 +211,84 @@ func TestRunResources_PanicReachesCaller(t *testing.T) {
 	})
 }
 
-func TestParallelCapDefault(t *testing.T) {
-	withParallelCap(t, 0)
-	assert.Equal(t, defaultParallelResources, parallelCap())
+func withReadOnly(t *testing.T, names ...string) {
+	t.Helper()
+	prev := readOnlyTool
+	SetReadOnlyTool(func(n string) bool { return slices.Contains(names, n) })
+	t.Cleanup(func() { readOnlyTool = prev })
+}
+
+func compCall(id, name string, with map[string]interface{}) *domain.Resource {
+	return &domain.Resource{ActionID: id, Component: &domain.ComponentCallConfig{Name: name, With: with}}
+}
+
+// echoComponent has one chat resource and returns its q input.
+func echoComponent(name string) *domain.Component {
+	return &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: name},
+		Interface: &domain.ComponentInterface{Output: "{{ input('q') }}-{{ get('" + name + ".q') }}"},
+		Resources: []*domain.Resource{chatRes("ask", "ask")},
+	}
+}
+
+func TestComponentAccess(t *testing.T) {
+	withReadOnly(t, "ro", "td")
+	comps := map[string]*domain.Component{
+		"ro": {Resources: []*domain.Resource{chatRes("in", "{{ set('k', get('src')) }}")}},
+		"rw": {Resources: []*domain.Resource{chatRes("in", "x")}},
+		"td": {Teardown: &domain.ComponentTeardown{Commands: []string{"true"}}},
+	}
+	a := accessOf(compCall("c", "ro", map[string]interface{}{"q": "{{ get('q0') }}"}), comps)
+	assert.False(t, a.barrier)
+	assert.True(t, a.reads["src"])
+	assert.True(t, a.reads["q0"])
+	assert.True(t, a.writes["k"])
+	assert.True(t, a.writes["c.q"])
+
+	assert.True(t, accessOf(compCall("c", "rw", nil), comps).barrier, "not read-only")
+	assert.True(t, accessOf(compCall("c", "td", nil), comps).barrier, "teardown")
+
+	looped := compCall("c", "ro", map[string]interface{}{"q": "x"})
+	looped.Items = []string{"a", "b"}
+	assert.True(t, accessOf(looped, comps).barrier, "caller with items runs alone")
+
+	readOnlyTool = nil
+	assert.True(t, accessOf(compCall("c", "ro", nil), comps).barrier, "no policy")
+}
+
+func TestComponentAccess_DepthLimit(t *testing.T) {
+	withReadOnly(t, "loop")
+	comps := map[string]*domain.Component{
+		"loop": {Resources: []*domain.Resource{compCall("again", "loop", nil)}},
+	}
+	assert.True(t, accessOf(compCall("c", "loop", nil), comps).barrier)
+}
+
+func TestRunResources_ReadOnlyComponentCallsOverlap(t *testing.T) {
+	withParallelCap(t, 4)
+	withReadOnly(t, "echo")
+	p := &peakExecutor{want: 3}
+	t.Setenv("HOME", t.TempDir())
+	e := covTestEngine()
+	reg := NewRegistry()
+	reg.SetLLMExecutor(p)
+	e.SetRegistry(reg)
+	wf := covWorkflow(
+		compCall("a", "echo", map[string]interface{}{"q": "qa"}),
+		compCall("b", "echo", map[string]interface{}{"q": "qb"}),
+		compCall("c", "echo", map[string]interface{}{"q": "qc"}),
+		&domain.Resource{ActionID: "r", Requires: []string{"a", "b", "c"}, APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"a": "{{ output('a') }}", "b": "{{ output('b') }}", "c": "{{ output('c') }}",
+			},
+		}},
+	)
+	wf.Components = map[string]*domain.Component{"echo": echoComponent("echo")}
+	out, err := e.Execute(wf, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 3, p.peak)
+	assert.Contains(t, fmt.Sprint(out), "qa-qa", "each call sees its own input")
+	assert.Contains(t, fmt.Sprint(out), "qb-qb")
+	assert.Contains(t, fmt.Sprint(out), "qc-qc")
 }

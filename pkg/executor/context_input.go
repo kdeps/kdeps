@@ -89,10 +89,8 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	}
 
 	// Inside a component call, input('x') is the caller's with: x value.
-	if ctx.CurrentComponent != "" && ctx.Memory != nil {
-		if val, ok := ctx.Memory.Get(ctx.CurrentComponent + "." + name); ok {
-			return val, nil
-		}
+	if val, ok := ctx.componentInputs[ctx.CurrentComponent+"."+name]; ok && ctx.CurrentComponent != "" {
+		return val, nil
 	}
 
 	return ctx.inputAutoDetect(name)

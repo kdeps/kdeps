@@ -28,6 +28,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
 // --- helpers ---
@@ -1381,7 +1383,7 @@ func TestAgentLoop_SinkError_AgentEnd_AfterTerminate(t *testing.T) {
 // --- Parallel tool sink-error branches ---
 
 func TestAgentLoop_SinkError_OnToolStart_Parallel(t *testing.T) {
-	// Covers startParallelTools emitToolStart (491-493) and parallel error path (476-478, 212-214)
+	// A tool_start sink error in executeToolCallsParallel stops the batch.
 	ctx := context.Background()
 	tool := AgentTool{
 		Name:          "pt",
@@ -1447,9 +1449,8 @@ func TestAgentLoop_SinkError_AfterParallelToolResult(t *testing.T) {
 }
 
 func TestAgentLoop_SinkError_SequentialInParallel_ToolEnd(t *testing.T) {
-	// Covers launchToolCall resolved path emitToolEnd error (520-522) and startParallelTools launchToolCall error (495-497).
-	// Uses a tool name NOT in agentCtx.Tools so hasSequentialTool returns false
-	// → dispatchToolCalls picks parallel → launchToolCall gets nil tool → sequential-in-parallel path.
+	// An unknown tool in a parallel batch runs alone (toolCallDeps); its
+	// tool_end sink error stops the batch.
 	ctx := context.Background()
 	agentCtx := AgentContext{} // no tools registered; "notfound" → nil tool in launchToolCall
 	cfg := AgentLoopConfig{
@@ -1463,10 +1464,8 @@ func TestAgentLoop_SinkError_SequentialInParallel_ToolEnd(t *testing.T) {
 
 func TestAgentLoop_CtxCancelDuringParallelStart(t *testing.T) {
 	t.Parallel()
-	// Covers startParallelTools ctx.Err() check (499-500).
-	// Cancel the context from within the first tool's Execute so that by the time
-	// startParallelTools checks ctx.Err() after appending the first entry, the
-	// context is cancelled and the loop breaks.
+	// Cancel the context from within the first tool's Execute: the parallel
+	// batch ends with the context's error.
 	ctx, cancel := context.WithCancel(context.Background())
 	var called int32
 	tool1 := AgentTool{
@@ -1495,7 +1494,7 @@ func TestAgentLoop_CtxCancelDuringParallelStart(t *testing.T) {
 		ToolExecution: ToolExecutionParallel,
 	}
 	// Just run - may succeed or return ctx error; the important thing is that
-	// startParallelTools ctx.Err() branch is exercised without panic.
+	// cancellation path runs without panic.
 	_, _ = AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, agentCtx, cfg, noopSink)
 }
 
@@ -1551,39 +1550,66 @@ func TestEmitToolStart_DebugLogging(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStartParallelTools_CtxCancelledBreak(t *testing.T) {
-	// Pre-cancel ctx so ctx.Err() != nil fires the break after the first entry (line 502-503).
+func TestExecuteToolCallsParallel_CtxCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-
-	agentCtx := &AgentContext{}
-	assistantMsg := AgentMessage{
-		Role: RoleAssistant,
-		ToolCalls: []ToolCall{
-			{ID: "c1", Name: "unknown1"},
-			{ID: "c2", Name: "unknown2"},
-		},
-	}
-	cfg := AgentLoopConfig{ChatFn: endTurnChat("done")}
-
-	entries, err := startParallelTools(ctx, agentCtx, assistantMsg, cfg, noopSink)
-	require.NoError(t, err)
-	// ctx was cancelled - should break after the first entry, not process both
-	assert.Len(t, entries, 1)
+	assistantMsg := AgentMessage{Role: RoleAssistant, ToolCalls: []ToolCall{
+		{ID: "c1", Name: "unknown1"}, {ID: "c2", Name: "unknown2"},
+	}}
+	_, err := executeToolCallsParallel(ctx, &AgentContext{}, assistantMsg,
+		AgentLoopConfig{ChatFn: endTurnChat("done")}, noopSink)
+	require.ErrorIs(t, err, context.Canceled)
 }
 
-func TestLaunchToolCall_EmitToolEndError(t *testing.T) {
-	// Covers line 520-522: emitToolEnd error in launchToolCall sequential (nil tool) path.
-	ctx := context.Background()
-	agentCtx := &AgentContext{}
-	assistantMsg := AgentMessage{Role: RoleAssistant}
-	tc := ToolCall{ID: "x", Name: "unknown"}
-	cfg := AgentLoopConfig{ChatFn: endTurnChat("done")}
-	sink := failOnEvent(EventToolEnd)
-
-	_, err := launchToolCall(ctx, agentCtx, assistantMsg, tc, cfg, sink)
+func TestExecuteToolCallsParallel_EmitToolEndError(t *testing.T) {
+	assistantMsg := AgentMessage{Role: RoleAssistant, ToolCalls: []ToolCall{{ID: "x", Name: "unknown"}}}
+	_, err := executeToolCallsParallel(context.Background(), &AgentContext{}, assistantMsg,
+		AgentLoopConfig{ChatFn: endTurnChat("done")}, failOnEvent(EventToolEnd))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forced failure on "+EventToolEnd)
+}
+
+func TestExecuteToolCallsParallel_KnownToolsOverlap(t *testing.T) {
+	parallel.SetLimit(4)
+	var mu sync.Mutex
+	active, peak := 0, 0
+	slow := func(_ context.Context, _ string, _ map[string]any, _ AgentToolUpdateFunc) (AgentToolResult, error) {
+		mu.Lock()
+		active++
+		peak = max(peak, active)
+		mu.Unlock()
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+			mu.Lock()
+			reached := peak >= 3
+			mu.Unlock()
+			if reached {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		mu.Lock()
+		active--
+		mu.Unlock()
+		return AgentToolResult{Content: "ok"}, nil
+	}
+	agentCtx := &AgentContext{Tools: []AgentTool{{Name: "slow", Execute: slow}}}
+	assistantMsg := AgentMessage{Role: RoleAssistant, ToolCalls: []ToolCall{
+		{ID: "a", Name: "slow"}, {ID: "b", Name: "slow"}, {ID: "c", Name: "slow"},
+	}}
+	batch, err := executeToolCallsParallel(context.Background(), agentCtx, assistantMsg,
+		AgentLoopConfig{ChatFn: endTurnChat("done")}, noopSink)
+	require.NoError(t, err)
+	assert.Equal(t, 3, peak)
+	require.Len(t, batch.messages, 3)
+}
+
+func TestToolCallDeps_UnknownToolRunsAlone(t *testing.T) {
+	tools := []AgentTool{{Name: "k"}}
+	deps := toolCallDeps(tools, []ToolCall{{Name: "k"}, {Name: "k"}, {Name: "x"}, {Name: "k"}})
+	assert.Empty(t, deps[0])
+	assert.Empty(t, deps[1])
+	assert.Equal(t, []int{0, 1}, deps[2])
+	assert.Equal(t, []int{2}, deps[3])
 }
 
 func TestEmitToolEnd_DebugLogging_WithError(t *testing.T) {

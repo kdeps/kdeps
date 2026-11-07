@@ -33,6 +33,11 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 		return ctx.getByType(name, typeHint[0])
 	}
 
+	// A component's own inputs: get('<component>.<input>') in this call.
+	if val, ok := ctx.componentInputs[name]; ok {
+		return val, nil
+	}
+
 	// Namespace-prefixed paths are resolved via config structs first.
 	// Fall back to auto-detection if resolution fails (preserves backward compat
 	// for names like "workflow.name" that are also metadata fields).

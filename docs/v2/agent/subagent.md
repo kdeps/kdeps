@@ -23,6 +23,8 @@ Each runs beside the turn where it can:
 | `subagent` calls a reply opens with | in parallel, in one round; each call gets its own report |
 | Prompt refinement | before the turn, beside roster generation: the turn runs on its rewrite |
 
+Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at once).
+
 ## The subagent tool
 
 The model calls `subagent` when a task needs a second opinion with no shared assumptions, such as reviewing a design or a change.

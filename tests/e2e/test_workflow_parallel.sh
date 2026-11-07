@@ -15,7 +15,8 @@
 
 # E2E: independent workflow resources run in parallel. Three chat calls the
 # mock LLM answers after 1s each finish in about 1s, and the response that
-# requires them sees all three outputs.
+# requires them sees all three outputs. Three calls of a read-only component
+# (named wikipedia, read-only in the permission policy) do the same.
 
 set -uo pipefail
 
@@ -39,7 +40,9 @@ TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources"
 LOG_FILE=$(mktemp)
 KDEPS_PID=""
-trap 'kill $KDEPS_PID 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
+COMP_DIR=$(mktemp -d)
+COMP_PID=""
+trap 'kill $KDEPS_PID $COMP_PID 2>/dev/null; rm -rf "$TEST_DIR" "$COMP_DIR" "$LOG_FILE"' EXIT
 
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
@@ -103,4 +106,87 @@ if python3 -c "import sys; sys.exit(0 if $ELAPSED < 2.5 else 1)"; then
     test_passed "Parallel resources - three 1s model calls finish together (${ELAPSED}s)"
 else
     test_failed "Parallel resources - three 1s model calls finish together" "elapsed=${ELAPSED}s"
+fi
+
+# Read-only component calls: each call gets its own q and they overlap.
+COMP_PORT=$(free_port)
+mkdir -p "$COMP_DIR/resources" "$COMP_DIR/components/wikipedia"
+cat > "$COMP_DIR/components/wikipedia/component.yaml" <<'EOF'
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: wikipedia
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: q
+      type: string
+      required: true
+resources:
+  - actionId: lookup
+    name: Lookup
+    chat:
+      model: fake
+      prompt: "SLOW {{ input('q') }}"
+EOF
+cat > "$COMP_DIR/workflow.yaml" <<EOF
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: parallel-components-e2e
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: ${COMP_PORT}
+    routes:
+      - path: /comp
+        methods: [GET]
+EOF
+for id in x y z; do
+cat > "$COMP_DIR/resources/$id.yaml" <<EOF
+actionId: $id
+name: Look up $id
+component:
+  name: wikipedia
+  with:
+    q: $id
+EOF
+done
+cat > "$COMP_DIR/resources/response.yaml" <<'EOF'
+actionId: response
+name: Response
+requires: [x, y, z]
+apiResponse:
+  success: true
+  response:
+    x: "{{ output('x') }}"
+    y: "{{ output('y') }}"
+    z: "{{ output('z') }}"
+EOF
+
+"$KDEPS_BIN" run "$COMP_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
+COMP_PID=$!
+
+if ! wait_for_kdeps_port "$COMP_PORT" 20 "" "$LOG_FILE"; then
+    fail_server_startup "Parallel components - server failed to start" "$LOG_FILE"
+    return 0 2>/dev/null || exit 0
+fi
+COMP_PORT="$KDEPS_BOUND_PORT"
+
+START=$(python3 -c 'import time; print(time.time())')
+RESP=$(curl -sf --max-time 15 "http://127.0.0.1:${COMP_PORT}/comp" 2>&1)
+ELAPSED=$(python3 -c "import time; print(round(time.time() - $START, 2))")
+
+if echo "$RESP" | grep -q 'SLOW-DONE x' && echo "$RESP" | grep -q 'SLOW-DONE y' && echo "$RESP" | grep -q 'SLOW-DONE z'; then
+    test_passed "Parallel components - each call gets its own input"
+else
+    test_failed "Parallel components - each call gets its own input" "resp=$RESP log=$(tail -5 "$LOG_FILE")"
+fi
+
+if python3 -c "import sys; sys.exit(0 if $ELAPSED < 2.5 else 1)"; then
+    test_passed "Parallel components - three read-only calls finish together (${ELAPSED}s)"
+else
+    test_failed "Parallel components - three read-only calls finish together" "elapsed=${ELAPSED}s"
 fi

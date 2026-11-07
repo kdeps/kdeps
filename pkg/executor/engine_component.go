@@ -23,15 +23,17 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 // executeComponentCall handles a run.component: block. It:
 //  1. Resolves the component by name from ctx.Workflow.Components.
 //  2. Validates the With map against the component's declared interface.inputs
 //     (errors on missing required inputs, warns on unknown keys).
-//  3. Injects each With value into the execution context under two scoped keys:
-//     - "<callerActionId>.<inputName>" (caller-scoped, supports multi-instance calls)
-//     - "<componentName>.<inputName>"  (component-scoped, simpler for component authors)
+//  3. Runs the call in its own context (forComponent) and injects each With value
+//     under two scoped keys:
+//     - "<callerActionId>.<inputName>" (caller-scoped, in the workflow's memory)
+//     - "<componentName>.<inputName>"  (component-scoped, this call only)
 //  4. Executes the component's resources in declaration order and returns the last result.
 func (e *Engine) executeComponentCall(
 	resource *domain.Resource,
@@ -55,8 +57,9 @@ func (e *Engine) executeComponentCall(
 		return nil, validationErr
 	}
 
+	child := ctx.forComponent(cfg.Name)
 	injected := e.buildInjectedInputs(cfg, comp)
-	e.injectComponentInputs(injected, comp.Interface, callerID, cfg.Name, ctx)
+	e.injectComponentInputs(injected, comp.Interface, callerID, cfg.Name, ctx, child)
 
 	e.logger.Debug("Executing component call",
 		"caller", callerID,
@@ -64,16 +67,38 @@ func (e *Engine) executeComponentCall(
 		"inputs", len(injected),
 	)
 
-	prev := ctx.CurrentComponent
-	ctx.CurrentComponent = cfg.Name
-	defer func() { ctx.CurrentComponent = prev }()
+	e.ensureComponentDotEnv(cfg.Name, comp, child)
 
-	e.ensureComponentDotEnv(cfg.Name, comp, ctx)
-
-	if setupErr := e.runComponentSetup(comp, ctx); setupErr != nil {
+	if setupErr := e.runComponentSetup(comp, child); setupErr != nil {
 		return nil, fmt.Errorf("component %q setup failed: %w", cfg.Name, setupErr)
 	}
 	defer e.runComponentTeardown(comp)
 
-	return e.runComponentResources(comp, cfg.Name, callerID, ctx)
+	result, err := e.forComponentCall(child).runComponentResources(comp, cfg.Name, child)
+	if err == nil && result != nil {
+		ctx.SetOutput(callerID, result)
+	}
+	return result, err
+}
+
+// forComponentCall is the engine one component call runs its resources on: the
+// same registry and settings, with an expression evaluator bound to the call's
+// own context (ctx), so parallel calls never evaluate against each other.
+func (e *Engine) forComponentCall(ctx *ExecutionContext) *Engine {
+	sub := &Engine{
+		graph:               NewGraph(),
+		logger:              e.logger,
+		registry:            e.registry,
+		inputValidator:      e.inputValidator,
+		exprValidator:       e.exprValidator,
+		newExecutionContext: e.newExecutionContext,
+		ctx:                 e.ctx,
+		debugMode:           e.debugMode,
+		emitter:             e.emitter,
+		agentMemoryStore:    e.agentMemoryStore,
+		setupOwner:          e.setupEngine(),
+		evaluator:           expression.NewEvaluator(ctx.API),
+	}
+	sub.evaluator.SetDebugMode(e.debugMode)
+	return sub
 }

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
 // AgentLoop starts an agent loop with one or more new prompt messages.
@@ -160,7 +161,7 @@ func runTurnLoop(
 				return nil, false, err
 			}
 			msgs = updated
-			pending = nil //nolint:wastedassign,ineffassign // read by len(pending) in the for condition on next iteration
+			pending = nil //nolint:ineffassign // read by len(pending) in the for condition on next iteration
 		}
 
 		outcome, err := executeSingleTurn(ctx, currentCtx, msgs, cfg, sink)
@@ -510,13 +511,9 @@ func executeOneToolCall(
 	return finalized, msg, nil
 }
 
-// parallelEntry is either a resolved finalizedToolCall or pending channels.
-type parallelEntry struct {
-	resolved *finalizedToolCall
-	resultCh chan finalizedToolCall
-	errCh    chan error
-}
-
+// executeToolCallsParallel runs a batch's tool calls together, up to the
+// "parallel" cap at once. A call to an unknown tool runs alone, after the
+// calls before it and before the calls after it. Results keep call order.
 func executeToolCallsParallel(
 	ctx context.Context,
 	agentCtx *AgentContext,
@@ -524,109 +521,65 @@ func executeToolCallsParallel(
 	cfg AgentLoopConfig,
 	sink EventSink,
 ) (executedToolBatch, error) {
-	entries, err := startParallelTools(ctx, agentCtx, assistantMsg, cfg, sink)
-	if err != nil {
-		return executedToolBatch{}, err
-	}
-	return collectParallelResults(ctx, sink, entries)
-}
-
-func startParallelTools(
-	ctx context.Context,
-	agentCtx *AgentContext,
-	assistantMsg AgentMessage,
-	cfg AgentLoopConfig,
-	sink EventSink,
-) ([]parallelEntry, error) {
-	entries := make([]parallelEntry, 0, len(assistantMsg.ToolCalls))
-	for _, tc := range assistantMsg.ToolCalls {
+	calls := assistantMsg.ToolCalls
+	for i, tc := range calls {
 		if err := emitToolStart(ctx, sink, tc); err != nil {
-			return nil, err
+			return executedToolBatch{}, err
 		}
-		entry, err := launchToolCall(ctx, agentCtx, assistantMsg, tc, cfg, sink)
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, entry)
 		if ctx.Err() != nil {
+			calls = calls[:i+1]
 			break
 		}
 	}
-	return entries, nil //nolint:nilerr // ctx cancellation: partial entries are valid, let caller inspect ctx
-}
-
-func launchToolCall(
-	ctx context.Context,
-	agentCtx *AgentContext,
-	assistantMsg AgentMessage,
-	tc ToolCall,
-	cfg AgentLoopConfig,
-	sink EventSink,
-) (parallelEntry, error) {
-	tool := findTool(agentCtx.Tools, tc.Name)
-	if tool == nil || tool.ExecutionMode == ToolExecutionSequential {
-		f, err := runToolCall(ctx, agentCtx, assistantMsg, tc, cfg, sink)
+	finalizedCalls := make([]finalizedToolCall, len(calls))
+	err := parallel.Run(len(calls), toolCallDeps(agentCtx.Tools, calls), func(i int) error {
+		f, err := runToolCall(ctx, agentCtx, assistantMsg, calls[i], cfg, sink)
 		if err != nil {
-			return parallelEntry{}, err
+			return err
 		}
 		if err = emitToolEnd(ctx, sink, f); err != nil {
-			return parallelEntry{}, err
+			return err
 		}
-		fc := f
-		return parallelEntry{resolved: &fc}, nil
+		finalizedCalls[i] = f
+		return nil
+	})
+	if err != nil {
+		return executedToolBatch{}, err
 	}
-
-	pe := parallelEntry{
-		resultCh: make(chan finalizedToolCall, 1),
-		errCh:    make(chan error, 1),
-	}
-	tcCopy := tc
-	go func() {
-		f, e := runToolCall(ctx, agentCtx, assistantMsg, tcCopy, cfg, sink)
-		if e != nil {
-			pe.errCh <- e
-			return
-		}
-		if sinkErr := emitToolEnd(ctx, sink, f); sinkErr != nil {
-			pe.errCh <- sinkErr
-			return
-		}
-		pe.resultCh <- f
-	}()
-	return pe, nil
-}
-
-func collectParallelResults(
-	ctx context.Context,
-	sink EventSink,
-	entries []parallelEntry,
-) (executedToolBatch, error) {
-	finalizedCalls := make([]finalizedToolCall, 0, len(entries))
-	for _, e := range entries {
-		if e.resolved != nil {
-			finalizedCalls = append(finalizedCalls, *e.resolved)
-			continue
-		}
-		select {
-		case f := <-e.resultCh:
-			finalizedCalls = append(finalizedCalls, f)
-		case err := <-e.errCh:
-			return executedToolBatch{}, err
-		case <-ctx.Done():
-			return executedToolBatch{}, ctx.Err()
-		}
+	if err = ctx.Err(); err != nil {
+		return executedToolBatch{}, err
 	}
 
 	messages := make([]AgentMessage, 0, len(finalizedCalls))
 	for _, f := range finalizedCalls {
 		msg := toolResultMessage(f)
-		if err := emitMessage(ctx, sink, msg); err != nil {
+		if err = emitMessage(ctx, sink, msg); err != nil {
 			return executedToolBatch{}, err
 		}
 		messages = append(messages, msg)
 	}
 
 	return executedToolBatch{messages: messages, terminate: shouldTerminate(finalizedCalls)}, nil
+}
+
+// toolCallDeps makes a call to an unknown tool wait for every earlier call,
+// and every later call wait for it.
+func toolCallDeps(tools []AgentTool, calls []ToolCall) [][]int {
+	deps := make([][]int, len(calls))
+	barrier := -1
+	for i, tc := range calls {
+		if findTool(tools, tc.Name) == nil {
+			for j := range i {
+				deps[i] = append(deps[i], j)
+			}
+			barrier = i
+			continue
+		}
+		if barrier >= 0 {
+			deps[i] = []int{barrier}
+		}
+	}
+	return deps
 }
 
 type finalizedToolCall struct {

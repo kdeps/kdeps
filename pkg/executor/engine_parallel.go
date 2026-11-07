@@ -21,30 +21,12 @@ package executor
 import (
 	"regexp"
 	"strings"
-	"sync/atomic"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
-
-// defaultParallelResources is used until the "workflow-parallel" event asset
-// sets the cap (SetMaxParallelResources).
-const defaultParallelResources = 4
-
-//nolint:gochecknoglobals // process-wide cap, set once from the event registry
-var maxParallelResources atomic.Int64
-
-// SetMaxParallelResources sets how many independent resources one workflow run
-// executes at once. 1 runs them one at a time.
-func SetMaxParallelResources(n int) { maxParallelResources.Store(int64(n)) }
-
-func parallelCap() int {
-	if n := maxParallelResources.Load(); n > 0 {
-		return int(n)
-	}
-	return defaultParallelResources
-}
 
 var (
 	setLiteralRe  = regexp.MustCompile(`\bset\(\s*['"]([^'"]+)['"]`)
@@ -96,15 +78,70 @@ type resourceAccess struct {
 	barrier bool
 }
 
-func accessOf(r *domain.Resource) resourceAccess {
-	a := resourceAccess{reads: map[string]bool{}, writes: map[string]bool{}}
-	if len(r.Items) > 0 || r.Loop != nil || r.APIResponse != nil || r.Exec != nil ||
-		r.Python != nil || r.Component != nil || r.Tool != "" || hasValidationFilters(r) {
-		a.barrier = true
-		return a
+// maxComponentDepth bounds how deep accessOf follows component calls inside
+// components; deeper calls run alone.
+const maxComponentDepth = 4
+
+func accessOf(r *domain.Resource, comps map[string]*domain.Component) resourceAccess {
+	return accessAt(r, comps, 0)
+}
+
+func accessAt(r *domain.Resource, comps map[string]*domain.Component, depth int) resourceAccess {
+	if r.Component != nil {
+		return componentAccess(r, comps, depth)
 	}
+	if len(r.Items) > 0 || r.Loop != nil || r.APIResponse != nil || r.Exec != nil ||
+		r.Python != nil || r.Tool != "" || hasValidationFilters(r) {
+		return resourceAccess{barrier: true}
+	}
+	return scanAccess(r)
+}
+
+// componentAccess is a component call's access: its with: values plus every
+// resource of the component. Only a read-only component (permission policy)
+// without teardown commands may run beside others; the call writes its
+// caller-scoped inputs ("<caller>.<input>").
+func componentAccess(r *domain.Resource, comps map[string]*domain.Component, depth int) resourceAccess {
+	cfg := r.Component
+	comp := comps[cfg.Name]
+	if comp == nil || depth >= maxComponentDepth || readOnlyTool == nil || !readOnlyTool(cfg.Name) ||
+		(comp.Teardown != nil && len(comp.Teardown.Commands) > 0) {
+		return resourceAccess{barrier: true}
+	}
+	caller := *r
+	caller.Component = nil
+	a := accessAt(&caller, comps, depth)
+	a.merge(scanAccess(cfg.With))
+	for _, cr := range comp.Resources {
+		a.merge(accessAt(cr, comps, depth+1))
+	}
+	if a.barrier {
+		return resourceAccess{barrier: true}
+	}
+	for key := range cfg.With {
+		a.writes[r.ActionID+"."+key] = true
+	}
+	return a
+}
+
+func (a *resourceAccess) merge(b resourceAccess) {
+	if a.barrier || b.barrier {
+		a.barrier = true
+		return
+	}
+	for k := range b.reads {
+		a.reads[k] = true
+	}
+	for k := range b.writes {
+		a.writes[k] = true
+	}
+}
+
+// scanAccess reads the set()/get()/output() keys out of every string in v.
+func scanAccess(v any) resourceAccess {
+	a := resourceAccess{reads: map[string]bool{}, writes: map[string]bool{}}
 	var tree any
-	raw, err := yaml.Marshal(r)
+	raw, err := yaml.Marshal(v)
 	if err == nil {
 		err = yaml.Unmarshal(raw, &tree)
 	}
@@ -151,12 +188,11 @@ func mustFollow(earlier, later resourceAccess, earlierID, laterID string) bool {
 // resourceDeps returns, for each resource in run order, the indexes of the
 // earlier resources it waits for: its requires, plus edges inferred from
 // set()/get() keys and output reads.
-func resourceDeps(resources []*domain.Resource) [][]int {
+func resourceDeps(resources []*domain.Resource, comps map[string]*domain.Component) [][]int {
 	acc := make([]resourceAccess, len(resources))
-	pos := make(map[string]int, len(resources))
 	deps := make([][]int, len(resources))
 	for i, r := range resources {
-		acc[i] = accessOf(r)
+		acc[i] = accessOf(r, comps)
 		required := make(map[string]bool, len(r.Requires))
 		for _, id := range r.Requires {
 			required[id] = true
@@ -167,124 +203,19 @@ func resourceDeps(resources []*domain.Resource) [][]int {
 				deps[i] = append(deps[i], j)
 			}
 		}
-		pos[r.ActionID] = i
 	}
 	return deps
 }
 
-type resourceResult struct {
-	index int
-	err   error
-	panic any
-}
-
-// resourceScheduler starts each resource once the resources it waits for have
-// finished, with at most limit running at once.
-type resourceScheduler struct {
-	run      func(i int) error
-	deps     [][]int
-	limit    int
-	done     []bool
-	started  []bool
-	running  int
-	results  chan resourceResult
-	failed   int
-	failure  error
-	panicked any
-}
-
-func (s *resourceScheduler) ready(i int) bool {
-	for _, j := range s.deps[i] {
-		if !s.done[j] {
-			return false
-		}
-	}
-	return true
-}
-
-func (s *resourceScheduler) launch() {
-	for i := range s.deps {
-		if s.running >= s.limit {
-			return
-		}
-		if s.started[i] || !s.ready(i) {
-			continue
-		}
-		s.started[i] = true
-		s.running++
-		go s.runOne(i)
-	}
-}
-
-func (s *resourceScheduler) runOne(i int) {
-	res := resourceResult{index: i}
-	defer func() {
-		if p := recover(); p != nil {
-			res.panic = p
-		}
-		s.results <- res
-	}()
-	res.err = s.run(i)
-}
-
-func (s *resourceScheduler) record(res resourceResult) {
-	s.running--
-	s.done[res.index] = true
-	switch {
-	case res.panic != nil:
-		if s.panicked == nil {
-			s.panicked = res.panic
-		}
-	case res.err != nil && (s.failed < 0 || res.index < s.failed):
-		s.failed, s.failure = res.index, res.err
-	}
-}
-
-// wait runs every resource, stopping new starts after the first error or panic.
-// It returns the earliest error in run order and re-panics a resource's panic.
-func (s *resourceScheduler) wait() error {
-	s.launch()
-	for s.running > 0 {
-		s.record(<-s.results)
-		if s.failed < 0 && s.panicked == nil {
-			s.launch()
-		}
-	}
-	if s.panicked != nil {
-		panic(s.panicked)
-	}
-	return s.failure
-}
-
 // runResources executes resources in run order, starting each one as soon as
-// the resources it waits for have finished, at most parallelCap() at once.
+// the resources it waits for have finished.
 func (e *Engine) runResources(
 	workflow *domain.Workflow,
 	resources []*domain.Resource,
 	ctx *ExecutionContext,
 	reqCtx *RequestContext,
 ) error {
-	run := func(i int) error { return e.runWorkflowResource(workflow, resources[i], ctx, reqCtx) }
-	limit := parallelCap()
-	if limit <= 1 || len(resources) <= 1 {
-		for i := range resources {
-			if err := run(i); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	s := &resourceScheduler{
-		run:     run,
-		deps:    resourceDeps(resources),
-		limit:   limit,
-		done:    make([]bool, len(resources)),
-		started: make([]bool, len(resources)),
-		results: make(chan resourceResult),
-		failed:  -1,
-	}
-	return s.wait()
+	return parallel.Run(len(resources), resourceDeps(resources, workflow.Components), func(i int) error {
+		return e.runWorkflowResource(workflow, resources[i], ctx, reqCtx)
+	})
 }
-
-// MaxParallelResources is the cap in effect.
-func MaxParallelResources() int { return parallelCap() }
