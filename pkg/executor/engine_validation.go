@@ -34,7 +34,7 @@ func (e *Engine) applyResourceValidationFilters(resource *domain.Resource, ctx *
 		e.logger.Debug("Applied headers filter",
 			"actionID", resource.ActionID,
 			"headers", resource.Validations.Headers)
-	} else {
+	} else if ctx.allowedHeaders != nil {
 		ctx.SetAllowedHeaders(nil)
 	}
 
@@ -43,7 +43,23 @@ func (e *Engine) applyResourceValidationFilters(resource *domain.Resource, ctx *
 		e.logger.Debug("Applied params filter",
 			"actionID", resource.ActionID,
 			"params", resource.Validations.Params)
-	} else {
+	} else if ctx.allowedParams != nil {
+		ctx.SetAllowedParams(nil)
+	}
+}
+
+// hasValidationFilters reports whether the resource narrows the request's
+// headers or params. Such a resource runs alone (see accessOf).
+func hasValidationFilters(resource *domain.Resource) bool {
+	return resource.Validations != nil &&
+		(len(resource.Validations.Headers) > 0 || len(resource.Validations.Params) > 0)
+}
+
+// clearResourceValidationFilters drops a resource's header/param filters once
+// it has run, so resources after it never write the shared context.
+func clearResourceValidationFilters(resource *domain.Resource, ctx *ExecutionContext) {
+	if hasValidationFilters(resource) {
+		ctx.SetAllowedHeaders(nil)
 		ctx.SetAllowedParams(nil)
 	}
 }

@@ -90,4 +90,5 @@ const (
 	eventTrivialPromptShort         = "trivial-prompt-short"
 	eventTuiActivityLines           = "tui-activity-lines"
 	eventWebCallBudget              = "web-call-budget"
+	eventWorkflowParallel           = "workflow-parallel"
 )

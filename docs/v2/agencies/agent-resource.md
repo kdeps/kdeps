@@ -40,6 +40,38 @@ apiResponse:
 
 The target agent's own `apiResponse` output, unchanged - whatever shape that agent returns is what `output('delegate')` gives you here.
 
+## Parallel calls
+
+`agent:` calls that don't depend on each other run at the same time, each on its own engine. A panel of reviewer agents takes as long as the slowest one:
+
+<div v-pre>
+
+```yaml
+# resources/review-scope.yaml - one file per reviewer; all three start together
+actionId: reviewScope
+name: Scope review
+agent:
+  name: reviewer-agent
+  params:
+    focus: scope
+    draft: "{{ get('q') }}"
+---
+# resources/report.yaml - starts once every review is back
+actionId: report
+name: Report
+requires: [reviewScope, reviewRisks, reviewClarity]
+apiResponse:
+  success: true
+  response:
+    scope: "{{ output('reviewScope') }}"
+    risks: "{{ output('reviewRisks') }}"
+    clarity: "{{ output('reviewClarity') }}"
+```
+
+</div>
+
+How many run at once, and what runs alone, is on [Execution flow](/workflow/execution-flow#independent-resources).
+
 ## See also
 
 - [Agencies](/agencies/) - multi-agent orchestration, how agents are bundled and named

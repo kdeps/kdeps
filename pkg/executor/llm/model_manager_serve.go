@@ -54,7 +54,7 @@ func (m *ModelManager) downloadModelIfOnline(ctx context.Context, backend, model
 	if !supportsModelDownload(backend) {
 		return
 	}
-	if m.offlineMode {
+	if m.offlineMode.Load() {
 		m.logger.InfoContext(
 			ctx,
 			"offline mode enabled, skipping model download",

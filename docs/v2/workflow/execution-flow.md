@@ -10,7 +10,7 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 2. Detects cycles (fails fast if any exist)
 3. Finds the [`targetActionId`](/reference/glossary#targetactionid) resource and walks its transitive dependencies
 4. Topologically sorts resources so dependencies run before dependents. The order is the same on every run: a resource's `requires` are taken in the order it lists them
-5. Executes resources in order - resources without shared dependencies can run concurrently
+5. Executes resources in that order, running independent resources in parallel (see [Independent resources](#independent-resources))
 
 ## Execution order
 
@@ -20,7 +20,7 @@ direction: down
 A: Request at targetActionId {shape: oval}
 B: "1. Build dependency graph\neach resource = node; requires = edges\nfails fast on cycles"
 C: "2. Walk transitive deps\nbackward from targetActionId\ncollect only needed nodes"
-D: "3. Topological sort\ndeps always run before dependents\nindependent resources run concurrently"
+D: "3. Topological sort\ndeps always run before dependents\nindependent resources run in parallel"
 E: "4. Execute each resource\na. before: block\nb. skip - any true? skip silently\nc. check - all true? proceed, else fail\nd. main action (chat, sql, http...)\ne. after: block\nf. onError handler"
 F: "5. Terminal resource\napiResponse: formats output"
 G: JSON response returned {shape: oval}
@@ -92,33 +92,55 @@ Execution order: `C` -> `B` -> `A`
 
 ### Independent resources
 
-Resources that do not depend on each other (neither directly nor transitively) can run concurrently:
+Resources that don't depend on each other run in parallel, up to 4 at once. A resource still starts only after its `requires` finish:
 
 <div v-pre>
 
 ```yaml
 # resources/example.yaml
-- actionId: fetchUsers
-  component:
-    name: http_request
-    with:
-      url: https://api.example.com/users
-
-- actionId: fetchProducts                    # no requires -- independent of fetchUsers
-  component:
-    name: http_request
-    with:
-      url: https://api.example.com/products
-
-- actionId: merge
-  requires: [fetchUsers, fetchProducts]      # waits for both
+- actionId: draft
   chat:
-    prompt: "Users: {{ output('fetchUsers') }}, Products: {{ output('fetchProducts') }}"
+    prompt: "{{ get('q') }}"
+
+- actionId: reviewScope                      # requires draft only: runs beside reviewRisks
+  requires: [draft]
+  chat:
+    prompt: "Review the scope: {{ output('draft') }}"
+
+- actionId: reviewRisks
+  requires: [draft]
+  chat:
+    prompt: "Review the risks: {{ output('draft') }}"
+
+- actionId: report
+  requires: [reviewScope, reviewRisks]       # starts when both reviews finish
+  chat:
+    prompt: "Merge: {{ output('reviewScope') }} {{ output('reviewRisks') }}"
 ```
 
 </div>
 
-`fetchUsers` and `fetchProducts` run concurrently. `merge` waits for both.
+`reviewScope` and `reviewRisks` run at the same time. `report` waits for both.
+
+The engine also orders resources that share a key without `requires`:
+
+| In a resource's YAML | Effect |
+|---|---|
+| `get('k')` after another resource's `set('k')` | waits for the writer |
+| `set('k')` after another resource's `get('k')` or `set('k')` | keeps their order |
+| `output('id')` or `get('id')` of another resource | waits for that resource |
+
+A resource whose effects the YAML can't show runs alone, in its usual place: `component:` calls (`http_request`, `exec`, `python` and the rest), `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
+
+The cap is the `workflow-parallel` event:
+
+```yaml
+# ~/.kdeps/events/workflow-parallel.yaml
+name: workflow-parallel
+items: 4          # independent resources one run executes at once
+run: cap
+disabled: false   # true runs every resource one at a time
+```
 
 ## Cycle detection
 

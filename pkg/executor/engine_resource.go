@@ -45,6 +45,7 @@ func (e *Engine) runWorkflowResource(
 	))
 
 	e.applyResourceValidationFilters(resource, ctx)
+	defer clearResourceValidationFilters(resource, ctx)
 
 	skip, skipErr := e.ShouldSkipResource(resource, ctx)
 	if skipErr != nil {
