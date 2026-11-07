@@ -363,6 +363,7 @@ export default defineConfig({
             { text: 'SQL-backed API', link: '/examples/sql-api' },
             { text: 'Chat web app', link: '/examples/chat-web-app' },
             { text: 'File upload', link: '/examples/file-upload' },
+            { text: 'Design review panel', link: '/examples/design-review' },
             { text: 'Conditionals and lists', link: '/examples/control-flow' },
             { text: 'Authenticated API call', link: '/examples/http-auth' },
             { text: 'MCP server tools', link: '/examples/mcp-tools' },

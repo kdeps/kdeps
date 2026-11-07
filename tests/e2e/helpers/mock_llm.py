@@ -38,6 +38,10 @@ def reply_for(msgs):
     if slow:
         time.sleep(1)  # a slow model call: parallel workflow resources overlap these
         return "SLOW-DONE " + slow.group(1)
+    if "Design document:" in last:
+        # design-review example: a doc marked TBD fails every reviewer.
+        ok = "TBD" not in last.split("Design document:", 1)[1]
+        return json.dumps({"pass": ok, "findings": [] if ok else ["TBD left in the doc"]})
     if "<conversation>" in everything:
         return SUMMARY
     calls = [i for i, m in enumerate(msgs) if m.get("role") == "user"
