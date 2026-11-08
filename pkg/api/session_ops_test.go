@@ -41,7 +41,7 @@ func TestSessionOps_InstalledAndContextRunner(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "mine", out, "the context's runner wins")
 
-	spec, ok := lookupTool("session_ops")
+	spec, ok := LookupTool("session_ops")
 	require.True(t, ok)
 	assert.True(t, spec.AgentOnly)
 }

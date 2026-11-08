@@ -105,6 +105,7 @@ scenario test_http_client.sh
 scenario test_workflow_parallel.sh
 scenario test_examples_design_review.sh
 scenario test_workflow_judges.sh
+scenario test_workflow_kdeps_tools.sh
 scenario test_features_edge_cases.sh
 scenario test_features_input_sources.sh
 scenario test_features_bot_sources.sh

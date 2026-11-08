@@ -56,7 +56,7 @@ func callSessionTool(ctx context.Context, name string, args map[string]any) (str
 	if name == "" {
 		return "", errors.New("session_ops: tool is required")
 	}
-	if _, served := lookupTool(name); served {
+	if _, served := LookupTool(name); served {
 		return "", fmt.Errorf("session_ops: %s is served on its own route, not as a session tool", name)
 	}
 	sessionToolMu.RLock()

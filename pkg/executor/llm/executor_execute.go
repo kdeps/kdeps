@@ -72,7 +72,11 @@ func (e *Executor) executeChat(
 	if backendErr != nil {
 		return nil, chatRun{}, backendErr
 	}
-	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
+	chatTools, toolsErr := kdepsTools(ctx.Ctx, resolvedConfig.Tools)
+	if toolsErr != nil {
+		return nil, chatRun{}, toolsErr
+	}
+	allTools := mergeComponentTools(chatTools, resolvedConfig.ComponentTools, ctx.Workflow)
 	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools, backendName)
 	captureSentMessages(resolvedConfig, messages)
 	captureSentTools(resolvedConfig, allTools)

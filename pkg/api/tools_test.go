@@ -221,7 +221,7 @@ func TestTools_RegisterIgnoresEmpty(t *testing.T) {
 			return "ok", nil
 		},
 	})
-	spec, ok := lookupTool("custom_tool")
+	spec, ok := LookupTool("custom_tool")
 	if !ok || spec.Name != "custom_tool" {
 		t.Fatal("custom tool missing")
 	}
@@ -471,7 +471,7 @@ func TestRegisterTool_FillsDeclaredDefaults(t *testing.T) {
 			return "", nil
 		},
 	})
-	spec, ok := lookupTool("defaults_probe")
+	spec, ok := LookupTool("defaults_probe")
 	require.True(t, ok)
 	_, err := spec.Call(t.Context(), map[string]any{"q": "x"})
 	require.NoError(t, err)
