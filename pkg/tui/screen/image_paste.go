@@ -17,10 +17,13 @@ type imagePasteMsg struct {
 	path string
 }
 
-const (
-	imageReadLimit = 2 * time.Second
-	imageByteCap   = 5 << 20
-)
+const imageByteCap = 5 << 20
+
+// imageReadLimit bounds one clipboard tool run. Tests raise it: a fake tool
+// script can take longer than 2s to start under a loaded test run.
+//
+//nolint:gochecknoglobals // test-replaceable limit
+var imageReadLimit = 2 * time.Second
 
 // imageByteReads are tools that write image bytes to stdout. A missing tool
 // is skipped. The first bytes that are an image are saved.

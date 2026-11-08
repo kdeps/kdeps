@@ -422,6 +422,7 @@ func TestExecutor_Execute_WithTools(t *testing.T) {
 			{
 				Name:        "get_weather",
 				Description: "Get weather information",
+				Script:      "weatherResource",
 				Parameters: map[string]domain.ToolParam{
 					"location": {
 						Required:    true,

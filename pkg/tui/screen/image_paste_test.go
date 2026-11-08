@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
@@ -38,10 +39,11 @@ func TestReadClipboardImage_SavesImageBytes(t *testing.T) {
 	script := filepath.Join(dir, "pngpaste")
 	body := "#!/bin/sh\nprintf '\\211PNG\\r\\n\\032\\n'\n"
 	require.NoError(t, os.WriteFile(script, []byte(body), 0o755))
-	prevB, prevP := imageByteReads, imagePathReads
+	prevB, prevP, prevL := imageByteReads, imagePathReads, imageReadLimit
 	imageByteReads = [][]string{{script, "-"}}
 	imagePathReads = nil
-	t.Cleanup(func() { imageByteReads, imagePathReads = prevB, prevP })
+	imageReadLimit = 30 * time.Second
+	t.Cleanup(func() { imageByteReads, imagePathReads, imageReadLimit = prevB, prevP, prevL })
 
 	path, ok := readClipboardImage()
 	require.True(t, ok)
@@ -64,7 +66,9 @@ func TestReadClipboardImage_UsesAnImagePathAndStopsOnText(t *testing.T) {
 	prevB, prevP := imageByteReads, imagePathReads
 	imageByteReads = [][]string{{filepath.Join(dir, "missing")}}
 	imagePathReads = [][]string{{script}}
-	t.Cleanup(func() { imageByteReads, imagePathReads = prevB, prevP })
+	prevL := imageReadLimit
+	imageReadLimit = 30 * time.Second
+	t.Cleanup(func() { imageByteReads, imagePathReads, imageReadLimit = prevB, prevP, prevL })
 
 	path, ok := readClipboardImage()
 	require.True(t, ok)

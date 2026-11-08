@@ -178,7 +178,7 @@ func WithParamDefaults(args map[string]any, params map[string]domain.ToolParam) 
 // ParamDefaultInt is the integer default the registered tool's YAML declares
 // for param, or 0 when it declares none.
 func ParamDefaultInt(tool, param string) int {
-	spec, _ := lookupTool(tool)
+	spec, _ := LookupTool(tool)
 	switch v := spec.Parameters[param].Default.(type) {
 	case int:
 		return v
@@ -188,7 +188,8 @@ func ParamDefaultInt(tool, param string) int {
 	return 0
 }
 
-func lookupTool(name string) (ToolSpec, bool) {
+// LookupTool returns the tool registered on the call route under name.
+func LookupTool(name string) (ToolSpec, bool) {
 	toolMu.RLock()
 	spec, ok := toolReg[name]
 	toolMu.RUnlock()
@@ -225,7 +226,7 @@ func handleToolList(w http.ResponseWriter, _ *http.Request) {
 }
 
 func handleToolCall(w http.ResponseWriter, r *http.Request) {
-	spec, ok := lookupTool(r.PathValue("name"))
+	spec, ok := LookupTool(r.PathValue("name"))
 	if !ok || spec.Call == nil {
 		writeStatus(w, http.StatusNotFound, msgToolNotFound)
 		return

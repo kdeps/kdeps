@@ -163,6 +163,7 @@ func TestExecute_ExplicitToolsTakePrecedence(t *testing.T) {
 			{
 				Name:        "search",
 				Description: "Explicit search tool",
+				Script:      "searchResource",
 				Parameters: map[string]domain.ToolParam{
 					"q": {Type: "string", Required: true},
 				},

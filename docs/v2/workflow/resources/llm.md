@@ -412,6 +412,23 @@ step-by-step loop where each call reacts to the previous tool's actual output.
 Set `KDEPS_ALLOW_MULTI_TOOL=1` to restore batched execution. `maxToolRounds` on
 the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
 
+### kdeps tools (by name)
+
+A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
+
+```yaml
+# resources/research.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: web_search     # asset tool: no script needed
+    - name: calculator
+    - name: http_request
+      description: Fetch one of our status pages   # optional: overrides the asset's description
+```
+
+An unknown name, or a tool that needs a live agent session (`session_ops`), fails the resource.
+
 ### Component tools (opt-in allowlist)
 
 Expose shipped or installed components as LLM function-calling tools:

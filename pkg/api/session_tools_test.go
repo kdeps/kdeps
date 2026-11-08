@@ -87,7 +87,7 @@ func TestListToolItems_OnlySessionOpsAgentOnly(t *testing.T) {
 		t.Fatalf("agentOnly %v", flagged)
 	}
 	for _, name := range []string{"identity_get", "judge_verdict", "load_skill", "session_handshake"} {
-		_, ok := lookupTool(name)
+		_, ok := LookupTool(name)
 		assert.False(t, ok, name)
 	}
 }
