@@ -13,6 +13,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/subagent"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -169,7 +170,7 @@ func (l *Loop) registerToolLoader() {
 	l.registry.Register(defined(&kdepstools.Tool{
 		Name: toolNameLoadTools,
 		Execute: func(args map[string]any) (string, error) {
-			return l.loadTools(toolNamesArg(args["names"]))
+			return l.loadTools(subagent.ToolNames(args["names"]))
 		},
 	}))
 }
@@ -209,28 +210,4 @@ func (l *Loop) loadTools(names []string) (string, error) {
 		return "", errors.New("load_tools: " + sb.String())
 	}
 	return sb.String(), nil
-}
-
-// toolNamesArg reads names as a list or a comma/space separated string.
-func toolNamesArg(v any) []string {
-	var raw []string
-	switch x := v.(type) {
-	case string:
-		raw = strings.FieldsFunc(x, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' })
-	case []any:
-		for _, e := range x {
-			if s, ok := e.(string); ok {
-				raw = append(raw, s)
-			}
-		}
-	case []string:
-		raw = x
-	}
-	out := make([]string, 0, len(raw))
-	for _, n := range raw {
-		if n = strings.TrimSpace(n); n != "" {
-			out = append(out, n)
-		}
-	}
-	return out
 }

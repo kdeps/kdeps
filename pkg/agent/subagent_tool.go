@@ -23,16 +23,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
+	"maps"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/parallel"
+	"github.com/kdeps/kdeps/v2/pkg/subagent"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // toolNameSubagent is the tool that hands a task to a fresh agent loop.
-const toolNameSubagent = "subagent"
+const toolNameSubagent = subagent.Name
 
 // sideLoopConfig is the Config of a fresh tool loop on the subagent channel:
 // a judge or a subagent. It starts with no conversation history, and Nested
@@ -142,23 +143,21 @@ func (l *Loop) subagentTool(args map[string]any) (string, error) {
 // returns its answer. The subagent sees only the task and its instructions,
 // never this conversation, and calls only read-only tools.
 func (l *Loop) runSubagent(args map[string]any) (string, error) {
-	task := strings.TrimSpace(stringArgValue(args, "task"))
-	if task == "" {
-		return "", errors.New("subagent: task is required")
+	req, err := subagent.ParseArgs(args)
+	if err != nil {
+		return "", err
 	}
 	if l.engine == nil || l.workflow == nil || l.streamer == nil {
 		return "", errors.New("subagent: no model is available")
 	}
-	reg, err := l.subagentRegistry(toolNamesArg(args["tools"]))
+	reg, err := l.subagentRegistry(req.Tools)
 	if err != nil {
 		return "", err
 	}
-	prompt := harnessRender("subagent-system", struct{ Instructions string }{
-		strings.TrimSpace(stringArgValue(args, "instructions")),
-	})
-	sub := New(l.ctx, l.engine, l.workflow, reg, l.sideLoopConfig(prompt, effectiveRounds(eventSubagentMaxRounds)))
+	cfg := l.sideLoopConfig(subagent.SystemPrompt(req.Instructions), subagent.MaxRounds())
+	sub := New(l.ctx, l.engine, l.workflow, reg, cfg)
 	sub.eventLoop = toolNameSubagent
-	out, runErr := sub.RunStreaming(l.ctx, task, io.Discard)
+	out, runErr := sub.RunStreaming(l.ctx, req.Task, io.Discard)
 	// A canned "produced nothing" notice is not a report. The loop has
 	// already retried an empty reply by then.
 	if out = strings.TrimSpace(out); out != "" && !isTurnFailureNotice(out) {
@@ -171,31 +170,41 @@ func (l *Loop) runSubagent(args map[string]any) (string, error) {
 }
 
 // subagentRegistry is the tools a subagent may call: this loop's read-only
-// tools, or the named ones. A name that is not a read-only tool here is an
-// error, so a subagent never writes or runs commands.
+// tools, or the named ones (subagent.Tools).
 func (l *Loop) subagentRegistry(names []string) (*kdepstools.Registry, error) {
-	var readOnly []string
+	var available []string
 	if l.registry != nil {
 		for _, t := range l.registry.List() {
-			// subagent and ask_question act on this session's turn, so a
-			// subagent never gets them.
-			if t.Name != toolNameSubagent && t.Name != toolNameAskQuestion &&
-				requiredPermission(t.Name) == PermissionReadOnly {
-				readOnly = append(readOnly, t.Name)
+			available = append(available, t.Name)
+		}
+	}
+	picked, err := subagent.Tools(available, names)
+	if err != nil {
+		return nil, err
+	}
+	return scopedRegistry(l.registry, picked), nil
+}
+
+// configureSubagent installs the subagent settings both modes read: the
+// subagent-max-rounds event, the subagent-system harness, the permission
+// policy and the subagent tool asset.
+func configureSubagent() {
+	subagent.Configure(subagent.Settings{
+		MaxRounds: func() int { return effectiveRounds(eventSubagentMaxRounds) },
+		SystemPrompt: func(instructions string) string {
+			return harnessRender("subagent-system", struct{ Instructions string }{instructions})
+		},
+		ReadOnly: func(tool string) bool { return requiredPermission(tool) == PermissionReadOnly },
+		Definition: func() (domain.Tool, bool) {
+			d, ok := toolDefinitions[toolNameSubagent]
+			if !ok {
+				return domain.Tool{}, false
 			}
-		}
-	}
-	if len(names) == 0 {
-		return scopedRegistry(l.registry, readOnly), nil
-	}
-	var refused []string
-	for _, n := range names {
-		if !slices.Contains(readOnly, n) {
-			refused = append(refused, n)
-		}
-	}
-	if len(refused) > 0 {
-		return nil, fmt.Errorf("subagent: not a read-only tool here: %s", strings.Join(refused, ", "))
-	}
-	return scopedRegistry(l.registry, names), nil
+			return domain.Tool{
+				Name:        toolNameSubagent,
+				Description: d.Description,
+				Parameters:  maps.Clone(d.Parameters),
+			}, true
+		},
+	})
 }

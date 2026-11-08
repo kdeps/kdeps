@@ -76,6 +76,9 @@ func (e *Executor) executeChat(
 	if toolsErr != nil {
 		return nil, chatRun{}, toolsErr
 	}
+	if subErr := e.withSubagent(ctx, resolvedConfig, chatTools); subErr != nil {
+		return nil, chatRun{}, subErr
+	}
 	allTools := mergeComponentTools(chatTools, resolvedConfig.ComponentTools, ctx.Workflow)
 	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools, backendName)
 	captureSentMessages(resolvedConfig, messages)

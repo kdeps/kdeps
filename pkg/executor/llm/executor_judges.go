@@ -95,7 +95,28 @@ func (e *Executor) runJudge(
 // judgeChat is the chat call for one judge: the resource's model and
 // connection settings, a literal prompt, a JSON reply, and the named tools.
 func judgeChat(run chatRun, spec domain.Judge, prompt string) *domain.ChatConfig {
-	cfg := *run.cfg
+	cfg := sideChat(run.cfg, prompt)
+	cfg.JSONResponse = true
+	cfg.JSONResponseKeys = []string{"approved", "feedback"}
+	cfg.Tools = nil
+	for _, t := range run.cfg.Tools {
+		if slices.Contains(spec.Tools, t.Name) {
+			cfg.Tools = append(cfg.Tools, t)
+		}
+	}
+	for _, name := range run.cfg.ComponentTools {
+		if slices.Contains(spec.Tools, name) {
+			cfg.ComponentTools = append(cfg.ComponentTools, name)
+		}
+	}
+	cfg.MaxToolRounds = judge.MaxRounds(spec)
+	return &cfg
+}
+
+// sideChat is a fresh chat call on parent's model and connection settings:
+// a literal prompt, no history, no tools and no judges.
+func sideChat(parent *domain.ChatConfig, prompt string) domain.ChatConfig {
+	cfg := *parent
 	cfg.Role = roleUser
 	cfg.Prompt = prompt
 	cfg.LiteralPrompt = true
@@ -112,24 +133,13 @@ func judgeChat(run chatRun, spec domain.Judge, prompt string) *domain.ChatConfig
 	cfg.UseCache = false
 	cfg.ToolChoice = ""
 	cfg.ReasoningOut, cfg.MessagesOut, cfg.ToolsOut = nil, nil, nil
-	cfg.JSONResponse = true
-	cfg.JSONResponseKeys = []string{"approved", "feedback"}
+	cfg.JSONResponse = false
+	cfg.JSONResponseKeys = nil
 	cfg.JSONSchema = nil
 	cfg.Judges = nil
 	cfg.Tools = nil
-	for _, t := range run.cfg.Tools {
-		if slices.Contains(spec.Tools, t.Name) {
-			cfg.Tools = append(cfg.Tools, t)
-		}
-	}
 	cfg.ComponentTools = nil
-	for _, name := range run.cfg.ComponentTools {
-		if slices.Contains(spec.Tools, name) {
-			cfg.ComponentTools = append(cfg.ComponentTools, name)
-		}
-	}
-	cfg.MaxToolRounds = judge.MaxRounds(spec)
-	return &cfg
+	return cfg
 }
 
 // resultText is the answer a chat result carries: the message content, or

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/subagent"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -234,4 +235,20 @@ func TestSkillBody_NamesTheSkillFolder(t *testing.T) {
 
 func TestCoreTools_IncludeSubagent(t *testing.T) {
 	assert.True(t, coreToolSet()[toolNameSubagent], "subagent is sent in full so skill packs find it")
+}
+
+// TestConfigureSubagent_InstallsSharedSettings: workflow mode reads the
+// subagent's rounds, prompt, read-only policy and definition from what agent
+// mode installs.
+func TestConfigureSubagent_InstallsSharedSettings(t *testing.T) {
+	configureSubagent()
+	assert.Equal(t, effectiveRounds(eventSubagentMaxRounds), subagent.MaxRounds())
+	assert.Contains(t, subagent.SystemPrompt("Be a strict reviewer."), "Be a strict reviewer.")
+	def, ok := subagent.Definition()
+	require.True(t, ok)
+	assert.Equal(t, toolNameSubagent, def.Name)
+	assert.Contains(t, def.Parameters, "task")
+	got, err := subagent.Tools([]string{"read_file", "write_file", "bash_exec"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"read_file"}, got)
 }

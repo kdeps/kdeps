@@ -429,6 +429,19 @@ chat:
 
 An unknown name, or a tool that needs a live agent session (`session_ops`), fails the resource.
 
+`subagent` hands a task to a fresh chat call on the same model. It has not seen this chat and gets only the chat's read-only tools (`read_file`, `web_search`, `calculator`, ...), never a write tool or another subagent. It returns a plain-text report as the tool result.
+
+```yaml
+chat:
+  prompt: "Review {{ get('path') }} for security issues."
+  tools:
+    - name: subagent     # the model calls it with task, optional instructions and tools
+    - name: read_file    # read-only: the subagent may use it
+    - name: write_file   # not read-only: only this chat may use it
+```
+
+Its prompt is the `subagent-system` harness; its tool rounds are the `subagent-max-rounds` event, as in agent mode.
+
 ### Component tools (opt-in allowlist)
 
 Expose shipped or installed components as LLM function-calling tools:

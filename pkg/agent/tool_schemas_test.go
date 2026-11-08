@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/subagent"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -76,7 +77,7 @@ func TestLoadTools_AddsDefinitionsToLaterRequests(t *testing.T) {
 	withCoreTools(t, "read_file", toolNameLoadTools)
 	l := schemaTestLoop(t)
 
-	out, err := l.loadTools(toolNamesArg("code_query, nope"))
+	out, err := l.loadTools(subagent.ToolNames("code_query, nope"))
 	require.NoError(t, err)
 	assert.Contains(t, out, "Loaded: code_query")
 	assert.Contains(t, out, "Not tools: nope")
@@ -109,13 +110,6 @@ func TestRequestTools_SendsEverythingWithoutAPolicyOrWhenNothingIsHeldBack(t *te
 	for _, tool := range got {
 		assert.NotContains(t, tool.Description, "Tools you can load", "no catalog when nothing is deferred")
 	}
-}
-
-func TestToolNamesArg_AcceptsListsAndSeparatedText(t *testing.T) {
-	assert.Equal(t, []string{"a", "b", "c"}, toolNamesArg("a, b\tc"))
-	assert.Equal(t, []string{"a", "b"}, toolNamesArg([]any{"a", 3, " b "}))
-	assert.Equal(t, []string{"x"}, toolNamesArg([]string{"x", ""}))
-	assert.Empty(t, toolNamesArg(nil))
 }
 
 func TestToolSchemaPolicy_ParsesAndValidatesByFileName(t *testing.T) {
