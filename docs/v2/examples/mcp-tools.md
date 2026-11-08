@@ -120,8 +120,8 @@ text. With `llama3.2:1b` the reply was:
 ```
 
 The wording comes from the model and varies. Small local models such as
-`llama3.2:1b` often write the tool call as JSON text instead of a structured
-call; kdeps recovers it, runs the tool, and stops a model that keeps
+`llama3.2:1b` often write the tool call as text (JSON or tags) instead of a
+structured call; kdeps recovers it, runs the tool, and stops a model that keeps
 re-issuing the same call by asking once more, without tools, for a plain
 answer. A 1B model's answer can be thin, as above; use a larger model
 for dependable tool use.

@@ -56,6 +56,7 @@ import (
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
+	"github.com/kdeps/kdeps/v2/pkg/toolcall"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -2333,7 +2334,7 @@ func (l *Loop) handleEmptyToolRound(
 	nudges *turnNudges,
 	w io.Writer,
 ) ([]domain.StreamedToolCall, emptyRoundResult) {
-	salvaged, cleaned, fake := salvageContentToolCalls(content)
+	salvaged, cleaned, fake := toolcall.Salvage(content)
 	if len(salvaged) == 0 && l.handshake != nil {
 		// The mandatory session-integrity challenge is in flight: fall back to
 		// fence-agnostic recovery for session_handshake specifically. See
@@ -3989,11 +3990,11 @@ func asStringMap(v any) (map[string]any, bool) {
 
 // stripContentToolCalls removes model-generated tool-call noise from content:
 // <tool_call>/<function...>/DSML markup and any self-written <tool_response>
-// (all via salvageContentToolCalls), plus a whole-content JSON *array* of tool
+// (all via toolcall.Salvage), plus a whole-content JSON *array* of tool
 // calls (small models sometimes put the tool_calls array in the content field).
 // Prose around a leaked block is preserved.
 func stripContentToolCalls(content string) string {
-	_, cleaned, _ := salvageContentToolCalls(content)
+	_, cleaned, _ := toolcall.Salvage(content)
 	trimmed := strings.TrimSpace(cleaned)
 	if strings.HasPrefix(trimmed, "[") {
 		var arr []map[string]any

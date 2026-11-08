@@ -427,6 +427,8 @@ without it, the `chat-max-rounds` event does (5).
 
 Agent mode's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new distinct calls to its tools once spent. A call the model repeats gets its first result back without running again, and the chat answers once a call repeats past `identical-tool-calls` (3). A tool result the model sees is cut to the `tool-result-truncate` event (8192 bytes, start and end kept) and a tool error to `tool-error-truncate` (500).
 
+A model that writes a tool call as text instead of a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call) still runs it, parsed as in [agent mode](/agent/tools-fenced). A call inside a markdown fence is an example and does not run, and a call to a tool the chat does not list is ignored.
+
 ### kdeps tools (by name)
 
 A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
