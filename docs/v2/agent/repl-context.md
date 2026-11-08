@@ -37,7 +37,7 @@ never reach the visible answer.
 
 ## In-turn tool history
 
-A single turn can make many tool calls (`/model tool set rounds <n>`, default 200). Their transcript is resent every round, and `/compact` and auto-compaction do not fire mid-turn, so a long tool loop would grow the request without bound.
+A single turn can make many tool calls (`/model tool set rounds <n>`, default: the `agent-max-rounds` event, 200). Their transcript is resent every round, and `/compact` and auto-compaction do not fire mid-turn, so a long tool loop would grow the request without bound.
 
 kdeps caps the in-flight transcript at about 12K tokens. Past that, the oldest complete tool round-trips drop (the leading conversation and this turn's question stay), and long arguments on older kept steps become a `[N chars omitted]` placeholder. You see:
 

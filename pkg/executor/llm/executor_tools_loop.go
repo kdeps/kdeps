@@ -22,13 +22,29 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-const defaultMaxToolRounds = 5
+// chatToolRounds is a chat's tool-round cap when it sets no maxToolRounds:
+// the chat-max-rounds event, installed by agent mode at startup.
+//
+//nolint:gochecknoglobals // installed once at startup, read on every chat
+var chatToolRounds atomic.Pointer[func() int]
+
+// SetChatToolRounds installs the default tool-round cap of a workflow chat.
+func SetChatToolRounds(rounds func() int) { chatToolRounds.Store(&rounds) }
+
+// ChatToolRounds is the installed cap, or 1 when none is installed.
+func ChatToolRounds() int {
+	if f := chatToolRounds.Load(); f != nil {
+		return max((*f)(), 1)
+	}
+	return 1
+}
 
 // finalAnswerInstruction closes a tool loop the model will not end itself.
 const finalAnswerInstruction = "Answer the original request now in plain text, using the tool " +
@@ -44,7 +60,7 @@ func (e *Executor) handleToolCalls(
 	response map[string]interface{},
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: handleToolCalls")
-	maxIterations := defaultMaxToolRounds
+	maxIterations := ChatToolRounds()
 	if cfg != nil && cfg.MaxToolRounds > 0 {
 		maxIterations = cfg.MaxToolRounds
 	}

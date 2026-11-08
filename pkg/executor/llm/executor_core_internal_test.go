@@ -1017,6 +1017,7 @@ func TestExecutor_Execute_HandleToolCalls_RepeatedCallEndsWithAnswer(t *testing.
 // tools-less final answer closes the turn.
 func TestExecutor_Execute_HandleToolCalls_MaxIterationsEndsWithAnswer(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	withChatToolRounds(t, 5)
 	server, hadTools := toolLoopServer(t, func(n int) string { return fmt.Sprintf(`{"n": %d}`, n) })
 	result := runToolLoop(t, server)
 
@@ -1957,4 +1958,23 @@ func withOpenAIChoices(m map[string]interface{}) map[string]interface{} {
 		m["choices"] = []interface{}{map[string]interface{}{"index": 0, "message": msg, "finish_reason": "stop"}}
 	}
 	return m
+}
+
+// withChatToolRounds installs the chat-max-rounds cap for one test.
+func withChatToolRounds(t *testing.T, n int) {
+	t.Helper()
+	prev := chatToolRounds.Load()
+	SetChatToolRounds(func() int { return n })
+	t.Cleanup(func() { chatToolRounds.Store(prev) })
+}
+
+func TestChatToolRounds(t *testing.T) {
+	prev := chatToolRounds.Load()
+	t.Cleanup(func() { chatToolRounds.Store(prev) })
+	chatToolRounds.Store(nil)
+	assert.Equal(t, 1, ChatToolRounds(), "no event installed: one round")
+	SetChatToolRounds(func() int { return 7 })
+	assert.Equal(t, 7, ChatToolRounds())
+	SetChatToolRounds(func() int { return 0 })
+	assert.Equal(t, 1, ChatToolRounds(), "an event turned off still allows one round")
 }
