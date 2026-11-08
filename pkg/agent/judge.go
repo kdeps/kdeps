@@ -54,6 +54,10 @@ func configureJudges() {
 		Iterations:   func() int { return effectiveRounds(eventJudgeIterations) },
 		MaxRounds:    func() int { return effectiveRounds(eventJudgeMaxRounds) },
 		SystemPrompt: judgeSystemPrompt,
+		Preset: func(name string) ([]domain.Judge, bool) {
+			p, ok := PresetByName(name)
+			return p.Judges, ok
+		},
 	})
 }
 

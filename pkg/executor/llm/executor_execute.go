@@ -24,6 +24,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
@@ -32,11 +33,19 @@ func (e *Executor) Execute(
 	config *domain.ChatConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	roster := config.Judges
+	if config.JudgePreset != "" {
+		judges, err := judge.PresetJudges(config.JudgePreset)
+		if err != nil {
+			return nil, err
+		}
+		roster = judges
+	}
 	result, run, err := e.executeChat(ctx, config)
-	if err != nil || len(config.Judges) == 0 {
+	if err != nil || len(roster) == 0 {
 		return result, err
 	}
-	return e.reviewWithJudges(ctx, run, result), nil
+	return e.reviewWithJudges(ctx, run, roster, result), nil
 }
 
 // chatRun is what one chat call resolved: its config and rendered prompt.

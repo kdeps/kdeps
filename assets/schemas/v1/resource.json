@@ -428,6 +428,10 @@
             }
           }
         },
+        "judgePreset": {
+          "type": "string",
+          "minLength": 1
+        },
         "promptVars": {
           "type": "object"
         },

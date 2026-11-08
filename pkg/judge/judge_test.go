@@ -146,3 +146,27 @@ func TestIterate(t *testing.T) {
 	// No iterations: the output passes through unreviewed.
 	assert.Equal(t, "draft", Iterate(roster, 0, "draft", nil, nil, nil))
 }
+
+func TestPresetJudges(t *testing.T) {
+	Configure(Settings{})
+	_, err := PresetJudges("x")
+	require.EqualError(t, err, `judge preset "x": no presets are loaded`)
+
+	Configure(Settings{Preset: func(name string) ([]domain.Judge, bool) {
+		switch name {
+		case "review":
+			return []domain.Judge{{Name: "a", Criteria: "c"}}, true
+		case "budget":
+			return nil, true
+		}
+		return nil, false
+	}})
+	t.Cleanup(func() { Configure(Settings{}) })
+	got, err := PresetJudges("review")
+	require.NoError(t, err)
+	assert.Equal(t, "a", got[0].Name)
+	_, err = PresetJudges("budget")
+	require.EqualError(t, err, `judge preset "budget": the preset has no judges`)
+	_, err = PresetJudges("nope")
+	require.EqualError(t, err, `judge preset "nope": no such preset`)
+}

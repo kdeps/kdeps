@@ -32,8 +32,12 @@ import (
 // mode uses (pkg/judge): in parallel, and on any rejection the chat runs again
 // with their feedback. Returns the last revision. A judge that fails or
 // replies without a verdict approves: the panel never fails the resource.
-func (e *Executor) reviewWithJudges(ctx *executor.ExecutionContext, run chatRun, result any) any {
-	roster := run.cfg.Judges
+func (e *Executor) reviewWithJudges(
+	ctx *executor.ExecutionContext,
+	run chatRun,
+	roster []domain.Judge,
+	result any,
+) any {
 	best := result
 	panel := func(output string) []judge.Verdict {
 		return judge.Panel(roster, output, func(spec domain.Judge) judge.Verdict {
@@ -44,7 +48,7 @@ func (e *Executor) reviewWithJudges(ctx *executor.ExecutionContext, run chatRun,
 		cfg := *run.cfg
 		cfg.Prompt = run.prompt + "\n\n" + directive
 		cfg.LiteralPrompt = true // the directive quotes model text: never evaluate it
-		cfg.Judges = nil
+		cfg.Judges, cfg.JudgePreset = nil, ""
 		revised, _, err := e.executeChat(ctx, &cfg)
 		if err != nil {
 			return "", err
@@ -136,7 +140,7 @@ func sideChat(parent *domain.ChatConfig, prompt string) domain.ChatConfig {
 	cfg.JSONResponse = false
 	cfg.JSONResponseKeys = nil
 	cfg.JSONSchema = nil
-	cfg.Judges = nil
+	cfg.Judges, cfg.JudgePreset = nil, ""
 	cfg.Tools = nil
 	cfg.ComponentTools = nil
 	return cfg
