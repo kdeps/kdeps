@@ -53,7 +53,7 @@ func (e *Executor) executeToolCalls(
 			results = append(results, map[string]interface{}{
 				"tool_call_id": toolCallID,
 				fieldName:      toolName,
-				fieldError:     fmt.Sprintf("tool '%s' not found", toolName),
+				fieldError:     fmt.Sprintf("tool %q not found", toolName),
 			})
 			continue
 		}

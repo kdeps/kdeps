@@ -100,7 +100,7 @@ func (e *Executor) handleToolCalls(
 }
 
 // pendingToolCalls returns the response's tool calls: structured tool_calls,
-// or calls the model wrote as JSON text.
+// or calls the model wrote as text.
 func (e *Executor) pendingToolCalls(
 	response map[string]interface{},
 	tools []domain.Tool,

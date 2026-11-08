@@ -108,6 +108,7 @@ scenario test_workflow_judges.sh
 scenario test_workflow_kdeps_tools.sh
 scenario test_workflow_subagent.sh
 scenario test_workflow_chat_rounds.sh
+scenario test_workflow_text_tool_calls.sh
 scenario test_features_edge_cases.sh
 scenario test_features_input_sources.sh
 scenario test_features_bot_sources.sh

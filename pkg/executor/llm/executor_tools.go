@@ -69,10 +69,11 @@ func (e *Executor) extractToolCalls(
 	return toolCalls, len(toolCalls) > 0
 }
 
-// recoverTextToolCalls returns the tool calls a model wrote as JSON text (one
-// call object, or an array of them) when it returned no structured
-// tool_calls. Every call must name one of tools, so a JSON answer is never run
-// as a call. Agent mode recovers text-written calls through the same parser.
+// recoverTextToolCalls returns the tool calls a model wrote as text when it
+// returned no structured tool_calls: <tool_call>, <function=...>, <invoke>,
+// DSML markup, or a whole JSON call object or array. Calls inside a markdown
+// fence are examples and are skipped. Every call must name one of tools, so a
+// JSON answer is never run as a call. Agent mode uses the same parser.
 func recoverTextToolCalls(
 	response map[string]interface{},
 	tools []domain.Tool,
@@ -86,7 +87,7 @@ func recoverTextToolCalls(
 	for _, t := range tools {
 		known[t.Name] = true
 	}
-	recovered := toolcall.ParseWholeContent(content)
+	recovered, _, _ := toolcall.Salvage(content)
 	calls := make([]map[string]interface{}, 0, len(recovered))
 	for i, c := range recovered {
 		if !known[c.Name] {

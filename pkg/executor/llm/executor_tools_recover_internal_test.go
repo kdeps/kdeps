@@ -56,6 +56,24 @@ func TestRecoverTextToolCalls(t *testing.T) {
 	assert.Len(t, calls, 2)
 }
 
+func TestRecoverTextToolCalls_Markup(t *testing.T) {
+	tools := []domain.Tool{{Name: "read_file"}, {Name: "bash_exec"}}
+	for name, content := range map[string]string{
+		"tool_call tag": `Reading.<tool_call>{"name":"read_file","arguments":{"path":"/a"}}</tool_call>`,
+		"invoke":        `<invoke name="read_file"><parameter name="path">/a</parameter></invoke>`,
+		"function attr": `<function=read_file>{"path":"/a"}</function>`,
+		"dsml": "<｜DSML｜function_calls>\n<｜DSML｜invoke name=\"read_file\">\n" +
+			"<｜DSML｜parameter name=\"path\" string=\"true\">/a</｜DSML｜parameter>\n" +
+			"</｜DSML｜invoke>\n</｜DSML｜function_calls>",
+	} {
+		calls, ok := recoverTextToolCalls(textReply(content), tools)
+		require.True(t, ok, name)
+		got, args, _, _ := parseToolCallFunction(calls[0])
+		assert.Equal(t, "read_file", got, name)
+		assert.JSONEq(t, `{"path":"/a"}`, args, name)
+	}
+}
+
 func TestRecoverTextToolCalls_Refuses(t *testing.T) {
 	tools := []domain.Tool{{Name: "read_file"}}
 	for name, resp := range map[string]map[string]interface{}{
@@ -63,6 +81,8 @@ func TestRecoverTextToolCalls_Refuses(t *testing.T) {
 		"plain answer":   textReply(`The file says hello.`),
 		"json answer":    textReply(`{"name": "Ada", "age": 36}`),
 		"no message":     {"done": true},
+		"fenced example": textReply("Call it like this:\n```\n<invoke name=\"read_file\"><parameter name=\"path\">/a</parameter></invoke>\n```"),
+		"one unknown":    textReply(`<tool_call>{"name":"read_file","arguments":{}}</tool_call><tool_call>{"name":"rm_rf","arguments":{}}</tool_call>`),
 		"non-string msg": {jsonFieldMessage: map[string]interface{}{"content": 42}},
 	} {
 		calls, ok := recoverTextToolCalls(resp, tools)
