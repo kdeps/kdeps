@@ -54,6 +54,9 @@ func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error 
 	if config.Prompt == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "chat.prompt is required", nil)
 	}
+	if config.JudgePreset != "" && len(config.Judges) > 0 {
+		return domain.NewError(domain.ErrCodeInvalidResource, "chat: set judges or judgePreset, not both", nil)
+	}
 	for i, j := range config.Judges {
 		if err := judge.Validate(j); err != nil {
 			return domain.NewError(domain.ErrCodeInvalidResource, fmt.Sprintf("chat.judges[%d]: %v", i, err), nil)

@@ -347,6 +347,18 @@ chat:
 - Reviews per answer: the `judge-iterations` event (2). The last revision is the output when the budget runs out.
 - A judge that fails or replies without a verdict approves: judges never fail the resource.
 
+`judgePreset:` uses a preset's panel instead of listing judges (not both):
+
+```yaml
+chat:
+  prompt: "Write a design for {{ get('feature') }}."
+  judgePreset: design-review   # assets/presets/design-review.yaml: scope, clarity, failure-modes, readiness
+  tools:
+    - name: read_file          # the preset's judges may use the chat tools they name
+```
+
+An unknown preset, or one with no judges, fails the resource.
+
 ## Vision (file attachments)
 
 Process images (set a vision-capable model in the resource's `model:`):

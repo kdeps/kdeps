@@ -311,6 +311,9 @@ type ChatConfig struct {
 	// Judges review the answer after it is produced, in parallel; any
 	// rejection re-runs the chat with their feedback (pkg/judge).
 	Judges []Judge `yaml:"judges,omitempty"`
+	// JudgePreset names a preset (assets/presets) whose judges review the
+	// answer, as agent mode's /harness preset applies them. Not with judges.
+	JudgePreset string `yaml:"judgePreset,omitempty"`
 }
 
 // Judge is one reviewer of a chat answer: a workflow chat's judges: entry, or

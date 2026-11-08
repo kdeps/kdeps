@@ -429,6 +429,13 @@ func TestConfigureJudges_InstallsSettings(t *testing.T) {
 	assert.Equal(t, effectiveRounds(eventJudgeIterations), judge.Iterations())
 	assert.Equal(t, effectiveRounds(eventJudgeMaxRounds), judge.MaxRounds(domain.Judge{}))
 	assert.Contains(t, judge.SystemPrompt(domain.Judge{Name: "x", Criteria: "c"}, true), "approved")
+	judges, err := judge.PresetJudges("design-review")
+	require.NoError(t, err)
+	assert.Len(t, judges, 4)
+	_, err = judge.PresetJudges("frugal")
+	require.ErrorContains(t, err, "the preset has no judges")
+	_, err = judge.PresetJudges("no-such")
+	require.ErrorContains(t, err, "no such preset")
 }
 
 func TestScopedRegistry_FiltersByName(t *testing.T) {

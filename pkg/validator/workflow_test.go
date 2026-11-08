@@ -568,6 +568,12 @@ func TestWorkflowValidator_ValidateChatJudges(t *testing.T) {
 		assert.Contains(t, err.Error(), name)
 		assert.Contains(t, err.Error(), "chat.judges[0]")
 	}
+
+	preset := chat()
+	preset.JudgePreset = "design-review"
+	require.NoError(t, v.ValidateChatConfig(preset))
+	preset.Judges = []domain.Judge{{Name: "a", Criteria: "c"}}
+	require.ErrorContains(t, v.ValidateChatConfig(preset), "set judges or judgePreset, not both")
 }
 
 func TestWorkflowValidator_ValidateHTTPConfig(t *testing.T) {

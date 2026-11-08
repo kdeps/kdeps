@@ -16,6 +16,7 @@
 # E2E: a workflow chat with judges:. The mock LLM writes a DRAFT, both judges
 # reject it, the chat runs again with their feedback, and the response
 # carries the revision. A grader-only judge settles without a model call.
+# judgePreset: design-review runs that preset's judges the same way.
 
 set -uo pipefail
 
@@ -78,15 +79,25 @@ chat:
           pattern: DRAFT
 YAML
 
+cat > "$TEST_DIR/resources/preset.yaml" <<'YAML'
+actionId: preset
+name: Preset-reviewed design
+chat:
+  model: fake
+  prompt: "JUDGED: write the design"
+  judgePreset: design-review
+YAML
+
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [notes, graded]
+requires: [notes, graded, preset]
 apiResponse:
   success: true
   response:
     notes: "{{ output('notes') }}"
     graded: "{{ output('graded') }}"
+    preset: "{{ output('preset') }}"
 YAML
 
 if "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" &>/dev/null; then
@@ -113,6 +124,25 @@ else
 fi
 rm -f "$TEST_DIR/resources/bad.yaml"
 
+cat > "$TEST_DIR/resources/both.yaml" <<'YAML'
+actionId: both
+name: Judges and a preset
+chat:
+  model: fake
+  prompt: "x"
+  judgePreset: design-review
+  judges:
+    - name: extra
+      criteria: c
+YAML
+BOTH_OUT=$("$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" 2>&1)
+if echo "$BOTH_OUT" | grep -q 'set judges or judgePreset, not both'; then
+    test_passed "Workflow judges - judges and judgePreset together are rejected"
+else
+    test_failed "Workflow judges - judges and judgePreset together are rejected" "$(echo "$BOTH_OUT" | tail -5)"
+fi
+rm -f "$TEST_DIR/resources/both.yaml"
+
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
 KDEPS_PID=$!
 if ! wait_for_kdeps_port "$API_PORT" 20 "" "$LOG_FILE"; then
@@ -123,6 +153,7 @@ API_PORT="$KDEPS_BOUND_PORT"
 
 RESP=$(curl -sf --max-time 20 "http://127.0.0.1:${API_PORT}/notes" 2>&1)
 NOTES=$(echo "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); d=d.get("data",d); print(json.dumps(d.get("notes")))' 2>/dev/null)
+PRESET=$(echo "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); d=d.get("data",d); print(json.dumps(d.get("preset")))' 2>/dev/null)
 GRADED=$(echo "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); d=d.get("data",d); print(json.dumps(d.get("graded")))' 2>/dev/null)
 
 if echo "$NOTES" | grep -q "REVISED notes" && ! echo "$NOTES" | grep -q "DRAFT"; then
@@ -135,4 +166,10 @@ if echo "$GRADED" | grep -q "REVISED notes"; then
     test_passed "Workflow judges - a grader-only judge rejects without a model call"
 else
     test_failed "Workflow judges - a grader-only judge rejects without a model call" "resp=$RESP"
+fi
+
+if echo "$PRESET" | grep -q "REVISED notes" && grep -q "scope, clarity, failure-modes, readiness" "$LOG_FILE"; then
+    test_passed "Workflow judges - judgePreset runs the preset's judges"
+else
+    test_failed "Workflow judges - judgePreset runs the preset's judges" "resp=$RESP"
 fi

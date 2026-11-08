@@ -157,7 +157,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "every later turn uses them"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.mergeUserPresets"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "judge.PresetJudges", "agent.configureJudges", "agent.PresetByName"},
 	},
 	"providers": {
 		Mode: "both",

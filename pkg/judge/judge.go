@@ -51,6 +51,8 @@ type Settings struct {
 	// SystemPrompt renders a judge's instructions; reply asks for a JSON
 	// verdict instead of the judge_verdict tool.
 	SystemPrompt func(spec domain.Judge, reply bool) string
+	// Preset returns a preset's judges, or false when no preset has that name.
+	Preset func(name string) ([]domain.Judge, bool)
 }
 
 //nolint:gochecknoglobals // process-wide settings, installed once at startup
@@ -97,6 +99,23 @@ func SystemPrompt(spec domain.Judge, reply bool) string {
 		return render(spec, reply)
 	}
 	return ""
+}
+
+// PresetJudges is the judge panel of the named preset. A preset that does
+// not exist, or that has no judges, is an error.
+func PresetJudges(name string) ([]domain.Judge, error) {
+	lookup := current().Preset
+	if lookup == nil {
+		return nil, fmt.Errorf("judge preset %q: no presets are loaded", name)
+	}
+	judges, ok := lookup(name)
+	if !ok {
+		return nil, fmt.Errorf("judge preset %q: no such preset", name)
+	}
+	if len(judges) == 0 {
+		return nil, fmt.Errorf("judge preset %q: the preset has no judges", name)
+	}
+	return judges, nil
 }
 
 // Prompt states the original request and the candidate output verbatim.

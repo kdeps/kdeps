@@ -156,6 +156,28 @@ func TestExecute_JudgesRejectThenApproveRevision(t *testing.T) {
 	assert.Equal(t, 4, s.count("Original request:\nWrite the release notes"), "each judge sees the rendered prompt")
 }
 
+// TestExecute_JudgePresetReviews: judgePreset runs the named preset's panel.
+func TestExecute_JudgePresetReviews(t *testing.T) {
+	withJudgeSettings(t, 3)
+	s := judge.Settings{
+		Iterations:   func() int { return 3 },
+		SystemPrompt: func(spec domain.Judge, _ bool) string { return "You are an independent reviewer named " + spec.Name },
+		Preset: func(name string) ([]domain.Judge, bool) {
+			return []domain.Judge{{Name: "scope", Criteria: "complete"}}, name == "review"
+		},
+	}
+	judge.Configure(s)
+	srv := &judgeServer{}
+	out := runJudged(t, srv, &domain.ChatConfig{Prompt: "Write the notes", JudgePreset: "review"})
+	assert.Equal(t, "FINAL", resultText(out))
+	assert.Equal(t, 2, srv.count("independent reviewer named scope"), "rejected once, approved after the revision")
+
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
+	require.NoError(t, err)
+	_, err = NewExecutor("").Execute(ctx, &domain.ChatConfig{Prompt: "p", JudgePreset: "nope"})
+	require.EqualError(t, err, `judge preset "nope": no such preset`)
+}
+
 func TestExecute_JudgeGradersSkipTheModel(t *testing.T) {
 	withJudgeSettings(t, 2)
 	s := &judgeServer{}
@@ -221,7 +243,7 @@ func TestReviewWithJudges_ReviseErrorKeepsResult(t *testing.T) {
 		Model: "m", Backend: "nope-backend",
 		Judges: []domain.Judge{{Name: "g", Graders: []domain.JudgeGrader{{Kind: "contains", Pattern: "ok"}}}},
 	}, prompt: "p"}
-	got := NewExecutor("").reviewWithJudges(ctx, run, "draft")
+	got := NewExecutor("").reviewWithJudges(ctx, run, run.cfg.Judges, "draft")
 	assert.Equal(t, "draft", got)
 }
 

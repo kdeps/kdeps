@@ -119,3 +119,73 @@ func TestWorkflowJudges_RejectReviseApprove(t *testing.T) {
 	assert.Equal(t, 1, revisions)
 	assert.Equal(t, 2, peak, "the two judges review at the same time")
 }
+
+// judgePreset: design-review runs the preset's four judges (real preset and
+// harness assets) on the chat's answer; a rejected draft is revised.
+func TestWorkflowJudgePreset_DesignReview(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var mu sync.Mutex
+	reviewers := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			_, _ = w.Write([]byte(`{"data":[{"id":"fake"}]}`))
+			return
+		}
+		var body struct {
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		last := body.Messages[len(body.Messages)-1].Content
+		reply := "DRAFT design"
+		switch {
+		case strings.Contains(last, "reply with JSON only"):
+			for _, name := range []string{"scope", "clarity", "failure-modes", "readiness"} {
+				if strings.Contains(last, `named "`+name+`"`) {
+					mu.Lock()
+					reviewers[name]++
+					mu.Unlock()
+				}
+			}
+			_, candidate, _ := strings.Cut(last, "Candidate output to review:")
+			ok := !strings.Contains(candidate, "DRAFT")
+			raw, _ := json.Marshal(map[string]any{"approved": ok, "feedback": map[bool]string{false: "a draft"}[ok]})
+			reply = string(raw)
+		case strings.Contains(last, judge.DirectiveMarker):
+			reply = "FINAL design"
+		}
+		raw, _ := json.Marshal(map[string]any{
+			"id": "x", "object": "chat.completion", "model": "fake",
+			"choices": []any{map[string]any{"index": 0, "finish_reason": "stop",
+				"message": map[string]any{"role": "assistant", "content": reply}}},
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv(executorLLM.OverrideURLEnv, srv.URL)
+
+	wf := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "designed", Version: "1.0.0", TargetActionID: "design"},
+		Resources: []*domain.Resource{{
+			ActionID: "design",
+			Chat: &domain.ChatConfig{
+				Model: "fake", Role: "user", Prompt: "design it", JudgePreset: "design-review",
+			},
+		}},
+	}
+	engine := executor.NewEngine(t.Context(), slog.Default())
+	registry := executor.NewRegistry()
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), srv.URL))
+	engine.SetRegistry(registry)
+
+	out, err := engine.Execute(wf, nil)
+	require.NoError(t, err)
+	raw, _ := json.Marshal(out)
+	assert.Contains(t, string(raw), "FINAL design")
+	assert.Equal(t, map[string]int{"scope": 2, "clarity": 2, "failure-modes": 2, "readiness": 2}, reviewers)
+}
