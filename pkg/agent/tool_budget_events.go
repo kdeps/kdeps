@@ -87,6 +87,8 @@ func configureToolBudget() {
 			return out
 		},
 		IdenticalCalls: func() int { return effectiveRounds(eventIdenticalToolCalls) },
+		ResultBytes:    maxToolResultBytes,
+		ErrorBytes:     toolErrorMaxLen,
 	})
 }
 

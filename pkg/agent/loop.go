@@ -55,6 +55,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -3057,35 +3058,11 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 	return result
 }
 
-// toolResultHeadShare of toolResultShares of a cut result is its start; the
-// rest is its end. A layout ratio, not a limit (the limit is the event).
-const (
-	toolResultHeadShare = 2
-	toolResultShares    = 3
-)
-
 // capToolResult cuts an oversized tool result to maxToolResultBytes() on line
-// boundaries, keeping its start and its end around a marker. Keeps a single
-// tool call from flooding the LLM context (and every later round's history).
+// boundaries, keeping its start and its end (toolbudget.CapResult, shared
+// with workflow chats).
 func capToolResult(result string) string {
-	limit := maxToolResultBytes()
-	if len(result) <= limit {
-		return result
-	}
-	// Keep the start and the end: a command's summary (test totals, an
-	// error, an exit status) is usually at the end.
-	headLimit := limit * toolResultHeadShare / toolResultShares
-	head := result[:headLimit]
-	if idx := strings.LastIndexByte(head, '\n'); idx > 0 {
-		head = head[:idx]
-	}
-	tail := result[len(result)-(limit-headLimit):]
-	if idx := strings.IndexByte(tail, '\n'); idx >= 0 && idx < len(tail)-1 {
-		tail = tail[idx+1:]
-	}
-	omitted := len(result) - len(head) - len(tail)
-	return fmt.Sprintf("%s\n[tool result truncated: %d bytes total, %d bytes omitted here]\n%s",
-		head, len(result), omitted, tail)
+	return toolbudget.CapResult(result, maxToolResultBytes())
 }
 
 // toolFailure names a tool whose call returned an error.
