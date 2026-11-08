@@ -76,6 +76,8 @@ A tool removed from a list runs with no budget and no reuse of earlier answers. 
 
 `/model tool set web-limit <n>` (and `bash-limit`, `file-limit`, `code-limit`) overrides an event's default for the session, as `/fold threshold` does for `fold`. `0` removes the cap (`/model tool set web-limit 0`): the budget never blocks, and the system prompt states the enforced limit or that there is none. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget; tools without a budget use the `identical-tool-calls` threshold.
 
+Workflow chats read the same events: each chat call counts its own distinct calls, and a repeated call reuses its first result (see [tool loop behavior](/workflow/resources/llm#tool-loop-behavior)).
+
 ## Your own tool budgets
 
 An event with a `tools:` list is a budget defined only in YAML. In one turn the model may make at most `on.distinctCalls` distinct calls to those tools; a repeated call does not count again. Past the limit, a new call is blocked like the built-in budgets, and the model answers with what it has.

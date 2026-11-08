@@ -104,3 +104,74 @@ func TestWorkflowChat_ChatMaxRoundsEvent(t *testing.T) {
 	assert.Contains(t, string(raw), "DONE after 5")
 	assert.Equal(t, int32(5), calls.Load())
 }
+
+// A model that keeps issuing the same call gets the first result back without
+// the tool running again; after the identical-tool-calls event's limit (3),
+// the chat is asked for its answer.
+func TestWorkflowChat_IdenticalToolCallsEvent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			_, _ = w.Write([]byte(`{"data":[{"id":"fake"}]}`))
+			return
+		}
+		var body struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		n := 0
+		for _, m := range body.Messages {
+			if m.Role == "tool" {
+				n++
+			}
+		}
+		reply := `{"name": "step", "arguments": {"n": 0}}`
+		if strings.Contains(body.Messages[len(body.Messages)-1].Content, "Answer the original request now") {
+			reply = fmt.Sprintf("DONE after %d", n)
+		}
+		raw, _ := json.Marshal(map[string]any{
+			"id": "x", "object": "chat.completion", "model": "fake",
+			"choices": []any{map[string]any{"index": 0, "finish_reason": "stop",
+				"message": map[string]any{"role": "assistant", "content": reply}}},
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv(executorLLM.OverrideURLEnv, srv.URL)
+
+	var calls atomic.Int32
+	step := domain.Tool{
+		Name:        "step",
+		Description: "One step.",
+		Parameters:  map[string]domain.ToolParam{"n": {Type: "integer"}},
+		Execute: func(map[string]any) (string, error) {
+			calls.Add(1)
+			return "ok", nil
+		},
+	}
+	wf := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "repeat", Version: "1.0.0", TargetActionID: "loop"},
+		Resources: []*domain.Resource{{
+			ActionID: "loop",
+			Chat: &domain.ChatConfig{
+				Model: "fake", Role: "user", Prompt: "go", Tools: []domain.Tool{step}, MaxToolRounds: 10,
+			},
+		}},
+	}
+	engine := executor.NewEngine(t.Context(), slog.Default())
+	registry := executor.NewRegistry()
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), srv.URL))
+	engine.SetRegistry(registry)
+
+	out, err := engine.Execute(wf, nil)
+	require.NoError(t, err)
+	raw, _ := json.Marshal(out)
+	assert.Contains(t, string(raw), "DONE after 3")
+	assert.Equal(t, int32(1), calls.Load(), "repeats reuse the first result")
+}
