@@ -19,6 +19,7 @@
 package toolbudget_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,4 +64,30 @@ func TestKey(t *testing.T) {
 	assert.Equal(t, toolbudget.Key("t", `{"b":1,"a":2}`), toolbudget.Key("t", `{ "a": 2, "b": 1 }`))
 	assert.Equal(t, "t\x00not json", toolbudget.Key("t", "not json"))
 	assert.Equal(t, `{"a":2}`, toolbudget.CanonicalArgs(`{ "a" : 2 }`))
+}
+
+func TestCaps(t *testing.T) {
+	toolbudget.Configure(toolbudget.Settings{})
+	assert.Zero(t, toolbudget.ResultBytes())
+	assert.Zero(t, toolbudget.ErrorBytes())
+	toolbudget.Configure(toolbudget.Settings{
+		ResultBytes: func() int { return 30 },
+		ErrorBytes:  func() int { return 8 },
+	})
+	t.Cleanup(func() { toolbudget.Configure(toolbudget.Settings{}) })
+	assert.Equal(t, 30, toolbudget.ResultBytes())
+	assert.Equal(t, 8, toolbudget.ErrorBytes())
+
+	big := "line one\nline two\nline three\nline four\nline five\nthe summary"
+	got := toolbudget.CapResult(big, 40)
+	assert.True(t, strings.HasPrefix(got, "line one\n"), got)
+	assert.True(t, strings.HasSuffix(got, "the summary"), "the end is kept: %s", got)
+	assert.Contains(t, got, "[tool result truncated: 60 bytes total,")
+	assert.NotContains(t, got, "line three")
+	assert.Equal(t, big, toolbudget.CapResult(big, 0), "0 is no cap")
+	assert.Equal(t, "short", toolbudget.CapResult("short", 30))
+
+	assert.Equal(t, "abcde...", toolbudget.CapError("abcdefghijk", 8))
+	assert.Equal(t, "abc", toolbudget.CapError("abc", 8))
+	assert.Equal(t, "abcdefghijk", toolbudget.CapError("abcdefghijk", 3), "no room for the ellipsis: no cap")
 }

@@ -16,7 +16,8 @@
 # E2E: a workflow chat's tool-call guard comes from events. Default rounds
 # are chat-max-rounds (5); a ~/.kdeps/events override changes them. A budget
 # event (tools: + distinctCalls) blocks new distinct calls, and a call the
-# model keeps repeating stops at identical-tool-calls (3), run only once.
+# model keeps repeating stops at identical-tool-calls (3), run only once. A
+# tool-result-truncate override cuts what the model sees of a result.
 
 set -uo pipefail
 
@@ -31,7 +32,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 TEST_DIR=$(mktemp -d)
-mkdir -p "$TEST_DIR/resources" "$TEST_DIR/home/.kdeps/events" "$TEST_DIR/budget/.kdeps/events"
+mkdir -p "$TEST_DIR/resources" "$TEST_DIR/home/.kdeps/events" "$TEST_DIR/budget/.kdeps/events" "$TEST_DIR/trunc/.kdeps/events"
 LOG_FILE=$(mktemp)
 KDEPS_PID=""
 trap 'kill $KDEPS_PID 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
@@ -61,6 +62,25 @@ chat:
     - name: calculator
 YAML
 
+cat > "$TEST_DIR/resources/big.yaml" <<'YAML'
+actionId: big
+name: Big result chat
+validations:
+  routes: [/big]
+chat:
+  model: fake
+  prompt: 'CALLJSON calculator {"expression": "10**40"}'
+  tools:
+    - name: calculator
+YAML
+
+cat > "$TEST_DIR/trunc/.kdeps/events/tool-result-truncate.yaml" <<'YAML'
+name: tool-result-truncate
+on:
+  bytes: 12
+run: truncate
+YAML
+
 cat > "$TEST_DIR/budget/.kdeps/events/calc-budget.yaml" <<'YAML'
 name: calc-budget
 tools: [calculator]
@@ -72,12 +92,13 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [loop, repeat]
+requires: [loop, repeat, big]
 apiResponse:
   success: true
   response:
     loop: "{{ output('loop') }}"
     repeat: "{{ output('repeat') }}"
+    big: "{{ output('big') }}"
 YAML
 
 cat > "$TEST_DIR/home/.kdeps/events/chat-max-rounds.yaml" <<'YAML'
@@ -106,6 +127,8 @@ settings:
       - path: /loop
         methods: [GET]
       - path: /repeat
+        methods: [GET]
+      - path: /big
         methods: [GET]
 YAML
     if [ -n "${2:-}" ]; then
@@ -149,4 +172,11 @@ if echo "$RESP" | grep -q "REPEAT DONE 3"; then
     test_passed "Workflow chat rounds - a repeated call stops at identical-tool-calls"
 else
     test_failed "Workflow chat rounds - a repeated call stops at identical-tool-calls" "resp=$RESP"
+fi
+
+RESP=$(run_rounds "truncate" "$TEST_DIR/trunc" "/big")
+if echo "$RESP" | grep -q "tool result truncated: 41 bytes total"; then
+    test_passed "Workflow chat rounds - a tool-result-truncate override cuts a tool result"
+else
+    test_failed "Workflow chat rounds - a tool-result-truncate override cuts a tool result" "resp=$RESP"
 fi

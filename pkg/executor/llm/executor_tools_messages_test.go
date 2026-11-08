@@ -24,6 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 )
 
 func TestFormatToolResultContent_MarshalFallback(t *testing.T) {
@@ -39,6 +41,20 @@ func TestFormatToolResultContent_AllBranches(t *testing.T) {
 	assert.Equal(t, `{"k":"v"}`, formatToolResultContent(map[string]interface{}{
 		"content": map[string]interface{}{"k": "v"},
 	}))
+}
+
+// TestFormatToolResultContent_Caps: results and errors are cut to the
+// tool-result-truncate and tool-error-truncate events, as in agent mode.
+func TestFormatToolResultContent_Caps(t *testing.T) {
+	toolbudget.Configure(toolbudget.Settings{
+		ResultBytes: func() int { return 12 },
+		ErrorBytes:  func() int { return 8 },
+	})
+	t.Cleanup(func() { toolbudget.Configure(toolbudget.Settings{}) })
+	assert.Equal(t, "Error: abcde...", formatToolResultContent(map[string]interface{}{"error": "abcdefghijk"}))
+	got := formatToolResultContent(map[string]interface{}{"content": "first line\nmiddle line\nlast"})
+	assert.Contains(t, got, "[tool result truncated: 27 bytes total")
+	assert.Equal(t, "short", formatToolResultContent(map[string]interface{}{"content": "short"}))
 }
 
 func TestMockHTTPClientDo_Error(t *testing.T) {

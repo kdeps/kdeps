@@ -219,6 +219,8 @@ func TestConfigureToolBudget_InstallsSharedGuard(t *testing.T) {
 	assert.Equal(t, webMax, web.DistinctCalls)
 	assert.Contains(t, web.Tools, "web_search")
 	assert.Equal(t, effectiveRounds(eventIdenticalToolCalls), toolbudget.IdenticalCalls())
+	assert.Equal(t, maxToolResultBytes(), toolbudget.ResultBytes())
+	assert.Equal(t, toolErrorMaxLen(), toolbudget.ErrorBytes())
 
 	require.NoError(t, SetEventEnabled(eventWebCallBudget, false))
 	for _, e := range toolbudget.Events() {

@@ -44,6 +44,10 @@ type Settings struct {
 	Events func() []Event
 	// IdenticalCalls is how many times one call may give the same result.
 	IdenticalCalls func() int
+	// ResultBytes caps a tool result sent to the model (tool-result-truncate).
+	ResultBytes func() int
+	// ErrorBytes caps a tool error sent to the model (tool-error-truncate).
+	ErrorBytes func() int
 }
 
 //nolint:gochecknoglobals // process-wide settings, installed once at startup
@@ -79,6 +83,62 @@ func IdenticalCalls() int {
 		return f()
 	}
 	return 0
+}
+
+// ResultBytes is the tool-result cap; 0 (no cap) when not configured.
+func ResultBytes() int {
+	if f := current().ResultBytes; f != nil {
+		return f()
+	}
+	return 0
+}
+
+// ErrorBytes is the tool-error cap; 0 (no cap) when not configured.
+func ErrorBytes() int {
+	if f := current().ErrorBytes; f != nil {
+		return f()
+	}
+	return 0
+}
+
+// CapResult cuts an oversized tool result to limit bytes on line boundaries,
+// keeping its start and its end (a command's summary is usually at the end)
+// around a marker. limit <= 0 is no cap.
+func CapResult(result string, limit int) string {
+	if limit <= 0 || len(result) <= limit {
+		return result
+	}
+	headLimit := limit * headShare / shares
+	head := result[:headLimit]
+	if idx := strings.LastIndexByte(head, '\n'); idx > 0 {
+		head = head[:idx]
+	}
+	tail := result[len(result)-(limit-headLimit):]
+	if idx := strings.IndexByte(tail, '\n'); idx >= 0 && idx < len(tail)-1 {
+		tail = tail[idx+1:]
+	}
+	omitted := len(result) - len(head) - len(tail)
+	return fmt.Sprintf("%s\n[tool result truncated: %d bytes total, %d bytes omitted here]\n%s",
+		head, len(result), omitted, tail)
+}
+
+// headShare of shares of a cut result is its start; the rest is its end. A
+// layout ratio, not a limit (the limit is the event).
+const (
+	headShare = 2
+	shares    = 3
+)
+
+// ellipsis marks a cut error.
+const ellipsis = "..."
+
+// CapError cuts a tool error to limit bytes, ending in "...". limit <= len
+// of the ellipsis is no cap.
+func CapError(msg string, limit int) string {
+	if limit <= len(ellipsis) || len(msg) <= limit {
+		return msg
+	}
+	return msg[:limit-len(ellipsis)] + ellipsis
 }
 
 // Tracker counts one run's distinct calls per budget event.

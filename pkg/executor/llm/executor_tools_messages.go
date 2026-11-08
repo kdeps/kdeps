@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 )
 
 func (e *Executor) addToolResultsToMessages(
@@ -54,10 +55,19 @@ func (e *Executor) addToolResultsToMessages(
 	return messages
 }
 
+// formatToolResultContent is a tool result as the model sees it, cut to the
+// tool-result-truncate and tool-error-truncate events (pkg/toolbudget, shared
+// with agent mode).
 func formatToolResultContent(result map[string]interface{}) string {
 	if errorMsg, okError := result[fieldError].(string); okError {
-		return fmt.Sprintf("Error: %s", errorMsg)
+		return "Error: " + toolbudget.CapError(errorMsg, toolbudget.ErrorBytes())
 	}
+	return toolbudget.CapResult(toolResultText(result), toolbudget.ResultBytes())
+}
+
+// toolResultText is a tool result's content as text: a string as is, any
+// other value as JSON.
+func toolResultText(result map[string]interface{}) string {
 	resultContent, okContent := result[jsonFieldContent]
 	if !okContent {
 		return ""

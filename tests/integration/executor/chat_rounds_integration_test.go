@@ -175,3 +175,65 @@ func TestWorkflowChat_IdenticalToolCallsEvent(t *testing.T) {
 	assert.Contains(t, string(raw), "DONE after 3")
 	assert.Equal(t, int32(1), calls.Load(), "repeats reuse the first result")
 }
+
+// A workflow chat's tool result is cut to the tool-result-truncate event
+// (8192 bytes) before the model sees it, start and end kept.
+func TestWorkflowChat_ToolResultTruncateEvent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	var seen atomic.Value
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			_, _ = w.Write([]byte(`{"data":[{"id":"fake"}]}`))
+			return
+		}
+		var body struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		last := body.Messages[len(body.Messages)-1]
+		reply := `{"name": "dump", "arguments": {}}`
+		if last.Role == "tool" {
+			seen.Store(last.Content)
+			reply = "done"
+		}
+		raw, _ := json.Marshal(map[string]any{
+			"id": "x", "object": "chat.completion", "model": "fake",
+			"choices": []any{map[string]any{"index": 0, "finish_reason": "stop",
+				"message": map[string]any{"role": "assistant", "content": reply}}},
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv(executorLLM.OverrideURLEnv, srv.URL)
+
+	big := strings.Repeat("filler line\n", 2000) + "FINAL SUMMARY"
+	dump := domain.Tool{
+		Name:        "dump",
+		Description: "Dump a log.",
+		Execute:     func(map[string]any) (string, error) { return big, nil },
+	}
+	wf := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "trunc", Version: "1.0.0", TargetActionID: "dump"},
+		Resources: []*domain.Resource{{
+			ActionID: "dump",
+			Chat:     &domain.ChatConfig{Model: "fake", Role: "user", Prompt: "go", Tools: []domain.Tool{dump}},
+		}},
+	}
+	engine := executor.NewEngine(t.Context(), slog.Default())
+	registry := executor.NewRegistry()
+	registry.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), srv.URL))
+	engine.SetRegistry(registry)
+
+	_, err := engine.Execute(wf, nil)
+	require.NoError(t, err)
+	got, _ := seen.Load().(string)
+	assert.LessOrEqual(t, len(got), 8192+100)
+	assert.Contains(t, got, fmt.Sprintf("[tool result truncated: %d bytes total", len(big)))
+	assert.True(t, strings.HasSuffix(got, "FINAL SUMMARY"), "the end is kept")
+}
