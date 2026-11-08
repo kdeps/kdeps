@@ -29,13 +29,13 @@ import (
 // kdepsTools resolves each chat tool with no script, mcp or Execute to the
 // kdeps API tool of the same name (web_search, read_file, ...): its
 // description and parameters fill what the YAML left out, and a call goes
-// through the API's call route. It returns a new slice, so the workflow's
-// config is never changed.
+// through the API's call route; subagent is left to withSubagent. It returns
+// a new slice, so the workflow's config is never changed.
 func kdepsTools(ctx context.Context, tools []domain.Tool) ([]domain.Tool, error) {
 	out := make([]domain.Tool, len(tools))
 	for i, t := range tools {
 		out[i] = t
-		if t.Script != "" || t.MCP != nil || t.Execute != nil {
+		if t.Script != "" || t.MCP != nil || t.Execute != nil || isSubagentTool(t) {
 			continue
 		}
 		spec, ok := api.LookupTool(t.Name)

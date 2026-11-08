@@ -81,7 +81,7 @@ curl -s -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "Explain entropy in one sentence."}'
 ```
 
-Resources run in dependency order, independent ones in parallel, on the same scheduler as agent mode: the model's wording varies, the path does not. A chat's `judges:` review and revise its answer, as agent mode's judge panel does. A chat lists agent mode's tools by name (`web_search`, `calculator`, ...). `kdeps test .` runs a workflow's `tests:` in-process, with no port bound.
+Resources run in dependency order, independent ones in parallel, on the same scheduler as agent mode: the model's wording varies, the path does not. A chat's `judges:` review and revise its answer, as agent mode's judge panel does. A chat lists agent mode's tools by name (`web_search`, `calculator`, `subagent`, ...). `kdeps test .` runs a workflow's `tests:` in-process, with no port bound.
 
 More: [workflow docs](https://kdeps.com/workflow/), [examples](https://kdeps.com/examples/), [agencies](https://kdeps.com/agencies/) (several agents as one system).
 
