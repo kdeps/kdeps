@@ -29,6 +29,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -201,4 +202,26 @@ func TestDeclaredExecute_LoopContextDoesNotMergeCalls(t *testing.T) {
 	}
 	calls, _ := globalWebCache.count()
 	assert.Equal(t, 2, calls)
+}
+
+// TestConfigureToolBudget_InstallsSharedGuard: workflow chats read the enabled
+// budget events (a built-in one at its cache's cap) and identical-tool-calls.
+func TestConfigureToolBudget_InstallsSharedGuard(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	byName := map[string]toolbudget.Event{}
+	for _, e := range toolbudget.Events() {
+		byName[e.Name] = e
+	}
+	web, ok := byName[eventWebCallBudget]
+	require.True(t, ok)
+	_, webMax := globalWebCache.count()
+	assert.Equal(t, webMax, web.DistinctCalls)
+	assert.Contains(t, web.Tools, "web_search")
+	assert.Equal(t, effectiveRounds(eventIdenticalToolCalls), toolbudget.IdenticalCalls())
+
+	require.NoError(t, SetEventEnabled(eventWebCallBudget, false))
+	for _, e := range toolbudget.Events() {
+		assert.NotEqual(t, eventWebCallBudget, e.Name, "a disabled event is left out")
+	}
 }

@@ -425,6 +425,8 @@ Set `KDEPS_ALLOW_MULTI_TOOL=1` to restore batched execution. `maxToolRounds` on
 the `chat:` resource still bounds how many one-at-a-time rounds the loop runs;
 without it, the `chat-max-rounds` event does (5).
 
+Agent mode's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new distinct calls to its tools once spent. A call the model repeats gets its first result back without running again, and the chat answers once a call repeats past `identical-tool-calls` (3).
+
 ### kdeps tools (by name)
 
 A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.

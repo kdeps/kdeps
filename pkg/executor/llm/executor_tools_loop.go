@@ -19,14 +19,13 @@
 package llm
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"sync/atomic"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 )
 
 // chatToolRounds is a chat's tool-round cap when it sets no maxToolRounds:
@@ -66,21 +65,20 @@ func (e *Executor) handleToolCalls(
 	}
 	currentResponse := response
 	currentMessages := messages
-	executed := map[string]bool{}
+	guard := newCallGuard()
 
 	for range maxIterations {
 		toolCalls, hasToolCalls := e.pendingToolCalls(currentResponse, tools)
 		if !hasToolCalls {
 			return currentResponse, nil
 		}
-		// A model that re-issues a call it already has the result of is looping
-		// (common with small models); stop and make it answer from the results.
-		if allExecuted(toolCalls, executed) {
+		// A model that keeps re-issuing calls it already has the results of is
+		// looping (common with small models); stop and make it answer.
+		if guard.repeating(toolCalls) {
 			return e.finalAnswer(cfg, call, currentMessages, requestConfig)
 		}
-		markExecuted(toolCalls, executed)
 
-		toolResults, execErr := e.executeToolCalls(toolCalls, tools, ctx)
+		toolResults, execErr := e.executeToolCalls(toolCalls, tools, ctx, guard)
 		if execErr != nil {
 			return nil, fmt.Errorf("tool execution failed: %w", execErr)
 		}
@@ -130,30 +128,67 @@ func (e *Executor) finalAnswer(
 	return e.chatFollowUp(cfg, call, final, noTools)
 }
 
-// toolCallKey identifies a call by name and arguments, with the arguments
-// compacted so the same JSON in different formatting counts as a repeat.
-func toolCallKey(call map[string]interface{}) string {
-	name, args, _, _ := parseToolCallFunction(call)
-	var compact bytes.Buffer
-	if json.Compact(&compact, []byte(args)) == nil {
-		args = compact.String()
-	}
-	return name + "\x00" + args
+// callGuard is one chat call's tool-call guard (pkg/toolbudget, shared with
+// agent mode): budget events cap distinct calls per tool group, a repeated
+// call gets its earlier result without running again, and a round of calls
+// each issued more than the identical-tool-calls limit ends the loop.
+type callGuard struct {
+	tracker toolbudget.Tracker
+	events  []toolbudget.Event
+	limit   int
+	issued  map[string]int
+	results map[string]interface{}
 }
 
-func allExecuted(calls []map[string]interface{}, executed map[string]bool) bool {
+func newCallGuard() *callGuard {
+	return &callGuard{
+		events:  toolbudget.Events(),
+		limit:   max(toolbudget.IdenticalCalls(), 1),
+		issued:  map[string]int{},
+		results: map[string]interface{}{},
+	}
+}
+
+// repeating counts a round's calls and reports whether every one of them
+// has now been issued more than the identical-call limit.
+func (g *callGuard) repeating(calls []map[string]interface{}) bool {
+	all := true
 	for _, c := range calls {
-		if !executed[toolCallKey(c)] {
-			return false
+		key := toolCallKey(c)
+		g.issued[key]++
+		if g.issued[key] <= g.limit {
+			all = false
 		}
 	}
-	return true
+	return all
 }
 
-func markExecuted(calls []map[string]interface{}, executed map[string]bool) {
-	for _, c := range calls {
-		executed[toolCallKey(c)] = true
+// answer is the result the guard gives a call without running it: the
+// earlier result of the same call, or a budget block. nil means run it.
+func (g *callGuard) answer(name, args string, id interface{}) map[string]interface{} {
+	if g == nil {
+		return nil
 	}
+	if cached, seen := g.results[toolbudget.Key(name, args)]; seen {
+		return map[string]interface{}{"tool_call_id": id, fieldName: name, jsonFieldContent: cached}
+	}
+	if reason := g.tracker.Check(g.events, name, args); reason != "" {
+		return map[string]interface{}{"tool_call_id": id, fieldName: name, fieldError: reason}
+	}
+	return nil
+}
+
+// remember keeps a call's successful result for its repeats.
+func (g *callGuard) remember(name, args string, result interface{}) {
+	if g != nil {
+		g.results[toolbudget.Key(name, args)] = result
+	}
+}
+
+// toolCallKey identifies a call by name and canonical arguments.
+func toolCallKey(call map[string]interface{}) string {
+	name, args, _, _ := parseToolCallFunction(call)
+	return toolbudget.Key(name, args)
 }
 
 func (e *Executor) chatFollowUp(

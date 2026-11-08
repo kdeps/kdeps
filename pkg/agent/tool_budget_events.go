@@ -19,41 +19,35 @@
 package agent
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
-	"sync"
+
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 )
 
 // toolBudgets enforces the budget events: an event whose tools: list names
 // the tools it limits. It counts, per turn and per event, the distinct calls
-// to those tools; a repeat of a call already made never counts twice. Once
-// the count reaches the event's on.distinctCalls, a new call is blocked.
+// to those tools (toolbudget.Tracker, shared with workflow chats); a repeat of
+// a call already made never counts twice. Once the count reaches the event's
+// on.distinctCalls, a new call is blocked.
 //
 // The built-in call-budget events (web, bash, file, code) count in their
 // convergence cache. A tool whose Go code tracks itself (trackToolCall) is
 // counted there; any other tool on their list is counted here, by its
 // arguments.
 type toolBudgets struct {
-	mu   sync.Mutex
-	seen map[string]map[string]bool // event name -> call key -> made this turn
+	tracker toolbudget.Tracker
 }
 
 // reset starts a new turn.
-func (b *toolBudgets) reset() {
-	b.mu.Lock()
-	b.seen = nil
-	b.mu.Unlock()
-}
+func (b *toolBudgets) reset() { b.tracker.Reset() }
 
 // check records a call to tool with args (the raw JSON arguments) and returns
 // the reason it is blocked, or "" when every budget event allows it.
 func (b *toolBudgets) check(tool, args string) string {
-	key := tool + "\x00" + canonicalArgs(args)
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	key := toolbudget.Key(tool, args)
+	var generic []toolbudget.Event
 	for _, name := range slices.Sorted(maps.Keys(eventRegistry)) {
 		e := eventRegistry[name]
 		if len(e.Tools) == 0 || !EventEnabled(name) || !slices.Contains(e.Tools, tool) {
@@ -68,47 +62,32 @@ func (b *toolBudgets) check(tool, args string) string {
 			}
 			continue
 		}
-		if b.seen == nil {
-			b.seen = map[string]map[string]bool{}
-		}
-		made := b.seen[name]
-		if made[key] {
-			continue
-		}
-		if len(made) >= e.On.DistinctCalls {
-			// Same shape as a built-in budget block, so the loop treats it as
-			// one (isConvergenceBlocked): not a tool failure.
-			return fmt.Sprintf(
-				"convergence (%d calls): %s is blocked by the %q event, which allows %d distinct calls to %s per turn. "+
-					"Answer with what you have.",
-				e.On.DistinctCalls,
-				tool,
-				name,
-				e.On.DistinctCalls,
-				strings.Join(e.Tools, ", "),
-			)
-		}
-		if made == nil {
-			made = map[string]bool{}
-			b.seen[name] = made
-		}
-		made[key] = true
+		generic = append(generic, toolbudget.Event{Name: name, Tools: e.Tools, DistinctCalls: e.On.DistinctCalls})
 	}
-	return ""
+	return b.tracker.Check(generic, tool, args)
 }
 
-// canonicalArgs normalizes JSON arguments so key order and spacing do not
-// make one call look like two. Arguments that are not JSON are used as is.
-func canonicalArgs(args string) string {
-	var v any
-	if err := json.Unmarshal([]byte(args), &v); err != nil {
-		return args
-	}
-	out, err := json.Marshal(v)
-	if err != nil {
-		return args
-	}
-	return string(out)
+// configureToolBudget installs the guard workflow chats read: every enabled
+// budget event (a built-in one at its current cap) and identical-tool-calls.
+func configureToolBudget() {
+	toolbudget.Configure(toolbudget.Settings{
+		Events: func() []toolbudget.Event {
+			var out []toolbudget.Event
+			for _, name := range slices.Sorted(maps.Keys(eventRegistry)) {
+				e := eventRegistry[name]
+				if len(e.Tools) == 0 || !EventEnabled(name) {
+					continue
+				}
+				limit := e.On.DistinctCalls
+				if c, builtin := budgetEventCaches[name]; builtin {
+					_, limit = c.count()
+				}
+				out = append(out, toolbudget.Event{Name: name, Tools: e.Tools, DistinctCalls: limit})
+			}
+			return out
+		},
+		IdenticalCalls: func() int { return effectiveRounds(eventIdenticalToolCalls) },
+	})
 }
 
 // validateToolBudget checks a generic budget event: it limits distinct calls

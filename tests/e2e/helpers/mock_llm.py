@@ -16,7 +16,10 @@ message:
     its result is "TOOL RESULT <result>"
   - anything after a CALL request (the tool's result): "TOOL DONE"
   - "LOOPJSON <tool>": calls calculator-style "<n> + 1" every round (n =
-    tool results so far), until kdeps asks for the final answer: "LOOP DONE <n>"
+    tool results so far), until kdeps asks for the final answer:
+    "LOOP DONE <n> BLOCKED <results a budget blocked>"
+  - "REPEATJSON <tool> <json args>": the same call every round, until kdeps asks
+    for the final answer: "REPEAT DONE <n>"
   - anything else: "MOCK REPLY"
 """
 import http.server as h, json, os, re, sys, threading, time
@@ -57,11 +60,18 @@ def reply_for(msgs):
         return "DRAFT notes"
     if "<conversation>" in everything:
         return SUMMARY
+    rep = re.search(r"REPEATJSON (\w+) (?=\{)", everything)
+    if rep:
+        if "Answer the original request now" in last:
+            return "REPEAT DONE %d" % sum(1 for m in msgs if m.get("role") == "tool")
+        args, _ = json.JSONDecoder().raw_decode(everything[rep.end():])
+        return json.dumps({"name": rep.group(1), "arguments": args})
     loop = re.search(r"LOOPJSON (\w+)", everything)
     if loop:
         n = sum(1 for m in msgs if m.get("role") == "tool")
         if "Answer the original request now" in last:
-            return "LOOP DONE %d" % n
+            blocked = sum(1 for m in msgs if m.get("role") == "tool" and "convergence (" in text(m))
+            return "LOOP DONE %d BLOCKED %d" % (n, blocked)
         return json.dumps({"name": loop.group(1), "arguments": {"expression": "%d + 1" % n}})
     calls = [i for i, m in enumerate(msgs) if m.get("role") == "user"
              and re.search(r"CALL(DSML|JSON)? \w+ (?=\{)", text(m))]

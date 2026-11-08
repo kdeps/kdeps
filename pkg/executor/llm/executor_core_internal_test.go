@@ -36,6 +36,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 )
 
 // TestExecute_ComponentsAutoMergedAsTools verifies that when a workflow has
@@ -1053,7 +1054,7 @@ func TestExecuteToolCalls_WithExecuteFunc(t *testing.T) {
 		},
 	}
 
-	results, execErr := e.executeToolCalls(toolCalls, tools, ctx)
+	results, execErr := e.executeToolCalls(toolCalls, tools, ctx, nil)
 	require.NoError(t, execErr)
 	require.Len(t, results, 1)
 	assert.Equal(t, "executed", results[0]["content"])
@@ -1534,7 +1535,7 @@ func TestExecuteToolCalls_MissingFunction(t *testing.T) {
 	toolCalls := []map[string]interface{}{
 		{"id": "tc1"},
 	}
-	results, execErr := e.executeToolCalls(toolCalls, nil, ctx)
+	results, execErr := e.executeToolCalls(toolCalls, nil, ctx, nil)
 	require.NoError(t, execErr)
 	assert.Empty(t, results)
 }
@@ -1550,7 +1551,7 @@ func TestExecuteToolCalls_MissingToolName(t *testing.T) {
 	toolCalls := []map[string]interface{}{
 		{"id": "tc1", "function": map[string]interface{}{"arguments": `{}`}},
 	}
-	results, execErr := e.executeToolCalls(toolCalls, nil, ctx)
+	results, execErr := e.executeToolCalls(toolCalls, nil, ctx, nil)
 	require.NoError(t, execErr)
 	assert.Empty(t, results)
 }
@@ -1572,7 +1573,7 @@ func TestExecuteToolCalls_MissingArguments(t *testing.T) {
 			},
 		},
 	}
-	results, execErr := e.executeToolCalls(toolCalls, nil, ctx)
+	results, execErr := e.executeToolCalls(toolCalls, nil, ctx, nil)
 	require.NoError(t, execErr)
 	assert.Empty(t, results)
 }
@@ -1594,7 +1595,7 @@ func TestExecuteToolCalls_ToolNotFound(t *testing.T) {
 		},
 	}
 	// toolDefinitions does not contain "unknown_tool".
-	results, execErr := e.executeToolCalls(toolCalls, []domain.Tool{}, ctx)
+	results, execErr := e.executeToolCalls(toolCalls, []domain.Tool{}, ctx, nil)
 	require.NoError(t, execErr)
 	require.Len(t, results, 1)
 	assert.Contains(t, results[0]["error"], "unknown_tool")
@@ -1620,7 +1621,7 @@ func TestExecuteToolCalls_ExecutionError_NoScript(t *testing.T) {
 	tools := []domain.Tool{
 		{Name: "my_tool", Script: ""}, // missing script
 	}
-	results, execErr := e.executeToolCalls(toolCalls, tools, ctx)
+	results, execErr := e.executeToolCalls(toolCalls, tools, ctx, nil)
 	require.NoError(t, execErr)
 	require.Len(t, results, 1)
 	assert.NotEmpty(t, results[0]["error"])
@@ -1977,4 +1978,53 @@ func TestChatToolRounds(t *testing.T) {
 	assert.Equal(t, 7, ChatToolRounds())
 	SetChatToolRounds(func() int { return 0 })
 	assert.Equal(t, 1, ChatToolRounds(), "an event turned off still allows one round")
+}
+
+// TestCallGuard: a repeated call gets its earlier result without running
+// again, a budget event blocks new distinct calls, and a round of calls each
+// issued more than the identical-call limit ends the loop.
+func TestCallGuard(t *testing.T) {
+	toolbudget.Configure(toolbudget.Settings{
+		Events: func() []toolbudget.Event {
+			return []toolbudget.Event{{Name: "b", Tools: []string{"my_tool"}, DistinctCalls: 1}}
+		},
+		IdenticalCalls: func() int { return 2 },
+	})
+	t.Cleanup(func() { toolbudget.Configure(toolbudget.Settings{}) })
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(t.Context(), &domain.Workflow{})
+	require.NoError(t, err)
+	runs := 0
+	tools := []domain.Tool{{Name: "my_tool", Execute: func(map[string]interface{}) (string, error) {
+		runs++
+		return "executed", nil
+	}}}
+	callWith := func(args string) []map[string]interface{} {
+		fn := map[string]interface{}{"name": "my_tool", "arguments": args}
+		return []map[string]interface{}{{"id": "tc", "function": fn}}
+	}
+
+	guard := newCallGuard()
+	assert.False(t, guard.repeating(callWith(`{"x":1}`)))
+	results, err := e.executeToolCalls(callWith(`{"x":1}`), tools, ctx, guard)
+	require.NoError(t, err)
+	assert.Equal(t, "executed", results[0]["content"])
+
+	assert.False(t, guard.repeating(callWith(`{ "x": 1 }`)), "issued twice: within the limit of 2")
+	results, err = e.executeToolCalls(callWith(`{ "x": 1 }`), tools, ctx, guard)
+	require.NoError(t, err)
+	assert.Equal(t, "executed", results[0]["content"])
+	assert.Equal(t, 1, runs, "the repeat reuses the first result")
+
+	results, err = e.executeToolCalls(callWith(`{"x":2}`), tools, ctx, guard)
+	require.NoError(t, err)
+	assert.Contains(t, results[0][fieldError], `blocked by the "b" event`)
+	assert.Equal(t, 1, runs)
+
+	assert.True(t, guard.repeating(callWith(`{"x":1}`)), "issued a third time: over the limit")
+
+	toolbudget.Configure(toolbudget.Settings{})
+	unset := newCallGuard()
+	assert.False(t, unset.repeating(callWith(`{}`)))
+	assert.True(t, unset.repeating(callWith(`{}`)), "no event installed: the first repeat ends the loop")
 }

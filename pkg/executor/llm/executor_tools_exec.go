@@ -31,6 +31,7 @@ func (e *Executor) executeToolCalls(
 	toolCalls []map[string]interface{},
 	toolDefinitions []domain.Tool,
 	ctx *executor.ExecutionContext,
+	guard *callGuard,
 ) ([]map[string]interface{}, error) {
 	kdeps_debug.Log("enter: executeToolCalls")
 	results := make([]map[string]interface{}, 0, len(toolCalls))
@@ -57,7 +58,15 @@ func (e *Executor) executeToolCalls(
 			continue
 		}
 
+		if answered := guard.answer(toolName, arguments, toolCallID); answered != nil {
+			results = append(results, answered)
+			continue
+		}
+
 		result, execErr := e.executeTool(toolDef, arguments, ctx)
+		if execErr == nil {
+			guard.remember(toolName, arguments, result)
+		}
 		if execErr != nil {
 			results = append(results, map[string]interface{}{
 				"tool_call_id": toolCallID,
