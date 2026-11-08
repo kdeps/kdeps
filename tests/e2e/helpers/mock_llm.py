@@ -15,6 +15,8 @@ message:
   - "CALLJSON <tool> <json args>": the call as a JSON object; the reply after
     its result is "TOOL RESULT <result>"
   - anything after a CALL request (the tool's result): "TOOL DONE"
+  - "LOOPJSON <tool>": calls calculator-style "<n> + 1" every round (n =
+    tool results so far), until kdeps asks for the final answer: "LOOP DONE <n>"
   - anything else: "MOCK REPLY"
 """
 import http.server as h, json, os, re, sys, threading, time
@@ -55,6 +57,12 @@ def reply_for(msgs):
         return "DRAFT notes"
     if "<conversation>" in everything:
         return SUMMARY
+    loop = re.search(r"LOOPJSON (\w+)", everything)
+    if loop:
+        n = sum(1 for m in msgs if m.get("role") == "tool")
+        if "Answer the original request now" in last:
+            return "LOOP DONE %d" % n
+        return json.dumps({"name": loop.group(1), "arguments": {"expression": "%d + 1" % n}})
     calls = [i for i, m in enumerate(msgs) if m.get("role") == "user"
              and re.search(r"CALL(DSML|JSON)? \w+ (?=\{)", text(m))]
     if calls and calls[-1] != len(msgs) - 1:

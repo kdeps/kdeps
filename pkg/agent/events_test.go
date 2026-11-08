@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
@@ -505,4 +506,14 @@ func TestParallelEvent_SetsCap(t *testing.T) {
 
 	require.NoError(t, SetEventEnabled(eventParallel, true))
 	assert.Equal(t, 4, parallel.Limit())
+}
+
+// TestMaxRoundsEvents: the agent loop's and a workflow chat's default tool
+// rounds come from the agent-max-rounds and chat-max-rounds events.
+func TestMaxRoundsEvents(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	assert.Equal(t, 200, applyConfigDefaults(Config{}).MaxToolRounds)
+	assert.Equal(t, 9, applyConfigDefaults(Config{MaxToolRounds: 9}).MaxToolRounds, "a set value wins")
+	assert.Equal(t, 5, executorLLM.ChatToolRounds())
 }

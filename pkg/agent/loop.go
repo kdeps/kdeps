@@ -1035,7 +1035,7 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.FoldContextItems = foldItems()
 	}
 	if cfg.MaxToolRounds <= 0 {
-		cfg.MaxToolRounds = defaultMaxToolRounds
+		cfg.MaxToolRounds = effectiveRounds(eventAgentMaxRounds)
 	}
 	if cfg.AutoRetryMax == 0 {
 		cfg.AutoRetryMax = defaultAutoRetryMax
@@ -1059,10 +1059,6 @@ func applyConfigDefaults(cfg Config) Config {
 }
 
 const (
-	// defaultMaxToolRounds bounds tool-call round trips per turn. Coding
-	// tasks routinely need many rounds (explore, read, edit, test, repeat);
-	// hitting the cap mid-task forces a text answer and loses context.
-	defaultMaxToolRounds      = 200
 	defaultAutoRetryMax       = 3
 	defaultAutoRetryBaseDelay = 2 * time.Second
 	// defaultToolStallTimeout kills a running tool after this much time with

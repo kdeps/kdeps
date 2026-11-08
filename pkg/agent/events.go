@@ -33,6 +33,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/assets"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/parallel"
 )
 
@@ -310,6 +311,7 @@ func initEvents() {
 	applyParallel()
 	configureJudges()
 	configureSubagent()
+	executorLLM.SetChatToolRounds(func() int { return effectiveRounds(eventChatMaxRounds) })
 }
 
 // applyParallel sets the one cap on concurrent work for both modes from the

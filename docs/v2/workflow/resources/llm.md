@@ -422,7 +422,8 @@ call is executed on state the model only guessed at - it never saw the earlier
 calls' real results - so trimming to one call per turn forces a real
 step-by-step loop where each call reacts to the previous tool's actual output.
 Set `KDEPS_ALLOW_MULTI_TOOL=1` to restore batched execution. `maxToolRounds` on
-the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
+the `chat:` resource still bounds how many one-at-a-time rounds the loop runs;
+without it, the `chat-max-rounds` event does (5).
 
 ### kdeps tools (by name)
 

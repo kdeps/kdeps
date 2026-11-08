@@ -21,9 +21,10 @@ package github_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,19 +124,24 @@ func TestLatestReleaseTag_Wrapper(t *testing.T) {
 }
 
 func TestLatestReleaseTagFromAPI_EmptyAPIBase(t *testing.T) {
-	// Empty apiBase falls through to defaultAPIBase (https://api.github.com).
-	// This test verifies the function handles empty input without panicking,
-	// but since it requires hitting the real GitHub API, skip in CI.
-	if os.Getenv("CI") != "" {
-		t.Skip("skipped in CI: requires real GitHub API when apiBase defaults")
+	t.Parallel()
+	// Empty apiBase falls through to https://api.github.com; the transport
+	// answers, so no real request is made.
+	var url string
+	client := &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			url = r.URL.String()
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.3"}`)),
+				Header:     make(http.Header),
+			}, nil
+		}),
 	}
-	_, err := gh.LatestReleaseTagFromAPI(
-		context.Background(),
-		"",
-		"kdeps/kdeps",
-		&http.Client{Timeout: 5 * time.Second},
-	)
+	tag, err := gh.LatestReleaseTagFromAPI(context.Background(), "", "kdeps/kdeps", client)
 	require.NoError(t, err)
+	assert.Equal(t, "1.2.3", tag)
+	assert.Equal(t, "https://api.github.com/repos/kdeps/kdeps/releases/latest", url)
 }
 
 func TestLatestReleaseTagFromAPI_ReadBodyError(t *testing.T) {

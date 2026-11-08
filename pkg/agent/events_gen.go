@@ -4,9 +4,11 @@ package agent
 
 // Event names, one per assets/events/<name>.yaml file.
 const (
+	eventAgentMaxRounds             = "agent-max-rounds"
 	eventAutoCompact                = "auto-compact"
 	eventBashCallBudget             = "bash-call-budget"
 	eventBugCaptureMaxErrors        = "bug-capture-max-errors"
+	eventChatMaxRounds              = "chat-max-rounds"
 	eventCodeCallBudget             = "code-call-budget"
 	eventContextSegmentCap          = "context-segment-cap"
 	eventConvergenceBlock           = "convergence-block"
