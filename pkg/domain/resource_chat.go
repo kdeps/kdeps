@@ -307,6 +307,36 @@ type ChatConfig struct {
 	N                 *int     `yaml:"n,omitempty"`                 // Number of completions to generate (OpenAI)
 	MinLength         *int     `yaml:"minLength,omitempty"`         // Minimum generation length (local/HuggingFace)
 	MaxLength         *int     `yaml:"maxLength,omitempty"`         // Maximum generation length (local/HuggingFace)
+
+	// Judges review the answer after it is produced, in parallel; any
+	// rejection re-runs the chat with their feedback (pkg/judge).
+	Judges []Judge `yaml:"judges,omitempty"`
+}
+
+// Judge is one reviewer of a chat answer: a workflow chat's judges: entry, or
+// a judge in an agent-mode preset or panel.
+type Judge struct {
+	// Name identifies the judge (e.g. "correctness").
+	Name string `yaml:"name"`
+	// Criteria is the rubric the judge reviews against.
+	Criteria string `yaml:"criteria,omitempty"`
+	// Tools names the tools the judge may call to check claims: the chat's
+	// own tools in workflow mode, read-only session tools in agent mode.
+	Tools []string `yaml:"tools,omitempty"`
+	// MaxRounds caps the judge's tool rounds; 0 uses the judge-max-rounds event.
+	MaxRounds int `yaml:"maxRounds,omitempty"`
+	// Graders are deterministic checks run before any model call. A failed
+	// grader rejects the answer; a judge with graders and no criteria never
+	// calls the model.
+	Graders []JudgeGrader `yaml:"graders,omitempty"`
+}
+
+// JudgeGrader is one deterministic check: kind exact, contains, not_contains,
+// regex, json or expr; pattern is the expected text, regular expression, JSON
+// document or expr-lang expression (output and answer name the candidate).
+type JudgeGrader struct {
+	Kind    string `yaml:"kind"`
+	Pattern string `yaml:"pattern,omitempty"`
 }
 
 // ScenarioItem represents a chat scenario item.

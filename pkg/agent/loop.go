@@ -266,7 +266,7 @@ type Config struct {
 	HandshakeEnabled bool
 	// Judges is an explicit review panel run against the final output of every
 	// turn. Takes priority over AutoJudges when non-empty.
-	Judges []JudgeSpec
+	Judges []domain.Judge
 	// AutoJudges, when true and Judges is empty, generates a review panel per
 	// turn via one LLM call rather than requiring a hand-configured roster.
 	AutoJudges bool
@@ -468,7 +468,7 @@ type Loop struct {
 	// lastAutoRoster is the most recent auto-generated judge panel, shown by
 	// /judges list. Explicit Config.Judges is separate and always wins at
 	// review time.
-	lastAutoRoster []JudgeSpec
+	lastAutoRoster []domain.Judge
 	// handshake is non-nil while a mandatory session-integrity handshake is
 	// pending (set by RequireHandshake on model change, session resume, and
 	// post-compaction/fold). Cleared once performHandshake confirms a real

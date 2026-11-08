@@ -402,6 +402,32 @@
           "type": "integer",
           "minimum": 0
         },
+        "judges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "criteria": { "type": "string" },
+              "tools": { "type": "array", "items": { "type": "string" } },
+              "maxRounds": { "type": "integer", "minimum": 0 },
+              "graders": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["exact", "contains", "not_contains", "regex", "json", "expr"] },
+                    "pattern": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
         "promptVars": {
           "type": "object"
         },

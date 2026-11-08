@@ -16,19 +16,23 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package judge
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
 
 	"github.com/expr-lang/expr"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func knownGraderKind(kind string) bool {
+// KnownGraderKind reports whether kind is a grader kind.
+func KnownGraderKind(kind string) bool {
 	switch kind {
 	case "exact", "contains", "not_contains", "regex", "json", "expr":
 		return true
@@ -37,31 +41,49 @@ func knownGraderKind(kind string) bool {
 	}
 }
 
-func graderKindList() string {
+// Validate checks a judge's definition: a name, criteria or graders, and
+// known grader kinds.
+func Validate(j domain.Judge) error {
+	if strings.TrimSpace(j.Name) == "" {
+		return errors.New("judge needs a name")
+	}
+	if strings.TrimSpace(j.Criteria) == "" && len(j.Graders) == 0 {
+		return fmt.Errorf("judge %q needs criteria or graders", j.Name)
+	}
+	for _, g := range j.Graders {
+		if !KnownGraderKind(g.Kind) {
+			return fmt.Errorf("judge %q: unknown grader kind %q (want %s)", j.Name, g.Kind, GraderKinds())
+		}
+	}
+	return nil
+}
+
+// GraderKinds lists the grader kinds for messages.
+func GraderKinds() string {
 	return "exact, contains, not_contains, regex, json, expr"
 }
 
-// settleByGraders runs spec.Graders on output. settled is true when the
+// Settle runs spec.Graders on output. settled is true when the
 // judge is done without a model call: a grader failed, or every grader
 // passed and the judge has no criteria. Otherwise the caller opens the
 // LLM review.
-func settleByGraders(spec JudgeSpec, output string) (JudgeVerdict, bool) {
+func Settle(spec domain.Judge, output string) (Verdict, bool) {
 	if len(spec.Graders) == 0 {
-		return JudgeVerdict{}, false
+		return Verdict{}, false
 	}
 	for _, g := range spec.Graders {
 		ok, line := runGrader(g, output)
 		if !ok {
-			return JudgeVerdict{Name: spec.Name, Approved: false, Feedback: line}, true
+			return Verdict{Name: spec.Name, Approved: false, Feedback: line}, true
 		}
 	}
 	if strings.TrimSpace(spec.Criteria) == "" {
-		return JudgeVerdict{Name: spec.Name, Approved: true}, true
+		return Verdict{Name: spec.Name, Approved: true}, true
 	}
-	return JudgeVerdict{}, false
+	return Verdict{}, false
 }
 
-func runGrader(g JudgeGrader, output string) (bool, string) {
+func runGrader(g domain.JudgeGrader, output string) (bool, string) {
 	switch g.Kind {
 	case "exact":
 		if strings.TrimSpace(output) == strings.TrimSpace(g.Pattern) {

@@ -22,6 +22,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
@@ -540,6 +543,30 @@ func TestWorkflowValidator_ValidateChatConfig(t *testing.T) {
 				t.Errorf("validateChatConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestWorkflowValidator_ValidateChatJudges(t *testing.T) {
+	v := validator.NewWorkflowValidator(nil)
+	chat := func(judges ...domain.Judge) *domain.ChatConfig {
+		return &domain.ChatConfig{
+			Prompt: "p", Tools: []domain.Tool{{Name: "lookup"}}, ComponentTools: []string{"search"}, Judges: judges,
+		}
+	}
+	require.NoError(t, v.ValidateChatConfig(chat(
+		domain.Judge{Name: "scope", Criteria: "complete", Tools: []string{"lookup", "search"}},
+		domain.Judge{Name: "json", Graders: []domain.JudgeGrader{{Kind: "json"}}},
+	)))
+	for name, j := range map[string]domain.Judge{
+		"needs a name":              {Criteria: "c"},
+		"criteria or graders":       {Name: "a"},
+		"unknown grader kind":       {Name: "a", Graders: []domain.JudgeGrader{{Kind: "nope"}}},
+		"is not one of this chat's": {Name: "a", Criteria: "c", Tools: []string{"write_file"}},
+	} {
+		err := v.ValidateChatConfig(chat(j))
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), name)
+		assert.Contains(t, err.Error(), "chat.judges[0]")
 	}
 }
 

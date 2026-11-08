@@ -25,6 +25,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestLoadBuiltinPresets_HasEveryShippedPreset(t *testing.T) {
@@ -169,10 +171,10 @@ judges:
     maxRounds: 3
 `), "panel.yaml")
 	require.NoError(t, err)
-	want := []JudgeSpec{{
+	want := []domain.Judge{{
 		Name: "scope", Criteria: "solves the stated problem", Tools: []string{"read_file"}, MaxRounds: 3,
 	}}
-	assert.Equal(t, want, p.judgeSpecs())
+	assert.Equal(t, want, p.Judges)
 }
 
 func TestParseYAMLPreset_JudgeNeedsNameAndCriteria(t *testing.T) {
@@ -190,7 +192,7 @@ func TestApplyPreset_DesignReviewSetsTheJudgePanel(t *testing.T) {
 	assert.Empty(t, p.Events, "it changes no events")
 
 	l := newJudgeTestLoop(nil)
-	l.SetJudges([]JudgeSpec{{Name: "old", Criteria: "x"}})
+	l.SetJudges([]domain.Judge{{Name: "old", Criteria: "x"}})
 	require.NoError(t, ApplyPreset("design-review", l))
 	names := []string{}
 	for _, j := range l.Judges() {
@@ -203,7 +205,7 @@ func TestApplyPreset_DesignReviewSetsTheJudgePanel(t *testing.T) {
 func TestApplyPreset_WithoutJudgesKeepsThePanel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	l := newJudgeTestLoop(nil)
-	l.SetJudges([]JudgeSpec{{Name: "keep", Criteria: "x"}})
+	l.SetJudges([]domain.Judge{{Name: "keep", Criteria: "x"}})
 	require.NoError(t, ApplyPreset("balanced", l))
 	require.Len(t, l.Judges(), 1)
 	assert.Equal(t, "keep", l.Judges()[0].Name)

@@ -43,7 +43,7 @@ const maxAutoJudges = 3
 // generateJudgeRoster asks the model for a panel of reviewer personas suited
 // to input. Returns nil on any engine error or unparsable reply — a broken
 // roster generation must not block the turn.
-func generateJudgeRoster(l *Loop, input string) []JudgeSpec {
+func generateJudgeRoster(l *Loop, input string) []domain.Judge {
 	call, ok := l.judgeRosterCall(input)
 	if !ok {
 		return nil
@@ -74,7 +74,7 @@ func (l *Loop) judgeRosterCall(input string) (*domain.Workflow, bool) {
 }
 
 // runJudgeRosterCall runs a roster request on eng and parses the panel.
-func runJudgeRosterCall(eng *executor.Engine, call *domain.Workflow) []JudgeSpec {
+func runJudgeRosterCall(eng *executor.Engine, call *domain.Workflow) []domain.Judge {
 	result, err := eng.Execute(call, nil)
 	if err != nil {
 		return nil
@@ -103,7 +103,7 @@ func jsonResultText(result any) string {
 
 // parseJudgeRoster extracts the judge list from a model reply, tolerating a
 // code fence or surrounding prose around the JSON object.
-func parseJudgeRoster(reply string) []JudgeSpec {
+func parseJudgeRoster(reply string) []domain.Judge {
 	raw := extractJSONObject(reply)
 	if raw == "" {
 		return nil
@@ -117,14 +117,14 @@ func parseJudgeRoster(reply string) []JudgeSpec {
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		return nil
 	}
-	out := make([]JudgeSpec, 0, len(payload.Judges))
+	out := make([]domain.Judge, 0, len(payload.Judges))
 	for _, j := range payload.Judges {
 		name := strings.TrimSpace(j.Name)
 		criteria := strings.TrimSpace(j.Criteria)
 		if name == "" || criteria == "" {
 			continue
 		}
-		out = append(out, JudgeSpec{Name: name, Criteria: criteria})
+		out = append(out, domain.Judge{Name: name, Criteria: criteria})
 		if len(out) == maxAutoJudges {
 			break
 		}
@@ -133,7 +133,7 @@ func parseJudgeRoster(reply string) []JudgeSpec {
 }
 
 // Judges returns the explicit judge roster (nil when none configured).
-func (l *Loop) Judges() []JudgeSpec {
+func (l *Loop) Judges() []domain.Judge {
 	if l == nil {
 		return nil
 	}
@@ -141,7 +141,7 @@ func (l *Loop) Judges() []JudgeSpec {
 }
 
 // SetJudges replaces the explicit judge roster, used by /judges add|remove|clear.
-func (l *Loop) SetJudges(judges []JudgeSpec) {
+func (l *Loop) SetJudges(judges []domain.Judge) {
 	if l == nil {
 		return
 	}
@@ -169,7 +169,7 @@ func (l *Loop) SetAutoJudges(enabled bool) {
 // auto-generated when Config.AutoJudges is set, skipped for trivial chat the
 // same way planGoal skips decomposition. Returns nil (no panel) when neither
 // applies or ctx is already canceled.
-func (l *Loop) resolveJudgeRoster(ctx context.Context, input string) []JudgeSpec {
+func (l *Loop) resolveJudgeRoster(ctx context.Context, input string) []domain.Judge {
 	if l == nil || ctx.Err() != nil {
 		return nil
 	}
@@ -191,8 +191,8 @@ func (l *Loop) resolveJudgeRoster(ctx context.Context, input string) []JudgeSpec
 // that runs beside the turn; the request is built here, on the turn's
 // goroutine, because the turn may change the config (a model fallback)
 // while the call runs. Without SubagentEngine it runs here, before the turn.
-func (l *Loop) startJudgeRoster(ctx context.Context, input string) <-chan []JudgeSpec {
-	ready := make(chan []JudgeSpec, 1)
+func (l *Loop) startJudgeRoster(ctx context.Context, input string) <-chan []domain.Judge {
+	ready := make(chan []domain.Judge, 1)
 	if l == nil || ctx.Err() != nil || len(l.config.Judges) > 0 || !l.config.AutoJudges || looksTrivial(input) {
 		ready <- l.resolveJudgeRoster(ctx, input) // explicit or none: no model call
 		return ready
@@ -215,7 +215,7 @@ func (l *Loop) startJudgeRoster(ctx context.Context, input string) <-chan []Judg
 }
 
 // LastAutoRoster returns the most recent auto-generated judge panel, or nil.
-func (l *Loop) LastAutoRoster() []JudgeSpec {
+func (l *Loop) LastAutoRoster() []domain.Judge {
 	if l == nil {
 		return nil
 	}
@@ -224,7 +224,7 @@ func (l *Loop) LastAutoRoster() []JudgeSpec {
 
 // reportJudgeRoster shows the auto-generated judge panel and each judge's
 // review criteria as soon as the roster is built, before the main tool loop.
-func (l *Loop) reportJudgeRoster(w io.Writer, roster []JudgeSpec) {
+func (l *Loop) reportJudgeRoster(w io.Writer, roster []domain.Judge) {
 	pw := l.progressWriter(w)
 	if pw == nil {
 		return

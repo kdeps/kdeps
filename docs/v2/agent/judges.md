@@ -1,6 +1,6 @@
 # Judge panel
 
-The judge panel is the eval. It reviews a turn's answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
+The judge panel is the eval. Workflow chats take the same panel as a [`judges:` block](/workflow/resources/llm#judges). It reviews a turn's answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
 
 Goal enforcement checks that the loop keeps moving; it says nothing about whether
 the final answer is right. The panel is an independent review of
@@ -134,6 +134,9 @@ judges:
     maxRounds: 10                 # its tool rounds; 0 = the judge-max-rounds event
   - name: errors
     criteria: Every new failure returns a documented status and message.
+    graders:                      # checks without a model call; a failure rejects
+      - kind: not_contains
+        pattern: TODO
 ```
 
 The panel lasts for the session, like `/judges add`.
