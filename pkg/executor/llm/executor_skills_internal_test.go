@@ -81,5 +81,5 @@ func TestWithSkills(t *testing.T) {
 
 	skills.Configure(skills.Settings{Load: func([]string) []skills.Skill { return nil }})
 	_, _, err = withSkills(nil, cfg, nil, nil)
-	require.ErrorContains(t, err, "chat.skills: no skills found in skills, /abs/SKILL.md")
+	require.ErrorContains(t, err, "chat.skills: no skills found in skills, "+abs)
 }
