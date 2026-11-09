@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/harness"
 	"github.com/kdeps/kdeps/v2/pkg/overflow"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -259,4 +260,24 @@ func TestConfigureCompaction(t *testing.T) {
 	assert.Equal(t, harnessText("compaction-system"), system)
 	assert.Contains(t, user, "<conversation>\nconv\n</conversation>")
 	assert.Contains(t, user, harnessText("compaction-user"))
+}
+
+func TestConfigureChatHarness(t *testing.T) {
+	t.Cleanup(func() { harness.Configure(harness.Settings{}) })
+	configureChatHarness()
+	out, err := harness.Sections([]string{"Accuracy", "honesty"})
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(out, "<accuracy>"))
+	assert.Contains(t, out, "<honesty>")
+	out, err = harness.Sections([]string{"output"})
+	require.NoError(t, err)
+	assert.NotContains(t, out, "{{", "templates are rendered")
+	_, err = harness.Sections([]string{"compaction-system"})
+	require.Error(t, err, "a standalone entry is not a section")
+
+	harnessRegistry["honesty"].disabled = true
+	t.Cleanup(func() { harnessRegistry["honesty"].disabled = false })
+	out, err = harness.Sections([]string{"honesty"})
+	require.NoError(t, err)
+	assert.Empty(t, out, "a disabled section adds nothing")
 }

@@ -60,7 +60,10 @@ func (e *Executor) buildMessages(
 	})
 
 	// Build system prompt with JSON response instructions (v1 compatibility)
-	systemPrompt := e.buildSystemPrompt(config)
+	systemPrompt, sysErr := e.buildSystemPrompt(config)
+	if sysErr != nil {
+		return nil, sysErr
+	}
 	if systemPrompt != "" {
 		messages = append([]map[string]interface{}{
 			{

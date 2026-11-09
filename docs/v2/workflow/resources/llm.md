@@ -359,6 +359,18 @@ chat:
 
 An unknown preset, or one with no judges, fails the resource.
 
+## Harness sections
+
+`harness:` adds agent mode's system-prompt sections to the chat, in the order listed, ahead of its other instructions:
+
+```yaml
+chat:
+  prompt: "Summarize {{ get('url') }}."
+  harness: [accuracy, honesty, output]   # assets/harness/<name>.yaml, kind: preamble-section
+```
+
+Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing; an unknown name fails the resource.
+
 ## Vision (file attachments)
 
 Process images (set a vision-capable model in the resource's `model:`):
