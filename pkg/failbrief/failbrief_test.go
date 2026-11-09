@@ -20,6 +20,7 @@ package failbrief
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestFileContext(t *testing.T) {
 	assert.Empty(t, FileContext(fs, "edit_file", map[string]any{"path": "/w/bin"}), "binary")
 	assert.Contains(t, FileContext(fs, "edit_file", map[string]any{"file_path": "/w/a.txt", "match": "two"}),
 		"Current content of /w/a.txt, lines 1-3 of 3:\n1\tone\n2\ttwo")
-	assert.Equal(t, "/w/x/y.txt does not exist. Entries in /w: a.txt, bin, sub/",
+	assert.Equal(t, "/w/x/y.txt does not exist. Entries in "+filepath.FromSlash("/w")+": a.txt, bin, sub/",
 		FileContext(fs, "read_file", map[string]any{"path": "/w/x/y.txt"}))
 	unreadable := unreadableFs{afero.NewMemMapFs()}
 	assert.Equal(t, "/nope/y does not exist.",
