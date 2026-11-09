@@ -24,6 +24,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/refine"
 )
 
 func refineLoop(t *testing.T, fn func(*domain.Workflow, interface{}) (interface{}, error)) *Loop {
@@ -144,20 +145,6 @@ func TestRefinePrompt_RunawayExpansionRejected(t *testing.T) {
 	}
 }
 
-func TestCleanRefined(t *testing.T) {
-	cases := map[string]string{
-		`"add a flag"`:                  "add a flag",
-		"Rewritten request: add a flag": "add a flag",
-		"'add a flag'":                  "add a flag",
-		"add a flag":                    "add a flag",
-	}
-	for in, want := range cases {
-		if got := cleanRefined(in); got != want {
-			t.Fatalf("cleanRefined(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestSetPromptRefine(t *testing.T) {
 	l := &Loop{}
 	l.SetPromptRefine(true)
@@ -175,4 +162,13 @@ func TestTrivialLength_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
 	withEvent(t, Event{Name: eventTrivialPromptShort, Items: 10, Run: actionCap, Disabled: true})
 	assert.Equal(t, 50, trivialLength(eventTrivialPromptMax, defaultTrivialPromptMax))
 	assert.Equal(t, defaultTrivialPromptShort, trivialLength(eventTrivialPromptShort, defaultTrivialPromptShort))
+}
+
+func TestConfigureRefine(t *testing.T) {
+	t.Cleanup(configureRefine)
+	refine.Configure(refine.Settings{})
+	configureRefine()
+	assert.Equal(t, harnessText("refine-system"), refine.SystemPrompt())
+	assert.True(t, refine.Skip("hi"), "a trivial prompt is not refined")
+	assert.False(t, refine.Skip("refactor the session store so every write goes through one function"))
 }

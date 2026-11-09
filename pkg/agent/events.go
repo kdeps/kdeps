@@ -314,6 +314,8 @@ func initEvents() {
 	executorLLM.SetChatToolRounds(func() int { return effectiveRounds(eventChatMaxRounds) })
 	configureToolBudget()
 	configureBodyLimit()
+	configureChatHarness()
+	configureRefine()
 	configureSkills()
 	configureFailureBrief()
 	configureCompaction()

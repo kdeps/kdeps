@@ -46,7 +46,16 @@ def reply_for(msgs):
     everything = "\n".join(text(m) for m in msgs)
     last = text(msgs[-1]) if msgs else ""
     if "You rewrite a user's request" in everything:
-        return last.split("Request:\n", 1)[-1]
+        # chat refine: / agent /refine: REFINEME marks a prompt to rewrite.
+        return last.split("Request:\n", 1)[-1].replace("REFINEME", "REFINEDCHECK")
+    if "REFINEDCHECK" in last:
+        return "GOT REFINED"
+    if "REFINEME" in last:
+        return "GOT ORIGINAL"
+    if "HARNESSCHECK" in last:
+        # chat.harness: report which harness sections reached the model.
+        tags = [t for t in ("accuracy", "honesty", "output") if "<%s>" % t in everything]
+        return "HARNESS " + (",".join(tags) or "none")
     slow = re.search(r"SLOW (\w+)", last)
     if slow:
         time.sleep(1)  # a slow model call: parallel workflow resources overlap these

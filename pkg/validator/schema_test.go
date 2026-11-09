@@ -245,12 +245,60 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "chat harness sections",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "chat-action",
+				"name":       "Chat",
+				"chat": map[string]interface{}{
+					"model": "m", "prompt": "p", "harness": []interface{}{"accuracy", "honesty"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "chat harness repeats a section",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "chat-action",
+				"name":       "Chat",
+				"chat": map[string]interface{}{
+					"model": "m", "prompt": "p", "harness": []interface{}{"accuracy", "accuracy"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "chat refine",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "chat-action",
+				"name":       "Chat",
+				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "refine": true},
+			},
+			wantErr: false,
+		},
+		{
+			name: "chat refine must be a boolean",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "chat-action",
+				"name":       "Chat",
+				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "refine": "yes"},
+			},
+			wantErr: true,
+		},
+		{
 			name: "chat skills",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"actionId":   "skills-action",
-				"name":       "Skills",
+				"actionId":   "chat-action",
+				"name":       "Chat",
 				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "skills": []interface{}{"skills"}},
 			},
 			wantErr: false,
@@ -260,8 +308,8 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"actionId":   "skills-action",
-				"name":       "Skills",
+				"actionId":   "chat-action",
+				"name":       "Chat",
 				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "skills": []interface{}{""}},
 			},
 			wantErr: true,

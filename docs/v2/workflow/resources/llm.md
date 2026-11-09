@@ -359,6 +359,30 @@ chat:
 
 An unknown preset, or one with no judges, fails the resource.
 
+## Harness sections
+
+`harness:` adds agent mode's system-prompt sections to the chat, in the order listed, ahead of its other instructions:
+
+```yaml
+chat:
+  prompt: "Summarize {{ get('url') }}."
+  harness: [accuracy, honesty, output]   # assets/harness/<name>.yaml, kind: preamble-section
+```
+
+Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing; an unknown name fails the resource.
+
+## Prompt refine
+
+`refine: true` rewrites the prompt into a clearer, self-contained request before the call, as agent mode's `/refine` does:
+
+```yaml
+chat:
+  prompt: "{{ get('q') }}"   # e.g. "fix it" -> "Fix the failing build in ./cmd and report what changed."
+  refine: true                 # one extra model call with the refine-system harness prompt
+```
+
+The chat's history is context for the rewrite. A trivial prompt, a failed refine call or an unusable reply keeps the prompt as written.
+
 ## Skills
 
 `skills:` gives the chat agent mode's skills: each listed folder of `SKILL.md` files (or one skill file) is read, the skill names and descriptions join the system prompt, and the model reads one in full with the `load_skill` tool:

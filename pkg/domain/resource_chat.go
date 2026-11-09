@@ -314,6 +314,12 @@ type ChatConfig struct {
 	// JudgePreset names a preset (assets/presets) whose judges review the
 	// answer, as agent mode's /harness preset applies them. Not with judges.
 	JudgePreset string `yaml:"judgePreset,omitempty"`
+	// Harness names agent mode's preamble sections (accuracy, honesty,
+	// output, ...) to add to the system prompt, in order.
+	Harness []string `yaml:"harness,omitempty"`
+	// Refine rewrites the prompt into a clearer, self-contained request
+	// before the call, as agent mode's /refine does (refine-system harness).
+	Refine bool `yaml:"refine,omitempty"`
 	// Skills lists skill folders or SKILL.md files; relative paths resolve
 	// against the run's working folder, as a python scriptFile does. Their
 	// names go in the system prompt and the model reads one in full with the
