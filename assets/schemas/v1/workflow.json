@@ -4,8 +4,7 @@
   "required": [
     "apiVersion",
     "kind",
-    "metadata",
-    "settings"
+    "metadata"
   ],
   "properties": {
     "apiVersion": {
@@ -43,8 +42,9 @@
         }
       }
     },
-    "settings": {
+    "deploy": {
       "type": "object",
+      "description": "How the workflow is served: servers, TLS, input sources, and runtime.",
       "properties": {
         "apiServer": {
           "type": "object",
@@ -87,25 +87,17 @@
             }
           }
         },
-        "agentSettings": {
-          "type": "object",
-          "properties": {
-            "timezone": {
-              "type": "string"
-            },
-            "pythonVersion": {
-              "type": "string"
-            },
-            "pythonPackages": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "requirementsFile": {
-              "type": "string"
-            }
-          }
+        "webServer": {
+          "type": "object"
+        },
+        "certFile": {
+          "type": "string"
+        },
+        "keyFile": {
+          "type": "string"
+        },
+        "letsEncrypt": {
+          "type": "object"
         },
         "input": {
           "type": "object",
@@ -178,26 +170,34 @@
           },
           "additionalProperties": false
         },
-        "certFile": {
-          "type": "string"
-        },
-        "keyFile": {
-          "type": "string"
-        },
-        "letsEncrypt": {
-          "type": "object"
-        },
-        "webServer": {
-          "type": "object"
-        },
-        "session": {
-          "type": "object"
-        },
-        "llm": {
-          "type": "object"
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "timezone": {
+              "type": "string"
+            },
+            "pythonVersion": {
+              "type": "string"
+            },
+            "pythonPackages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requirementsFile": {
+              "type": "string"
+            }
+          }
         }
       },
       "additionalProperties": false
+    },
+    "memory": {
+      "type": "object"
+    },
+    "agent": {
+      "type": "object"
     },
     "resources": {
       "type": "array",
@@ -205,9 +205,9 @@
         "$ref": "#/$defs/resource"
       }
     },
-    "tests": {
+    "evals": {
       "type": "array",
-      "description": "Cases run by kdeps test against the workflow's own router.",
+      "description": "Eval cases run by kdeps test against the workflow's own router.",
       "items": {
         "type": "object",
         "required": [
@@ -306,6 +306,87 @@
               }
             },
             "additionalProperties": false
+          },
+          "judges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "criteria": {
+                  "type": "string"
+                },
+                "tools": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "maxRounds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "graders": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "kind"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "exact",
+                          "contains",
+                          "not_contains",
+                          "regex",
+                          "json",
+                          "expr"
+                        ]
+                      },
+                      "pattern": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "judgeModel": {
+            "type": "object",
+            "description": "Model that reviews judges with criteria.",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "backend": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "repeat": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Runs of the case (default 1)."
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Pass rate the runs need (default 1: every run)."
           }
         },
         "additionalProperties": false
@@ -343,16 +424,21 @@
         "description": {
           "type": "string"
         },
-        "requires": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        "workflow": {
+          "type": "object",
+          "properties": {
+            "requires": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       }

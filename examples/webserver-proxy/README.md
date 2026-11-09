@@ -42,7 +42,7 @@ curl http://127.0.0.1:16395/health
 ### 1. KDeps Configuration
 
 ```yaml
-settings:
+deploy:
   webServer:
     routes:
       - path: "/"

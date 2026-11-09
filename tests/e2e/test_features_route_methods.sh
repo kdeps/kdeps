@@ -42,7 +42,7 @@ metadata:
   version: "1.0.0"
   targetActionId: postHandler
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3130
@@ -50,7 +50,7 @@ settings:
       - path: /api/v1/methods
         methods: [GET, POST, PUT, DELETE]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

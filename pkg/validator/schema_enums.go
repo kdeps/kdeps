@@ -51,11 +51,11 @@ func schemaEnumMap() map[string][]interface{} {
 		enumKeyContextLength: {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
-		"run.validations.methods":           httpMethods,
-		"settings.apiServer.routes.methods": httpMethods,
-		"routes.methods":                    httpMethods,
-		"apiVersion":                        {"kdeps.io/v1"},
-		"kind":                              {"Workflow", "Resource"},
+		"guardrails.methods":              httpMethods,
+		"deploy.apiServer.routes.methods": httpMethods,
+		"routes.methods":                  httpMethods,
+		"apiVersion":                      {"kdeps.io/v1"},
+		"kind":                            {"Workflow", "Resource"},
 	}
 }
 
@@ -92,7 +92,7 @@ func lookupResourceSchemaEnums(field string, enumMap map[string][]interface{}) [
 // lookupWorkflowSchemaEnums resolves short field names in workflow schema context.
 func lookupWorkflowSchemaEnums(field string, enumMap map[string][]interface{}) []interface{} {
 	if field == methodsField {
-		return enumMap["settings.apiServer.routes.methods"]
+		return enumMap["deploy.apiServer.routes.methods"]
 	}
 	return nil
 }
@@ -122,10 +122,10 @@ func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interfa
 	}
 	if lastPart == methodsField {
 		if strings.Contains(normalizedField, "routes") || strings.Contains(normalizedField, "apiServer") {
-			return enumMap["settings.apiServer.routes.methods"]
+			return enumMap["deploy.apiServer.routes.methods"]
 		}
-		if strings.Contains(normalizedField, "validations") {
-			return enumMap["run.validations.methods"]
+		if strings.Contains(normalizedField, "guardrails") {
+			return enumMap["guardrails.methods"]
 		}
 	}
 	return nil

@@ -31,10 +31,13 @@ component:
 ---
 
 actionId: analyzeRepo
-requires: [fetchData]
+workflow:
+  requires: [fetchData]
 chat:
-  model: llama3.2:1b
-  prompt: "Analyze this GitHub repo: {{ get('fetchData') }}"
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "Analyze this GitHub repo: {{ get('fetchData') }}"
 ```
 
 </div>

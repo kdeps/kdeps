@@ -24,16 +24,18 @@ D -> E
 ```yaml
 # resources/chat.yaml
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: calculate
-      description: Perform mathematical calculations  # LLM uses this to decide when to call
-      script: calcTool                                # actionId of the resource to run
-      parameters:
-        expression:
-          type: string
-          description: Math expression to evaluate
-          required: true
+    list:
+      - name: calculate
+        description: Perform mathematical calculations  # LLM uses this to decide when to call
+        script: calcTool                                # actionId of the resource to run
+        parameters:
+          expression:
+            type: string
+            description: Math expression to evaluate
+            required: true
 ```
 
 </div>
@@ -78,16 +80,18 @@ component:
 # The LLM that uses the tool
 actionId: llmWithTools
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: calculate
-      description: Evaluate mathematical expressions
-      script: calcTool
-      parameters:
-        expression:
-          type: string
-          description: "Math expression (e.g., '2 + 2', 'math.sqrt(16)')"
-          required: true
+    list:
+      - name: calculate
+        description: Evaluate mathematical expressions
+        script: calcTool
+        parameters:
+          expression:
+            type: string
+            description: "Math expression (e.g., '2 + 2', 'math.sqrt(16)')"
+            required: true
 ```
 
 </div>
@@ -130,18 +134,20 @@ tools:
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: read_file
-      description: Read the contents of a file
-      mcp:
-        server: npx
-        args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
-      parameters:
-        path:
-          type: string
-          description: Absolute path of the file to read
-          required: true
+    list:
+      - name: read_file
+        description: Read the contents of a file
+        mcp:
+          server: npx
+          args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+        parameters:
+          path:
+            type: string
+            description: Absolute path of the file to read
+            required: true
 ```
 
 </div>
@@ -155,46 +161,48 @@ Define multiple tools for different capabilities:
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: calculate
-      description: Perform math calculations
-      script: calcTool
-      parameters:
-        expression:
-          type: string
-          required: true
+    list:
+      - name: calculate
+        description: Perform math calculations
+        script: calcTool
+        parameters:
+          expression:
+            type: string
+            required: true
 
-    - name: search_database
-      description: Search the product database
-      script: dbSearchTool
-      parameters:
-        query:
-          type: string
-          description: Search query
-          required: true
-        category:
-          type: string
-          description: Product category filter
-          required: false
-        limit:
-          type: integer
-          description: Maximum results
-          required: false
+      - name: search_database
+        description: Search the product database
+        script: dbSearchTool
+        parameters:
+          query:
+            type: string
+            description: Search query
+            required: true
+          category:
+            type: string
+            description: Product category filter
+            required: false
+          limit:
+            type: integer
+            description: Maximum results
+            required: false
 
-    - name: send_email
-      description: Send an email notification
-      script: emailTool
-      parameters:
-        to:
-          type: string
-          required: true
-        subject:
-          type: string
-          required: true
-        body:
-          type: string
-          required: true
+      - name: send_email
+        description: Send an email notification
+        script: emailTool
+        parameters:
+          to:
+            type: string
+            required: true
+          subject:
+            type: string
+            required: true
+          body:
+            type: string
+            required: true
 ```
 
 </div>

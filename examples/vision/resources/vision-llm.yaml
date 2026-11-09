@@ -2,14 +2,18 @@ actionId: visionLLM
 name: Vision LLM
 
 chat:
-  model: llama3.2:1b
-  role: "user"
-  prompt: "{{ get('q') }}"
-  files:
-    # Get uploaded file path - use 'file' field name from upload
-    - "{{ get('file', 'filepath') }}"
-  jsonResponse: true
-  jsonResponseKeys:
-    - description
-    - objects
-    - scene
+  model:
+    name: llama3.2:1b
+  context:
+    role: "user"
+    prompt: "{{ get('q') }}"
+    files:
+      # Get uploaded file path - use 'file' field name from upload
+      - "{{ get('file', 'filepath') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - description
+        - objects
+        - scene

@@ -35,9 +35,8 @@ var yamlUnmarshalToMap = func(in []byte, out *map[string]interface{}) error {
 
 var resourceMetaKeys = map[string]bool{ //nolint:gochecknoglobals // immutable lookup set
 	"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
-	"category": true, "requires": true, "items": true,
-	"tool": true, "validations": true, "loop": true,
-	"before": true, "after": true, "onError": true,
+	"category": true, "workflow": true, "guardrails": true,
+	"tool": true, "before": true, "after": true,
 }
 
 // wfDoc is the minimal structure of workflow.yaml.
@@ -140,7 +139,7 @@ func resourceHasValidAction(rawDoc map[string]interface{}) bool {
 func unrecognizedActionMessage(name, actionID string, rawDoc map[string]interface{}) string {
 	var actions []string
 	for key := range rawDoc {
-		if key == "apiVersion" || key == "kind" || key == "metadata" || key == "items" {
+		if key == "apiVersion" || key == "kind" || key == "metadata" || key == "workflow" {
 			continue
 		}
 		actions = append(actions, key)

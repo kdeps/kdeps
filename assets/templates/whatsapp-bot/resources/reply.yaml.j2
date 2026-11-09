@@ -1,9 +1,10 @@
 actionId: reply
 name: Send WhatsApp Reply
-requires:
-  - llm
+workflow:
+  requires:
+    - llm
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/webhook]
   skip:

@@ -1446,3 +1446,41 @@ func TestWorkflowValidator_Validate_TestCasesError(t *testing.T) {
 }
 
 func boolPointer(v bool) *bool { return &v }
+
+func TestValidateTestCases_EvalScoring(t *testing.T) {
+	base := func(mut func(*domain.TestCase)) []domain.TestCase {
+		tc := domain.TestCase{Name: "e", Request: domain.TestRequest{Path: "/"}}
+		mut(&tc)
+		return []domain.TestCase{tc}
+	}
+	grader := []domain.JudgeGrader{{Kind: "contains", Pattern: "x"}}
+	for name, tc := range map[string]struct {
+		cases []domain.TestCase
+		err   string
+	}{
+		"graders only": {base(func(c *domain.TestCase) {
+			c.Judges = []domain.Judge{{Name: "g", Graders: grader}}
+			c.Repeat, c.Threshold = 3, 0.6
+		}), ""},
+		"criteria with model": {base(func(c *domain.TestCase) {
+			c.Judges = []domain.Judge{{Name: "c", Criteria: "polite"}}
+			c.JudgeModel = &domain.EvalModel{Name: "m"}
+		}), ""},
+		"criteria without model": {base(func(c *domain.TestCase) {
+			c.Judges = []domain.Judge{{Name: "c", Criteria: "polite"}}
+		}), `judge "c" has criteria: set judgeModel.name`},
+		"bad judge":       {base(func(c *domain.TestCase) { c.Judges = []domain.Judge{{Name: "b"}} }), "needs criteria or graders"},
+		"negative repeat": {base(func(c *domain.TestCase) { c.Repeat = -1 }), "repeat -1 must be 1 or more"},
+		"threshold above": {base(func(c *domain.TestCase) { c.Threshold = 1.5 }), "threshold 1.5 must be between 0 and 1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := validator.ValidateTestCases(tc.cases)
+			if tc.err == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.err)
+		})
+	}
+}

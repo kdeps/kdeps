@@ -101,8 +101,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: response

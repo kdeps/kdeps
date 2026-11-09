@@ -146,8 +146,9 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-requires:
-  - readConfig
+workflow:
+  requires:
+    - readConfig
 apiResponse:
   success: true
   response: "{{ output('readConfig') }}"  # the numbered file text

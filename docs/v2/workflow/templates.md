@@ -18,7 +18,7 @@ metadata:
   name: my-api
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
 {% if env.PORT %}
     portNum: {{ env.PORT | int }}
@@ -82,7 +82,6 @@ name: {{ env.SERVICE_NAME | default('my-service') }}
 Use `-` to trim surrounding whitespace:
 
 ```jinja
-settings:
 {%- if env.CERT_FILE %}
   certFile: {{ env.CERT_FILE }}
 {%- endif %}

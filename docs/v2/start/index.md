@@ -78,8 +78,10 @@ metadata:
 # my-agent/resources/llm.yaml - call the model
 actionId: llm
 chat:
-  model: llama3.2:1b         # a local model, downloaded on first run
-  prompt: "{{ get('q') }}"   # 'q' comes from the HTTP request body or REPL input
+  model:
+    name: llama3.2:1b         # a local model, downloaded on first run
+  context:
+    prompt: "{{ get('q') }}"   # 'q' comes from the HTTP request body or REPL input
 ```
 
 </div>
@@ -87,7 +89,8 @@ chat:
 ```yaml
 # my-agent/resources/response.yaml - shape the reply
 actionId: response
-requires: [llm]              # runs after llm
+workflow:
+  requires: [llm]              # runs after llm
 apiResponse:
   success: true
   response:

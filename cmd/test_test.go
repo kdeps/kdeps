@@ -95,13 +95,13 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/v1/ask
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -112,7 +112,7 @@ resources:
       response:
         answer: hi
 
-tests:
+evals:
   - name: health
     request:
       method: GET
@@ -164,7 +164,7 @@ func TestRunTestCmd_ReportsFailure(t *testing.T) {
 	path := writeTestWorkflow(t, passingTestWorkflow)
 	err := RunTestCmd(testCobraCommand(t), []string{path}, &TestFlags{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "test(s) failed")
+	assert.Contains(t, err.Error(), "eval(s) failed")
 }
 
 func TestRunTestCmd_FailFastStopsAtFirstFailure(t *testing.T) {
@@ -174,7 +174,7 @@ func TestRunTestCmd_FailFastStopsAtFirstFailure(t *testing.T) {
 	path := writeTestWorkflow(t, passingTestWorkflow)
 	err := RunTestCmd(testCobraCommand(t), []string{path}, &TestFlags{FailFast: true})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "1 test(s) failed")
+	assert.Contains(t, err.Error(), "1 eval(s) failed")
 }
 
 func TestRunTestCmd_NoTests(t *testing.T) {
@@ -185,8 +185,8 @@ metadata:
   name: untested
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: response
@@ -198,7 +198,7 @@ resources:
 `)
 	err := RunTestCmd(testCobraCommand(t), []string{path}, &TestFlags{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no tests defined")
+	assert.Contains(t, err.Error(), "no evals defined")
 }
 
 func TestRunTestCmd_AgencyRejected(t *testing.T) {
@@ -238,8 +238,8 @@ metadata:
   name: invalid-tests
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: response
@@ -248,7 +248,7 @@ resources:
       success: true
       response:
         answer: hi
-tests:
+evals:
   - name: broken
     request:
       path: /health
@@ -300,7 +300,7 @@ func TestReportTestResults(t *testing.T) {
 	}
 	err := reportTestResults(results)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "1 test(s) failed")
+	assert.Contains(t, err.Error(), "1 eval(s) failed")
 }
 
 func TestReportTestResults_AllPass(t *testing.T) {

@@ -43,7 +43,7 @@ metadata:
   name: subagent-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${API_PORT}
@@ -57,33 +57,40 @@ YAML
 cat > "$TEST_DIR/resources/review.yaml" <<'YAML'
 actionId: review
 name: Subagent chat
-validations:
+guardrails:
   routes: [/review]
 chat:
-  model: fake
-  prompt: 'CALLJSON subagent {"task": "CALLJSON calculator {\"expression\": \"6 * 7\"}"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALLJSON subagent {"task": "CALLJSON calculator {\"expression\": \"6 * 7\"}"}'
   tools:
-    - name: subagent
-    - name: calculator
+    list:
+      - name: subagent
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/refused.yaml" <<'YAML'
 actionId: refused
 name: Subagent asked for a write tool
-validations:
+guardrails:
   routes: [/refused]
 chat:
-  model: fake
-  prompt: 'CALLJSON subagent {"task": "write it", "tools": "write_file"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALLJSON subagent {"task": "write it", "tools": "write_file"}'
   tools:
-    - name: subagent
-    - name: write_file
+    list:
+      - name: subagent
+      - name: write_file
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [review, refused]
+workflow:
+  requires: [review, refused]
 apiResponse:
   success: true
   response:

@@ -21,7 +21,7 @@ run: force_answer
 | `handshake-timeout` | a session-handshake grounding challenge (see [session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)) spends this many tool rounds without resolving | fails the handshake |
 | `judge-max-rounds` | a single [judge](./judges.md)'s review spends this many tool rounds | ends that judge's review and forces its verdict |
 | `agent-max-rounds` | an agent-loop turn spends this many tool rounds (200) when `/model tool set rounds` sets none | forces a text answer |
-| `chat-max-rounds` | a workflow chat with no `maxToolRounds` spends this many tool rounds (5) | forces a text answer |
+| `chat-max-rounds` | a workflow chat with no `tools.maxRounds` spends this many tool rounds (5) | forces a text answer |
 | `subagent-max-rounds` | one [subagent](./subagent.md) task spends this many tool rounds (20) | ends the subagent and forces its report |
 | `judge-iterations` | the revise-and-rejudge loop retries this many times after a judge rejection | accepts the last response regardless of outcome -- a judge panel must never block a turn indefinitely |
 

@@ -54,7 +54,7 @@ metadata:
   version: "${version}"
   targetActionId: mgmtResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${MGMT_PORT}
@@ -62,7 +62,7 @@ settings:
       - path: /api/v1/ping
         methods: [GET]
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 EOF
 
@@ -241,7 +241,7 @@ metadata:
   version: "1.0.0"
   targetActionId: mgmtResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${NO_TOKEN_PORT}
@@ -249,7 +249,7 @@ settings:
       - path: /api/v1/ping
         methods: [GET]
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 EOF
 

@@ -93,8 +93,8 @@ metadata:
   name: packed-agent
   version: "1.0.0"
   targetActionId: respond
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: respond

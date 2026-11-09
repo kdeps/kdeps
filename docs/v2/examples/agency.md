@@ -52,8 +52,8 @@ metadata:
   version: "1.0.0"
   targetActionId: respond
 
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 
 resources:
@@ -85,7 +85,7 @@ metadata:
   version: "1.0.0"
   targetActionId: greet
 
-settings:
+deploy:
   apiServer:
     portNum: 17100
     routes:
@@ -102,7 +102,8 @@ resources:
 
   - actionId: greet
     name: Greet
-    requires: [callResponder]
+    workflow:
+      requires: [callResponder]
     apiResponse:
       success: true
       response: "{{ output('callResponder') }}"   # the responder's reply

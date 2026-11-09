@@ -111,7 +111,9 @@ component:
 
 # Step 2: Index it
 actionId: storeDoc
-requires: [fetch]
+workflow:
+  requires: [fetch]
+  requires: [findDocs]
 component:
   name: embedding
   with:
@@ -133,12 +135,13 @@ component:
 
 # Step 4: Answer with context
 actionId: answer
-requires: [findDocs]
 chat:
-  model: llama3.2:1b
-  prompt: |
-    Context: {{ output('findDocs').results }}
-    Question: {{ get('query') }}
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      Context: {{ output('findDocs').results }}
+      Question: {{ get('query') }}
 apiResponse:
   response: "{{ output('answer') }}"
 ```

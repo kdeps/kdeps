@@ -57,8 +57,10 @@ before:
 
 # Main resource
 chat:
-  model: llama3.2:1b
-  prompt: "Process this"
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "Process this"
 
 # Inline resources to run after main resource
 after:

@@ -20,6 +20,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"

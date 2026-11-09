@@ -31,7 +31,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16403
     routes:
@@ -39,7 +39,7 @@ settings:
         methods: [POST]
       - path: /search
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 ```
 
@@ -53,7 +53,7 @@ Create `resources/index.yaml`:
 # resources/index.yaml
 actionId: indexDoc
 name: Index document
-validations:
+guardrails:
   methods: [POST]
   routes: [/index]              # this resource only runs for POST /index
   check:
@@ -84,7 +84,7 @@ Create `resources/search.yaml`:
 # resources/search.yaml
 actionId: searchDocs
 name: Search documents
-validations:
+guardrails:
   methods: [POST]
   routes: [/search]            # this resource only runs for POST /search
   check:
@@ -113,7 +113,8 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: response
 name: API response
-requires: [indexDoc, searchDocs]
+workflow:
+  requires: [indexDoc, searchDocs]
 apiResponse:
   success: true
   response:

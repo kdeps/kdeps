@@ -119,7 +119,7 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 cat > "$WORK_DIR/resources/search.yaml" <<EOF
 actionId: search
 name: Search
-validations:
+guardrails:
   methods: [POST]
   routes: [/search]
   check:

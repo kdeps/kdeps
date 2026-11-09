@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-// Package selftest runs the tests: cases declared in a workflow against the
+// Package selftest runs the evals: cases declared in a workflow against the
 // workflow's own router, without binding a network port.
 package selftest
 
@@ -33,6 +33,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 )
 
 // DefaultTimeout bounds a test case that does not set timeout.
@@ -47,6 +48,8 @@ type Options struct {
 	AuthToken string
 	// StopOnFailure ends the run at the first failing case.
 	StopOnFailure bool
+	// Review asks tc.JudgeModel for a verdict on a judge with criteria.
+	Review func(ctx context.Context, tc domain.TestCase, spec domain.Judge, output string) judge.Verdict
 }
 
 // Result is the outcome of one test case.
@@ -56,6 +59,9 @@ type Result struct {
 	Duration time.Duration
 	Body     string
 	Err      error
+	// Runs and Passes count the case's repeats.
+	Runs   int
+	Passes int
 }
 
 // Passed reports whether the case satisfied every assertion.
@@ -74,13 +80,46 @@ func Run(
 	}
 	results := make([]Result, 0, len(tests))
 	for _, tc := range tests {
-		res := runOne(ctx, handler, tc, opts)
+		res := runRepeated(ctx, handler, tc, opts)
 		results = append(results, res)
 		if res.Err != nil && opts.StopOnFailure {
 			break
 		}
 	}
 	return results
+}
+
+// runRepeated runs tc Repeat times; it passes when the share of passing
+// runs reaches Threshold (default: every run).
+func runRepeated(ctx context.Context, handler stdhttp.Handler, tc domain.TestCase, opts Options) Result {
+	repeat := max(tc.Repeat, 1)
+	threshold := tc.Threshold
+	if threshold <= 0 {
+		threshold = 1
+	}
+	var last, lastFail Result
+	passes := 0
+	started := time.Now()
+	for range repeat {
+		last = runOne(ctx, handler, tc, opts)
+		if last.Err == nil {
+			passes++
+		} else {
+			lastFail = last
+		}
+	}
+	res := last
+	switch {
+	case float64(passes)/float64(repeat) >= threshold:
+		res.Err = nil
+	case repeat > 1:
+		res = lastFail
+		res.Err = fmt.Errorf("passed %d/%d runs, threshold %g: %w", passes, repeat, threshold, lastFail.Err)
+	default:
+		res = lastFail
+	}
+	res.Runs, res.Passes, res.Duration = repeat, passes, time.Since(started)
+	return res
 }
 
 func runOne(
@@ -104,13 +143,39 @@ func runOne(
 		return Result{Name: tc.Name, Err: err, Duration: time.Since(started)}
 	}
 	body := rec.Body.String()
+	err = checkAssertions(rec, body, tc.Assert)
+	if err == nil {
+		err = checkJudges(ctx, tc, body, opts.Review)
+	}
 	return Result{
 		Name:     tc.Name,
 		Status:   rec.Code,
 		Duration: time.Since(started),
 		Body:     body,
-		Err:      checkAssertions(rec, body, tc.Assert),
+		Err:      err,
 	}
+}
+
+// checkJudges runs tc's judges on the body: graders in-process, criteria
+// through review. Any rejection fails the run.
+func checkJudges(
+	ctx context.Context,
+	tc domain.TestCase,
+	body string,
+	review func(context.Context, domain.TestCase, domain.Judge, string) judge.Verdict,
+) error {
+	verdicts := judge.Panel(tc.Judges, body, func(spec domain.Judge) judge.Verdict {
+		if review == nil {
+			return judge.Verdict{Name: spec.Name, Feedback: "no judge model to review criteria"}
+		}
+		return review(ctx, tc, spec, body)
+	})
+	for _, v := range verdicts {
+		if !v.Approved {
+			return fmt.Errorf("judge %s: %s", v.Name, v.Feedback)
+		}
+	}
+	return nil
 }
 
 func caseTimeout(tc domain.TestCase, fallback time.Duration) (time.Duration, error) {

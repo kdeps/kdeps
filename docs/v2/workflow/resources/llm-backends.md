@@ -82,8 +82,8 @@ When building Docker images, Ollama is installed when `backend: ollama` is set. 
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     installOllama: true  # bake the ollama server into the image
 ```
 
@@ -100,9 +100,11 @@ Set the model per resource, in `model:` under `chat:`:
 ```yaml
 # resources/my-resource.yaml
 chat:
-  model: llama3.2:1b    # which model to call
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: llama3.2:1b    # which model to call
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 Set `model: router` to delegate model selection to the router in `~/.kdeps/config.yaml` (see [Routing](#routing) below). Set `model: system` and/or `backend: system` to follow the machine config (`~/.kdeps/config.yaml`) - it resolves like an omitted field but is explicit.
@@ -247,10 +249,12 @@ llm:
 ```yaml
 # resources/example.yaml
 chat:
-  model: gemini-1.5-pro
-  googleCloudProject: my-gcp-project   # GCP project ID
-  googleCloudLocation: us-central1     # Vertex AI region
-  prompt: "{{ get('q') }}"
+  model:
+    name: gemini-1.5-pro
+    googleCloudProject: my-gcp-project   # GCP project ID
+    googleCloudLocation: us-central1     # Vertex AI region
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 Vertex AI uses Application Default Credentials when no `google_api_key` is present. Run `gcloud auth application-default login` to authenticate locally.
@@ -262,10 +266,12 @@ Vertex AI uses Application Default Credentials when no `google_api_key` is prese
 ```yaml
 # resources/example.yaml
 chat:
-  model: gemini-1.5-pro
-  googleCachedContent: "cachedContents/my-cached-doc"   # CachedContent resource name
-  googleHarmThreshold: 1   # 0 provider default, 1 block none, 2 few, 3 some, 4 most
-  prompt: "{{ get('q') }}"
+  model:
+    name: gemini-1.5-pro
+    googleCachedContent: "cachedContents/my-cached-doc"   # CachedContent resource name
+    googleHarmThreshold: 1   # 0 provider default, 1 block none, 2 few, 3 some, 4 most
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 ## OpenAI: legacy token param
@@ -275,9 +281,11 @@ Older OpenAI-compatible servers (Azure, some self-hosted) expect `max_tokens` in
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{ get('q') }}"
-  openAILegacyMaxTokens: true   # send max_tokens instead of max_completion_tokens
-  maxTokens: 1000
+  model:
+    openAILegacyMaxTokens: true   # send max_tokens instead of max_completion_tokens
+    maxTokens: 1000
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 ## OpenAI: web search
@@ -287,10 +295,12 @@ chat:
 ```yaml
 # resources/example.yaml
 chat:
-  backend: openai
-  model: gpt-4o-search-preview
-  prompt: "{{ get('q') }}"
-  openAIWebSearch: true   # OpenAI performs web search before answering
+  model:
+    backend: openai
+    name: gpt-4o-search-preview
+    openAIWebSearch: true   # OpenAI performs web search before answering
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 ## Anthropic: prompt caching and extended output
@@ -304,14 +314,16 @@ Anthropic-specific options are set per resource, not in `config.yaml`.
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-6
-  promptCaching: true
-  scenario:
-    - role: system
-      prompt: |
-        You are an expert assistant with access to the following reference material:
-        [... long document ...]
-      cacheControl: "ephemeral"   # mark this message as the cache boundary
+  model:
+    name: claude-sonnet-4-6
+    promptCaching: true
+  context:
+    scenario:
+      - role: system
+        prompt: |
+          You are an expert assistant with access to the following reference material:
+          [... long document ...]
+        cacheControl: "ephemeral"   # mark this message as the cache boundary
 ```
 
 ### Extended output (128k tokens)
@@ -321,10 +333,12 @@ chat:
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-6
-  anthropicExtendedOutput: true
-  maxTokens: 16000
-  prompt: "{{ get('q') }}"
+  model:
+    name: claude-sonnet-4-6
+    anthropicExtendedOutput: true
+    maxTokens: 16000
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 ### Custom beta headers
@@ -334,10 +348,11 @@ Pass arbitrary beta feature strings via `anthropicBetaHeaders`:
 ```yaml
 # resources/example.yaml
 chat:
-  model: claude-sonnet-4-6
-  anthropicBetaHeaders:
-    - output-128k-2025-02-19
-    - interleaved-thinking-2025-05-14
+  model:
+    name: claude-sonnet-4-6
+    anthropicBetaHeaders:
+      - output-128k-2025-02-19
+      - interleaved-thinking-2025-05-14
 ```
 
 ## Ollama: native options
@@ -347,11 +362,13 @@ Extra controls for the Ollama backend, set per resource.
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{ get('q') }}"
-  ollamaThink: true          # enable extended thinking (requires a thinking-capable model)
-  ollamaKeepAlive: "5m"      # keep model in memory for 5 min after the request completes
-  ollamaPullModel: true      # pull the model automatically if it is not present
-  ollamaPullTimeout: "10m"   # how long to wait for the pull before failing
+  model:
+    ollamaThink: true          # enable extended thinking (requires a thinking-capable model)
+    ollamaKeepAlive: "5m"      # keep model in memory for 5 min after the request completes
+    ollamaPullModel: true      # pull the model automatically if it is not present
+    ollamaPullTimeout: "10m"   # how long to wait for the pull before failing
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 `ollamaKeepAlive` accepts Go duration strings: `"0"` unloads immediately; `"-1"` keeps the model loaded indefinitely; `"5m"`, `"1h"`, etc. set a timed expiry.
@@ -365,8 +382,10 @@ Set `streaming: true` on a `chat:` resource to have Ollama stream the response a
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{ get('q') }}"
-  streaming: true      # Ollama only
+  model:
+    streaming: true      # Ollama only
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -422,11 +441,12 @@ Handle rate limits with retry configuration via `onError`:
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{ get('q') }}"
   onError:
     action: "retry"
     maxRetries: 3
     retryDelay: "5s"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>

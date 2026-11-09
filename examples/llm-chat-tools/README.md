@@ -81,7 +81,7 @@ llm-chat-tools/
 To expose as an HTTP endpoint instead of stdin REPL, change `executionType` in `workflow.yaml`:
 
 ```yaml
-settings:
+deploy:
   input:
     llm:
       executionType: apiServer

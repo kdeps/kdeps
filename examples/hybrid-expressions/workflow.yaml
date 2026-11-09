@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -18,7 +18,7 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 
 resources:
@@ -36,9 +36,10 @@ resources:
 
   - actionId: response
     name: API Response
-    requires:
-    - setup
-    validations:
+    workflow:
+      requires:
+      - setup
+    guardrails:
       methods: [GET, POST]
       routes: [/api/demo]
 

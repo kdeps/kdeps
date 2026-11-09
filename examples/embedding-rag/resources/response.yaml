@@ -1,6 +1,7 @@
 actionId: response
 name: API Response
-requires: [indexDoc, searchDocs]
+workflow:
+  requires: [indexDoc, searchDocs]
 apiResponse:
   success: true
   response:

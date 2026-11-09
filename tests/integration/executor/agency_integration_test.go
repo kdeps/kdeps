@@ -58,8 +58,8 @@ metadata:
   name: greeter-agent
   version: "1.0.0"
   targetActionId: greet
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: callResponder
@@ -70,7 +70,8 @@ resources:
         name: "{{ get('name') }}"
   - actionId: greet
     name: Greet
-    requires: [callResponder]
+    workflow:
+      requires: [callResponder]
     apiResponse:
       success: true
       response: "{{ output('callResponder') }}"
@@ -82,8 +83,8 @@ metadata:
   name: responder-agent
   version: "1.0.0"
   targetActionId: respond
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: respond

@@ -6,7 +6,7 @@ CORS controls which browser origins can call your API. Set it inside the `cors:`
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -162,7 +162,7 @@ metadata:
   version: "1.0.0"
   targetActionId: apiHandler
 
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395

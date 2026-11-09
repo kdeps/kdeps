@@ -7,15 +7,15 @@ metadata:
   version: "1.0.0"
   targetActionId: chat
 
-settings:
+deploy:
   input:
     sources: [api]
-  llm:
-    executionType: stdin
-    prompt: "You: "
-    sessionId: "chat-tools-session"
-
-
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
+agent:
+  executionType: stdin
+  prompt: "You: "
+  sessionId: "chat-tools-session"
+
+

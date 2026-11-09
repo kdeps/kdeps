@@ -38,7 +38,8 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-requires: [transcribe]
+workflow:
+  requires: [transcribe]
 apiResponse:
   success: true
   response:

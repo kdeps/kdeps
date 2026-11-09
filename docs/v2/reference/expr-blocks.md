@@ -23,7 +23,8 @@ after:
   - set('user_id', get('userId', 'session'))   # second argument: read from session storage
 
 chat:
-  prompt: "Process: {{ get('normalized_input') }}"
+  context:
+    prompt: "Process: {{ get('normalized_input') }}"
 ```
 
 </div>
@@ -63,7 +64,8 @@ after:
   - set('user_preferences', get('prefs'), 'session')
 
 chat:
-  prompt: "User asked {{ get('query_count') }} times. Query: {{ get('q') }}"
+  context:
+    prompt: "User asked {{ get('query_count') }} times. Query: {{ get('q') }}"
 ```
 
 </div>
@@ -153,7 +155,8 @@ after:
   - set('last_request_time', info('timestamp'), 'memory')
 
 chat:
-  prompt: "Request #{{ get('request_count') }}: {{ get('q') }}"
+  context:
+    prompt: "Request #{{ get('request_count') }}: {{ get('q') }}"
 ```
 
 </div>
@@ -220,7 +223,8 @@ after:
 
 # Use the processed data
 chat:
-  prompt: "Analyze: {{ get('processed_data') }}"
+  context:
+    prompt: "Analyze: {{ get('processed_data') }}"
 ```
 
 </div>
@@ -292,7 +296,8 @@ after:
     }, 'memory')                                 # third argument: write to memory storage
 
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -310,7 +315,7 @@ after:
   - set('age', int(get('age')))
   - set('is_valid', get('email') contains '@' && get('age') >= 18)   # read by the check below
 
-validations:
+guardrails:
   check:
     - get('is_valid') == true
   error:
@@ -318,7 +323,8 @@ validations:
     message: Invalid email or age
 
 chat:
-  prompt: "Process user: {{ get('email') }}, age {{ get('age') }}"
+  context:
+    prompt: "Process user: {{ get('email') }}, age {{ get('age') }}"
 ```
 
 </div>

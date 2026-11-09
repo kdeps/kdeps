@@ -1,8 +1,9 @@
 actionId: response
 name: Final Response
-requires:
-    - translate
-    - summarize
+workflow:
+    requires:
+        - translate
+        - summarize
 
 apiResponse:
   success: true

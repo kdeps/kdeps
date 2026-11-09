@@ -39,16 +39,20 @@ cat > "$TEST_DIR/resources/ask.yaml" <<'YAML'
 actionId: ask
 name: Leaky chat
 chat:
-  model: fake
-  prompt: 'LEAKJSON calculator {"expression": "6*7"}'
+  model:
+    name: fake
+  context:
+    prompt: 'LEAKJSON calculator {"expression": "6*7"}'
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [ask]
+workflow:
+  requires: [ask]
 apiResponse:
   success: true
   response:
@@ -63,7 +67,7 @@ metadata:
   name: reply-clean-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}

@@ -1,10 +1,13 @@
 actionId: answer
 name: Answer from Search
-requires: [search]
+workflow:
+  requires: [search]
 chat:
-  model: llama3.2:1b
-  prompt: |
-    Based on these search results, answer the question: {{ get('query') }}
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      Based on these search results, answer the question: {{ get('query') }}
 
-    Search results (JSON):
-    {{ json(output('search').results) }}
+      Search results (JSON):
+      {{ json(output('search').results) }}

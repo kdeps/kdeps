@@ -7,7 +7,7 @@ metadata:
   version: 1.0.0
   targetActionId: api-response
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -15,7 +15,7 @@ settings:
       - path: "/process"
         methods: ["POST"]
 
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -23,9 +23,10 @@ resources:
   - actionId: process-items
     name: process-items
     description: "Fetch data for each item"
-    requires: []
-    items:
-      - "{{input.items}}"  # Iterate over items from request
+    workflow:
+      requires: []
+      items:
+        - "{{input.items}}"  # Iterate over items from request
     component:
       name: http_request
       with:
@@ -39,9 +40,10 @@ resources:
   - actionId: transform-results
     name: transform-results
     description: "Extract key information from each result"
-    requires: ["process-items"]
-    items:
-      - "{{get('process-items')}}"  # Iterate over previous results
+    workflow:
+      requires: ["process-items"]
+      items:
+        - "{{get('process-items')}}"  # Iterate over previous results
     component:
       name: exec
       with:
@@ -53,7 +55,8 @@ resources:
   - actionId: aggregate-results
     name: aggregate-results
     description: "Aggregate all processed items"
-    requires: ["transform-results"]
+    workflow:
+      requires: ["transform-results"]
     component:
       name: exec
       with:
@@ -68,7 +71,8 @@ resources:
   - actionId: api-response
     name: api-response
     description: "Format results as API response"
-    requires: ["transform-results"]
+    workflow:
+      requires: ["transform-results"]
     apiResponse:
       success: true
       response:

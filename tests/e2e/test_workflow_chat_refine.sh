@@ -43,7 +43,7 @@ metadata:
   name: chat-refine-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}
@@ -55,28 +55,34 @@ YAML
 cat > "$TEST_DIR/resources/refined.yaml" <<'YAML'
 actionId: refined
 name: Refined
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: "REFINEME please write the quarterly status report for the platform team"
-  refine: true
+  model:
+    name: fake
+  context:
+    prompt: "REFINEME please write the quarterly status report for the platform team"
+  harness:
+    refine: true
 YAML
 
 cat > "$TEST_DIR/resources/plain.yaml" <<'YAML'
 actionId: plain
 name: Plain
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: "REFINEME please write the quarterly status report for the platform team"
+  model:
+    name: fake
+  context:
+    prompt: "REFINEME please write the quarterly status report for the platform team"
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [refined, plain]
+workflow:
+  requires: [refined, plain]
 apiResponse:
   success: true
   response:

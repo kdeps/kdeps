@@ -129,8 +129,8 @@ metadata:
   description: Greets a person by name
   version: "1.0.0"
   targetActionId: greet
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 cat > "$WT_DIR/greeter/resources/greet.yaml" << 'EOF'

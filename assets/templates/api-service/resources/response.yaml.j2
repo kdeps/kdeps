@@ -1,9 +1,10 @@
 actionId: response
 name: API Response
-requires:
-  - llm
+workflow:
+  requires:
+    - llm
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat]
 

@@ -27,7 +27,7 @@ jinja2-expressions/
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
 {% if env.PORT %}
     portNum: {{ env.PORT | int }}

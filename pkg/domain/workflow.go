@@ -50,9 +50,9 @@ type Workflow struct {
 	APIVersion string           `yaml:"apiVersion"`
 	Kind       string           `yaml:"kind"`
 	Metadata   WorkflowMetadata `yaml:"metadata"`
-	Settings   WorkflowSettings `yaml:"settings"`
+	Settings   WorkflowSettings `yaml:"settings"`            // written as deploy, memory and agent (yaml_layout.go)
 	Resources  []*Resource      `yaml:"resources,omitempty"` // Can be inline or loaded from resources/ directory.
-	Tests      []TestCase       `yaml:"tests,omitempty"`     // Cases run by kdeps test.
+	Tests      []TestCase       `yaml:"evals,omitempty"`     // Cases run by kdeps test.
 
 	// Components maps component name -> parsed Component definition.
 	// Populated by the parser when loading components alongside the workflow.
@@ -60,7 +60,7 @@ type Workflow struct {
 	Components map[string]*Component `yaml:"-"`
 }
 
-// TestCase defines one case run by kdeps test against the workflow router.
+// TestCase defines one eval case run by kdeps test against the workflow router.
 type TestCase struct {
 	// Name is a human-readable label for the test (required).
 	Name string `yaml:"name"`
@@ -70,6 +70,20 @@ type TestCase struct {
 	Assert TestAssert `yaml:"assert"`
 	// Timeout is the per-test timeout (e.g. "30s"). Defaults to 30s.
 	Timeout string `yaml:"timeout,omitempty"`
+	// Judges score the response body: graders in-process, criteria by JudgeModel.
+	Judges []Judge `yaml:"judges,omitempty"`
+	// JudgeModel reviews judges that have criteria.
+	JudgeModel *EvalModel `yaml:"judgeModel,omitempty"`
+	// Repeat runs the case this many times (default 1).
+	Repeat int `yaml:"repeat,omitempty"`
+	// Threshold is the pass rate the runs need, 0-1 (default 1: every run).
+	Threshold float64 `yaml:"threshold,omitempty"`
+}
+
+// EvalModel names the model that reviews an eval's criteria judges.
+type EvalModel struct {
+	Name    string `yaml:"name"`
+	Backend string `yaml:"backend,omitempty"`
 }
 
 // TestRequest describes the HTTP request a test case sends.

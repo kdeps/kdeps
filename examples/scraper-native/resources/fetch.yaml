@@ -1,6 +1,6 @@
 actionId: fetch
 name: Fetch Page
-validations:
+guardrails:
   methods: [POST]
   routes: [/summarize]
   check:

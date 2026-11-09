@@ -42,22 +42,26 @@ component:
 # LLM with calculator
 actionId: mathAssistant
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - answer
+        - calculation
   tools:
-    - name: calculate
-      description: |
-        Evaluate mathematical expressions.
-        Supports: +, -, *, /, **, sqrt, sin, cos, tan, log, exp, pi, e
-      script: calcTool
-      parameters:
-        expression:
-          type: string
-          description: "Math expression like '2 + 2' or 'sqrt(16)'"
-          required: true
-  jsonResponse: true
-  jsonResponseKeys:
-    - answer
-    - calculation
+    list:
+      - name: calculate
+        description: |
+          Evaluate mathematical expressions.
+          Supports: +, -, *, /, **, sqrt, sin, cos, tan, log, exp, pi, e
+        script: calcTool
+        parameters:
+          expression:
+            type: string
+            description: "Math expression like '2 + 2' or 'sqrt(16)'"
+            required: true
 ```
 
 </div>
@@ -89,24 +93,26 @@ component:
 # LLM with search
 actionId: productAssistant
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: search_products
-      description: Search the product catalog
-      script: dbSearchTool
-      parameters:
-        query:
-          type: string
-          description: Search terms
-          required: true
-        category:
-          type: string
-          description: Filter by category (electronics, clothing, etc.)
-          required: false
-        limit:
-          type: integer
-          description: Max results (default 10)
-          required: false
+    list:
+      - name: search_products
+        description: Search the product catalog
+        script: dbSearchTool
+        parameters:
+          query:
+            type: string
+            description: Search terms
+            required: true
+          category:
+            type: string
+            description: Filter by category (electronics, clothing, etc.)
+            required: false
+          limit:
+            type: integer
+            description: Max results (default 10)
+            required: false
 ```
 
 </div>
@@ -129,16 +135,18 @@ component:
 # LLM with weather
 actionId: weatherAssistant
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: get_weather
-      description: Get current weather for a city
-      script: weatherTool
-      parameters:
-        city:
-          type: string
-          description: City name (e.g., "London", "New York")
-          required: true
+    list:
+      - name: get_weather
+        description: Get current weather for a city
+        script: weatherTool
+        parameters:
+          city:
+            type: string
+            description: City name (e.g., "London", "New York")
+            required: true
 ```
 
 </div>
@@ -151,49 +159,51 @@ chat:
 # resources/smart-agent.yaml
 actionId: smartAgent
 chat:
-  prompt: "{{ get('q') }}"
-  scenario:
-    - role: system
-      prompt: |
-        You are a helpful assistant with access to tools.
-        Use tools when needed to answer questions accurately.
-        Always explain what you're doing.
+  context:
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: system
+        prompt: |
+          You are a helpful assistant with access to tools.
+          Use tools when needed to answer questions accurately.
+          Always explain what you're doing.
   tools:
-    - name: calculate
-      description: Math calculations
-      script: calcTool
-      parameters:
-        expression:
-          type: string
-          required: true
+    list:
+      - name: calculate
+        description: Math calculations
+        script: calcTool
+        parameters:
+          expression:
+            type: string
+            required: true
 
-    - name: search_products
-      description: Search product catalog
-      script: dbSearchTool
-      parameters:
-        query:
-          type: string
-          required: true
+      - name: search_products
+        description: Search product catalog
+        script: dbSearchTool
+        parameters:
+          query:
+            type: string
+            required: true
 
-    - name: get_weather
-      description: Current weather
-      script: weatherTool
-      parameters:
-        city:
-          type: string
-          required: true
+      - name: get_weather
+        description: Current weather
+        script: weatherTool
+        parameters:
+          city:
+            type: string
+            required: true
 
-    - name: send_notification
-      description: Send a notification
-      script: notifyTool
-      parameters:
-        message:
-          type: string
-          required: true
-        channel:
-          type: string
-          description: "slack, email, or sms"
-          required: true
+      - name: send_notification
+        description: Send a notification
+        script: notifyTool
+        parameters:
+          message:
+            type: string
+            required: true
+          channel:
+            type: string
+            description: "slack, email, or sms"
+            required: true
 ```
 
 </div>

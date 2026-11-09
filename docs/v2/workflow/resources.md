@@ -15,18 +15,19 @@ name: My Resource           # required: human-readable label
 description: What it does   # optional
 category: api               # optional grouping label
 
-requires:                   # like imports -- these run first and must produce output
-  - otherResource           # myResource will not run until otherResource is done
+workflow:
+  requires:                   # like imports -- these run first and must produce output
+    - otherResource           # myResource will not run until otherResource is done
 
-items:                      # optional: run this resource once per item -- see /workflow/items
-  - item1
-  - item2
+  items:                      # optional: run this resource once per item -- see /workflow/items
+    - item1
+    - item2
 
-loop:                       # optional: repeat while a condition holds -- see /workflow/loop
-  while: "loop.index() < 5"
+  loop:                       # optional: repeat while a condition holds -- see /workflow/loop
+    while: "loop.index() < 5"
 
 # Gate whether the resource runs at all -- see /workflow/validation
-validations:
+guardrails:
   methods: [POST]                # only run on POST requests
   routes: [/api/v1/endpoint]    # only run on this route
   headers: [Authorization]      # only run when this header is present
@@ -74,7 +75,8 @@ The tables under [Resource types](#resource-types) are the allowlist. An action 
 # resources/response.yaml
 actionId: response
 name: API Response
-requires: [llm]          # response will not run until llm is done
+workflow:
+  requires: [llm]          # response will not run until llm is done
 apiResponse:
   response:
     answer: get('llm').message.content   # reply text from the llm resource
@@ -180,7 +182,7 @@ A -> B -> C -> loop -> E -> F
 
 ## See also
 
-- [Validation and control flow](/workflow/validation) - the `validations:` block
+- [Validation and control flow](/workflow/validation) - the `guardrails:` block
 - [Expressions](/workflow/expressions) - `before:`/`after:`, `get()`, `set()`
 - [Items iteration](/workflow/items) and [While-loop](/workflow/loop)
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback

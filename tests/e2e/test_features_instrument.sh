@@ -51,8 +51,8 @@ metadata:
   name: instrument-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: response
@@ -169,15 +169,17 @@ metadata:
   name: instrument-chat-e2e
   version: "1.0.0"
   targetActionId: ask
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: ask
     name: Ask
     chat:
-      model: e2e-model
-      prompt: "say hello"
+      model:
+        name: e2e-model
+      context:
+        prompt: "say hello"
 EOF
     KDEPS_INSTRUMENT_ROOT="$INST_ROOT" timeout 120 "$KDEPS_BIN" run "$CHAT_DIR/workflow.yaml" --instrument=e2e-chat >"$RUN_LOG" 2>&1 || true
     CHAT_EV="$INST_ROOT/e2e-chat/events.ndjson"

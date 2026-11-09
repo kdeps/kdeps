@@ -25,7 +25,6 @@ metadata:
   name: autopilot-test
   version: "1.0.0"
   targetActionId: pilot
-settings: {}
 EOF
 
     cat > "$tmpdir/resources/pilot.yaml" <<'EOF'
@@ -65,7 +64,6 @@ metadata:
   name: autopilot-missing-task
   version: "1.0.0"
   targetActionId: pilot
-settings: {}
 EOF
 
     cat > "$tmpdir/resources/pilot.yaml" <<'EOF'

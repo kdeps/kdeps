@@ -81,7 +81,7 @@ metadata:
   name: strict
   version: "1.0.0"
   targetActionId: r
-settings:
+deploy:
   sqlConnections:
     main: {}
 WFEOF
@@ -91,7 +91,7 @@ rm -rf "$STRICT_DIR"
 # Test 3c: the sql: resource key is gone (use component: sql)
 OLD_DIR=$(mktemp -d)
 mkdir -p "$OLD_DIR/resources"
-printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: q\nsettings: {}\n' > "$OLD_DIR/workflow.yaml"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: q\n' > "$OLD_DIR/workflow.yaml"
 printf 'actionId: q\nname: Q\nsql:\n  connectionName: main\n  query: SELECT 1\n' > "$OLD_DIR/resources/q.yaml"
 if OLD_OUT=$("$KDEPS_BIN" validate "$OLD_DIR/workflow.yaml" 2>&1); then
     test_failed "SQL Advanced - the sql: key is gone" "validate accepted it: $OLD_OUT"
@@ -372,7 +372,7 @@ metadata:
   name: sql-mock
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     portNum: ${MOCK_SQL_PORT}
     routes:
@@ -381,7 +381,7 @@ settings:
     cors:
       allowOrigins:
         - "*"
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 WFEOF
 
@@ -399,7 +399,8 @@ RESEOF
     cat > "$MOCK_WORK_DIR/resources/response.yaml" <<RESEOF
 actionId: response
 name: Response
-requires: [sqltest]
+workflow:
+  requires: [sqltest]
 apiResponse:
   success: true
   response:

@@ -64,21 +64,21 @@ metadata:
   name: calendar-e2e-test
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${API_PORT}
     routes:
       - path: /calendar/ops
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR/resources/create.yaml" <<EOF
 actionId: calCreate
 name: Calendar Create
-validations:
+guardrails:
   routes: [/calendar/ops]
   methods: [POST]
 calendar:
@@ -97,7 +97,8 @@ EOF
 cat > "$TEST_DIR/resources/list.yaml" <<EOF
 actionId: calList
 name: Calendar List
-requires: [calCreate]
+workflow:
+  requires: [calCreate]
 calendar:
   action: list
   filePath: "${CAL_FILE}"
@@ -110,7 +111,8 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [calCreate, calList]
+workflow:
+  requires: [calCreate, calList]
 apiResponse:
   success: true
   response:

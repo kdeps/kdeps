@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: corsHandler
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3050
@@ -54,7 +54,7 @@ settings:
         - https://example.com
         - "*"
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

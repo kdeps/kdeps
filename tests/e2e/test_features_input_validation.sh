@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: validator
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16399
@@ -51,7 +51,7 @@ settings:
     cors:
       allowOrigins: ["*"]
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 EOF
 
@@ -60,7 +60,7 @@ cat > "$RESOURCE_FILE" <<'EOF'
 actionId: validator
 name: Input Validator
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/validate]
 apiResponse:

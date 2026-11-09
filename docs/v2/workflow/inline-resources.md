@@ -24,8 +24,9 @@ before:
 
 # Main resource (chat, component, or file)
 chat:
-  role: user
-  prompt: "Process this data"
+  context:
+    role: user
+    prompt: "Process this data"
 
 # Inline resources to run AFTER the main resource
 after:
@@ -88,7 +89,8 @@ before:
         timeout: 5s
 
 chat:
-  prompt: "Analyze user: {{get('_output')}}"
+  context:
+    prompt: "Analyze user: {{get('_output')}}"
 ```
 
 ### 2. Logging and auditing
@@ -98,7 +100,8 @@ Record operations in a database:
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{get('prompt')}}"
+  context:
+    prompt: "{{get('prompt')}}"
 
 after:
   - component:
@@ -166,7 +169,8 @@ Store results for future use:
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "{{get('query')}}"
+  context:
+    prompt: "{{get('query')}}"
 
 after:
   - component:
@@ -200,7 +204,8 @@ before:
         command: "echo 'Starting...'"
 
 chat:
-  prompt: "{{get('prompt')}}"
+  context:
+    prompt: "{{get('prompt')}}"
 
 after:
   - component:
@@ -262,13 +267,15 @@ before:
         url: "https://api.example.com/config"
 
 chat:
-  prompt: "{{get('prompt')}}"
+  context:
+    prompt: "{{get('prompt')}}"
 
-onError:
-  action: continue
-  fallback:
-    error: true
-    message: "Processing failed"
+workflow:
+  onError:
+    action: continue
+    fallback:
+      error: true
+      message: "Processing failed"
 ```
 
 ## Accessing context
@@ -289,8 +296,9 @@ before:
         url: "https://api.example.com/user/{{get('user_id')}}"
 
 chat:
-  # Access results from previous steps
-  prompt: "User data: {{get('_output')}}"
+  context:
+    # Access results from previous steps
+    prompt: "User data: {{get('_output')}}"
 ```
 
 ## Configuration options
@@ -416,7 +424,8 @@ before:
   - set('should_notify', get('input.notify') == true)
 
 chat:
-  prompt: "{{get('prompt')}}"
+  context:
+    prompt: "{{get('prompt')}}"
 
 after:
   - set('notification_sent', get('should_notify') == true)
@@ -427,10 +436,11 @@ after:
 Inline resources work with the `items` feature:
 
 ```yaml
-# resources/example.yaml
-items:
-  - item1
-  - item2
+workflow:
+  # resources/example.yaml
+  items:
+    - item1
+    - item2
 
 before:
   - component:
@@ -439,7 +449,8 @@ before:
         url: "https://api.example.com/prepare/{{item.current()}}"
 
 chat:
-  prompt: "Process {{item.current()}}"
+  context:
+    prompt: "Process {{item.current()}}"
 
 after:
   - component:

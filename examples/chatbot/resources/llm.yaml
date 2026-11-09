@@ -1,7 +1,7 @@
 actionId: llmResource
 name: LLM Chat
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat]
 
@@ -12,13 +12,17 @@ validations:
     message: Query parameter 'q' is required
 
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
-  scenario:
-    - role: assistant
-      prompt: You are a helpful AI assistant.
-  jsonResponse: true
-  jsonResponseKeys:
-    - answer
-  timeout: 60s
+  model:
+    name: llama3.2:1b
+    timeout: 60s
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: assistant
+        prompt: You are a helpful AI assistant.
+  harness:
+    output:
+      json: true
+      keys:
+        - answer

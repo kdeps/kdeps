@@ -31,7 +31,8 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-requires: [ocr]
+workflow:
+  requires: [ocr]
 apiResponse:
   success: true
   response:

@@ -7,7 +7,7 @@ metadata:
   version: 1.0.0
   targetActionId: response
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -15,7 +15,7 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
 
-  agentSettings:
+  runtime:
     timezone: "UTC"
     pythonVersion: "3.12"
 
@@ -46,15 +46,18 @@ resources:
   - actionId: llm
     name: LLM Chat
     chat:
-      model: llama3.2:1b
-      # Backend will be auto-detected and installed in Docker image
-      # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
-      role: "user"
-      prompt: "{{ get('q') }}"
+      model:
+        name: llama3.2:1b
+      context:
+        # Backend will be auto-detected and installed in Docker image
+        # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
+        role: "user"
+        prompt: "{{ get('q') }}"
 
   - actionId: response
     name: API Response
-    requires: [llm]
+    workflow:
+      requires: [llm]
     apiResponse:
       success: true
       response:

@@ -1,7 +1,8 @@
 actionId: finalResponse
 name: Final Response
-requires:
-  - sayHello
+workflow:
+  requires:
+    - sayHello
 apiResponse:
   success: true
   response:

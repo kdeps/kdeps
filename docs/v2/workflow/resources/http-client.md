@@ -208,7 +208,7 @@ component:
 
 ```yaml
 # resources/download.yaml - fetch a file once
-validations:
+guardrails:
   skip:
     - "fileExists('/data/models/model.bin')"
 component:
@@ -358,7 +358,7 @@ Use preflight checks to validate before making requests:
 <div v-pre>
 
 ```yaml
-validations:
+guardrails:
   check:
     - get('user_id') != ''      # false: stop before the request with the error below
   error:

@@ -8,7 +8,7 @@ metadata:
   # This is the resource that runs when this workflow is executed.
   targetActionId: greet
 
-settings:
+deploy:
 
   apiServer:
     portNum: 17100
@@ -18,7 +18,7 @@ settings:
     cors:
       allowOrigins: ["*"]
 
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -36,7 +36,8 @@ resources:
   # ── Step 2: Return the greeting ──────────────────────────────────────────────
   - actionId: greet
     name: Greet
-    requires: [callResponder]
+    workflow:
+      requires: [callResponder]
     # The callResponder output is the value returned by responder-agent.
     apiResponse:
       success: true

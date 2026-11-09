@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: mixed
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -18,13 +18,13 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 
 resources:
   - actionId: withoutBraces
     name: Direct Expressions Without Braces
-    validations:
+    guardrails:
       methods: [GET, POST]
       routes: [/api/demo]
 
@@ -37,8 +37,9 @@ resources:
 
   - actionId: withBraces
     name: String Interpolation With Braces
-    requires:
-    - withoutBraces
+    workflow:
+      requires:
+      - withoutBraces
     apiResponse:
       response:
         # String interpolation REQUIRES braces
@@ -48,8 +49,9 @@ resources:
 
   - actionId: mixed
     name: Mixed Direct and Interpolated
-    requires:
-    - withBraces
+    workflow:
+      requires:
+      - withBraces
     apiResponse:
       response:
         # Direct without braces

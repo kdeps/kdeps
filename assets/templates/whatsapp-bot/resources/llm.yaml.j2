@@ -1,7 +1,7 @@
 actionId: llm
 name: Generate Reply
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/webhook]
   # Status callbacks (sent, delivered, read) carry no text message: nothing to answer.
@@ -15,9 +15,11 @@ validations:
     message: "invalid signature"
 
 chat:
-  model: llama3.2:1b  # llamafile alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
-  scenario:
-    - role: assistant
-      prompt: Answer in a few short sentences, in the language of the message.
-  prompt: "{% raw %}{{ request.body.entry[0].changes[0].value.messages[0].text.body }}{% endraw %}"
-  timeout: 60s
+  model:
+    name: llama3.2:1b  # llamafile alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
+    timeout: 60s
+  context:
+    scenario:
+      - role: assistant
+        prompt: Answer in a few short sentences, in the language of the message.
+    prompt: "{% raw %}{{ request.body.entry[0].changes[0].value.messages[0].text.body }}{% endraw %}"

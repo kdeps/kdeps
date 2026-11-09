@@ -109,9 +109,11 @@ func TestE2E_ModelInResourceYAML(t *testing.T) {
 	yamlContent := `
 actionId: test
 chat:
-  model: gpt-4o
-  role: user
-  prompt: hello
+  model:
+    name: gpt-4o
+  context:
+    role: user
+    prompt: hello
 `
 	var resource domain.Resource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
@@ -126,9 +128,11 @@ func TestE2E_ModelInResourceYAML_PlainString(t *testing.T) {
 	yamlContent := `
 actionId: test
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: hello
+  model:
+    name: llama3.2:1b
+  context:
+    role: user
+    prompt: hello
 `
 	var resource domain.Resource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)

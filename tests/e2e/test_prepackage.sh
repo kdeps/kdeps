@@ -41,8 +41,8 @@ metadata:
   name: e2e-agent
   version: "1.0.0"
   targetActionId: greet
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     echo "$dir"
@@ -185,21 +185,24 @@ metadata:
   name: e2e-chat-agent
   version: "1.0.0"
   targetActionId: respond
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 YAML
     cat > "$dir/resources/chat.yaml" <<'YAML'
 actionId: chat
 name: Chat
 chat:
-  model: e2e-fake.llamafile
-  prompt: hi
+  model:
+    name: e2e-fake.llamafile
+  context:
+    prompt: hi
 YAML
     cat > "$dir/resources/respond.yaml" <<'YAML'
 actionId: respond
 name: Respond
-requires: [chat]
+workflow:
+  requires: [chat]
 apiResponse:
   success: true
   response: ok

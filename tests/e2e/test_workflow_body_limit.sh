@@ -39,17 +39,20 @@ trap 'kill $KDEPS_PID 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 cat > "$TEST_DIR/resources/ask.yaml" <<'YAML'
 actionId: ask
 name: Ask
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: "BODYLIMIT hello"
+  model:
+    name: fake
+  context:
+    prompt: "BODYLIMIT hello"
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [ask]
+workflow:
+  requires: [ask]
 apiResponse:
   success: true
   response:
@@ -74,7 +77,7 @@ metadata:
   name: body-limit-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${port}

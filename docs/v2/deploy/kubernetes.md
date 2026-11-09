@@ -29,7 +29,7 @@ kdeps export k8s [path] [flags]
 | `--image` | `-i` | Container image to use | `{name}:{version}` from workflow |
 | `--output` | `-o` | Output file path | stdout |
 | `--replicas` | `-r` | Number of replicas (overrides `workflow.yaml`) | From workflow |
-| `--network-policy` | | Also generate a NetworkPolicy restricting ingress to the configured ports | Off (or `agentSettings.networkPolicy`) |
+| `--network-policy` | | Also generate a NetworkPolicy restricting ingress to the configured ports | Off (or `runtime.networkPolicy`) |
 
 **Examples:**
 
@@ -55,14 +55,14 @@ kdeps export k8s examples/chatbot \
 
 ## Workflow configuration
 
-Configure Kubernetes-specific settings in `workflow.yaml` under `agentSettings`:
+Configure Kubernetes-specific settings in `workflow.yaml` under `runtime`:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     portNum: 8080
-  agentSettings:
+  runtime:
     # Number of pod replicas
     replicas: 3
 
@@ -105,12 +105,13 @@ When `resources` is set, the manifest includes both `limits` and `requests`:
 
 ```yaml
 # workflow.yaml
-agentSettings:
-  resources:
-    cpuLimit: "500m"
-    memoryLimit: "512Mi"
-    cpuRequest: "100m"
-    memoryRequest: "128Mi"
+deploy:
+  runtime:
+    resources:
+      cpuLimit: "500m"
+      memoryLimit: "512Mi"
+      cpuRequest: "100m"
+      memoryRequest: "128Mi"
 ```
 
 When `resources` is absent, no `resources:` block is emitted (Kubernetes defaults apply).
@@ -201,7 +202,7 @@ Probes follow what the workflow serves:
 
 ## NetworkPolicy (opt-in)
 
-Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat` and the `http_request`, `web_search`, and `sql` components can reach external services.
+Set `runtime.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat` and the `http_request`, `web_search`, and `sql` components can reach external services.
 
 ```yaml
 # k8s.yaml (appended when networkPolicy is enabled)
@@ -230,7 +231,7 @@ Your cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium, etc.); 
 
 ## Auth tokens
 
-When `apiServer` is configured, the Deployment references auth tokens from a Kubernetes Secret (never from `agentSettings.env`):
+When `apiServer` is configured, the Deployment references auth tokens from a Kubernetes Secret (never from `runtime.env`):
 
 ```yaml
 # deploy/auth-secret.yaml
@@ -254,7 +255,7 @@ kubectl apply -f k8s.yaml
 
 ## Env secrets
 
-Secret-like keys in `agentSettings.env` (for example `OPENAI_API_KEY`) are not baked into the manifest. Export emits `secretKeyRef` entries against `{metadata.name}-env` instead:
+Secret-like keys in `runtime.env` (for example `OPENAI_API_KEY`) are not baked into the manifest. Export emits `secretKeyRef` entries against `{metadata.name}-env` instead:
 
 ```yaml
 # deploy/env-secret.yaml
@@ -322,10 +323,10 @@ Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM server appli
 Two patterns:
 
 1. **Ingress TLS** (cert-manager / cloud LB) - terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
-2. **In-pod Let's Encrypt** - set `settings.letsEncrypt.domain`, listen on 443, expose Service ports 80/443, and mount a PVC at `cacheDir`.
+2. **In-pod Let's Encrypt** - set `deploy.letsEncrypt.domain`, listen on 443, expose Service ports 80/443, and mount a PVC at `cacheDir`.
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # cert hostname; its A/AAAA record must point here
     email: ops@example.com           # Let's Encrypt registration email

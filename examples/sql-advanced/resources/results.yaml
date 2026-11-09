@@ -1,6 +1,7 @@
 actionId: results
 name: Combined Results
-requires: [analytics, batchUpdate]
+workflow:
+  requires: [analytics, batchUpdate]
 
 apiResponse:
   success: true

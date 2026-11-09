@@ -27,20 +27,24 @@ One file per criterion. Each reads only the request, so all four run at once.
 ```yaml
 # resources/scope.yaml
 actionId: scope
-validations:
+guardrails:
   skip:
     - "get('doc') == nil"   # an answer request carries no doc: skip the review
 chat:
-  model: llama3.2:1b
-  prompt: |
-    You review design documents for one criterion only.
-    Criterion (scope): The design solves the problem it states, no smaller and no larger.
-    Reply with JSON only: {"pass": true|false, "findings": ["..."]}
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      You review design documents for one criterion only.
+      Criterion (scope): The design solves the problem it states, no smaller and no larger.
+      Reply with JSON only: {"pass": true|false, "findings": ["..."]}
 
-    Design document:
-    {{ get('doc') }}
-  jsonResponse: true
-  jsonResponseKeys: [pass, findings]
+      Design document:
+      {{ get('doc') }}
+  harness:
+    output:
+      json: true
+      keys: [pass, findings]
 ```
 
 </div>
@@ -52,7 +56,8 @@ chat:
 ```yaml
 # resources/reply.yaml
 actionId: reply
-requires: [scope, clarity, failure-modes, readiness]
+workflow:
+  requires: [scope, clarity, failure-modes, readiness]
 before:
   # keep the findings in the session for the answer request
   # (own key names: get('doc') also reads the session)

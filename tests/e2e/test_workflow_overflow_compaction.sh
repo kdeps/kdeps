@@ -43,7 +43,7 @@ metadata:
   name: overflow-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}
@@ -55,19 +55,23 @@ YAML
 cat > "$TEST_DIR/resources/ask.yaml" <<'YAML'
 actionId: ask
 name: Ask
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: 'OVERFLOWJSON calculator {"expression": "1 + 1"}'
+  model:
+    name: fake
+  context:
+    prompt: 'OVERFLOWJSON calculator {"expression": "1 + 1"}'
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [ask]
+workflow:
+  requires: [ask]
 apiResponse:
   success: true
   response:

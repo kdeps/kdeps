@@ -3,7 +3,7 @@ name: Available Models
 description: Returns list of available LLM models
 
 # Only respond to GET requests on /api/v1/models
-validations:
+guardrails:
   methods:
     - GET
   routes:

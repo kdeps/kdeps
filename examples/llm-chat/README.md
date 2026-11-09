@@ -77,9 +77,11 @@ In either mode the user's text is available via `input("message")`:
 
 ```yaml
 chat:
-  model: llama3.2:1b
-  role: assistant
-  prompt: "{{ input('message') }}"
+  model:
+    name: llama3.2:1b
+  context:
+    role: assistant
+    prompt: "{{ input('message') }}"
 ```
 
 ## Session Context

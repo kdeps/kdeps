@@ -289,10 +289,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(validContent), 0644)

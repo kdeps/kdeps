@@ -140,8 +140,9 @@ component:
 </div>
 
 ```yaml
-# resources/response.yaml
-requires: [summarize]
+workflow:
+  # resources/response.yaml
+  requires: [summarize]
 apiResponse:
   success: true
   response:
@@ -173,12 +174,12 @@ component:
 
 </div>
 
-Workflow-wide values from `agentSettings.env` are inherited by the script:
+Workflow-wide values from `runtime.env` are inherited by the script:
 
 ```yaml
 # In workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     env:
       API_KEY: "secret-key"
       DEBUG: "true"
@@ -218,8 +219,9 @@ component:
   with:
     script: |
       raise SystemExit(3)
-onError:
-  action: continue
+workflow:
+  onError:
+    action: continue
 ```
 
 </div>

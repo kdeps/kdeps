@@ -273,4 +273,4 @@ A [shelf](/reference/glossary#shelf) is the engineering category an asset is fil
 
 `events/` and `actions/` stay their own sets; each file takes the shelf of the behavior it serves.
 
-Tokens, structured output, embeddings, session, trace and fine-tune are not shelves. Tokens are counts. Structured output is `jsonResponse`. Embeddings are the rag items. Session resume and `kdeps --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) are a separate axis.
+Tokens, structured output, embeddings, session, trace and fine-tune are not shelves. Tokens are counts. Structured output is `harness.output.json`. Embeddings are the rag items. Session resume and `kdeps --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) are a separate axis.

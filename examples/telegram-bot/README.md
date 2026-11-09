@@ -79,13 +79,15 @@ kdeps sends the workflow's result (the `reply` resource's `apiResponse` response
 
 ```yaml
 # workflow.yaml
-agentSettings:
-  models:
-    - llama3.1:8b     # Smarter, slower
+deploy:
+  runtime:
+    models:
+      - llama3.1:8b     # Smarter, slower
 
 # resources/llm.yaml
 chat:
-  model: llama3.1:8b
+  model:
+    name: llama3.1:8b
 ```
 
 ### Change the Persona

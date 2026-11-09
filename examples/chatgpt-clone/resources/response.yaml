@@ -1,9 +1,10 @@
 actionId: responseResource
 name: API Response Router
 description: Routes and formats responses based on the endpoint called
-requires:
-    - llmResource
-    - modelsResource
+workflow:
+    requires:
+        - llmResource
+        - modelsResource
 
 # Guard every lookup: on each request one of the two endpoint resources is
 # route-skipped, so its keys do not exist. A bare get() on a missing key

@@ -13,16 +13,18 @@ This directory contains examples of different LLM backend configurations.
 To use Ollama in Docker builds, set `installOllama: true` in your workflow:
 
 ```yaml
-agentSettings:
-  installOllama: true  # Install Ollama for local LLM support
-  models:
-    - llama3.2:1b      # Pre-download models
+deploy:
+  runtime:
+    installOllama: true  # Install Ollama for local LLM support
+    models:
+      - llama3.2:1b      # Pre-download models
 ```
 
 For cloud-only workflows:
 ```yaml
-agentSettings:
-  installOllama: false  # Skip Ollama installation
+deploy:
+  runtime:
+    installOllama: false  # Skip Ollama installation
 ```
 
 ## Backend Options
@@ -32,9 +34,11 @@ agentSettings:
 #### Ollama (Default)
 ```yaml
 chat:
-  backend: ollama  # or omit for default
   baseUrl: http://localhost:11434  # Optional
-  contextLength: 4096  # 4k tokens (default)
+  model:
+    backend: ollama  # or omit for default
+  context:
+    contextLength: 4096  # 4k tokens (default)
 ```
 
 ### Cloud Backends
@@ -42,77 +46,90 @@ chat:
 #### OpenAI
 ```yaml
 chat:
-  backend: openai
   apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
-  model: gpt-4o
-  contextLength: 8192  # 8k tokens
+  model:
+    backend: openai
+    name: gpt-4o
+  context:
+    contextLength: 8192  # 8k tokens
 ```
 
 #### Anthropic (Claude)
 ```yaml
 chat:
-  backend: anthropic
   apiKey: "{{ get('ANTHROPIC_API_KEY', 'env') }}"
-  model: claude-3-5-sonnet-20241022
-  contextLength: 32768  # 32k tokens
+  model:
+    backend: anthropic
+    name: claude-3-5-sonnet-20241022
+  context:
+    contextLength: 32768  # 32k tokens
 ```
 
 #### Google (Gemini)
 ```yaml
 chat:
-  backend: google
   apiKey: "{{ get('GOOGLE_API_KEY', 'env') }}"
-  model: gemini-1.5-pro
-  contextLength: 65536  # 64k tokens
+  model:
+    backend: google
+    name: gemini-1.5-pro
+  context:
+    contextLength: 65536  # 64k tokens
 ```
 
 #### Groq
 ```yaml
 chat:
-  backend: groq
   apiKey: "{{ get('GROQ_API_KEY', 'env') }}"
-  model: llama-3.1-70b-versatile
-  contextLength: 131072  # 128k tokens
+  model:
+    backend: groq
+    name: llama-3.1-70b-versatile
+  context:
+    contextLength: 131072  # 128k tokens
 ```
 
 #### Together AI
 ```yaml
 chat:
-  backend: together
   apiKey: "{{ get('TOGETHER_API_KEY', 'env') }}"
-  model: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
+  model:
+    backend: together
+    name: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
 ```
 
 #### Cohere
 ```yaml
 chat:
-  backend: cohere
   apiKey: "{{ get('COHERE_API_KEY', 'env') }}"
-  model: command-r-plus
+  model:
+    backend: cohere
+    name: command-r-plus
 ```
 
 #### Mistral AI
 ```yaml
 chat:
-  backend: mistral
   apiKey: "{{ get('MISTRAL_API_KEY', 'env') }}"
-  model: mistral-large-latest
+  model:
+    backend: mistral
+    name: mistral-large-latest
 ```
 
 #### Perplexity
 ```yaml
 chat:
-  backend: perplexity
   apiKey: "{{ get('PERPLEXITY_API_KEY', 'env') }}"
-  model: llama-3.1-sonar-large-128k-online
+  model:
+    backend: perplexity
+    name: llama-3.1-sonar-large-128k-online
 ```
 
 #### DeepSeek
 ```yaml
 chat:
-  backend: deepseek
   apiKey: "{{ get('DEEPSEEK_API_KEY', 'env') }}"
-  model: deepseek-chat
+  model:
+    backend: deepseek
+    name: deepseek-chat
 ```
 
 ## Context Length Options

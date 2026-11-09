@@ -32,13 +32,13 @@ metadata:
   version: "1.0.0"
   targetActionId: fileProcessor
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/v1/upload
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 ```
 
@@ -52,7 +52,7 @@ Create `resources/file-processor.yaml`:
 # resources/file-processor.yaml
 actionId: fileProcessor
 name: File processor
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/upload]
 apiResponse:

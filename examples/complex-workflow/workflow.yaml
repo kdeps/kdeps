@@ -7,7 +7,7 @@ metadata:
   version: 1.0.0
   targetActionId: api-response
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -15,7 +15,7 @@ settings:
       - path: "/analyze"
         methods: ["POST"]
 
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -23,7 +23,8 @@ resources:
   - actionId: fetch-repo-data
     name: fetch-repo-data
     description: "Fetch GitHub repository information"
-    requires: []
+    workflow:
+      requires: []
     component:
       name: http_request
       with:
@@ -38,7 +39,8 @@ resources:
   - actionId: fetch-commits
     name: fetch-commits
     description: "Fetch recent commits"
-    requires: ["fetch-repo-data"]
+    workflow:
+      requires: ["fetch-repo-data"]
     component:
       name: http_request
       with:
@@ -53,7 +55,8 @@ resources:
   - actionId: fetch-contributors
     name: fetch-contributors
     description: "Fetch repository contributors"
-    requires: ["fetch-repo-data"]
+    workflow:
+      requires: ["fetch-repo-data"]
     component:
       name: http_request
       with:
@@ -68,7 +71,8 @@ resources:
   - actionId: fetch-issues
     name: fetch-issues
     description: "Fetch recent issues"
-    requires: ["fetch-repo-data"]
+    workflow:
+      requires: ["fetch-repo-data"]
     component:
       name: http_request
       with:
@@ -83,63 +87,74 @@ resources:
   - actionId: analyze-activity
     name: analyze-activity
     description: "Analyze repository activity with AI"
-    requires: ["fetch-commits", "fetch-contributors", "fetch-issues"]
+    workflow:
+      requires: ["fetch-commits", "fetch-contributors", "fetch-issues"]
     chat:
-      model: llama3.2:1b
-      role: "user"
-      prompt: |
-        Analyze this GitHub repository activity:
+      model:
+        name: llama3.2:1b
+        timeout: 60s
 
-        Repository: {{safe(get('fetch-repo-data'), 'data.name')}}
-        Stars: {{safe(get('fetch-repo-data'), 'data.stargazers_count')}}
-        Forks: {{safe(get('fetch-repo-data'), 'data.forks_count')}}
-        Open Issues: {{safe(get('fetch-repo-data'), 'data.open_issues_count')}}
+      context:
+        role: "user"
+        prompt: |
+          Analyze this GitHub repository activity:
 
-        Recent Commits: {{len(safe(get('fetch-commits'), 'data'))}}
-        Contributors: {{len(safe(get('fetch-contributors'), 'data'))}}
+          Repository: {{safe(get('fetch-repo-data'), 'data.name')}}
+          Stars: {{safe(get('fetch-repo-data'), 'data.stargazers_count')}}
+          Forks: {{safe(get('fetch-repo-data'), 'data.forks_count')}}
+          Open Issues: {{safe(get('fetch-repo-data'), 'data.open_issues_count')}}
 
-        Provide a brief analysis (2-3 sentences) of:
-        1. Repository health and activity level
-        2. Community engagement
-        3. Overall project status
+          Recent Commits: {{len(safe(get('fetch-commits'), 'data'))}}
+          Contributors: {{len(safe(get('fetch-contributors'), 'data'))}}
 
-        Format as JSON with fields: health, engagement, status
-      scenario:
-        - role: "assistant"
-          prompt: "You are a software development analyst."
-      jsonResponse: true
-      timeout: 60s
+          Provide a brief analysis (2-3 sentences) of:
+          1. Repository health and activity level
+          2. Community engagement
+          3. Overall project status
 
+          Format as JSON with fields: health, engagement, status
+        scenario:
+          - role: "assistant"
+            prompt: "You are a software development analyst."
+      harness:
+        output:
+          json: true
   # Step 6: Generate recommendations
   - actionId: generate-recommendations
     name: generate-recommendations
     description: "Generate improvement recommendations"
-    requires: ["analyze-activity"]
+    workflow:
+      requires: ["analyze-activity"]
     chat:
-      model: llama3.2:1b
-      role: "user"
-      prompt: |
-        Based on this repository analysis:
-        {{get('analyze-activity')}}
+      model:
+        name: llama3.2:1b
+        timeout: 60s
 
-        Generate 3 specific, actionable recommendations for improving the repository.
-        Focus on:
-        - Code quality and maintenance
-        - Community engagement
-        - Documentation and usability
+      context:
+        role: "user"
+        prompt: |
+          Based on this repository analysis:
+          {{get('analyze-activity')}}
 
-        Format as a JSON array of objects with "title" and "description" fields.
-      scenario:
-        - role: "assistant"
-          prompt: "You are a DevOps and open source community expert."
-      jsonResponse: true
-      timeout: 60s
+          Generate 3 specific, actionable recommendations for improving the repository.
+          Focus on:
+          - Code quality and maintenance
+          - Community engagement
+          - Documentation and usability
 
+          Format as a JSON array of objects with "title" and "description" fields.
+        scenario:
+          - role: "assistant"
+            prompt: "You are a DevOps and open source community expert."
+      harness:
+        output:
+          json: true
   # Step 7: Save analysis to file
   - actionId: save-analysis
     name: save-analysis
     description: "Save analysis results to file"
-    requires: ["analyze-activity", "generate-recommendations"]
+    workflow:
+      requires: ["analyze-activity", "generate-recommendations"]
     component:
       name: exec
       with:
@@ -180,7 +195,8 @@ resources:
   - actionId: final-report
     name: final-report
     description: "Generate final summary report"
-    requires: ["save-analysis"]
+    workflow:
+      requires: ["save-analysis"]
     component:
       name: exec
       with:
@@ -205,7 +221,8 @@ resources:
   - actionId: api-response
     name: api-response
     description: "Format results as API response"
-    requires: ["final-report"]
+    workflow:
+      requires: ["final-report"]
     apiResponse:
       success: true
       response:

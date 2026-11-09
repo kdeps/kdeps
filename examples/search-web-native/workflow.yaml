@@ -5,12 +5,12 @@ metadata:
   description: Web search using the native searchWeb executor (DuckDuckGo by default)
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     portNum: 16398
     routes:
       - path: /search
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"

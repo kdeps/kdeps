@@ -49,7 +49,7 @@ after:
   # Different behavior based on request method
   - set('isPost', request.method == 'POST')
   - set('isGet', request.method == 'GET')
-validations:
+guardrails:
   skip:
     - "!get('isPost')"
 ```
@@ -80,14 +80,14 @@ component:
 
 ## Agent settings
 
-The `agentSettings` section configures the runtime environment.
+The `runtime` section configures the runtime environment.
 
 ### Complete reference
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     # Timezone
     timezone: "America/New_York"
 
@@ -206,7 +206,7 @@ Configure trusted proxies for accurate client IP detection behind load balancers
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -220,7 +220,7 @@ settings:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -237,8 +237,8 @@ Use environment variables in configuration values.
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     env:
       # Direct reference
       API_KEY: "${API_KEY}"
@@ -265,7 +265,7 @@ Define multiple routes with different methods and paths.
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -333,7 +333,7 @@ resource_defaults:               # applied to every resource of that type
     retry_delay: 1s
 ```
 
-`defaults` mirrors a workflow's `agentSettings` (timezone, Python version);
+`defaults` mirrors a workflow's `runtime` (timezone, Python version);
 `resource_defaults` mirrors the fields a resource sets on itself (a `chat:`
 resource's own `timeout:`, for example) - either can still be overridden
 per-resource in `workflow.yaml`, which always wins over the global default.

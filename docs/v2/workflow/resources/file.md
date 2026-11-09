@@ -29,7 +29,8 @@ component:
 # resources/write.yaml
 actionId: writeReport
 name: Write Report
-requires: [readConfig]
+workflow:
+  requires: [readConfig]
 component:
   name: file
   with:
@@ -101,7 +102,8 @@ A dry run returns `dryRun: true` and the flag (`written`, `patched`, `deleted`, 
 # resources/fix.yaml
 actionId: applyFix
 name: Apply the fix
-requires: [suggestFix]
+workflow:
+  requires: [suggestFix]
 component:
   name: file
   with:

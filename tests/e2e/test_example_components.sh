@@ -66,8 +66,8 @@ metadata:
   name: test-${comp}
   version: "1.0.0"
   targetActionId: use-${comp}
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
 
@@ -346,8 +346,8 @@ metadata:
   name: memory-e2e-store
   version: "1.0.0"
   targetActionId: do-store
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_MEM_PROJ/resources/do-store.yaml" << YAML
@@ -388,8 +388,8 @@ metadata:
   name: search-local-e2e
   version: "1.0.0"
   targetActionId: do-search
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_SL_PROJ/resources/do-search.yaml" << YAML
@@ -436,8 +436,8 @@ metadata:
   name: scraper-e2e
   version: "1.0.0"
   targetActionId: do-scrape
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     printf 'apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: do-scrape\n  name: do-scrape\nrun:\n  component:\n    name: scraper\n    with:\n      url: "http://127.0.0.1:%s/"\n      timeout: "5"\n' \
@@ -468,8 +468,8 @@ metadata:
   name: calendar-e2e
   version: "1.0.0"
   targetActionId: do-calendar
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_CAL/resources/do-calendar.yaml" << YAML
@@ -507,8 +507,8 @@ metadata:
   name: pdf-e2e
   version: "1.0.0"
   targetActionId: do-pdf
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_PDF/resources/do-pdf.yaml" << YAML
@@ -542,8 +542,8 @@ metadata:
   name: tts-offline-e2e
   version: "1.0.0"
   targetActionId: do-tts
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_TTS/resources/do-tts.yaml" << YAML

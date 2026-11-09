@@ -238,7 +238,7 @@ chat -> engine: "when the agent calls it"
 |-----|--------------|
 | Overview | Name, version, path and parse errors. **Use in chat** registers the project as a tool the chat agent may call; it never runs unless the agent calls it. **Validate**, **Open folder** and **Delete** (workspace projects only, asks twice). |
 | Run | One **Run** button. For a workflow or agency it runs `kdeps run <absolute folder path>` inside the project folder with the project's environment (below): an API or web server keeps running and the button becomes **Stop**, with the URL, a copyable `curl` per route and the live output, plus an **Open** button that opens the web interface in your browser when the project has a `webServer`; any other workflow (single run, file input, bot) behaves as on the command line. For a component, Run takes one field per declared input, like a `with:` block, and shows each resource's progress and the response. |
-| Build | The manifest form (name, description, version, target, and the `settings` or `interface` YAML) and one card per resource. A resource card has `actionId`, `name`, `description`, `requires` (tick the resources it depends on), the fields of its action type, and an **advanced** box for everything else (`validations`, `onError`, `loop`, `before`, `after`, `items`). |
+| Build | The manifest form (name, description, version, target, and the `deploy` or `interface` YAML) and one card per resource. A resource card has `actionId`, `name`, `description`, `requires` (tick the resources it depends on), the fields of its action type, and an **advanced** box for everything else (`guardrails`, `onError`, `loop`, `before`, `after`, `items`). |
 
 **New** creates a project folder in the workspace from a template (`api-service`, `sql-agent`, `agency`, `whatsapp-bot`), the same templates as `kdeps new`, and opens it in Build.
 
@@ -252,12 +252,15 @@ Saving a card with type `chat` and three fields writes this file:
 # resources/ask.yaml - written by the Build tab
 actionId: ask                       # what other resources list in requires and read with output('ask')
 name: Ask the model
-requires:
-  - fetch                           # ticked in the requires checkboxes
+workflow:
+  requires:
+    - fetch                           # ticked in the requires checkboxes
 chat:
-  model: llama3.2:1b
-  prompt: Say hi to {{ get('who') }}  # multi-line fields are text areas
-  temperature: 0.3                  # numbers are checked: "warm" is refused as "chat.temperature: must be a number"
+  model:
+    name: llama3.2:1b
+    temperature: 0.3                  # numbers are checked: "warm" is refused as "chat.temperature: must be a number"
+  context:
+    prompt: Say hi to {{ get('who') }}  # multi-line fields are text areas
 ```
 
 | Rule | Behavior |

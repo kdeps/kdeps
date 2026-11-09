@@ -4,7 +4,7 @@ Simple LLM chatbot that explicitly opts into the ollama backend.
 
 kdeps defaults to the `file` backend (llamafile, no server needed - see
 `examples/llamafile-chat/`). This example pins ollama instead via
-`KDEPS_DEFAULT_BACKEND: ollama` in `agentSettings.env` and bakes the ollama
+`KDEPS_DEFAULT_BACKEND: ollama` in `runtime.env` and bakes the ollama
 server into container builds with `installOllama: true`.
 
 ## Features
@@ -71,7 +71,7 @@ prompt: "{{ get('q') }}"
 data: get('llmResource')
 
 # Validation
-validations:
+guardrails:
   - get('q') != ''
 ```
 

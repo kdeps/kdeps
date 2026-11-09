@@ -40,8 +40,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 

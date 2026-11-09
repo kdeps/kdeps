@@ -62,11 +62,11 @@ The two-resource chat API, the auth token, and the curl are on the [workflow qui
 
 ## Input sources
 
-Workflow mode supports three input sources configured in `settings`:
+Workflow mode supports three input sources configured in `deploy`:
 
 ```yaml
 # API (default) - starts an HTTP server
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -75,7 +75,7 @@ settings:
 
 # Bot - connects to a chat platform; blocks until SIGINT
 # Credentials go in ~/.kdeps/config.yaml bot_connections, not here
-settings:
+deploy:
   input:
     sources: [bot]
     bot:
@@ -83,7 +83,7 @@ settings:
       discord: {}              # presence enables the platform
 
 # File - reads one file from disk or stdin, runs once, exits
-settings:
+deploy:
   input:
     sources: [file]
     file:
@@ -120,10 +120,12 @@ actionId: llm
 before:
   - memory_save('last_query', get('q'))
 chat:
-  model: llama3.2:1b
-  prompt: |
-    Previous context: {{ memory_search('user preference') }}
-    Answer: {{ get('q') }}
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      Previous context: {{ memory_search('user preference') }}
+      Answer: {{ get('q') }}
 ```
 
 </div>
@@ -131,7 +133,8 @@ chat:
 ```yaml
 # resources/response.yaml
 actionId: response
-requires: [llm]
+workflow:
+  requires: [llm]
 before:
   - memory_save('last_response', get('llm').message.content)
 apiResponse:

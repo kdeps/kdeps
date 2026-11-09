@@ -65,7 +65,7 @@ metadata:
   name: hello
   version: "1.0.0"
   targetActionId: respond
-settings:
+deploy:
   apiServer:
     hostIp: 127.0.0.1
     portNum: `+strconv.Itoa(port)+`
@@ -179,8 +179,8 @@ kind: Workflow
 metadata:
   name: finder
   targetActionId: r
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `)
 	writeProjectFile(t, filepath.Join(dir, "resources", "r.yaml"), `actionId: r

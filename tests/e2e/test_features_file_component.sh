@@ -38,7 +38,7 @@ fc_run() {
     local d
     d=$(mktemp -d "$FC_DIR/wf.XXXX")
     mkdir -p "$d/resources"
-    printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: f\n  version: "1.0.0"\n  targetActionId: f\nsettings: {}\n' \
+    printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: f\n  version: "1.0.0"\n  targetActionId: f\n' \
         > "$d/workflow.yaml"
     printf 'actionId: f\nname: File\ncomponent:\n  name: file\n  with:\n%s\n' "$1" > "$d/resources/f.yaml"
     timeout 300 "$KDEPS_BIN" run "$d" 2>&1
@@ -85,7 +85,7 @@ fi
 
 D=$(mktemp -d "$FC_DIR/old.XXXX")
 mkdir -p "$D/resources"
-printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: x\nsettings: {}\n' > "$D/workflow.yaml"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: x\n' > "$D/workflow.yaml"
 printf 'actionId: x\nname: X\nfile:\n  operation: read\n  path: a.txt\n' > "$D/resources/x.yaml"
 if OUT=$("$KDEPS_BIN" validate "$D/workflow.yaml" 2>&1); then
     test_failed "file component - the file: key is gone" "validate accepted it: $OUT"

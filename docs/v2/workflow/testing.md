@@ -1,9 +1,9 @@
-# Test a workflow
+# Evals: test a workflow
 
-`kdeps test` runs the `tests:` cases declared in `workflow.yaml` against the workflow's own router, in-process, with no port bound.
+`kdeps test` runs the `evals:` cases declared in `workflow.yaml` against the workflow's own router, in-process, with no port bound.
 
 ```text
-workflow.yaml (tests:) -> kdeps test -> in-process router -> engine -> assertions
+workflow.yaml (evals:) -> kdeps test -> in-process router -> engine -> assertions + judges
 ```
 
 The request path is the one a live client gets: the same middleware, bearer auth, route matching, executors, and `apiResponse` formatting. Only the network listener is skipped, so a case that passes here passes against `kdeps run`.
@@ -20,13 +20,13 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/v1/echo
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -37,7 +37,7 @@ resources:
       response:
         ok: true
 
-tests:
+evals:
   - name: health
     request:
       path: /health            # method defaults to GET; path is required
@@ -76,7 +76,7 @@ kdeps test .                   # or: kdeps test workflow.yaml
 ```
 
 ```text
-Running 2 test(s) for echo
+Running 2 eval(s) for echo
 
   PASS  health (200, 0s)
   PASS  echo (200, 3ms)
@@ -108,6 +108,39 @@ A `jsonPath` entry needs exactly one of:
 
 The path subset is `$`, `.key`, and `[n]` - for example `$.data.items[0].name`. Wildcards, filters, and quoted keys are rejected by `kdeps validate`.
 
+## Score with judges
+
+A judge scores the response body. Graders run in-process; a judge with `criteria` is reviewed by `judgeModel`. `repeat` runs the case several times and `threshold` is the pass rate the runs need, for answers that vary from run to run.
+
+```yaml
+evals:
+  - name: answers-politely
+    request:
+      method: POST
+      path: /api/v1/ask
+      body:
+        q: "Where is my order?"
+    judges:
+      - name: mentions-order       # graders: no model call
+        graders:
+          - kind: contains         # exact | contains | not_contains | regex | json | expr
+            pattern: order
+      - name: polite               # criteria: reviewed by judgeModel
+        criteria: "The reply is polite and does not blame the customer."
+    judgeModel:
+      name: llama3.2:1b            # required when any judge has criteria
+      backend: ollama
+    repeat: 5                      # run the case 5 times (default 1)
+    threshold: 0.8                 # pass when 4 of 5 runs pass (default 1: every run)
+```
+
+```text
+  PASS  answers-politely (200, 2.1s, 5/5 runs)
+  FAIL  answers-politely: passed 3/5 runs, threshold 0.8: judge polite: blames the customer
+```
+
+The judges and graders are the ones a chat uses as runtime [guardrails](/workflow/resources/llm). A failed review fails the run.
+
 ## Auth
 
 A case that sets no `Authorization` or `X-API-Key` header is sent with `KDEPS_API_AUTH_TOKEN` as a bearer token. A case that sets its own credential keeps it. `kdeps test` applies the same security gate as `kdeps run`: a workflow with an authenticated `apiServer` refuses to run without a token.
@@ -118,14 +151,14 @@ The same setup as `kdeps run`:
 
 1. `.j2` templates in the project directory are rendered.
 2. The workflow is validated against the schema and the test definitions.
-3. `agentSettings.env` and the Python environment are prepared.
+3. `runtime.env` and the Python environment are prepared.
 4. A local LLM backend is started when a chat resource needs one and none is running.
 
 Each case then executes the full DAG through the engine, so a test exercises the real resources, not fixtures.
 
 ## Scope
 
-`kdeps test` runs workflow `tests:`. Agencies and components do not define `tests:`; test the entry-point agent's workflow directly.
+`kdeps test` runs workflow `evals:`. Agencies and components do not define `evals:`; test the entry-point agent's workflow directly.
 
 ## See also
 

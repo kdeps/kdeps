@@ -12,13 +12,15 @@ In workflow mode it is a DAG step. In agent mode it runs inside the workflow whe
 # resources/process-items.yaml
 
 actionId: processItems
-items:
-  - "Item 1"
-  - "Item 2"
-  - "Item 3"
+workflow:
+  items:
+    - "Item 1"
+    - "Item 2"
+    - "Item 3"
 
 chat:
-  prompt: "Process: {{ get('current') }}"
+  context:
+    prompt: "Process: {{ get('current') }}"
 ```
 
 </div>
@@ -74,20 +76,22 @@ Both syntaxes are equivalent. Use whichever is more readable for your use case.
 ```yaml
 # resources/process-with-item-object.yaml
 actionId: processWithItemObject
-items:
-  - "first"
-  - "second"
-  - "third"
+workflow:
+  items:
+    - "first"
+    - "second"
+    - "third"
 after:
   # Using item object methods
   - set('position', "Item " + string(item.index() + 1) + " of " + string(item.count()))
   - set('hasPrevious', item.prev() != nil)
   - set('hasNext', item.next() != nil)
 chat:
-  prompt: |
-    {{ get('position') }}
-    Current: {{ item.current() }}
-    {{ get('hasPrevious') ? 'After: ' + item.prev() : 'First item' }}
+  context:
+    prompt: |
+      {{ get('position') }}
+      Current: {{ item.current() }}
+      {{ get('hasPrevious') ? 'After: ' + item.prev() : 'First item' }}
 ```
 
 </div>
@@ -103,8 +107,9 @@ Pass an action ID to `item.values()` to get all iteration values from a specific
 ```yaml
 # resources/collect-results.yaml
 actionId: collectResults
-requires:
-  - processItems
+workflow:
+  requires:
+    - processItems
 after:
   # Get all values from processItems resource
   - set('allResults', item.values('processItems'))
@@ -125,16 +130,18 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-items:
-  - "apple"
-  - "banana"
-  - "cherry"
+workflow:
+  # resources/example.yaml
+  items:
+    - "apple"
+    - "banana"
+    - "cherry"
 
 chat:
-  prompt: |
-    Item {{ get('index') + 1 }} of {{ get('count') }}: {{ get('current') }}
-    Describe this fruit.
+  context:
+    prompt: |
+      Item {{ get('index') + 1 }} of {{ get('count') }}: {{ get('current') }}
+      Describe this fruit.
 ```
 
 </div>
@@ -144,17 +151,19 @@ chat:
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-items:
-  - "Introduction"
-  - "Main Content"
-  - "Conclusion"
+workflow:
+  # resources/example.yaml
+  items:
+    - "Introduction"
+    - "Main Content"
+    - "Conclusion"
 
 chat:
-  prompt: |
-    Write the {{ get('current') }} section.
-    {{ get('prev') ? 'Previous section was: ' + get('prev') : 'This is the first section.' }}
-    {{ get('next') ? 'Next section will be: ' + get('next') : 'This is the last section.' }}
+  context:
+    prompt: |
+      Write the {{ get('current') }} section.
+      {{ get('prev') ? 'Previous section was: ' + get('prev') : 'This is the first section.' }}
+      {{ get('next') ? 'Next section will be: ' + get('next') : 'This is the last section.' }}
 ```
 
 </div>
@@ -164,18 +173,20 @@ chat:
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-items:
-  - "process"
-  - "skip_this"
-  - "process"
+workflow:
+  # resources/example.yaml
+  items:
+    - "process"
+    - "skip_this"
+    - "process"
 
-validations:
+guardrails:
   skip:
   - get('current') == 'skip_this'
 
 chat:
-  prompt: "Processing: {{ get('current') }}"
+  context:
+    prompt: "Processing: {{ get('current') }}"
 ```
 
 </div>
@@ -187,18 +198,20 @@ Items iterate over expressions that evaluate to strings. To filter, use `skip` o
 <div v-pre>
 
 ```yaml
-# resources/example.yaml
-items:
-  - "Task 1|high"
-  - "Task 2|low"
-  - "Task 3|high"
+workflow:
+  # resources/example.yaml
+  items:
+    - "Task 1|high"
+    - "Task 2|low"
+    - "Task 3|high"
 
-validations:
+guardrails:
   skip:
     - "!(get('current') contains '|high')"
 
 chat:
-  prompt: "Handle high-priority task: {{ split(get('current'), '|')[0] }}"
+  context:
+    prompt: "Handle high-priority task: {{ split(get('current'), '|')[0] }}"
 ```
 
 </div>

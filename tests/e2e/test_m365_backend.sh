@@ -41,7 +41,7 @@ metadata:
   name: e2e-m365
   version: "1.0.0"
   targetActionId: ask
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16396
@@ -53,9 +53,11 @@ cat >"$TMP/resources/ask.yaml" <<'YAML'
 actionId: ask
 name: ask
 chat:
-  backend: m365
-  model: m365-copilot
-  prompt: "{{ get('q') }}"
+  model:
+    backend: m365
+    name: m365-copilot
+  context:
+    prompt: "{{ get('q') }}"
 YAML
 
 OUTPUT=$("$KDEPS_BIN" validate "$TMP/workflow.yaml" 2>&1)

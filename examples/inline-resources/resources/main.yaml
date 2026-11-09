@@ -3,7 +3,7 @@ name: Main Resource with Inline Resources
 description: Demonstrates inline resources that execute before and after the main resource
 
 # Restrict to specific routes and methods, and validate input
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/process]
   required:
@@ -33,11 +33,13 @@ before:
 
 # Main resource: Process data with LLM
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "Process this data: {{get('data')}}"
-  timeout: 30s
+  model:
+    name: llama3.2:1b
+    timeout: 30s
 
+  context:
+    role: user
+    prompt: "Process this data: {{get('data')}}"
 # Inline resources that run AFTER the main resource
 after:
   # Store result in database
@@ -81,9 +83,10 @@ apiResponse:
     message: "Data processed with inline resources"
     result: "{{get('_output')}}"
 
-# Error handling
-onError:
-  action: continue
-  fallback:
-    error: true
-    message: "Processing failed"
+workflow:
+  # Error handling
+  onError:
+    action: continue
+    fallback:
+      error: true
+      message: "Processing failed"

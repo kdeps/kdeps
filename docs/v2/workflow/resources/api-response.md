@@ -12,8 +12,9 @@
 # resources/respond.yaml
 actionId: responseResource
 name: API Response
-requires:
-  - llmResource
+workflow:
+  requires:
+    - llmResource
 apiResponse:
   success: true
   response:
@@ -150,14 +151,17 @@ apiResponse:
 # LLM resource used earlier
 actionId: llmResource
 chat:
-  model: llama3.2:1b
-  backend: ollama
-  prompt: "{{ get('q') }}"
+  model:
+    name: llama3.2:1b
+    backend: ollama
+  context:
+    prompt: "{{ get('q') }}"
 
 ---
 # Response automatically includes model/backend
 actionId: responseResource
-requires: [llmResource]
+workflow:
+  requires: [llmResource]
 apiResponse:
   success: true
   response:
@@ -207,7 +211,7 @@ For error handling, use preflight checks or conditional responses:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   check:
     - get('user_id') != ''
   error:
@@ -238,7 +242,8 @@ apiResponse:
 ```yaml
 # resources/chat-response.yaml
 actionId: chatResponse
-requires: [llmResource]
+workflow:
+  requires: [llmResource]
 apiResponse:
   success: true
   response:
@@ -256,7 +261,8 @@ apiResponse:
 ```yaml
 # resources/upload-response.yaml
 actionId: uploadResponse
-requires: [processFile]
+workflow:
+  requires: [processFile]
 apiResponse:
   success: true
   response:
@@ -275,7 +281,8 @@ apiResponse:
 ```yaml
 # resources/list-response.yaml
 actionId: listResponse
-requires: [fetchItems]
+workflow:
+  requires: [fetchItems]
 apiResponse:
   success: true
   response:
@@ -295,10 +302,11 @@ apiResponse:
 ```yaml
 # resources/dashboard-response.yaml
 actionId: dashboardResponse
-requires:
-  - userResource
-  - statsResource
-  - notificationsResource
+workflow:
+  requires:
+    - userResource
+    - statsResource
+    - notificationsResource
 apiResponse:
   success: true
   response:
@@ -321,8 +329,9 @@ apiResponse:
 ```yaml
 # Successful case
 actionId: successResponse
-requires: [dataResource]
-validations:
+workflow:
+  requires: [dataResource]
+guardrails:
   skip:
   - get('dataResource').error != null
 
@@ -334,8 +343,9 @@ apiResponse:
 ---
 # Error case
 actionId: errorResponse
-requires: [dataResource]
-validations:
+workflow:
+  requires: [dataResource]
+guardrails:
   skip:
   - get('dataResource').error == null
 
@@ -354,7 +364,8 @@ Transform data before returning:
 ```yaml
 # resources/transformed-response.yaml
 actionId: transformedResponse
-requires: [rawData]
+workflow:
+  requires: [rawData]
 after:
   - set('formatted', filter(get('rawData'), .active == true))
 

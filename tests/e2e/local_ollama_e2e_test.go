@@ -235,7 +235,7 @@ metadata:
   version: "1.0.0"
   targetActionId: responseResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3001
@@ -246,7 +246,7 @@ settings:
       allowOrigins:
         - http://localhost:16395
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     models:
@@ -255,7 +255,7 @@ settings:
 resources:
   - actionId: llmResource
     name: LLM Test
-    validations:
+    guardrails:
       methods: [POST]
       routes: [/api/v1/test]
       check:
@@ -264,23 +264,28 @@ resources:
         code: 400
         message: Query parameter 'q' is required
     chat:
-      backend: ollama
-      model: %s
-      role: user
-      prompt: "{{ get('q') }}"
-      scenario:
-        - role: assistant
-          prompt: You are a helpful AI assistant for testing. Be brief and respond in 1-2 sentences.
-      jsonResponse: true
-      jsonResponseKeys:
-        - answer
-      timeout: 30s
+      model:
+        backend: ollama
+        name: %s
+        timeout: 30s
 
+      context:
+        role: user
+        prompt: "{{ get('q') }}"
+        scenario:
+          - role: assistant
+            prompt: You are a helpful AI assistant for testing. Be brief and respond in 1-2 sentences.
+      harness:
+        output:
+          json: true
+          keys:
+            - answer
   - actionId: responseResource
     name: API Response
-    requires:
-    - llmResource
-    validations:
+    workflow:
+      requires:
+      - llmResource
+    guardrails:
       methods: [POST]
       routes: [/api/v1/test]
     apiResponse:

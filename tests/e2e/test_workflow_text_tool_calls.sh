@@ -39,26 +39,33 @@ cat > "$TEST_DIR/resources/invoke.yaml" <<'YAML'
 actionId: invoke
 name: Invoke chat
 chat:
-  model: fake
-  prompt: 'CALL calculator {"expression": "6*7*1000"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALL calculator {"expression": "6*7*1000"}'
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/dsml.yaml" <<'YAML'
 actionId: dsml
 name: DSML chat
 chat:
-  model: fake
-  prompt: 'CALLDSML calculator {"expression": "6*7*100"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALLDSML calculator {"expression": "6*7*100"}'
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [invoke, dsml]
+workflow:
+  requires: [invoke, dsml]
 apiResponse:
   success: true
   response:
@@ -74,7 +81,7 @@ metadata:
   name: text-tool-calls-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}

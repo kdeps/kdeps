@@ -170,16 +170,18 @@ metadata:
   name: reviewer-agent
   version: "1.0.0"
   targetActionId: review
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: review
     name: Review
     chat:
-      model: fake
-      role: user
-      prompt: "review {{ get('focus') }}"
+      model:
+        name: fake
+      context:
+        role: user
+        prompt: "review {{ get('focus') }}"
 `
 
 // An agency's entry agent calls the same reviewer agent three times; the calls

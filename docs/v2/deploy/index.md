@@ -189,7 +189,7 @@ See [LLM server appliance](/llm-server/) and [LLM commands](/llm-server/cli).
 After deploy, enable HTTPS either at the load balancer/Ingress or in-process:
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # cert hostname; its A/AAAA record must point here
     email: ops@example.com           # Let's Encrypt registration email

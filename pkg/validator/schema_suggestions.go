@@ -113,9 +113,9 @@ func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 	kdeps_debug.Log("enter: getPatternSuggestion")
 	// Known patterns
 	patternMap := map[string]string{
-		"validations.routes":             routePatternSuggestion,
-		"settings.apiServer.routes.path": routePatternSuggestion,
-		"routes.path":                    routePatternSuggestion,
+		"guardrails.routes":            routePatternSuggestion,
+		"deploy.apiServer.routes.path": routePatternSuggestion,
+		"routes.path":                  routePatternSuggestion,
 	}
 
 	for key, suggestion := range patternMap {
@@ -166,8 +166,8 @@ func (sv *SchemaValidator) getRangeSuggestion(field, descStr string) string {
 		min string
 		max string
 	}{
-		"settings.apiServer.portNum": {"1", "65535"},
-		"apiServer.portNum":          {"1", "65535"},
+		"deploy.apiServer.portNum": {"1", "65535"},
+		"apiServer.portNum":        {"1", "65535"},
 	}
 	if knownRange, ok := knownRanges[field]; ok {
 		return fmt.Sprintf("Value must be between %s and %s", knownRange.min, knownRange.max)

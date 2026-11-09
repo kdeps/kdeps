@@ -299,8 +299,8 @@ metadata:
   name: agent-a
   version: "1.0.0"
   targetActionId: action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(wfContent), 0o644))
@@ -379,8 +379,8 @@ metadata:
   name: agent-a
   version: "1.0.0"
   targetActionId: action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(wfContent), 0o644))

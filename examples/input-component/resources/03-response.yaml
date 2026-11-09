@@ -1,7 +1,8 @@
 actionId: response
 name: Final Response
-requires:
-    - answer
+workflow:
+    requires:
+        - answer
 
 apiResponse:
   success: true

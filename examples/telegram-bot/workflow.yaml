@@ -7,8 +7,8 @@ metadata:
   version: "1.0.0"
   targetActionId: reply
 
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 
   input:

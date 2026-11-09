@@ -77,8 +77,8 @@ metadata:
   name: test-agent
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 </file>
 <file name="resources/main.yaml">
 actionId: main
@@ -97,8 +97,8 @@ metadata:
   name: test-agent
   version: 1.0.0
   targetActionId: nonexistent
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 </file>
 <file name="resources/main.yaml">
 actionId: main

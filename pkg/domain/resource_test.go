@@ -36,24 +36,29 @@ actionId: test-action
 name: Test Resource
 description: A test resource
 category: testing
-requires:
-    - dep1
-    - dep2
-items:
-  - item1
-  - item2
-validations:
+workflow:
+    requires:
+        - dep1
+        - dep2
+    items:
+      - item1
+      - item2
+guardrails:
   methods:
     - GET
     - POST
   routes:
     - /api/test
 chat:
-  model: llama3.2:latest
-  role: user
-  prompt: "Test prompt"
-  jsonResponse: true
-  timeout: 30s
+  model:
+    name: llama3.2:latest
+    timeout: 30s
+  context:
+    role: user
+    prompt: "Test prompt"
+  harness:
+    output:
+      json: true
 `
 
 	var resource domain.Resource
@@ -413,7 +418,7 @@ func TestChatConfig_DecodeError(t *testing.T) {
 }
 
 func TestChatConfig_Streaming(t *testing.T) {
-	yamlData := "model: gpt-4\nrole: user\nprompt: hi\nstreaming: true\n"
+	yamlData := "model:\n  name: gpt-4\n  streaming: true\ncontext:\n  role: user\n  prompt: hi\n"
 	var cfg domain.ChatConfig
 	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
@@ -476,22 +481,22 @@ func TestChatConfig_ComponentTools_YAML(t *testing.T) {
 	}{
 		{
 			name:     "populated list",
-			yaml:     "model: gpt-4o\nprompt: hi\ncomponentTools:\n  - scraper\n  - search\n",
+			yaml:     "model:\n  name: gpt-4o\ncontext:\n  prompt: hi\ntools:\n  components:\n    - scraper\n    - search\n",
 			wantList: []string{"scraper", "search"},
 		},
 		{
 			name:     "absent field",
-			yaml:     "model: gpt-4o\nprompt: hi\n",
+			yaml:     "model:\n  name: gpt-4o\ncontext:\n  prompt: hi\n",
 			wantList: nil,
 		},
 		{
 			name:     "empty list",
-			yaml:     "model: gpt-4o\nprompt: hi\ncomponentTools: []\n",
+			yaml:     "model:\n  name: gpt-4o\ncontext:\n  prompt: hi\ntools:\n  components: []\n",
 			wantList: []string{},
 		},
 		{
 			name:     "single entry",
-			yaml:     "model: gpt-4o\nprompt: hi\ncomponentTools:\n  - email\n",
+			yaml:     "model:\n  name: gpt-4o\ncontext:\n  prompt: hi\ntools:\n  components:\n    - email\n",
 			wantList: []string{"email"},
 		},
 	}
@@ -573,9 +578,11 @@ before:
   - exec:
       command: echo hello
 chat:
-  model: test-model
-  role: user
-  prompt: test
+  model:
+    name: test-model
+  context:
+    role: user
+    prompt: test
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				require.Len(t, resource.Before, 2)
@@ -593,9 +600,11 @@ chat:
 actionId: test
 name: Test Resource
 chat:
-  model: test-model
-  role: user
-  prompt: test
+  model:
+    name: test-model
+  context:
+    role: user
+    prompt: test
 after:
   - exec:
       command: echo logged
@@ -621,9 +630,11 @@ before:
       method: POST
       url: http://example.com/before
 chat:
-  model: test-model
-  role: user
-  prompt: test
+  model:
+    name: test-model
+  context:
+    role: user
+    prompt: test
 after:
   - exec:
       command: echo after
@@ -667,9 +678,11 @@ actionId: test
 name: Test Resource
 before:
   - chat:
-      model: helper-model
-      role: user
-      prompt: prepare
+      model:
+        name: helper-model
+      context:
+        role: user
+        prompt: prepare
   - httpClient:
       method: GET
       url: http://example.com
@@ -683,9 +696,11 @@ before:
   - exec:
       command: mkdir -p /tmp/test
 chat:
-  model: main-model
-  role: user
-  prompt: main prompt
+  model:
+    name: main-model
+  context:
+    role: user
+    prompt: main prompt
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				require.Len(t, resource.Before, 5)
@@ -707,9 +722,11 @@ name: Test Resource
 before:
   - "{{ set('x', 1) }}"
 chat:
-  model: test-model
-  role: user
-  prompt: test
+  model:
+    name: test-model
+  context:
+    role: user
+    prompt: test
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				require.Len(t, resource.Before, 1)
@@ -722,9 +739,11 @@ chat:
 actionId: test
 name: Test Resource
 chat:
-  model: test-model
-  role: user
-  prompt: test
+  model:
+    name: test-model
+  context:
+    role: user
+    prompt: test
 after:
   - "{{ get('test') }}"
 `,
@@ -750,9 +769,11 @@ func TestInlineResource_EmptyArrays(t *testing.T) {
 actionId: test
 name: Test Resource
 chat:
-  model: test-model
-  role: user
-  prompt: test
+  model:
+    name: test-model
+  context:
+    role: user
+    prompt: test
 `
 
 	var resource domain.Resource
@@ -768,9 +789,12 @@ func TestChatConfig_ToolChoice_YAML(t *testing.T) {
 actionId: test
 name: Test Resource
 chat:
-  model: gpt-4o
-  prompt: hello
-  toolChoice: required
+  model:
+    name: gpt-4o
+  context:
+    prompt: hello
+  tools:
+    choice: required
 `
 
 	var resource domain.Resource

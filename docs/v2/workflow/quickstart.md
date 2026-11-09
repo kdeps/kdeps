@@ -61,7 +61,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -80,7 +80,7 @@ settings:
 # resources/llm.yaml
 actionId: llm
 name: LLM Chat
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat]
   check:
@@ -89,10 +89,12 @@ validations:
     code: 400
     message: "'q' is required"
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
-  timeout: 60s
+  model:
+    name: llama3.2:1b
+    timeout: 60s
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -105,7 +107,8 @@ chat:
 # resources/response.yaml
 actionId: response
 name: API Response
-requires: [llm]
+workflow:
+  requires: [llm]
 apiResponse:
   success: true
   response:

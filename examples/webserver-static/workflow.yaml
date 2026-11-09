@@ -7,7 +7,7 @@ metadata:
   version: 1.0.0
   targetActionId: "none"
 
-settings:
+deploy:
 
   webServer:
     portNum: 16395
@@ -16,5 +16,5 @@ settings:
         serverType: "static"
         publicPath: "./public"
 
-  agentSettings:
+  runtime:
     timezone: "UTC"

@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: fformat
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16396
@@ -15,6 +15,6 @@ settings:
       - path: /format
         methods: [POST]
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"

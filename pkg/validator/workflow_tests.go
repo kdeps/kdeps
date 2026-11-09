@@ -25,6 +25,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/judge"
 	"github.com/kdeps/kdeps/v2/pkg/selftest"
 )
 
@@ -35,14 +36,14 @@ func ValidateTestCases(tests []domain.TestCase) error {
 		if tc.Name == "" {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf("tests[%d]: name is required", i),
+				fmt.Sprintf("evals[%d]: name is required", i),
 				nil,
 			)
 		}
 		if tc.Request.Path == "" {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf("test %q: request.path is required", tc.Name),
+				fmt.Sprintf("eval %q: request.path is required", tc.Name),
 				nil,
 			)
 		}
@@ -51,7 +52,7 @@ func ValidateTestCases(tests []domain.TestCase) error {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"test %q: invalid method %q (use %s)",
+					"eval %q: invalid method %q (use %s)",
 					tc.Name, tc.Request.Method, domain.StandardHTTPMethodsDisplay(),
 				),
 				nil,
@@ -60,7 +61,7 @@ func ValidateTestCases(tests []domain.TestCase) error {
 		if tc.Assert.Status != 0 && (tc.Assert.Status < 100 || tc.Assert.Status > 599) {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf("test %q: assert.status %d out of range (100-599)", tc.Name, tc.Assert.Status),
+				fmt.Sprintf("eval %q: assert.status %d out of range (100-599)", tc.Name, tc.Assert.Status),
 				nil,
 			)
 		}
@@ -69,6 +70,28 @@ func ValidateTestCases(tests []domain.TestCase) error {
 		}
 		if err := validateJSONPathAssertions(tc); err != nil {
 			return err
+		}
+		if err := validateEvalScoring(tc); err != nil {
+			return domain.NewError(domain.ErrCodeInvalidWorkflow, fmt.Sprintf("eval %q: %v", tc.Name, err), nil)
+		}
+	}
+	return nil
+}
+
+// validateEvalScoring checks an eval's judges, repeat and threshold.
+func validateEvalScoring(tc domain.TestCase) error {
+	if tc.Repeat < 0 {
+		return fmt.Errorf("repeat %d must be 1 or more", tc.Repeat)
+	}
+	if tc.Threshold < 0 || tc.Threshold > 1 {
+		return fmt.Errorf("threshold %g must be between 0 and 1", tc.Threshold)
+	}
+	for _, j := range tc.Judges {
+		if err := judge.Validate(j); err != nil {
+			return err
+		}
+		if strings.TrimSpace(j.Criteria) != "" && (tc.JudgeModel == nil || tc.JudgeModel.Name == "") {
+			return fmt.Errorf("judge %q has criteria: set judgeModel.name", j.Name)
 		}
 	}
 	return nil
@@ -82,7 +105,7 @@ func validateCaseTimeout(tc domain.TestCase) error {
 	if err != nil || d <= 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf("test %q: invalid timeout %q (use a positive duration such as 30s)", tc.Name, tc.Timeout),
+			fmt.Sprintf("eval %q: invalid timeout %q (use a positive duration such as 30s)", tc.Name, tc.Timeout),
 			nil,
 		)
 	}
@@ -98,7 +121,7 @@ func validateJSONPathAssertions(tc domain.TestCase) error {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"test %q: invalid jsonPath %q (use $, .key, and [n] steps)",
+					"eval %q: invalid jsonPath %q (use $, .key, and [n] steps)",
 					tc.Name, check.Path,
 				),
 				nil,
@@ -108,7 +131,7 @@ func validateJSONPathAssertions(tc domain.TestCase) error {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"test %q: jsonPath %q needs exactly one of equals, contains, or exists",
+					"eval %q: jsonPath %q needs exactly one of equals, contains, or exists",
 					tc.Name, check.Path,
 				),
 				nil,

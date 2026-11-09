@@ -54,8 +54,8 @@ metadata:
   name: greeter-agent
   version: "1.0.0"
   targetActionId: greet
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources: []
 `

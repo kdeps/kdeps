@@ -434,8 +434,8 @@ metadata:
   name: gap-test
   version: "1.0.0"
   targetActionId: act
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: act

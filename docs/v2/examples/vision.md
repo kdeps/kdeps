@@ -33,13 +33,13 @@ metadata:
   version: "1.0.0"
   targetActionId: visionResponse
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/v1/vision
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
     installOllama: true                 # vision needs the Ollama backend
     env:
@@ -57,16 +57,20 @@ Create `resources/vision-llm.yaml`:
 actionId: visionLLM
 name: Vision LLM
 chat:
-  model: llama3.2-vision
-  role: user
-  prompt: "{{ get('q') }}"
-  files:
-    - "{{ get('file', 'filepath') }}"   # the uploaded file, by form field name
-  jsonResponse: true
-  jsonResponseKeys:
-    - description
-    - objects
-    - scene
+  model:
+    name: llama3.2-vision
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
+    files:
+      - "{{ get('file', 'filepath') }}"   # the uploaded file, by form field name
+  harness:
+    output:
+      json: true
+      keys:
+        - description
+        - objects
+        - scene
 ```
 
 </div>
@@ -84,8 +88,9 @@ Create `resources/vision-response.yaml`:
 # resources/vision-response.yaml
 actionId: visionResponse
 name: Vision response
-requires: [visionLLM]
-validations:
+workflow:
+  requires: [visionLLM]
+guardrails:
   methods: [POST]
   routes: [/api/v1/vision]
 apiResponse:

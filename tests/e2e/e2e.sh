@@ -38,7 +38,7 @@ echo ""
 # (Windows) can then also kill, and so on.
 _warm=$(mktemp -d)
 mkdir -p "$_warm/resources"
-printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: venv-warmup\n  version: "1.0.0"\n  targetActionId: hi\nsettings:\n  agentSettings:\n    pythonVersion: "3.12"\n' \
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: venv-warmup\n  version: "1.0.0"\n  targetActionId: hi\ndeploy:\n  runtime:\n    pythonVersion: "3.12"\n' \
     > "$_warm/workflow.yaml"
 printf 'actionId: hi\nname: Hi\ncomponent:\n  name: exec\n  with:\n    command: echo hi\n' > "$_warm/resources/hi.yaml"
 echo "Building the shared Python environment once (up to 15 minutes)..."

@@ -37,7 +37,7 @@ If you run with only `webServer` and no `apiServer`, there is no bearer auth. An
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     rateLimit:
       requestsPerMinute: 120
@@ -62,7 +62,7 @@ metadata:
   version: "1.0.0"
   targetActionId: responseResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -85,7 +85,7 @@ Serve static files from a directory:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -123,7 +123,7 @@ For React, Vue, or Angular apps:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     routes:
       - path: "/"
@@ -137,7 +137,7 @@ Forward requests to backend applications:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -153,7 +153,7 @@ settings:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     routes:
       - path: "/dashboard"
@@ -187,7 +187,7 @@ if st.button("Submit"):
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     routes:
       - path: "/demo"
@@ -219,7 +219,7 @@ demo.launch(server_name="0.0.0.0", server_port=7860)
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     routes:
       - path: "/admin"
@@ -248,7 +248,7 @@ WebSocket connections are automatically proxied:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     routes:
       - path: "/ws-app"
@@ -278,7 +278,7 @@ Combine static files and multiple apps:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -312,7 +312,7 @@ For deployments behind a load balancer:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395

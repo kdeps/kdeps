@@ -1,8 +1,9 @@
 actionId: sessionHandler
 name: Session Handler
-requires: []
+workflow:
+  requires: []
 
-validations:
+guardrails:
   routes: [/api/v1/session]
   check:
     - "{{ get('logged_in', 'session') == 'true' }}"

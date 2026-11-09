@@ -1,5 +1,6 @@
 actionId: response
 name: API Response
-requires: [answer]
+workflow:
+  requires: [answer]
 apiResponse:
   response: "{{ output('answer') }}"

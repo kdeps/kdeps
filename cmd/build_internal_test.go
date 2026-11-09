@@ -120,8 +120,8 @@ metadata:
   name: agent-a
   version: "1.0.0"
   targetActionId: action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: action
@@ -162,8 +162,8 @@ metadata:
   name: agent-a
   version: "1.0.0"
   targetActionId: action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: action
@@ -332,8 +332,7 @@ func TestEnsureKdepsFile_NonKdepsSuccess(t *testing.T) {
 				"kind: Workflow\n"+
 				"metadata:\n"+
 				"  name: test\n"+
-				"  targetActionId: test-action\n"+
-				"settings: {}\n",
+				"  targetActionId: test-action\n",
 		),
 		0644,
 	))

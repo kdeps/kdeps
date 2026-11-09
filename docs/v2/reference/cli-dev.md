@@ -121,7 +121,7 @@ Workflow validated successfully
 
 ## `kdeps test`
 
-Run the `tests:` cases declared in `workflow.yaml` against the workflow's own router, in-process. No port is bound.
+Run the `evals:` cases declared in `workflow.yaml` against the workflow's own router, in-process. No port is bound.
 
 ```bash
 kdeps test [workflow.yaml | directory] [flags]
@@ -148,7 +148,7 @@ The request path is the same one a live client gets: middleware, bearer auth, ro
 **Output:**
 
 ```text
-Running 2 test(s) for my-agent
+Running 2 eval(s) for my-agent
 
   PASS  health (200, 0s)
   FAIL  chat: expected status 200, got 500
@@ -158,9 +158,9 @@ Running 2 test(s) for my-agent
 1 passed, 1 failed
 ```
 
-Exits `0` when every case passes and `1` when any case fails or the workflow defines no `tests:`. A failing case prints its status and the first 400 bytes of the response.
+Exits `0` when every case passes and `1` when any case fails or the workflow defines no `evals:`. A failing case prints its status and the first 400 bytes of the response.
 
-See [Test a workflow](/workflow/testing) for the `tests:` format and assertion reference.
+See [Test a workflow](/workflow/testing) for the `evals:` format and assertion reference.
 
 ---
 

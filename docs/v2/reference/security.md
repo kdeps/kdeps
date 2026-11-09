@@ -27,7 +27,7 @@ JS would be public anyway:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     routes:
       - path: /api/v1/chat
@@ -64,7 +64,7 @@ No `auth:` block in `workflow.yaml`. The token is never stored in the workflow f
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     trustedProxies:
       - "10.0.0.0/8"
@@ -96,7 +96,7 @@ Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute`
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     rateLimit:
       requestsPerMinute: 60
@@ -107,7 +107,7 @@ For `webServer`-only workflows, put the same fields under `webServer`:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     rateLimit:
       requestsPerMinute: 120
@@ -126,7 +126,7 @@ Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` rec
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     maxBodyBytes: 1048576   # 1 MiB
 ```
@@ -135,11 +135,11 @@ settings:
 
 ### Static certificates
 
-Enable HTTPS with PEM cert/key paths under `settings` (not under `apiServer`):
+Enable HTTPS with PEM cert/key paths under `deploy` (not under `apiServer`):
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   certFile: "/etc/certs/server.crt"
   keyFile:  "/etc/certs/server.key"
   apiServer:
@@ -154,7 +154,7 @@ Automatic ACME certificates for a custom domain (HTTP-01 on port 80 + TLS-ALPN-0
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # required primary hostname
     domains:                         # optional SANs
@@ -184,14 +184,14 @@ Cap the number of simultaneous in-flight requests. When the limit is reached, ne
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     maxConcurrent: 50
 ```
 
 ## Build-time env (Docker and Kubernetes export)
 
-`agentSettings.env` is embedded into generated Dockerfiles and Kubernetes manifests. Plain keys become `ENV` / `value:` entries. kdeps rejects auth tokens at Docker build time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`) and any secret-like key (`_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.) in both Docker and Kubernetes export.
+`runtime.env` is embedded into generated Dockerfiles and Kubernetes manifests. Plain keys become `ENV` / `value:` entries. kdeps rejects auth tokens at Docker build time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`) and any secret-like key (`_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.) in both Docker and Kubernetes export.
 
 Set those at runtime instead:
 
@@ -199,7 +199,7 @@ Set those at runtime instead:
 docker run -e KDEPS_API_AUTH_TOKEN=api-secret -e KDEPS_MANAGEMENT_TOKEN=mgmt-secret -e OPENAI_API_KEY=sk-...
 ```
 
-Kubernetes export maps auth tokens to `{metadata.name}-auth` and secret-like `agentSettings.env` keys to `{metadata.name}-env` via `secretKeyRef` (values are never written into the manifest):
+Kubernetes export maps auth tokens to `{metadata.name}-auth` and secret-like `runtime.env` keys to `{metadata.name}-env` via `secretKeyRef` (values are never written into the manifest):
 
 ```yaml
 # deploy/env-secret.yaml
@@ -251,7 +251,7 @@ WARN backend "dashscope" has a 6.0 MB request body limit --
 
 ## Resource output caps
 
-Four environment variables limit how many bytes executor resources return to the workflow engine. Set them in `agentSettings.env`.
+Four environment variables limit how many bytes executor resources return to the workflow engine. Set them in `runtime.env`.
 
 | Variable | Applies to |
 |---|---|
@@ -262,8 +262,8 @@ Four environment variables limit how many bytes executor resources return to the
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     env:
       KDEPS_EXEC_MAX_OUTPUT_BYTES: "524288"    # 512 KiB
       KDEPS_HTTP_MAX_RESPONSE_BYTES: "1048576" # 1 MiB

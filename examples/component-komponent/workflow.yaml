@@ -4,5 +4,5 @@ metadata:
   name: component-komponent-example
   description: Demonstrates auto-loading a .komponent component
   targetActionId: finalResponse
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}

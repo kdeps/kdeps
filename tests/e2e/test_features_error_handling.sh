@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: errorHandler
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3040
@@ -51,7 +51,7 @@ settings:
     cors:
       allowOrigins: ["*"]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

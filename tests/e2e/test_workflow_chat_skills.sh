@@ -52,7 +52,7 @@ metadata:
   name: chat-skills-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}
@@ -64,18 +64,22 @@ YAML
 cat > "$TEST_DIR/resources/ask.yaml" <<'YAML'
 actionId: ask
 name: Ask
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: "SKILLJSON deploy"
-  skills: [skills]
+  model:
+    name: fake
+  context:
+    prompt: "SKILLJSON deploy"
+  tools:
+    skills: [skills]
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [ask]
+workflow:
+  requires: [ask]
 apiResponse:
   success: true
   response:

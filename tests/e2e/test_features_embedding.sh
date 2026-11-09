@@ -50,7 +50,7 @@ metadata:
   name: embedding-e2e-test
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${API_PORT}
@@ -61,14 +61,14 @@ settings:
         methods: [POST]
       - path: /embed/delete
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR/resources/index.yaml" <<EOF
 actionId: indexDoc
 name: Index Document
-validations:
+guardrails:
   routes: [/embed/index]
   methods: [POST]
 component:
@@ -88,7 +88,7 @@ EOF
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
 actionId: searchDocs
 name: Search Documents
-validations:
+guardrails:
   routes: [/embed/search]
   methods: [POST]
 component:
@@ -108,7 +108,7 @@ EOF
 cat > "$TEST_DIR/resources/delete.yaml" <<EOF
 actionId: deleteDoc
 name: Delete Document
-validations:
+guardrails:
   routes: [/embed/delete]
   methods: [POST]
 component:
@@ -127,7 +127,8 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [indexDoc, searchDocs, deleteDoc]
+workflow:
+  requires: [indexDoc, searchDocs, deleteDoc]
 apiResponse:
   success: true
   response:

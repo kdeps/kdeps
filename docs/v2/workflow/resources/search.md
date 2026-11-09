@@ -24,7 +24,8 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-requires: [find]
+workflow:
+  requires: [find]
 apiResponse:
   response:
     results: "{{ output('find') }}"

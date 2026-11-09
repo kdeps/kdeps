@@ -88,10 +88,12 @@ vision/
 **Files field in ChatConfig**:
 ```yaml
 chat:
-  model: "moondream:1.8b"
-  prompt: "{{ get('q') }}"
-  files:
-    - "{{ get('file', 'file') }}"  # Image file from upload
+  model:
+    name: "moondream:1.8b"
+  context:
+    prompt: "{{ get('q') }}"
+    files:
+      - "{{ get('file', 'file') }}"  # Image file from upload
 ```
 
 ### Supported Models

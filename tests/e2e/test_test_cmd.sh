@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E: kdeps test runs the tests: cases in-process, with no port bound.
+# E2E: kdeps test runs the evals: cases in-process, with no port bound.
 
 set -uo pipefail
 
@@ -51,9 +51,9 @@ write_workflow() {
     local dir="$1" port="$2" tests="$3"
     mkdir -p "$dir"
     if [ -z "$tests" ]; then
-        tests_line="tests: []"
+        tests_line="evals: []"
     else
-        tests_line="tests:
+        tests_line="evals:
 $tests"
     fi
     cat >"$dir/workflow.yaml" <<YAML
@@ -65,14 +65,14 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: $port
     routes:
       - path: /api/v1/echo
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -84,7 +84,8 @@ resources:
         command: "echo hello"
   - actionId: response
     name: Response
-    requires: [shout]
+    workflow:
+      requires: [shout]
     apiResponse:
       success: true
       response:
@@ -177,8 +178,41 @@ fi
 # A workflow without tests: is a clear error, not a silent pass.
 write_workflow "$TMP/empty" 16395 ''
 OUTPUT=$("$KDEPS_BIN" test "$TMP/empty" 2>&1)
-if [ $? -ne 0 ] && echo "$OUTPUT" | grep -qi "no tests defined"; then
+if [ $? -ne 0 ] && echo "$OUTPUT" | grep -qi "no evals defined"; then
     test_passed "test - workflow without tests errors"
 else
     test_failed "test - workflow without tests errors" "$(echo "$OUTPUT" | tail -10)"
+fi
+
+# Evals score the body with judges and repeat a case against a pass rate.
+SCORED_TESTS='  - name: scored
+    request:
+      method: POST
+      path: /api/v1/echo
+    judges:
+      - name: greets
+        graders:
+          - kind: contains
+            pattern: hello
+    repeat: 3
+    threshold: 1
+  - name: misjudged
+    request:
+      method: POST
+      path: /api/v1/echo
+    judges:
+      - name: farewell
+        graders:
+          - kind: contains
+            pattern: goodbye
+    repeat: 2
+    threshold: 0.5'
+write_workflow "$TMP/scored" "$HELD_PORT" "$SCORED_TESTS"
+OUTPUT=$("$KDEPS_BIN" test "$TMP/scored" 2>&1)
+STATUS=$?
+if [ "$STATUS" -ne 0 ] && echo "$OUTPUT" | grep -q "PASS  scored (200, .*3/3 runs)" \
+    && echo "$OUTPUT" | grep -q 'passed 0/2 runs, threshold 0.5: judge farewell: contains: missing "goodbye"'; then
+    test_passed "test - evals run judges, repeat and threshold"
+else
+    test_failed "test - evals run judges, repeat and threshold" "exit=$STATUS output: $(echo "$OUTPUT" | tail -10)"
 fi

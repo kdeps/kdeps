@@ -16,7 +16,7 @@ message -> workflow (llm -> reply) -> result text -> same chat
 # workflow.yaml (abridged)
 metadata:
   targetActionId: reply        # its result is the reply
-settings:
+deploy:
   input:
     sources: [bot]
     bot:
@@ -29,15 +29,18 @@ settings:
 actionId: llm
 name: Generate Reply
 chat:
-  model: llama3.2:1b
-  prompt: "{{ input('message') }}"
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "{{ input('message') }}"
 ```
 
 ```yaml
 # resources/reply.yaml
 actionId: reply
 name: Reply
-requires: [llm]
+workflow:
+  requires: [llm]
 apiResponse:
   success: true
   response: "{{ get('llm').message.content }}"   # the text sent to the chat

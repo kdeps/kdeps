@@ -1,8 +1,9 @@
 actionId: response
 name: Final Response
-requires:
-    - countIntro
-    - countPoem
+workflow:
+    requires:
+        - countIntro
+        - countPoem
 
 apiResponse:
   success: true

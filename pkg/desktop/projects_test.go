@@ -43,7 +43,7 @@ metadata:
   description: Says hello
   version: "1.0.0"
   targetActionId: respond
-settings:
+deploy:
   apiServer:
     hostIp: 127.0.0.1
     portNum: 16999
@@ -294,7 +294,7 @@ func TestValidateProject(t *testing.T) {
 	assert.Empty(t, h.svc.ValidateProject(h.addGreeter(t)))
 
 	writeFile(t, filepath.Join(h.ws, "hello", "resources", "respond.yaml"),
-		"actionId: respond\nname: Respond\nrequires: [missing]\napiResponse:\n  success: true\n")
+		"actionId: respond\nname: Respond\nworkflow:\n  requires: [missing]\napiResponse:\n  success: true\n")
 	problems := h.svc.ValidateProject(hello)
 	require.NotEmpty(t, problems)
 	assert.Contains(t, strings.Join(problems, "\n"), "missing")

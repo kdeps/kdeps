@@ -62,7 +62,6 @@ metadata:
   name: version-test
   version: "1.0.0"
   targetActionId: call-echo
-settings: {}
 resources:
   - name: echo-caller
     actionId: call-echo
@@ -130,7 +129,6 @@ metadata:
   name: version-test
   version: "1.0.0"
   targetActionId: call-noversion
-settings: {}
 resources:
   - name: nv-caller
     actionId: call-noversion
@@ -155,7 +153,6 @@ metadata:
   name: version-test
   version: "1.0.0"
   targetActionId: call-echo
-settings: {}
 resources:
   - name: echo-caller
     actionId: call-echo

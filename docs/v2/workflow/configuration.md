@@ -15,11 +15,11 @@ E: HTTP response {shape: oval}
 
 A -> B -> C -> D -> E
 
-settings: workflow.yaml settings {
+deploy: workflow.yaml deploy {
   B2: "webServer\nstatic files or subprocess proxy"
-  B3: "agentSettings\nPython, OS packages, env vars"
-  B5: "session\ncross-request key-value store"
+  B3: "runtime\nPython, OS packages, env vars"
 }
+memory: "memory\ncross-request key-value store"
 
 global: "~/.kdeps/config.yaml" {
   G1: "bot_connections\nchat-bot platform tokens"
@@ -50,11 +50,11 @@ metadata:
   version: "1.0.0"         # required; semantic version
   targetActionId: response # required; the resource whose output becomes the HTTP response
 
-settings:
+deploy:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
-  agentSettings: { ... }   # runtime environment (Python, OS packages, LLM backend)
-  session: { ... }         # session persistence settings
+  runtime: { ... }   # runtime environment (Python, OS packages, LLM backend)
+memory: { ... }         # session persistence settings
 ```
 
 Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `settings:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
@@ -82,10 +82,9 @@ In an [agency](/reference/glossary#agency), each agent resolves its own profile 
 
 ```yaml
 # workflow.yaml
-settings:
-  llm:
-    executionType: stdin   # each stdin line runs targetActionId with it as the message
-    prompt: "You: "        # the prompt shown before each line
+agent:
+  executionType: stdin   # each stdin line runs targetActionId with it as the message
+  prompt: "You: "        # the prompt shown before each line
 ```
 
 ```text
@@ -99,11 +98,11 @@ You: /quit
 
 ## API server
 
-`apiServer` starts an HTTP server. TLS certificate paths go in `settings` (not under `apiServer`).
+`apiServer` starts an HTTP server. TLS certificate paths go in `deploy` (not under `apiServer`).
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   certFile: "/etc/certs/server.crt"   # TLS certificate PEM -- omit for plain HTTP
   keyFile:  "/etc/certs/server.key"   # TLS private key PEM
   # Or automatic certs for a custom domain (Let's Encrypt):
@@ -139,7 +138,7 @@ See [Security](/reference/advanced-config#security) for the full security refere
 ### Let's encrypt (custom domain)
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # cert hostname; its A/AAAA record must point here
     email: ops@example.com           # Let's Encrypt registration email
@@ -156,7 +155,7 @@ DNS must point at this host; open ports 80 and 443. Full guide: [TLS and HTTPS](
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -179,12 +178,12 @@ settings:
 
 ## Agent settings
 
-`agentSettings` controls the runtime environment. These settings affect Docker image builds and local execution.
+`runtime` controls the runtime environment. These settings affect Docker image builds and local execution.
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     pythonPackages:
@@ -198,7 +197,7 @@ settings:
       API_KEY: "value"           # environment variables available to all resources
 ```
 
-`agentSettings.env` applies everywhere the workflow runs: local `kdeps run`,
+`runtime.env` applies everywhere the workflow runs: local `kdeps run`,
 Docker images (as `ENV` directives), ISO services, and Kubernetes manifests.
 On local runs an already-set process variable always wins, so you can override
 per invocation: `API_KEY=other kdeps run workflow.yaml`. This is also how an
@@ -230,10 +229,9 @@ Session storage persists values set with `set('key', val, 'session')` across req
 
 ```yaml
 # workflow.yaml
-settings:
-  session:
-    ttl: "30m"     # how long a session lives without activity
-    type: sqlite   # storage backend
+memory:
+  ttl: "30m"     # how long a session lives without activity
+  type: sqlite   # storage backend
 ```
 
 ## See also

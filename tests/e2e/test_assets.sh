@@ -43,8 +43,8 @@ metadata:
   name: assets-pinned
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     versions:
       kdeps: v2.0.0
       ollama: 0.5.4
@@ -271,8 +271,8 @@ metadata:
   name: e2e-assets
   version: "1.0.0"
   targetActionId: respond
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 YAML
 cat > "$PK_WF/resources/respond.yaml" <<'YAML'

@@ -35,13 +35,13 @@ metadata:
   version: "1.0.0"
   targetActionId: main
 
-settings:
+deploy:
   apiServer:
     portNum: 16396
     routes:
       - path: /api/v1/process
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 ```
 
@@ -61,7 +61,7 @@ Create `resources/main.yaml`:
 # resources/main.yaml
 actionId: main
 name: Process with inline resources
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/process]
   required:
@@ -82,11 +82,13 @@ before:
 
 # main action
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "Rewrite this more formally: {{ get('data') }}"
-  timeout: 30s
+  model:
+    name: llama3.2:1b
+    timeout: 30s
 
+  context:
+    role: user
+    prompt: "Rewrite this more formally: {{ get('data') }}"
 after:
   # persist the input
   - component:
@@ -104,10 +106,11 @@ after:
           import json
           print(json.dumps({"post": "done"}))
 
-onError:
-  action: continue
-  fallback:
-    error: "processing failed"
+workflow:
+  onError:
+    action: continue
+    fallback:
+      error: "processing failed"
 
 apiResponse:
   success: true

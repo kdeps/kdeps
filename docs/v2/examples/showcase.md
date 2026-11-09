@@ -27,7 +27,7 @@ kind: Workflow
 name: my-agent
 version: "1.0.0"
 targetActionId: respond
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -47,13 +47,16 @@ settings:
 # resources/respond.yaml
 actionId: respond
 chat:
-  prompt: |
-    Email: {{ get('email') }}
-    Classify as urgent / normal / unsubscribe.
-    If urgent: draft a reply.
-    If unsubscribe: return the sender address.
-  jsonResponse: true
-  jsonResponseKeys: [label, draft, unsubscribe_from]
+  context:
+    prompt: |
+      Email: {{ get('email') }}
+      Classify as urgent / normal / unsubscribe.
+      If urgent: draft a reply.
+      If unsubscribe: return the sender address.
+  harness:
+    output:
+      json: true
+      keys: [label, draft, unsubscribe_from]
 apiResponse:
   success: true
   response:
@@ -70,12 +73,15 @@ apiResponse:
 # resources/respond.yaml
 actionId: respond
 chat:
-  prompt: |
-    Meeting request: {{ get('request') }}
-    Attendees: {{ get('attendees') }}
-    Write a concise agenda and post-meeting action items.
-  jsonResponse: true
-  jsonResponseKeys: [agenda, action_items, suggested_time]
+  context:
+    prompt: |
+      Meeting request: {{ get('request') }}
+      Attendees: {{ get('attendees') }}
+      Write a concise agenda and post-meeting action items.
+  harness:
+    output:
+      json: true
+      keys: [agenda, action_items, suggested_time]
 apiResponse:
   success: true
   response:
@@ -100,12 +106,15 @@ before:
         headers:
           Authorization: "Bearer {{ env('BANK_TOKEN') }}"
 chat:
-  prompt: |
-    Transactions: {{ get('http_request') }}
-    Today: {{ info('timestamp') }}
-    List bills due in 7 days. Flag anything overdue.
-  jsonResponse: true
-  jsonResponseKeys: [due_soon, overdue, balance_after]
+  context:
+    prompt: |
+      Transactions: {{ get('http_request') }}
+      Today: {{ info('timestamp') }}
+      List bills due in 7 days. Flag anything overdue.
+  harness:
+    output:
+      json: true
+      keys: [due_soon, overdue, balance_after]
 apiResponse:
   success: true
   response:
@@ -130,11 +139,14 @@ before:
         headers:
           Authorization: "Bearer {{ env('BANK_TOKEN') }}"
 chat:
-  prompt: |
-    Transactions: {{ get('http_request') }}
-    Find all recurring charges. Flag any not used in 30+ days.
-  jsonResponse: true
-  jsonResponseKeys: [subscriptions, unused, monthly_total]
+  context:
+    prompt: |
+      Transactions: {{ get('http_request') }}
+      Find all recurring charges. Flag any not used in 30+ days.
+  harness:
+    output:
+      json: true
+      keys: [subscriptions, unused, monthly_total]
 apiResponse:
   success: true
   response:
@@ -156,10 +168,11 @@ before:
       with:
         text: "{{ get('q') }}"
 chat:
-  prompt: |
-    Context: {{ get('embedding').embedding }}
-    Question: {{ get('q') }}
-    Answer using only the context above.
+  context:
+    prompt: |
+      Context: {{ get('embedding').embedding }}
+      Question: {{ get('q') }}
+      Answer using only the context above.
 apiResponse:
   success: true
   response:
@@ -182,12 +195,15 @@ before:
         method: GET
         url: "{{ env('PANTRY_API') }}/inventory"
 chat:
-  prompt: |
-    Pantry: {{ get('http_request') }}
-    Suggest 5 meals using items expiring soonest.
-    List what needs reordering.
-  jsonResponse: true
-  jsonResponseKeys: [meals, reorder_list]
+  context:
+    prompt: |
+      Pantry: {{ get('http_request') }}
+      Suggest 5 meals using items expiring soonest.
+      List what needs reordering.
+  harness:
+    output:
+      json: true
+      keys: [meals, reorder_list]
 apiResponse:
   success: true
   response:
@@ -209,12 +225,15 @@ before:
       with:
         url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
 chat:
-  prompt: |
-    Trip: {{ get('from') }} -> {{ get('to') }} on {{ get('date') }}
-    Data: {{ get('web_scraper') }}
-    Best flight option, hotel, and 3-day itinerary.
-  jsonResponse: true
-  jsonResponseKeys: [flight, hotel, itinerary]
+  context:
+    prompt: |
+      Trip: {{ get('from') }} -> {{ get('to') }} on {{ get('date') }}
+      Data: {{ get('web_scraper') }}
+      Best flight option, hotel, and 3-day itinerary.
+  harness:
+    output:
+      json: true
+      keys: [flight, hotel, itinerary]
 apiResponse:
   success: true
   response:
@@ -231,13 +250,16 @@ apiResponse:
 # resources/respond.yaml
 actionId: respond
 chat:
-  prompt: |
-    Client: {{ get('client') }}
-    Work done: {{ get('description') }}
-    Hours: {{ get('hours') }} at {{ get('rate') }}/hr
-    Generate a professional invoice.
-  jsonResponse: true
-  jsonResponseKeys: [invoice_number, line_items, subtotal, due_date]
+  context:
+    prompt: |
+      Client: {{ get('client') }}
+      Work done: {{ get('description') }}
+      Hours: {{ get('hours') }} at {{ get('rate') }}/hr
+      Generate a professional invoice.
+  harness:
+    output:
+      json: true
+      keys: [invoice_number, line_items, subtotal, due_date]
 apiResponse:
   success: true
   response:

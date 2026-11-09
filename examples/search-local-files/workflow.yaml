@@ -5,12 +5,12 @@ metadata:
   description: Local filesystem search through the search_local component and the kdeps API
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     portNum: 16404
     routes:
       - path: /search
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"

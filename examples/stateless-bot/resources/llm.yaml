@@ -2,5 +2,7 @@ actionId: llm
 name: LLM Response
 
 chat:
-  model: llama3.2:1b
-  prompt: "{{ input('message') }}"
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "{{ input('message') }}"

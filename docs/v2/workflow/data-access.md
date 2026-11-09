@@ -1,6 +1,6 @@
 # Data access (get, set, input, request)
 
-`get()` and `set()` are the two functions you use for almost everything in kdeps. `input` and `request` are property-style shorthands for the incoming HTTP request. All of them work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `validations.check` conditions. `get()`/`set()` are available in both modes; `input`/`request` are workflow mode only (they read the HTTP request).
+`get()` and `set()` are the two functions you use for almost everything in kdeps. `input` and `request` are property-style shorthands for the incoming HTTP request. All of them work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `guardrails.check` conditions. `get()`/`set()` are available in both modes; `input`/`request` are workflow mode only (they read the HTTP request).
 
 ## get() - read any value
 
@@ -31,8 +31,9 @@ get('API_KEY', 'env')  # environment variable
 Reading a resource output works the same way - `get('llm')` returns whatever the `llm` resource produced:
 
 ```yaml
-# resources/example.yaml
-requires: [llm]
+workflow:
+  # resources/example.yaml
+  requires: [llm]
 apiResponse:
   response:
     answer: get('llm')          # full output
@@ -101,7 +102,8 @@ after:
   - set('query', input.q)
   - set('city', input.user.address.city)   # nested access
 chat:
-  prompt: "Hello {{ input.name }}, you asked about {{ input.topic }}"
+  context:
+    prompt: "Hello {{ input.name }}, you asked about {{ input.topic }}"
 ```
 
 </div>

@@ -41,8 +41,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: main
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 	return p
 }

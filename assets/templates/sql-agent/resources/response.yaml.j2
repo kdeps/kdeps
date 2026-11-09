@@ -1,9 +1,10 @@
 actionId: formatResponse
 name: Format Response
-requires:
-  - executeQuery
+workflow:
+  requires:
+    - executeQuery
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/query]
 

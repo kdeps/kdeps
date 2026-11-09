@@ -42,7 +42,7 @@ E -> H
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   certFile: "/etc/certs/server.crt"
   keyFile: "/etc/certs/server.key"
   apiServer:
@@ -53,7 +53,7 @@ settings:
         methods: [POST]
 ```
 
-Paths are top-level under `settings` (not under `apiServer`). Same certs apply to `webServer` when enabled.
+Paths are top-level under `deploy` (not under `apiServer`). Same certs apply to `webServer` when enabled.
 
 ## Let's encrypt (custom domain)
 
@@ -63,7 +63,7 @@ kdeps uses Go `autocert` (ACME) against Let's Encrypt production or staging.
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com    # required primary hostname
     email: ops@example.com     # recommended for LE expiry notices
@@ -78,7 +78,7 @@ settings:
 ## Full field reference
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com           # primary host (required unless domains[] only)
     domains:                          # optional additional SANs
@@ -127,7 +127,7 @@ Certificates renew automatically while the process is running and the cache dire
 Before production, validate the path with staging:
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # cert hostname; its A/AAAA record must point here
     email: ops@example.com           # Let's Encrypt registration email
@@ -154,7 +154,7 @@ docker run --rm -p 80:80 -p 443:443 \
 
 ```yaml
 # workflow.yaml (inside the package)
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com
     email: ops@example.com
@@ -171,7 +171,7 @@ Alternatively mount static secrets as `certFile` / `keyFile` (see [Docker refere
 Expose Service ports 80 and 443, use a persistent volume for `cacheDir`, and set `hostIp`/`port` so the pod listens on 443.
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # cert hostname; its A/AAAA record must point here
     email: ops@example.com           # Let's Encrypt registration email

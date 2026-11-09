@@ -124,8 +124,8 @@ kdeps bundle build myagent-1.0.0.kdeps --gpu cuda
 Override the auto-selected distro in `workflow.yaml`:
 
 ```yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     baseOS: ubuntu  # alpine (default) or ubuntu
 ```
 
@@ -171,8 +171,8 @@ Bake models into the image for air-gapped deployments:
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     offlineMode: true
     models:
       - llama3.2:1b
@@ -193,8 +193,8 @@ The resulting image contains all models and does not require internet access.
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     requirementsFile: "requirements.txt"
 ```
 
@@ -204,8 +204,8 @@ kdeps uses [uv](https://github.com/astral-sh/uv) for fast Python package managem
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
     pythonPackages:
       - pandas>=2.0
@@ -219,8 +219,8 @@ Install OS-level packages:
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     osPackages:
       - ffmpeg
       - imagemagick
@@ -242,8 +242,8 @@ Override any field with an explicit semver (`v1.2.3` or `1.2.3`). Use `latest` o
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     versions:
       kdeps: v2.0.0    # optional - default: newest GitHub release when bundle build runs
       ollama: 0.5.4    # optional - default: newest ollama/ollama release
@@ -264,8 +264,8 @@ When no Ollama base image is selected, kdeps uses `alpine:latest` or `ubuntu:lat
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     args:
       BUILD_VERSION: ""
 ```
@@ -279,8 +279,8 @@ docker build --build-arg BUILD_VERSION=1.0.0 ...
 
 ```yaml
 # workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     env:
       LOG_LEVEL: "info"
       API_TIMEOUT: "30"
@@ -374,7 +374,7 @@ Add a health endpoint:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     routes:
       - path: /health
@@ -415,10 +415,10 @@ Configure Kubernetes settings in `workflow.yaml`:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     portNum: 16395
-  agentSettings:
+  runtime:
     replicas: 3
     resources:
       cpuLimit: "2000m"
@@ -455,7 +455,7 @@ docker run -p 80:80 -p 443:443 \
 ```
 
 ```yaml
-settings:
+deploy:
   letsEncrypt:
     domain: api.example.com          # cert hostname; its A/AAAA record must point here
     email: ops@example.com           # Let's Encrypt registration email

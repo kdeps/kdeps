@@ -33,7 +33,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -54,8 +54,9 @@ Create `resources/01-fetch.yaml`:
 # resources/01-fetch.yaml
 actionId: fetch
 name: Fetch repo data
-items:
-  - "{{ input.items }}"           # the "items" array from the request body
+workflow:
+  items:
+    - "{{ input.items }}"           # the "items" array from the request body
 component:
   name: http_request
   with:
@@ -82,9 +83,10 @@ Create `resources/02-transform.yaml`:
 # resources/02-transform.yaml
 actionId: transform
 name: Extract star counts
-requires: [fetch]
-items:
-  - "{{ get('fetch') }}"          # iterate over fetch's collected results
+workflow:
+  requires: [fetch]
+  items:
+    - "{{ get('fetch') }}"          # iterate over fetch's collected results
 component:
   name: exec
   with:
@@ -108,7 +110,8 @@ Create `resources/03-response.yaml`:
 # resources/03-response.yaml
 actionId: response
 name: API response
-requires: [transform]
+workflow:
+  requires: [transform]
 apiResponse:
   success: true
   response:

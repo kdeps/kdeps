@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: metadataHandler
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3120
@@ -49,7 +49,7 @@ settings:
       - path: /api/v1/metadata
         methods: [GET, POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

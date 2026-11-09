@@ -27,7 +27,8 @@ component:
 # resources/commit.yaml
 actionId: gitCommit
 name: Commit Changes
-requires: [gitStatus]
+workflow:
+  requires: [gitStatus]
 component:
   name: git
   with:
@@ -73,8 +74,9 @@ Every result has `success: true` plus the operation's fields; a failing git comm
 | `add` / `commit` / `checkout` / `init` / `clone` / `push` / `pull` | `staged` / `committed`+`message` / `switched`+`branch`+`paths` / `initialized`+`path` / `cloned`+`url` / `pushed` or `pulled`+`remote`+`branch`; `dryRun: true` when previewing |
 
 ```yaml
-# resources/report.yaml
-requires: [gitStatus]
+workflow:
+  # resources/report.yaml
+  requires: [gitStatus]
 apiResponse:
   success: true
   response:

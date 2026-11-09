@@ -38,7 +38,7 @@ metadata:
   description: A test workflow
   version: 1.0.0
   targetActionId: main-action
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -47,7 +47,7 @@ settings:
         methods:
           - GET
           - POST
-  agentSettings:
+  runtime:
     timezone: UTC
     pythonVersion: "3.11"
     pythonPackages:

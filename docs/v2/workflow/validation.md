@@ -1,12 +1,12 @@
 # Validation and control flow
 
-The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
+The `guardrails:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
 
-Set per resource. When agent mode calls this workflow as a tool, the same `validations:` rules apply inside that run.
+Set per resource. When agent mode calls this workflow as a tool, the same `guardrails:` rules apply inside that run.
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   methods: [POST]          # skip unless method matches
   routes: [/api/v1/data]  # skip unless route matches
   headers: [Authorization] # skip unless header present
@@ -41,12 +41,13 @@ Skip conditions allow you to conditionally skip resource execution based on runt
 # resources/conditional-resource.yaml
 actionId: conditionalResource
 name: Conditional Resource
-validations:
+guardrails:
   skip:
     - get('skip') == true
     - get('mode') == 'dry-run'
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -59,7 +60,7 @@ Any true condition skips the resource silently. It produces no output, but its s
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   skip:
     # Skip if flag is set
     - get('skip') == true
@@ -83,7 +84,7 @@ Preflight checks validate inputs before resource execution begins. If any condit
 # resources/validated-resource.yaml
 actionId: validatedResource
 name: Validated Resource
-validations:
+guardrails:
   check:
     - get('q') != ''
     - get('userId') != null
@@ -92,7 +93,8 @@ validations:
     code: 400
     message: Query parameter 'q' is required and must be at least 3 characters
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -107,7 +109,7 @@ All `check` conditions must pass (AND logic). If one fails, execution stops and 
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   check:
     - get('q') != ''
     - get('userId') != null
@@ -150,11 +152,12 @@ Limit which HTTP requests can trigger a resource.
 # resources/api-resource.yaml
 actionId: apiResource
 name: API Resource
-validations:
+guardrails:
   methods: [GET, POST]
   routes: [/api/v1/data, /api/v1/query]
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -169,7 +172,7 @@ chat:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   methods: [GET]         # only GET
   methods: [GET, POST]   # GET and POST
   # omit to allow all methods
@@ -179,7 +182,7 @@ validations:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   routes: [/api/v1/users]                   # single route
   routes: [/api/v1/users, /api/v1/profiles] # multiple routes
   # omit to allow all routes
@@ -191,13 +194,14 @@ validations:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   methods: [POST]
   routes:
     - /api/v1/create
     - /api/v1/update
 chat:
-  prompt: "Create: {{ get('data') }}"
+  context:
+    prompt: "Create: {{ get('data') }}"
 ```
 
 </div>
@@ -214,7 +218,7 @@ Validate the structure and content of request data using `required`, `rules`, an
 # resources/validated-input.yaml
 actionId: validatedInput
 name: Validated Input
-validations:
+guardrails:
   required:
     - userId
     - action
@@ -230,7 +234,8 @@ validations:
       minimum: 18
       maximum: 120
 chat:
-  prompt: "{{ get('action') }} user {{ get('userId') }}"
+  context:
+    prompt: "{{ get('action') }} user {{ get('userId') }}"
 ```
 
 </div>
@@ -242,7 +247,7 @@ kdeps supports multiple syntaxes for field validation:
 **`properties` (map format)**
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   required: [email, name]
   properties:
     email:
@@ -256,7 +261,7 @@ validations:
 **`rules` (array format)**
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   required: [email, name]
   rules:
     - field: email
@@ -270,7 +275,7 @@ validations:
 **`fields` (alternative map format)**
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   required: [email, name]
   fields:
     email:
@@ -303,7 +308,7 @@ validations:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   required: [email, password, confirmPassword]
   properties:
     email:
@@ -318,7 +323,8 @@ validations:
     - "get('password') == get('confirmPassword')"
     - "get('email') contains '@'"
 chat:
-  prompt: "Process user: {{ get('email') }}"
+  context:
+    prompt: "Process user: {{ get('email') }}"
 ```
 
 </div>
@@ -333,13 +339,14 @@ Restrict which headers and query parameters are allowed in requests.
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   headers:
     - Authorization
     - Content-Type
     - X-API-Key
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -352,13 +359,14 @@ Headers not in this list are inaccessible via `get()`.
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   params:
     - q
     - userId
     - action
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -371,7 +379,7 @@ Parameters not in this list are inaccessible via `get()`.
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/secure]
   headers:
@@ -380,7 +388,8 @@ validations:
   params:
     - action
 chat:
-  prompt: "Secure action: {{ get('action') }}"
+  context:
+    prompt: "Secure action: {{ get('action') }}"
 ```
 
 </div>

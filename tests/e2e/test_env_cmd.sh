@@ -38,7 +38,7 @@ metadata:
   name: e2e-env
   version: "1.0.0"
   targetActionId: respond
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395

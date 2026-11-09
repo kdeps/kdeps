@@ -167,7 +167,7 @@ kdeps export k8s examples/chatbot \
 kdeps export k8s examples/chatbot --replicas 5 # Override replicas
 ```
 
-Manifests are driven by `agentSettings` in `workflow.yaml`:
+Manifests are driven by `runtime` in `workflow.yaml`:
 - `replicas` - number of pod replicas
 - `resources` - CPU/memory limits and requests
 - `env` - container environment variables

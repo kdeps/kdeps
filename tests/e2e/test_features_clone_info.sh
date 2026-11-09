@@ -159,8 +159,8 @@ metadata:
   name: component-with-test
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
 mkdir -p "$TMPDIR_COMP_WF/resources"
@@ -191,8 +191,8 @@ metadata:
   name: before-component-test
   version: "1.0.0"
   targetActionId: answer
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
 mkdir -p "$TMPDIR_BEFORE/resources"
@@ -205,8 +205,10 @@ before:
       with:
         query: "my query"
 chat:
-  model: gpt-4o
-  prompt: "answer the question"
+  model:
+    name: gpt-4o
+  context:
+    prompt: "answer the question"
 YAML
 
 if "$KDEPS_BIN" validate "$TMPDIR_BEFORE/workflow.yaml" &>/dev/null; then
