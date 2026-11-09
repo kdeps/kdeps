@@ -68,11 +68,7 @@ func (e *Executor) executeToolCalls(
 			guard.remember(toolName, arguments, result)
 		}
 		if execErr != nil {
-			results = append(results, map[string]interface{}{
-				"tool_call_id": toolCallID,
-				fieldName:      toolName,
-				fieldError:     execErr.Error(),
-			})
+			results = append(results, guard.failed(toolName, arguments, toolCallID, execErr))
 			continue
 		}
 
