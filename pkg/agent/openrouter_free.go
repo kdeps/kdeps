@@ -27,6 +27,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v2/pkg/overflow"
 )
 
 const openrouterBackend = "openrouter"
@@ -340,7 +341,7 @@ func (l *Loop) onFreeModelLimit(
 ) (bool, error) {
 	// A provider refusal of one free id moves to another in every session, as a
 	// rate limit does, so one refusing model does not end the turn.
-	if !IsContextOverflowError(err) && isFreeModelRefusal(err) {
+	if !overflow.Is(err) && isFreeModelRefusal(err) {
 		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was refused by its provider") {
 			return true, nil
 		}
@@ -349,7 +350,7 @@ func (l *Loop) onFreeModelLimit(
 		}
 		return false, nil
 	}
-	if !isRateLimitError(err) || IsContextOverflowError(err) {
+	if !isRateLimitError(err) || overflow.Is(err) {
 		return false, nil
 	}
 	if isProviderRateLimit(err) {

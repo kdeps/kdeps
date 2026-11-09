@@ -433,6 +433,8 @@ The answer of a chat with tools is cleaned as in agent mode: `[MEMORY: ...]` mar
 
 Each model call is checked against the backend's [request body limit](/reference/security#request-body-size-preflight) first; a request over it fails with an actionable error and never reaches the model.
 
+A call that overflows the model's context is compacted and retried once, as in agent mode: everything after the system messages is summarized with the `compaction-system` and `compaction-user` harness prompts, and the model resumes from that summary and the original prompt. A prompt that overflows on its own still fails.
+
 ### kdeps tools (by name)
 
 A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.

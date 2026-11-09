@@ -32,6 +32,9 @@ SUMMARY = ("## Goal\nShip the thing\n\n## Progress\n### Done\n- [x] it\n\n## Key
            "- **Defensive**: test the edges\n\n## Next Steps\n1. keep going\n")
 
 
+OVERFLOW = object()  # reply_for result: answer with a context-overflow error
+
+
 def text(m):
     c = m.get("content", "")
     if isinstance(c, list):
@@ -63,6 +66,16 @@ def reply_for(msgs):
         return "DRAFT notes"
     if "<conversation>" in everything:
         return SUMMARY
+    over = re.search(r"OVERFLOWJSON (\w+) (?=\{)", everything)
+    if over:
+        # A tool round that overflows the context: the chat compacts it and
+        # retries with a recovery request.
+        if "CONTEXT OVERFLOW" in last:
+            return "RECOVERED" + (" WITH SUMMARY" if "Summary of previous work" in last else "")
+        if any(m.get("role") == "tool" for m in msgs):
+            return OVERFLOW
+        args, _ = json.JSONDecoder().raw_decode(everything[over.end():])
+        return json.dumps({"name": over.group(1), "arguments": args})
     leak = re.search(r"LEAKJSON (\w+) (?=\{)", everything)
     if leak:
         if msgs and msgs[-1].get("role") == "tool":
@@ -125,7 +138,17 @@ class H(h.BaseHTTPRequestHandler):
         with open(LOG, "a", encoding="utf-8") as f:
             f.write(raw.decode("utf-8") + "\n")
         body = json.loads(raw)
-        msg = {"role": "assistant", "content": reply_for(body.get("messages", []))}
+        content = reply_for(body.get("messages", []))
+        if content is OVERFLOW:
+            b = json.dumps({"error": {"message": "This model's maximum context length is 100 tokens",
+                                      "type": "invalid_request_error", "code": "context_length_exceeded"}}).encode()
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+            return
+        msg = {"role": "assistant", "content": content}
         usage = {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
         if body.get("stream"):
             self.send_response(200)
