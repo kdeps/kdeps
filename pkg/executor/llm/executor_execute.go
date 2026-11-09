@@ -83,7 +83,7 @@ func (e *Executor) executeChat(
 	if backendErr != nil {
 		return nil, chatRun{}, backendErr
 	}
-	chatTools, toolsErr := kdepsTools(ctx.Ctx, resolvedConfig.Tools)
+	chatTools, toolsErr := kdepsTools(withMemory(ctx), resolvedConfig.Tools)
 	if toolsErr != nil {
 		return nil, chatRun{}, toolsErr
 	}

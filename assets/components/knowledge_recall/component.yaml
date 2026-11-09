@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: knowledge_recall
+  description: Recall knowledge vault notes for a query through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: Words to recall notes for, e.g. a project name, a decision, an error message
+  # body is the recalled notes, or the no-notes sentence. The HTTP envelope stays inside the call.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Recall notes
+    httpClient:
+      method: POST
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/knowledge_recall/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 30s
+      data:
+        query: "{{ get('knowledge_recall.query') }}"

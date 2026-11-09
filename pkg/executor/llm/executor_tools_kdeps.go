@@ -24,6 +24,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // kdepsTools resolves each chat tool with no script, mcp or Execute to the
@@ -57,4 +58,27 @@ func kdepsTools(ctx context.Context, tools []domain.Tool) ([]domain.Tool, error)
 		}
 	}
 	return out, nil
+}
+
+// withMemory is the run's context carrying its memory store (kdeps run
+// --memory) for the memory_* tools, as agent mode attaches its own.
+func withMemory(ctx *executor.ExecutionContext) context.Context {
+	if ctx.AgentMemoryStore == nil {
+		return ctx.Ctx
+	}
+	return api.WithMemory(ctx.Ctx, api.MemoryOpts{Store: memoryStore{ctx.AgentMemoryStore}})
+}
+
+// memoryStore serves a workflow run's memory store to the memory tools.
+type memoryStore struct{ store executor.AgentMemoryStore }
+
+func (m memoryStore) Set(key, value string) error { return m.store.Set(key, value) }
+func (m memoryStore) Delete(key string) error     { return m.store.Delete(key) }
+func (m memoryStore) Search(query string) []api.MemoryHit {
+	found := m.store.Search(query)
+	out := make([]api.MemoryHit, len(found))
+	for i, e := range found {
+		out[i] = api.MemoryHit{Key: e.Key, Value: e.Value}
+	}
+	return out
 }

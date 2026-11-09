@@ -74,6 +74,7 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolExec,
 		toolHTTPRequest,
 		toolInstruct,
+		toolKnowledgeRecall,
 		toolLoadDocument,
 		toolMemoryDelete,
 		toolMemoryQuery,

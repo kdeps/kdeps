@@ -91,6 +91,7 @@ func init() {
 	RegisterTool(loadToolSpec(toolMemorySearch, "Search persistent memory.", MemorySearch))
 	RegisterTool(loadToolSpec(toolMemoryDelete, "Delete a memory entry by key.", MemoryDelete))
 	RegisterTool(loadToolSpec(toolMemoryQuery, "Run a relational query over agent state.", MemoryQuery))
+	RegisterTool(loadToolSpec(toolKnowledgeRecall, "Recall knowledge vault notes for a query.", KnowledgeRecall))
 	RegisterTool(loadToolSpec(toolEmbeddingSearch, "Search the local embedding database.", EmbeddingSearch))
 	RegisterTool(loadToolSpec(toolEmbeddingVectorize, "Convert text into embeddings.", EmbeddingVectorize))
 	RegisterTool(loadToolSpec(toolEmbedding, "Run one embedding operation.", EmbeddingOps))
