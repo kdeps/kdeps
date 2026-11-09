@@ -52,6 +52,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v2/pkg/reply"
 )
 
 //nolint:gochecknoglobals // overridable in tests for timing-sensitive spinner assertions
@@ -1492,7 +1493,7 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	// Otherwise, sr.resp may contain <thinking> blocks from ReturnOutput=true.
 	content := sr.resp
 	if content == "" {
-		content = sanitizeLoopArtifacts(strings.TrimSpace(stripContentToolCalls(buf.String())))
+		content = reply.Clean(strings.TrimSpace(stripContentToolCalls(buf.String())))
 	}
 	if content != "" {
 		fmt.Fprint(os.Stdout, renderREPLOutput(content, thinkW != nil))

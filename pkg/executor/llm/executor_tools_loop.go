@@ -25,7 +25,9 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/reply"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
+	"github.com/kdeps/kdeps/v2/pkg/toolcall"
 )
 
 // chatToolRounds is a chat's tool-round cap when it sets no maxToolRounds:
@@ -203,4 +205,25 @@ func (e *Executor) chatFollowUp(
 		return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
 	}
 	return response, nil
+}
+
+// cleanReply strips what a tool-using model leaks into its answer, as agent
+// mode does: tool-call markup it wrote as text, a self-written
+// <tool_response>, and control syntax (reply.Clean). A reply that is nothing
+// but markup keeps its cleaned original rather than becoming empty.
+func cleanReply(response map[string]interface{}) {
+	message, ok := response[jsonFieldMessage].(map[string]interface{})
+	if !ok {
+		return
+	}
+	content, ok := message[jsonFieldContent].(string)
+	if !ok || content == "" {
+		return
+	}
+	_, stripped, _ := toolcall.Salvage(content)
+	if cleaned := reply.Clean(stripped); cleaned != "" {
+		message[jsonFieldContent] = cleaned
+		return
+	}
+	message[jsonFieldContent] = reply.Clean(content)
 }

@@ -117,6 +117,9 @@ func (e *Executor) executeChat(
 		if err != nil {
 			return nil, chatRun{}, err
 		}
+		if !resolvedConfig.JSONResponse {
+			cleanReply(response)
+		}
 	}
 
 	result, err := e.formatExecuteResult(response, resolvedConfig, maxOutputBytes)

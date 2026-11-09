@@ -429,6 +429,8 @@ Agent mode's call guard applies per chat call: a [call-budget event](/agent/even
 
 A model that writes a tool call as text instead of a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call) still runs it, parsed as in [agent mode](/agent/tools-fenced). A call inside a markdown fence is an example and does not run, and a call to a tool the chat does not list is ignored.
 
+The answer of a chat with tools is cleaned as in agent mode: `[MEMORY: ...]` markers, tool-call markup, a self-written `<tool_response>` and `<File>` wrappers are stripped. A `jsonResponse` chat is left to its JSON parser.
+
 ### kdeps tools (by name)
 
 A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
