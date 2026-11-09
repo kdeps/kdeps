@@ -27,6 +27,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/failbrief"
+	"github.com/kdeps/kdeps/v2/pkg/overflow"
 )
 
 // Failure soft stops: a failed tool call or a failed LLM call is stopped by
@@ -119,7 +120,7 @@ func (l *Loop) attachToFailureBrief(note string) {
 // (already retried), context overflow (compacted by the caller) and
 // credential/billing/model errors are never retried this way.
 func (l *Loop) efficiencyLLMErrorStop(err error) bool {
-	if err == nil || isTransientError(err) || IsContextOverflowError(err) ||
+	if err == nil || isTransientError(err) || overflow.Is(err) ||
 		llmUnfixableErrRe.MatchString(err.Error()) {
 		return false
 	}

@@ -112,6 +112,7 @@ scenario test_workflow_reply_clean.sh
 scenario test_workflow_body_limit.sh
 scenario test_workflow_chat_harness.sh
 scenario test_workflow_failure_brief.sh
+scenario test_workflow_overflow_compaction.sh
 scenario test_workflow_text_tool_calls.sh
 scenario test_features_edge_cases.sh
 scenario test_features_input_sources.sh

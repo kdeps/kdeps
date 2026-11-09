@@ -26,6 +26,7 @@ import (
 	"text/template"
 
 	"github.com/kdeps/kdeps/v2/pkg/harness"
+	"github.com/kdeps/kdeps/v2/pkg/overflow"
 )
 
 //nolint:gochecknoglobals // the harness registry, loaded once at init
@@ -529,6 +530,15 @@ func initHarness() {
 
 //nolint:gochecknoinits // one-time load of the harness registry
 func init() { initHarness() }
+
+// configureCompaction installs the compaction harness prompts workflow chats
+// use to summarize a conversation that overflowed the model's context.
+func configureCompaction() {
+	overflow.Configure(overflow.Settings{
+		SystemPrompt: func() string { return harnessText("compaction-system") },
+		UserPrompt:   func() string { return harnessText("compaction-user") },
+	})
+}
 
 // configureChatHarness lets workflow chats name preamble sections in
 // chat.harness: each renders as agent mode renders it, user overrides

@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/harness"
+	"github.com/kdeps/kdeps/v2/pkg/overflow"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -249,6 +250,16 @@ func TestSetHarnessEnabled_DisabledPreambleSectionDroppedFromAssembly(t *testing
 	require.NoError(t, SetHarnessEnabled(name, false))
 	after := harnessAssembledPreamble()
 	assert.NotContains(t, after, "internals", "disabled preamble section must not appear in the assembled preamble")
+}
+
+func TestConfigureCompaction(t *testing.T) {
+	t.Cleanup(func() { overflow.Configure(overflow.Settings{}) })
+	configureCompaction()
+	system, user, ok := overflow.SummaryPrompts("conv")
+	require.True(t, ok)
+	assert.Equal(t, harnessText("compaction-system"), system)
+	assert.Contains(t, user, "<conversation>\nconv\n</conversation>")
+	assert.Contains(t, user, harnessText("compaction-user"))
 }
 
 func TestConfigureChatHarness(t *testing.T) {

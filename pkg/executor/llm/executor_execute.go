@@ -97,7 +97,10 @@ func (e *Executor) executeChat(
 	timeout := e.resolveTimeout(resolvedConfig)
 	maxOutputBytes := e.resolveMaxOutputBytes()
 
-	call := limitBody(backendName, langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout))
+	call := compactOnOverflow(
+		limitBody(backendName, langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout)),
+		promptStr,
+	)
 	recordWorkflowRequest(resolvedConfig, backendName, modelStr, messages, allTools)
 	started := time.Now()
 	response := e.callWithFallback(ctx.Ctx, call, fallbackRoutes, resolvedConfig, messages, requestConfig, timeout)

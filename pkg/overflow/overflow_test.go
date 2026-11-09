@@ -1,11 +1,11 @@
-package agent
+package overflow
 
 import (
 	"errors"
 	"testing"
 )
 
-func TestIsContextOverflowError(t *testing.T) {
+func TestIs(t *testing.T) {
 	overflow := []string{
 		"prompt is too long: 213462 tokens > 200000 maximum",
 		"413 {\"error\":{\"type\":\"request_too_large\",\"message\":\"Request exceeds the maximum size\"}}",
@@ -38,7 +38,7 @@ func TestIsContextOverflowError(t *testing.T) {
 
 	for _, msg := range overflow {
 		t.Run(msg[:min(len(msg), 60)], func(t *testing.T) {
-			if !IsContextOverflowError(errors.New(msg)) {
+			if !Is(errors.New(msg)) {
 				t.Errorf("expected overflow detection for: %q", msg)
 			}
 		})
@@ -58,12 +58,12 @@ func TestIsContextOverflowError(t *testing.T) {
 	for _, msg := range nonOverflow {
 		t.Run("non_overflow_"+msg[:min(len(msg), 40)], func(t *testing.T) {
 			if msg == "" {
-				if IsContextOverflowError(nil) {
+				if Is(nil) {
 					t.Error("expected false for nil error")
 				}
 				return
 			}
-			if IsContextOverflowError(errors.New(msg)) {
+			if Is(errors.New(msg)) {
 				t.Errorf("false positive overflow detection for: %q", msg)
 			}
 		})

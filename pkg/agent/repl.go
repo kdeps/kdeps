@@ -44,6 +44,7 @@ import (
 	"unicode"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v2/pkg/overflow"
 
 	"charm.land/lipgloss/v2"
 	"github.com/chzyer/readline"
@@ -1853,7 +1854,7 @@ func (r *REPL) contextSizeHint(err error) string {
 	default:
 		return ""
 	}
-	if !IsContextOverflowError(err) {
+	if !overflow.Is(err) {
 		return ""
 	}
 	// Suggest the next 4096 multiple with headroom above the failed request,
