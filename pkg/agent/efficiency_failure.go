@@ -21,16 +21,12 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
-	"github.com/spf13/afero"
-
-	"github.com/kdeps/kdeps/v2/pkg/api"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/failbrief"
 	"github.com/kdeps/kdeps/v2/pkg/overflow"
 )
 
@@ -41,26 +37,25 @@ import (
 // model retries with that information. The human sees nothing unless
 // /efficiency verbose is on. Past the per-turn failure budget the plain
 // [TOOL FAILED] banner (tool calls) or the error itself (LLM calls) takes over.
-const (
-
-	// failureContextRadius is how many lines either side of the focus line a
-	// failed edit's file excerpt shows.
-	failureContextRadius = 20
-	// defaultFailureContextBytes, defaultFailureDirEntries and
-	// defaultFailureErrorBytes are the brief limits when their events are off.
-	defaultFailureContextBytes = 6000
-	defaultFailureDirEntries   = 40
-	defaultFailureErrorBytes   = 1500
-)
-
-// briefLimit is a failure-brief limit from its event's items, or the default
-// when the event is off.
-func briefLimit(name string, fallback int) int {
-	n := effectiveItems(name, fallback)
+// briefLimit is a failure-brief limit from its event's items, or 0 (the
+// failbrief default) when the event is off.
+func briefLimit(name string) int {
+	n := effectiveItems(name, 0)
 	if n == disabledSentinel || n < 1 {
-		return fallback
+		return 0
 	}
 	return n
+}
+
+// configureFailureBrief installs the failure-brief limits shared with
+// workflow chats (pkg/failbrief).
+func configureFailureBrief() {
+	failbrief.Configure(failbrief.Settings{
+		Failures:     func() int { return effectiveRounds(eventEfficiencyFailures) },
+		ContextBytes: func() int { return briefLimit(eventFailureContextBytes) },
+		DirEntries:   func() int { return briefLimit(eventFailureDirEntries) },
+		ErrorBytes:   func() int { return briefLimit(eventFailureErrorBytes) },
+	})
 }
 
 // llmUnfixableErrRe matches LLM-call errors the model cannot fix by being told
@@ -88,14 +83,12 @@ func (l *Loop) efficiencyFailureStop(tc domain.StreamedToolCall, result string) 
 	fmt.Fprintf(&b,
 		"%s Soft stop (failure %d/%s). Your last call failed and nothing changed: %s (%s). Error: %s",
 		efficiencyMark, n, limit, tc.Name, summarizeToolArgs(tc.Arguments),
-		failureQuote(toolErrorText(result)))
+		failbrief.Quote(failbrief.ErrorText(result)))
 	if ctx := failureFileContext(tc); ctx != "" {
 		b.WriteString("\n\n")
 		b.WriteString(ctx)
 	}
-	b.WriteString("\n\nNeeded: use this to fix the cause and call again now - correct the arguments, " +
-		"the path or the text you match on, or use another tool. If it cannot be done, say plainly in " +
-		"your answer that this step failed; do NOT report it as done. Do not mention this notice.")
+	b.WriteString("\n\n" + failbrief.Needed + " Do not mention this notice.")
 	l.queueEfficiencyBrief(b.String())
 	l.eff.briefedFailure = true
 	return true
@@ -140,7 +133,7 @@ func (l *Loop) efficiencyLLMErrorStop(err error) bool {
 		"%s Soft stop (failure %d/%s). Your last response could not be processed: %s. "+
 			"Needed: answer again, and if you call a tool use exactly one valid call with JSON "+
 			"arguments that match its schema. Do not mention this notice.",
-		efficiencyMark, n, limit, failureQuote(err.Error())))
+		efficiencyMark, n, limit, failbrief.Quote(err.Error())))
 	return true
 }
 
@@ -151,7 +144,7 @@ func (l *Loop) efficiencyFailureSlot() (int, string, bool) {
 	if !e.active || e.ended {
 		return 0, "", false
 	}
-	limit := effectiveRounds(eventEfficiencyFailures)
+	limit := failbrief.Failures()
 	if e.failures >= limit {
 		return 0, "", false
 	}
@@ -168,125 +161,13 @@ func (l *Loop) queueEfficiencyBrief(note string) {
 	l.eff.briefs = append(l.eff.briefs, note)
 }
 
-// toolErrorText returns the message inside a {"error":...} result, or the
-// result itself when it is not that shape.
-func toolErrorText(result string) string {
-	var m map[string]any
-	if json.Unmarshal([]byte(result), &m) == nil {
-		if s, ok := m["error"].(string); ok && s != "" {
-			return s
-		}
-	}
-	return result
-}
-
-func failureQuote(s string) string {
-	s = strings.TrimSpace(s)
-	if limit := briefLimit(eventFailureErrorBytes, defaultFailureErrorBytes); len(s) > limit {
-		s = truncateUTF8(s, limit) + "..."
-	}
-	return fmt.Sprintf("%q", s)
-}
-
-func truncateUTF8(s string, n int) string {
-	for n > 0 && !utf8.RuneStart(s[n]) {
-		n--
-	}
-	return s[:n]
-}
-
-// failureFileContext returns what a model needs to fix a failed call on a
-// file: the lines around the spot a failed edit_file aimed at, or the parent
-// folder's entries when the path does not exist. "" when the call has no path.
+// failureFileContext is failbrief.FileContext for a call with its argument
+// aliases resolved.
 func failureFileContext(tc domain.StreamedToolCall) string {
 	args := map[string]any{}
 	if json.Unmarshal([]byte(tc.Arguments), &args) != nil {
 		return ""
 	}
 	normalizeToolArgs(tc.Name, args)
-	path, _ := args[toolParamFilePath].(string)
-	if path == "" {
-		path, _ = args[toolParamPath].(string)
-	}
-	if path == "" {
-		return ""
-	}
-	info, err := AppFS.Stat(path)
-	if err != nil {
-		return missingPathContext(path)
-	}
-	if info.IsDir() || tc.Name != toolNameEditFile {
-		return ""
-	}
-	data, err := afero.ReadFile(AppFS, path)
-	if err != nil || !utf8.Valid(data) {
-		return ""
-	}
-	return fileExcerpt(path, string(data), editFocusLine(string(data), args))
-}
-
-// missingPathContext lists the nearest existing folder so the model can pick
-// the right name instead of guessing again.
-func missingPathContext(path string) string {
-	dir := filepath.Dir(path)
-	for dir != filepath.Dir(dir) {
-		if info, err := AppFS.Stat(dir); err == nil && info.IsDir() {
-			break
-		}
-		dir = filepath.Dir(dir)
-	}
-	entries, err := afero.ReadDir(AppFS, dir)
-	if err != nil {
-		return fmt.Sprintf("%s does not exist.", path)
-	}
-	dirLimit := briefLimit(eventFailureDirEntries, defaultFailureDirEntries)
-	names := make([]string, 0, min(len(entries), dirLimit))
-	for i, e := range entries {
-		if i == dirLimit {
-			names = append(names, fmt.Sprintf("... %d more", len(entries)-i))
-			break
-		}
-		name := e.Name()
-		if e.IsDir() {
-			name += "/"
-		}
-		names = append(names, name)
-	}
-	return fmt.Sprintf("%s does not exist. Entries in %s: %s", path, dir, strings.Join(names, ", "))
-}
-
-// editFocusLine picks the 1-based line a failed edit aimed at: an explicit
-// line argument, else the closest match of the text it tried to locate.
-func editFocusLine(content string, args map[string]any) int {
-	if n := api.ToInt(args["line"]); n > 0 {
-		return n
-	}
-	if s, _ := args["match"].(string); strings.TrimSpace(s) != "" {
-		if _, at := api.ClosestMatch(content, s); at > 0 {
-			return at
-		}
-	}
-	return 1
-}
-
-// fileExcerpt renders the numbered lines around focus.
-func fileExcerpt(path, content string, focus int) string {
-	lines := api.SplitKeepCount(content)
-	if len(lines) == 0 {
-		return fmt.Sprintf("%s is empty.", path)
-	}
-	focus = min(max(focus, 1), len(lines))
-	from := max(1, focus-failureContextRadius)
-	to := min(len(lines), focus+failureContextRadius)
-	var b strings.Builder
-	fmt.Fprintf(&b, "Current content of %s, lines %d-%d of %d:\n", path, from, to, len(lines))
-	for i := from; i <= to; i++ {
-		row := fmt.Sprintf("%d\t%s\n", i, lines[i-1])
-		if b.Len()+len(row) > briefLimit(eventFailureContextBytes, defaultFailureContextBytes) {
-			b.WriteString("...\n")
-			break
-		}
-		b.WriteString(row)
-	}
-	return strings.TrimSuffix(b.String(), "\n")
+	return failbrief.FileContext(AppFS, tc.Name, args)
 }
