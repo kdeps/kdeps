@@ -45,8 +45,8 @@ metadata:
   name: component-call
   version: "1.0.0"
   targetActionId: c
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "c.yaml"),
 		[]byte("actionId: c\nname: C\ncomponent:\n  name: "+name+"\n  with:\n"+with), 0o600))
@@ -82,8 +82,8 @@ metadata:
   name: component-call
   version: "1.0.0"
   targetActionId: c
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "c.yaml"),
 		[]byte("actionId: c\nname: C\ncomponent:\n  name: "+name+"\n  with:\n"+with), 0o600))

@@ -42,7 +42,7 @@ metadata:
   version: "1.0.0"
   targetActionId: results
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -74,7 +74,7 @@ Create `resources/report.yaml`:
 # resources/report.yaml
 actionId: report
 name: User report
-validations:
+guardrails:
   methods: [GET]
   routes: [/report]
 component:
@@ -107,7 +107,7 @@ Create `resources/update.yaml`:
 # resources/update.yaml
 actionId: update
 name: Batch status update
-validations:
+guardrails:
   methods: [POST]
   routes: [/update]
 component:
@@ -135,7 +135,8 @@ Create `resources/results.yaml`:
 # resources/results.yaml
 actionId: results
 name: Combined results
-requires: [report, update]
+workflow:
+  requires: [report, update]
 apiResponse:
   success: true
   response:

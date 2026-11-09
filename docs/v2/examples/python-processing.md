@@ -31,13 +31,13 @@ metadata:
   version: "1.0.0"
   targetActionId: process
 
-settings:
+deploy:
   apiServer:
     portNum: 16396
     routes:
       - path: /format
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 ```
 
@@ -51,7 +51,7 @@ Create `resources/process.yaml`:
 # resources/process.yaml
 actionId: process
 name: Format operations
-validations:
+guardrails:
   methods: [POST]
   routes: [/format]
 component:

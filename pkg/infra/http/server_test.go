@@ -4062,10 +4062,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4109,10 +4109,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4164,10 +4164,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4514,12 +4514,12 @@ metadata:
   name: reloaded-test
   version: 2.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes:
       - path: /api/reloaded
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4567,10 +4567,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4615,10 +4615,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4760,12 +4760,12 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes:
       - path: /api/new
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4815,10 +4815,10 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
@@ -4875,7 +4875,7 @@ metadata:
   name: reload-test
   version: 1.0.0
   targetActionId: reload-action
-settings:
+deploy:
   apiServer:
     routes:
       - path: /api/reload
@@ -4931,7 +4931,7 @@ metadata:
   name: default-path-test
   version: 1.0.0
   targetActionId: default-action
-settings:
+deploy:
   apiServer:
     routes:
       - path: /api/default
@@ -5072,7 +5072,7 @@ metadata:
   name: route-update-test
   version: 1.0.0
   targetActionId: route-action
-settings:
+deploy:
   apiServer:
     routes:
       - path: /api/new

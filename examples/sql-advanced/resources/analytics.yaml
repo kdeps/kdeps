@@ -1,7 +1,7 @@
 actionId: analytics
 name: User Analytics Query
 
-validations:
+guardrails:
   methods: [GET]
   routes: [/api/v1/sql-demo]
 

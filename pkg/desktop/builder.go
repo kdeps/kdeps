@@ -116,6 +116,7 @@ const (
 	keyName        = "name"
 	keyDescription = "description"
 	keyRequires    = "requires"
+	keyWorkflow    = "workflow"
 	keyResources   = "resources"
 	keyMetadata    = "metadata"
 	resourcesDir   = "resources"
@@ -139,7 +140,7 @@ var multilineFields = map[string]bool{
 // nonActionBlocks are Resource struct blocks that are not actions.
 //
 //nolint:gochecknoglobals // static lookup table
-var nonActionBlocks = map[string]bool{"validations": true, "loop": true, "onError": true}
+var nonActionBlocks = map[string]bool{"guardrails": true, "loop": true, "onError": true}
 
 //nolint:gochecknoglobals // computed once from the domain types
 var (
@@ -168,9 +169,31 @@ func buildResourceKinds() []ResourceKind {
 		}
 		props, _ := schema[key].(map[string]any)
 		props, _ = props["properties"].(map[string]any)
-		out = append(out, ResourceKind{Key: key, Fields: structFields(f.Type.Elem(), props)})
+		fields := structFields(f.Type.Elem(), props)
+		if _, grouped := reflect.New(f.Type.Elem()).Interface().(yaml.Unmarshaler); grouped && props != nil {
+			fields = schemaFields(props) // the file groups its keys (chat: model, context, ...)
+		}
+		out = append(out, ResourceKind{Key: key, Fields: fields})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+// schemaFields lists a block's schema properties as form fields; objects are
+// edited as YAML.
+func schemaFields(props map[string]any) []FieldSpec {
+	names := make([]string, 0, len(props))
+	for name := range props {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]FieldSpec, 0, len(names))
+	for _, name := range names {
+		p, _ := props[name].(map[string]any)
+		spec := FieldSpec{Name: name, Type: FieldYAML}
+		spec.Description, _ = p["description"].(string)
+		out = append(out, spec)
+	}
 	return out
 }
 
@@ -371,7 +394,8 @@ func (s *Service) toForm(n *yaml.Node) (ResourceForm, error) {
 	form.ActionID, _ = m[keyActionID].(string)
 	form.Name, _ = m[keyName].(string)
 	form.Description, _ = m[keyDescription].(string)
-	if reqs, ok := m[keyRequires].([]any); ok {
+	wf, _ := m[keyWorkflow].(map[string]any)
+	if reqs, ok := wf[keyRequires].([]any); ok {
 		for _, r := range reqs {
 			form.Requires = append(form.Requires, fmt.Sprint(r))
 		}
@@ -379,7 +403,8 @@ func (s *Service) toForm(n *yaml.Node) (ResourceForm, error) {
 	extra := map[string]any{}
 	for _, item := range orderedKeys(n) {
 		switch {
-		case item == keyActionID || item == keyName || item == keyDescription || item == keyRequires:
+		case item == keyActionID || item == keyName || item == keyDescription:
+		case item == keyWorkflow && len(wf) == 1 && wf[keyRequires] != nil:
 		case form.Kind == "" && s.kind(item) != nil:
 			form.Kind = item
 			form.Action = s.actionToForm(item, mappingValue(n, item))
@@ -388,9 +413,28 @@ func (s *Service) toForm(n *yaml.Node) (ResourceForm, error) {
 		}
 	}
 	if len(extra) > 0 {
-		form.Extra = orderedYAML(n, extra)
+		form.Extra = orderedYAML(withoutRequires(n), extra)
 	}
 	return form, nil
+}
+
+// withoutRequires is n with workflow.requires left out: the form edits it.
+func withoutRequires(n *yaml.Node) *yaml.Node {
+	out := &yaml.Node{Kind: yaml.MappingNode}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		k, v := n.Content[i], n.Content[i+1]
+		if k.Value == keyWorkflow && v.Kind == yaml.MappingNode {
+			wf := &yaml.Node{Kind: yaml.MappingNode, Tag: v.Tag}
+			for j := 0; j+1 < len(v.Content); j += 2 {
+				if v.Content[j].Value != keyRequires {
+					wf.Content = append(wf.Content, v.Content[j], v.Content[j+1])
+				}
+			}
+			v = wf
+		}
+		out.Content = append(out.Content, k, v)
+	}
+	return out
 }
 
 // actionToForm reads an action block; FieldYAML values are marshalled from
@@ -442,9 +486,6 @@ func (s *Service) fromForm(form ResourceForm) ([]keyValue, error) {
 	if form.Description != "" {
 		out = append(out, keyValue{keyDescription, form.Description})
 	}
-	if reqs := cleanList(form.Requires); len(reqs) > 0 {
-		out = append(out, keyValue{keyRequires, reqs})
-	}
 	if form.Kind != "" {
 		k := s.kind(form.Kind)
 		if k == nil {
@@ -460,7 +501,31 @@ func (s *Service) fromForm(form ResourceForm) ([]keyValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(out, extra...), nil
+	return withRequires(append(out, extra...), cleanList(form.Requires)), nil
+}
+
+// withRequires puts the form's requires under workflow:, next to any other
+// workflow keys from the advanced YAML.
+func withRequires(kvs []keyValue, reqs []string) []keyValue {
+	if len(reqs) == 0 {
+		return kvs
+	}
+	var list yaml.Node
+	_ = list.Encode(reqs)
+	pair := []*yaml.Node{scalarNode(keyRequires), &list}
+	for i, kv := range kvs {
+		if wf, ok := kv.Value.(*yaml.Node); ok && kv.Key == keyWorkflow && wf.Kind == yaml.MappingNode {
+			merged := &yaml.Node{Kind: yaml.MappingNode, Content: append(pair, wf.Content...)}
+			kvs[i] = keyValue{keyWorkflow, merged}
+			return kvs
+		}
+	}
+	at := 0
+	for at < len(kvs) && (kvs[at].Key == keyActionID || kvs[at].Key == keyName || kvs[at].Key == keyDescription) {
+		at++
+	}
+	wf := keyValue{keyWorkflow, &yaml.Node{Kind: yaml.MappingNode, Content: pair}}
+	return append(kvs[:at], append([]keyValue{wf}, kvs[at:]...)...)
 }
 
 // parseExtra reads the advanced YAML, refusing keys the form already sets.
@@ -825,7 +890,7 @@ func emptyNil(s string) any {
 func manifestSection(kind string) string {
 	switch kind {
 	case ProjectWorkflow:
-		return "settings"
+		return "deploy"
 	case ProjectComponent:
 		return "interface"
 	}

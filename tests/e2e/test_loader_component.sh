@@ -45,7 +45,6 @@ metadata:
   name: load-document-test
   version: "1.0.0"
   targetActionId: do-load
-settings: {}
 YAML
 }
 

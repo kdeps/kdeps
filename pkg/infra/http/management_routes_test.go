@@ -67,8 +67,8 @@ metadata:
   name: pkg-test
   version: 3.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 
@@ -292,8 +292,8 @@ metadata:
   name: pkg-empty-path
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	archive := buildKdepsArchive(t, map[string]string{"workflow.yaml": workflowYAML})
@@ -322,8 +322,8 @@ metadata:
   name: pkg-success
   version: 9.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	// Archive contains ONLY workflow.yaml (no resources/ dir that could fail parsing).
@@ -496,8 +496,8 @@ metadata:
   name: initial-agent
   version: 1.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(initialYAML), 0600))
@@ -511,8 +511,8 @@ metadata:
   name: updated-agent
   version: 2.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	req := httptest.NewRequest(
@@ -569,8 +569,8 @@ metadata:
   name: reload-test
   version: 1.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(yamlContent), 0600))
@@ -720,8 +720,8 @@ metadata:
   name: initial
   version: 1.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0600))
 
@@ -734,8 +734,8 @@ metadata:
   name: pushed-agent
   version: 2.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	req := httptest.NewRequest(
@@ -771,8 +771,8 @@ metadata:
   name: my-agent
   version: 1.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(initialYAML), 0600))
@@ -787,8 +787,8 @@ metadata:
   name: my-agent
   version: 2.0.0
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	req := httptest.NewRequest(
@@ -847,8 +847,8 @@ metadata:
   name: fallback
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0600),
 	)
@@ -864,8 +864,8 @@ metadata:
   name: fallback
   version: 2.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(yaml))
@@ -890,8 +890,8 @@ metadata:
   name: empty-resources
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(yaml), 0600))
@@ -921,8 +921,8 @@ metadata:
   name: no-resources-dir
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(yaml), 0600))
@@ -951,8 +951,8 @@ metadata:
   name: subdirs-preserved
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(yaml), 0600))
@@ -1026,8 +1026,8 @@ metadata:
   name: nil-after-reload
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(yamlContent), 0600))

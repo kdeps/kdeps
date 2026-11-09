@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: sessionHandler
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3030
@@ -51,15 +51,15 @@ settings:
     cors:
       allowOrigins: ["*"]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 
-  session:
-    enabled: true
-    ttl: 30s
-    storage:
-      type: sqlite
-      path: ":memory:"
+memory:
+  enabled: true
+  ttl: 30s
+  storage:
+    type: sqlite
+    path: ":memory:"
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
@@ -191,7 +191,7 @@ metadata:
   version: "1.0.0"
   targetActionId: setValue
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3031
@@ -201,15 +201,15 @@ settings:
     cors:
       allowOrigins: ["*"]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 
-  session:
-    enabled: true
-    ttl: 60s
-    storage:
-      type: sqlite
-      path: ":memory:"
+memory:
+  enabled: true
+  ttl: 60s
+  storage:
+    type: sqlite
+    path: ":memory:"
 EOF
 
     cat > "$RESOURCE_FILE2" <<'EOF'

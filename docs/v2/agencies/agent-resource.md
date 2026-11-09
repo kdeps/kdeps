@@ -22,7 +22,8 @@ agent:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-requires: [delegate]
+workflow:
+  requires: [delegate]
 apiResponse:
   success: true
   response:
@@ -59,7 +60,8 @@ agent:
 # resources/report.yaml - starts once every review is back
 actionId: report
 name: Report
-requires: [reviewScope, reviewRisks, reviewClarity]
+workflow:
+  requires: [reviewScope, reviewRisks, reviewClarity]
 apiResponse:
   success: true
   response:

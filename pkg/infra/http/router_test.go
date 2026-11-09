@@ -71,8 +71,8 @@ metadata:
   name: auth-test
   version: 1.0.0
   targetActionId: a
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(validYAML), 0600))

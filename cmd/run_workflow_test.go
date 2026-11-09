@@ -154,14 +154,15 @@ metadata:
   name: llm-test
   version: "1.0.0"
   targetActionId: act
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: act
     name: Act
     chat:
-      prompt: "hi"
+      context:
+        prompt: "hi"
     apiResponse:
       success: true
 `
@@ -268,8 +269,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: response

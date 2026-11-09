@@ -40,8 +40,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -104,8 +104,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -146,8 +146,8 @@ metadata:
   name: test-wf
   version: "1.0.0"
   targetActionId: act
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0o644))
@@ -222,8 +222,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))
@@ -306,8 +306,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: nonexistent-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -332,8 +332,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -392,8 +392,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))
@@ -438,8 +438,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))
@@ -539,8 +539,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))

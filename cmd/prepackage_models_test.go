@@ -36,16 +36,18 @@ metadata:
   name: bundle-test
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: chat
     name: Chat
     chat:
-      model: fake-model.llamafile
-      prompt: hi
+      model:
+        name: fake-model.llamafile
+      context:
+        prompt: hi
   - actionId: respond
     name: Respond
-    requires: [chat]
+    workflow:
+      requires: [chat]
     apiResponse:
       success: true
       response: ok
@@ -108,7 +110,6 @@ metadata:
   name: no-chat
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: respond
     name: Respond
@@ -183,16 +184,18 @@ metadata:
   name: gguf-test
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: chat
     name: Chat
     chat:
-      model: fake-model.gguf
-      prompt: hi
+      model:
+        name: fake-model.gguf
+      context:
+        prompt: hi
   - actionId: respond
     name: Respond
-    requires: [chat]
+    workflow:
+      requires: [chat]
     apiResponse:
       success: true
       response: ok
@@ -332,16 +335,18 @@ metadata:
   name: gguf-llama
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: chat
     name: Chat
     chat:
-      model: fake-model.gguf
-      prompt: hi
+      model:
+        name: fake-model.gguf
+      context:
+        prompt: hi
   - actionId: respond
     name: Respond
-    requires: [chat]
+    workflow:
+      requires: [chat]
     apiResponse:
       success: true
       response: ok

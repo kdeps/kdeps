@@ -72,7 +72,6 @@ kind: Workflow
 metadata:
   name: test-serve
   targetActionId: action
-settings: {}
 resources:
   - actionId: action
     name: Test Action

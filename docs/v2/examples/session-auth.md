@@ -31,7 +31,7 @@ metadata:
   version: "1.0.0"
   targetActionId: sessionResponse
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -39,13 +39,13 @@ settings:
         methods: [POST]
       - path: /api/v1/session
         methods: [GET, POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
-  session:
-    type: sqlite                 # persist to a file
-    # no path: the db is ~/.kdeps/sessions.db, outside the project and its git history
-    ttl: 30m                     # session expires 30 minutes after last use
-    cleanupInterval: 5m          # sweep expired sessions every 5 minutes
+memory:
+  type: sqlite                 # persist to a file
+  # no path: the db is ~/.kdeps/sessions.db, outside the project and its git history
+  ttl: 30m                     # session expires 30 minutes after last use
+  cleanupInterval: 5m          # sweep expired sessions every 5 minutes
 ```
 
 ## Step 3: handle login
@@ -58,7 +58,7 @@ Create `resources/login.yaml`:
 # resources/login.yaml
 actionId: loginHandler
 name: Login handler
-validations:
+guardrails:
   routes: [/api/v1/login]
   required:
     - username                  # 400 if either field is missing
@@ -103,7 +103,7 @@ Create `resources/session.yaml`:
 # resources/session.yaml
 actionId: sessionHandler
 name: Session handler
-validations:
+guardrails:
   routes: [/api/v1/session]
   check:
     - "{{ get('logged_in', 'session') == 'true' }}"   # must be logged in
@@ -132,7 +132,8 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: sessionResponse
 name: Response
-requires: [loginHandler, sessionHandler]
+workflow:
+  requires: [loginHandler, sessionHandler]
 apiResponse:
   success: true
   response:

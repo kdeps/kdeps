@@ -5,7 +5,7 @@ metadata:
   description: Simple RAG pipeline - index documents and search them with the embedding component
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     portNum: 16403
     routes:
@@ -13,6 +13,6 @@ settings:
         methods: [POST]
       - path: /search
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"

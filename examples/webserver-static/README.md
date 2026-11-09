@@ -32,7 +32,7 @@ The server will start on http://0.0.0.0:16395
 ## Configuration
 
 ```yaml
-settings:
+deploy:
   webServer:
     hostIp: "0.0.0.0"  # Bind to localhost
     portNum: 16395         # Port to listen on

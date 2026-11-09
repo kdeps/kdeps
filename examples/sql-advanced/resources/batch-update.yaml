@@ -1,7 +1,7 @@
 actionId: batchUpdate
 name: Batch User Updates
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/sql-demo]
 

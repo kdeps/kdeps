@@ -4,5 +4,5 @@ metadata:
   name: components-advanced-example
   description: Shows mixed unpacked and packed components with multiple resources
   targetActionId: finalResponse
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}

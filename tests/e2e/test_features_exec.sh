@@ -62,7 +62,7 @@ metadata:
   name: exec-e2e-test
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${API_PORT}
@@ -77,7 +77,7 @@ settings:
         methods: [POST]
       - path: /exec/fail
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -86,7 +86,7 @@ EOF
 cat > "$TEST_DIR/resources/echo.yaml" <<'EOF'
 actionId: echoHello
 name: Echo Hello
-validations:
+guardrails:
   routes: [/exec/echo]
   methods: [POST]
 # The exec component POSTs to the kdeps API's exec tool.
@@ -107,7 +107,7 @@ EOF
 cat > "$TEST_DIR/resources/args.yaml" <<'EOF'
 actionId: echoArgs
 name: Echo Args
-validations:
+guardrails:
   routes: [/exec/args]
   methods: [POST]
 component:
@@ -126,7 +126,7 @@ EOF
 cat > "$TEST_DIR/resources/env.yaml" <<'EOF'
 actionId: execEnv
 name: Exec Env
-validations:
+guardrails:
   routes: [/exec/env]
   methods: [POST]
 component:
@@ -147,7 +147,7 @@ EOF
 cat > "$TEST_DIR/resources/multiline.yaml" <<'EOF'
 actionId: execMultiline
 name: Exec Multiline
-validations:
+guardrails:
   routes: [/exec/multiline]
   methods: [POST]
 component:
@@ -175,7 +175,7 @@ EOF
 cat > "$TEST_DIR/resources/fail.yaml" <<'EOF'
 actionId: execFail
 name: Exec Fail
-validations:
+guardrails:
   routes: [/exec/fail]
   methods: [POST]
 component:
@@ -183,8 +183,9 @@ component:
   with:
     command: sh
     args: ["-c", "exit 1"]
-onError:
-  action: continue
+workflow:
+  onError:
+    action: continue
 apiResponse:
   success: false
   response:
@@ -197,7 +198,8 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [echoHello, echoArgs, execEnv, execMultiline, execFail]
+workflow:
+  requires: [echoHello, echoArgs, execEnv, execMultiline, execFail]
 apiResponse:
   success: true
   response:
@@ -359,8 +361,8 @@ metadata:
   name: native-exec-rejected
   version: "1.0.0"
   targetActionId: shell
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 EOF
 cat > "$NATIVE_DIR/resources/shell.yaml" <<'EOF'

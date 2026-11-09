@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: chat
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -15,5 +15,5 @@ settings:
       - path: /chat
         methods: [POST]
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC

@@ -36,11 +36,10 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		"metadata.name":     `"My Resource"`,
 
 		// Chat fields
-		"run.chat.model":   `"llama3.2:latest"`,
-		"run.chat.prompt":  `"What is the weather?"`,
-		"run.chat.role":    `"user" or "assistant"`,
-		"run.chat.baseUrl": `"http://localhost:11434"`,
-		"run.chat.timeout": `"30s"`,
+		"chat.model.name":     `"llama3.2:latest"`,
+		"chat.context.prompt": `"What is the weather?"`,
+		"chat.context.role":   `"user" or "assistant"`,
+		"chat.model.timeout":  `"30s"`,
 
 		// HTTP fields
 		"run.httpClient.url":     `"https://api.example.com/users"`,
@@ -59,10 +58,10 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		"run.apiResponse.response": `{"key": "value"}`,
 
 		// Workflow fields
-		"metadata.targetActionId":        `"main"`,
-		"settings.apiServer.hostIp":      `"0.0.0.0"`,
-		"settings.apiServer.portNum":     `16395`,
-		"settings.apiServer.routes.path": `"/api/users"`,
+		"metadata.targetActionId":      `"main"`,
+		"deploy.apiServer.hostIp":      `"0.0.0.0"`,
+		"deploy.apiServer.portNum":     `16395`,
+		"deploy.apiServer.routes.path": `"/api/users"`,
 	}
 
 	// Check exact match
@@ -71,9 +70,9 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 	}
 
 	// A key and a field that end the same way are the same field at different
-	// depths (chat.model is run.chat.model, targetActionId is
+	// depths (context.prompt is chat.context.prompt, targetActionId is
 	// metadata.targetActionId); the longest key wins. A field that is only a
-	// prefix of a key is no match: "settings" is not a route path.
+	// prefix of a key is no match: "deploy" is not a route path.
 	best := ""
 	for key := range examples {
 		if field != "" && (dotSuffix(key, field) || dotSuffix(field, key)) && len(key) > len(best) {

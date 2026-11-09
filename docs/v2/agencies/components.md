@@ -52,18 +52,18 @@ my-workflow/
 6. Component output is accessed via `output('<callerActionId>')`
 7. kdeps ships its own components in the `components` asset set: [ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql) (web_search and web_scraper are tools). One loads only when a workflow calls it and has no component of that name itself
 
-A component's resources run in order. A resource whose `skip:` condition (under `validations:`) is true is skipped, so a component can choose resources from its inputs. A false `check:` condition fails the call with its `error.message`:
+A component's resources run in order. A resource whose `skip:` condition (under `guardrails:`) is true is skipped, so a component can choose resources from its inputs. A false `check:` condition fails the call with its `error.message`:
 
 ```yaml
 # components/fetch/component.yaml (resources, abridged)
 resources:
   - actionId: viaAPI
-    validations:
+    guardrails:
       skip:
         - "get('fetch.mode') != 'api'"     # inputs are get('<component>.<input>')
     httpClient: {method: GET, url: "{{ get('fetch.url') }}"}
   - actionId: viaCLI
-    validations:
+    guardrails:
       skip:
         - "get('fetch.mode') != 'cli'"
     exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}
@@ -116,7 +116,7 @@ requires:
   tools/http_request: ""  # the kdeps API tool this component calls
 ```
 
-Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
+Components cannot contain `deploy` (no server modes, port bindings) - they are purely resource bundles.
 
 ## Calling a component
 
@@ -134,15 +134,17 @@ After execution, access results via `output('fetch-article')`.
 
 ## Components as LLM tools
 
-Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered - you opt in explicitly:
+Installed components can be exposed as LLM function-calling tools via `tools.components` on a `chat:` resource. By default, no components are registered - you opt in explicitly:
 
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "Research {{ get('q') }} and summarize."
-  componentTools:
-    - web_scraper
-    - web_search
+  context:
+    prompt: "Research {{ get('q') }} and summarize."
+  tools:
+    components:
+      - web_scraper
+      - web_search
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. The LLM uses this to decide when and how to call the tool.
@@ -154,7 +156,7 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 - Package logic you reuse across projects - a `component.yaml` plus a
   `components/<name>/` directory - and share it through the registry.
 - Give an LLM a bounded, typed capability by exposing a component as a tool
-  through `componentTools:`.
+  through `tools.components`.
 
 ## See also
 

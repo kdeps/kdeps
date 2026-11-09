@@ -1,8 +1,9 @@
 actionId: loginHandler
 name: Login Handler
-requires: []
+workflow:
+  requires: []
 
-validations:
+guardrails:
   routes: [/api/v1/login]
   required:
     - username

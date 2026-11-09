@@ -53,8 +53,8 @@ metadata:
   name: test-agent
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	packageDir := t.TempDir()

@@ -52,18 +52,17 @@ func TestResourceKinds(t *testing.T) {
 	for _, key := range []string{"chat", "httpClient", "python", "exec", "apiResponse", "component"} {
 		assert.NotNil(t, kindByKey(ks, key), key)
 	}
-	for _, key := range []string{"validations", "loop", "onError"} {
+	for _, key := range []string{"guardrails", "loop", "onError"} {
 		assert.Nil(t, kindByKey(ks, key), "%s is not an action", key)
 	}
 
 	chat := kindByKey(ks, "chat")
-	assert.Equal(t, desktop.FieldText, fieldByName(chat, "prompt").Type)
-	assert.Equal(t, desktop.FieldString, fieldByName(chat, "model").Type)
-	assert.Contains(t, fieldByName(chat, "model").Description, "router", "descriptions come from the schema")
-	assert.Equal(t, desktop.FieldBoolean, fieldByName(chat, "jsonResponse").Type)
-	assert.Equal(t, desktop.FieldNumber, fieldByName(chat, "temperature").Type)
-	assert.Equal(t, desktop.FieldYAML, fieldByName(chat, "tools").Type)
-	assert.Nil(t, fieldByName(chat, "baseURL"), "runtime-only fields are hidden")
+	for _, group := range []string{"model", "context", "harness", "tools", "rag", "guardrails"} {
+		require.NotNil(t, fieldByName(chat, group), group)
+		assert.Equal(t, desktop.FieldYAML, fieldByName(chat, group).Type, "chat groups are edited as YAML")
+	}
+	assert.Contains(t, fieldByName(chat, "model").Description, "model", "descriptions come from the schema")
+	assert.Nil(t, fieldByName(chat, "prompt"), "flat keys live inside their group")
 
 	http := kindByKey(ks, "httpClient")
 	assert.Equal(t, desktop.FieldString, fieldByName(http, "url").Type)
@@ -84,7 +83,7 @@ func TestOpenBuilder_Workflow(t *testing.T) {
 		Description: "Says hello",
 		Version:     "1.0.0",
 		Target:      "respond",
-		Section:     "settings",
+		Section:     "deploy",
 		Body:        "apiServer:\n  hostIp: 127.0.0.1\n  portNum: 16999\n  routes:\n    - path: /api/v1/hello\n      methods: [GET, POST]",
 	}, view.Manifest)
 
@@ -163,16 +162,13 @@ func TestSaveResource_NewFileAndFieldTypes(t *testing.T) {
 		Requires: []string{" ", "respond"},
 		Kind:     "chat",
 		Action: map[string]any{
-			"prompt":        "Say hi\nto {{ get('who') }}",
-			"model":         "llama3.2:1b",
-			"temperature":   "0.2",
-			"contextLength": "4096",
-			"jsonResponse":  true,
-			"streaming":     false,
-			"timeout":       "",
-			"tools":         "- name: lookup\n  description: look things up",
+			"context": "prompt: |-\n  Say hi\n  to {{ get('who') }}\ncontextLength: 4096",
+			"model":   "name: llama3.2:1b\ntemperature: 0.2",
+			"harness": "output:\n  json: true",
+			"rag":     "",
+			"tools":   "list:\n  - name: lookup\n    description: look things up",
 		},
-		Extra: "onError:\n  action: continue",
+		Extra: "workflow:\n  onError:\n    action: continue",
 	}
 	res, err := h.svc.SaveResource(hello, form)
 	require.NoError(t, err)
@@ -180,15 +176,13 @@ func TestSaveResource_NewFileAndFieldTypes(t *testing.T) {
 	assert.Equal(t, "ask", res.Resource.Name, "name defaults to the actionId")
 
 	out := readFile(t, filepath.Join(h.ws, "hello", "resources", "ask.yaml"))
-	assert.Contains(t, out, "prompt: |-\n    Say hi\n    to {{ get('who') }}")
+	assert.Contains(t, out, "prompt: |-\n      Say hi\n      to {{ get('who') }}")
 	assert.Contains(t, out, "temperature: 0.2")
 	assert.Contains(t, out, "contextLength: 4096")
-	assert.Contains(t, out, "jsonResponse: true")
-	assert.NotContains(t, out, "streaming", "false and empty fields are left out")
-	assert.NotContains(t, out, "timeout")
+	assert.Contains(t, out, "json: true")
+	assert.NotContains(t, out, "rag", "empty fields are left out")
 	assert.Contains(t, out, "- name: lookup")
-	assert.Contains(t, out, "onError:\n  action: continue")
-	assert.Contains(t, out, "requires:\n  - respond")
+	assert.Contains(t, out, "workflow:\n  requires:\n    - respond\n  onError:\n    action: continue")
 
 	// A second resource with the same actionId gets refused; a fresh one with
 	// a taken file name gets a suffix.
@@ -214,20 +208,14 @@ func TestSaveResource_NumberFields(t *testing.T) {
 	h := newProjectHarness(t, false)
 	hello := h.addHello(t)
 	_, err := h.svc.SaveResource(hello, desktop.ResourceForm{
-		ActionID: "q", Kind: "chat", Action: map[string]any{"contextLength": "lots"},
+		ActionID: "q", Kind: "searchLocal", Action: map[string]any{"limit": "lots"},
 	})
-	assert.ErrorContains(t, err, "chat.contextLength: must be a whole number")
-	_, err = h.svc.SaveResource(hello, desktop.ResourceForm{
-		ActionID: "q", Kind: "chat", Action: map[string]any{"temperature": "warm"},
-	})
-	assert.ErrorContains(t, err, "chat.temperature: must be a number")
+	assert.ErrorContains(t, err, "searchLocal.limit: must be a whole number")
 	res, err := h.svc.SaveResource(hello, desktop.ResourceForm{
-		ActionID: "q", Kind: "chat", Action: map[string]any{
-			"contextLength": float64(8192), "model": "m", "prompt": "p",
-		},
+		ActionID: "q", Kind: "searchLocal", Action: map[string]any{"limit": float64(5), "path": "."},
 	})
 	require.NoError(t, err, "numbers from JSON arrive as float64")
-	assert.Equal(t, 8192, res.Resource.Action["contextLength"])
+	assert.Equal(t, 5, res.Resource.Action["limit"])
 }
 
 func TestSaveResource_Errors(t *testing.T) {
@@ -378,7 +366,7 @@ func TestSaveManifest(t *testing.T) {
 	_, err = h.svc.SaveManifest(hello, desktop.ManifestForm{Name: " "})
 	assert.ErrorContains(t, err, "name is required")
 	_, err = h.svc.SaveManifest(hello, desktop.ManifestForm{Name: "x", Body: "[oops"})
-	assert.ErrorContains(t, err, "settings")
+	assert.ErrorContains(t, err, "deploy")
 	_, err = h.svc.SaveManifest(hello, desktop.ManifestForm{Name: "x", Body: "- a"})
 	assert.ErrorContains(t, err, "must be a YAML mapping")
 

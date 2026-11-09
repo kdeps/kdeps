@@ -84,8 +84,8 @@ metadata:
   name: export-iso-test
   version: "1.0.0"
   targetActionId: hello
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 WFEOF
 

@@ -42,7 +42,7 @@ metadata:
   version: "1.0.0"
   targetActionId: router
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3070
@@ -52,7 +52,7 @@ settings:
       - path: /api/v1/get
         methods: [GET]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -92,9 +92,10 @@ cat > "$RESOURCE_FILE_ROUTER" <<'EOF'
 
 actionId: router
 name: Router
-requires:
-  - setMemory
-  - getMemory
+workflow:
+  requires:
+    - setMemory
+    - getMemory
 
 apiResponse:
   success: true

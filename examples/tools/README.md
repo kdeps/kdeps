@@ -85,17 +85,20 @@ Tools are defined in the `tools` field of ChatConfig:
 
 ```yaml
 chat:
-  model: "llama3.2:1b"
-  prompt: "{{ get('q') }}"
+  model:
+    name: "llama3.2:1b"
+  context:
+    prompt: "{{ get('q') }}"
   tools:
-    - name: tool_name
-      description: "Tool description"
-      script: "resourceActionID"  # References a resource to execute
-      parameters:
-        param1:
-          type: "string"
-          description: "Parameter description"
-          required: true
+    list:
+      - name: tool_name
+        description: "Tool description"
+        script: "resourceActionID"  # References a resource to execute
+        parameters:
+          param1:
+            type: "string"
+            description: "Parameter description"
+            required: true
 ```
 
 **Key Point**: The `script` field must reference a resource `actionID`. When the LLM calls the tool, that resource will be executed with the tool arguments available via `get()`.

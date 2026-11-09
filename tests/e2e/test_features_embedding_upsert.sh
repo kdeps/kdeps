@@ -54,7 +54,7 @@ metadata:
   name: embedding-upsert-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${API_PORT}
@@ -63,14 +63,14 @@ settings:
         methods: [POST]
       - path: /embed/search
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR/resources/upsert.yaml" <<EOF
 actionId: embedUpsert
 name: Embed Upsert
-validations:
+guardrails:
   routes: [/embed/upsert]
   methods: [POST]
 component:
@@ -89,7 +89,7 @@ EOF
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
 actionId: embedSearch
 name: Embed Search
-validations:
+guardrails:
   routes: [/embed/search]
   methods: [POST]
 component:
@@ -104,7 +104,8 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [embedUpsert, embedSearch]
+workflow:
+  requires: [embedUpsert, embedSearch]
 apiResponse:
   success: true
   response:

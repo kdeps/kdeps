@@ -1,6 +1,6 @@
 # Validation and control flow - examples
 
-Best practices and examples for the [`validations:` block](/workflow/validation).
+Best practices and examples for the [`guardrails:` block](/workflow/validation).
 
 Workflow mode only.
 
@@ -10,7 +10,7 @@ Workflow mode only.
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   skip:
     - get('enableCache') != true
 ```
@@ -21,7 +21,7 @@ validations:
 
 ```yaml
 # Good: Catch errors before expensive operations
-validations:
+guardrails:
   check:
     - get('userId') != null
     - get('apiKey') != ''
@@ -38,7 +38,7 @@ validations:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   routes: [/api/v1/admin]
   methods: [POST]
 ```
@@ -51,7 +51,7 @@ validations:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/admin]
   headers: [Authorization]
@@ -63,7 +63,8 @@ validations:
   skip:
     - get('dryRun') == true
 chat:
-  prompt: "Admin: {{ get('action') }}"
+  context:
+    prompt: "Admin: {{ get('action') }}"
 ```
 
 </div>
@@ -76,7 +77,7 @@ chat:
 # resources/smart-processor.yaml
 actionId: smartProcessor
 name: Smart Processor
-validations:
+guardrails:
   skip:
     - get('process') != true
   check:
@@ -101,7 +102,7 @@ component:
 # resources/secure-endpoint.yaml
 actionId: secureEndpoint
 name: Secure Endpoint
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/secure]
   headers: [Authorization, Content-Type]
@@ -112,13 +113,14 @@ validations:
     code: 401
     message: Valid authorization token required
 chat:
-  prompt: "Secure: {{ get('q') }}"
+  context:
+    prompt: "Secure: {{ get('q') }}"
 ```
 
 </div>
 
 ## See also
 
-- [Validation and control flow](/workflow/validation) - Full `validations:` block reference
+- [Validation and control flow](/workflow/validation) - Full `guardrails:` block reference
 - [Expressions](/workflow/expressions) - Expression syntax for conditions
 - [Unified API](/workflow/data-access) - Using `get()` in validations

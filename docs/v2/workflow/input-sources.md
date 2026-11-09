@@ -20,7 +20,7 @@ An HTTP server starts only when `apiServer:` is set under `settings:`. Leave `po
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -31,7 +31,7 @@ settings:
 
 Requests are JSON and routed to resources by `targetActionId:` under the workflow's `metadata:`.
 
-Use `validations.methods` and `validations.routes` in individual resources to scope them to specific routes.
+Use `guardrails.methods` and `guardrails.routes` in individual resources to scope them to specific routes.
 
 ## Bot source
 
@@ -49,7 +49,7 @@ bot_connections:
     appToken: "${SLACK_APP_TOKEN}"
 
 # workflow.yaml
-settings:
+deploy:
   input:
     sources: [bot]
     bot:
@@ -69,7 +69,7 @@ The `file` source reads file content from stdin, the `KDEPS_FILE_PATH` environme
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   input:
     sources: [file]
     file:
@@ -135,6 +135,6 @@ This opens a terminal REPL where you can send prompts and invoke tools interacti
 
 ## See also
 
-- [Workflow configuration](/workflow/configuration) - full `settings` reference
+- [Workflow configuration](/workflow/configuration) - full `deploy` reference
 - [Workflow mode](/workflow/) - how the request-response cycle works
 - [Bot configuration](/workflow/configuration#bot-source) - full bot settings

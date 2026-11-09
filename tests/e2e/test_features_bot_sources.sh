@@ -44,8 +44,8 @@ metadata:
   name: bot-test
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 ${input_yaml}
 EOF
@@ -86,8 +86,8 @@ metadata:
   name: bot-invalid-test
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 ${input_yaml}
 EOF
@@ -266,7 +266,7 @@ metadata:
   name: bot-reply
   version: "1.0.0"
   targetActionId: reply
-settings:
+deploy:
   input:
     sources: [bot]
     bot:

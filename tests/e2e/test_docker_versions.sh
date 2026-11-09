@@ -37,8 +37,8 @@ metadata:
   name: docker-versions-test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     versions:
       kdeps: v2.0.0
       ollama: 0.5.4
@@ -47,8 +47,10 @@ resources:
   - actionId: main
     name: main
     chat:
-      model: llama3.2:1b
-      prompt: hi
+      model:
+        name: llama3.2:1b
+      context:
+        prompt: hi
 WFEOF
 
 PACKAGE_FILE="$VERSIONS_DIR/test.kdeps"
@@ -74,8 +76,8 @@ metadata:
   name: docker-versions-invalid
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     versions:
       kdeps: not-a-version
 WFEOF

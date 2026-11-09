@@ -146,7 +146,8 @@ component:
 
 ---
 actionId: response
-requires: [gitInfo]
+workflow:
+  requires: [gitInfo]
 apiResponse:
   success: true
   response:
@@ -175,12 +176,12 @@ component:
 
 ## Environment variables
 
-The command inherits the kdeps process environment, so `agentSettings.env` values are visible:
+The command inherits the kdeps process environment, so `runtime.env` values are visible:
 
 ```yaml
 # In workflow.yaml
-settings:
-  agentSettings:
+deploy:
+  runtime:
     env:
       API_TOKEN: "secret-token"
       DEBUG: "true"
@@ -220,8 +221,9 @@ component:
   name: exec
   with:
     command: "exit 3"
-onError:
-  action: continue
+workflow:
+  onError:
+    action: continue
 ```
 
 </div>
@@ -246,7 +248,7 @@ args: ["{{ get('user_input') }}"]
 Validate input as well:
 
 ```yaml
-validations:
+guardrails:
   check:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```

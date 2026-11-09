@@ -32,7 +32,7 @@ metadata:
   version: "1.0.0"
   targetActionId: search
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3093
@@ -40,7 +40,7 @@ settings:
       - path: /api/v1/search
         methods: [POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

@@ -40,38 +40,47 @@ trap 'kill $KDEPS_PID 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 cat > "$TEST_DIR/resources/loop.yaml" <<'YAML'
 actionId: loop
 name: Looping chat
-validations:
+guardrails:
   routes: [/loop]
 chat:
-  model: fake
-  prompt: "LOOPJSON calculator"
+  model:
+    name: fake
+  context:
+    prompt: "LOOPJSON calculator"
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/repeat.yaml" <<'YAML'
 actionId: repeat
 name: Repeating chat
-validations:
+guardrails:
   routes: [/repeat]
 chat:
-  model: fake
-  prompt: 'REPEATJSON calculator {"expression": "1 + 1"}'
-  maxToolRounds: 10
+  model:
+    name: fake
+  context:
+    prompt: 'REPEATJSON calculator {"expression": "1 + 1"}'
   tools:
-    - name: calculator
+    maxRounds: 10
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/big.yaml" <<'YAML'
 actionId: big
 name: Big result chat
-validations:
+guardrails:
   routes: [/big]
 chat:
-  model: fake
-  prompt: 'CALLJSON calculator {"expression": "10**40"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALLJSON calculator {"expression": "10**40"}'
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/trunc/.kdeps/events/tool-result-truncate.yaml" <<'YAML'
@@ -92,7 +101,8 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [loop, repeat, big]
+workflow:
+  requires: [loop, repeat, big]
 apiResponse:
   success: true
   response:
@@ -119,7 +129,7 @@ metadata:
   name: chat-rounds-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${port}

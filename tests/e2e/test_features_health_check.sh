@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: testResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3060
@@ -49,7 +49,7 @@ settings:
       - path: /api/v1/test
         methods: [GET]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

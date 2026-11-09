@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: sessionResponse
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -20,14 +20,14 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
 
-  # Session storage configuration
-  session:
-    type: "sqlite"              # Use SQLite for persistent storage
-    # path omitted: the db is ~/.kdeps/sessions.db, outside the project, so
-    # session data never ends up in its git history
-    ttl: "30m"                  # 30 minute session expiration
-    cleanupInterval: "5m"       # Cleanup expired sessions every 5 minutes
+# Session storage configuration
+memory:
+  type: "sqlite"              # Use SQLite for persistent storage
+  # path omitted: the db is ~/.kdeps/sessions.db, outside the project, so
+  # session data never ends up in its git history
+  ttl: "30m"                  # 30 minute session expiration
+  cleanupInterval: "5m"       # Cleanup expired sessions every 5 minutes

@@ -91,9 +91,10 @@ component:
 # Step 2: retrieve it in the LLM context
 - actionId: chatWithContext
 chat:
-  prompt: |
-    Previous message: {{ output('rememberMessage').result }}
-    New message: {{ input('message') }}
+  context:
+    prompt: |
+      Previous message: {{ output('rememberMessage').result }}
+      New message: {{ input('message') }}
 ```
 
 ## Requirements

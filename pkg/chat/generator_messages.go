@@ -136,7 +136,7 @@ metadata:
   name: my-agent
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     portNum: 8080
     routes: []

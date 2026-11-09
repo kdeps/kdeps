@@ -50,7 +50,6 @@ metadata:
   name: embedding-index-test
   version: "1.0.0"
   targetActionId: do-index
-settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-index.yaml" <<YAML
@@ -89,7 +88,6 @@ metadata:
   name: embedding-search-test
   version: "1.0.0"
   targetActionId: do-search
-settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
@@ -130,7 +128,6 @@ metadata:
   name: embedding-upsert-test
   version: "1.0.0"
   targetActionId: do-upsert
-settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-upsert.yaml" <<YAML
@@ -171,7 +168,6 @@ metadata:
   name: embedding-delete-test
   version: "1.0.0"
   targetActionId: do-delete
-settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-delete.yaml" <<YAML

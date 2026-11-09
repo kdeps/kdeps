@@ -66,14 +66,14 @@ metadata:
   name: http-client-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${PORT_API}
     routes:
       - path: /api/fetch
         methods: [GET]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: httpCall
@@ -85,7 +85,8 @@ resources:
         url: "http://127.0.0.1:${PORT_BACKEND}/data.json"
   - actionId: response
     name: HTTP Response
-    requires: [httpCall]
+    workflow:
+      requires: [httpCall]
     restrictToHttpMethods: [GET]
     restrictToRoutes: [/api/fetch]
     apiResponse:
@@ -174,8 +175,8 @@ metadata:
   name: legacy-http
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$LEGACY_DIR/resources/legacy.yaml" <<'EOF'

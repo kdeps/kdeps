@@ -39,7 +39,7 @@ import (
 func writeWorkflowDir(t *testing.T, dir, name, targetAction string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	content := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: " + name + "\n  version: \"1.0.0\"\n  targetActionId: " + targetAction + "\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	content := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: " + name + "\n  version: \"1.0.0\"\n  targetActionId: " + targetAction + "\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(content), 0o644))
 }
 

@@ -1,7 +1,7 @@
 actionId: llmResource
 name: Llamafile Chat
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat]
 
@@ -12,21 +12,25 @@ validations:
     message: Query parameter 'q' is required
 
 chat:
-  model: llama3.2:1b  # registry alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
-  # file backend (the default): runs a llamafile binary as a local
-  # OpenAI-compatible server. No ollama or other server install needed.
-  # The model field accepts:
-  #   - Registry alias  (llama3.2:1b, llama3.2:1b-q6, llama3.2:3b, ... - kdeps llamafile list)
-  #   - Remote URL  (auto-downloaded and cached in ~/.kdeps/models/)
-  #   - Absolute path  (/path/to/model.llamafile)
-  #   - Relative path  (./models/model.llamafile)
-  #   - Bare filename  (model.llamafile  - looked up in ~/.kdeps/models/)
-  role: user
-  prompt: "{{ get('q') }}"
-  scenario:
-    - role: assistant
-      prompt: You are a helpful AI assistant.
-  jsonResponse: true
-  jsonResponseKeys:
-    - answer
-  timeout: 120s
+  model:
+    name: llama3.2:1b  # registry alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
+    timeout: 120s
+  context:
+    # file backend (the default): runs a llamafile binary as a local
+    # OpenAI-compatible server. No ollama or other server install needed.
+    # The model field accepts:
+    #   - Registry alias  (llama3.2:1b, llama3.2:1b-q6, llama3.2:3b, ... - kdeps llamafile list)
+    #   - Remote URL  (auto-downloaded and cached in ~/.kdeps/models/)
+    #   - Absolute path  (/path/to/model.llamafile)
+    #   - Relative path  (./models/model.llamafile)
+    #   - Bare filename  (model.llamafile  - looked up in ~/.kdeps/models/)
+    role: user
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: assistant
+        prompt: You are a helpful AI assistant.
+  harness:
+    output:
+      json: true
+      keys:
+        - answer

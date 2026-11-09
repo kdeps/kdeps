@@ -3133,25 +3133,3 @@ func TestRunStreaming_ClaimAfterARealToolCallIsAccepted(t *testing.T) {
 	assert.Len(t, ms.cfgs, 2, "no nudge once a tool ran")
 	assert.Equal(t, "I've saved the result: 2.", got)
 }
-
-func TestLooksLikeUnbackedClaim(t *testing.T) {
-	for _, s := range []string{
-		"Created: notes.md", "I've remembered it.", "I fixed the add function.", "Done: all set",
-		"Created [notes.md](https://example.invalid/notes.md) containing exactly: hello",
-		"Remembered: keep `calc.py` dependency-free.",
-		"Got it. I'll remember that the project decision is to keep calc.py dependency-free.",
-		"## Test result\n\nCommand run:\n\n```bash\npython3 -m pytest -q\n```",
-		"`pytest` exited with **code 5**, which means no tests were collected.",
-		"I can't show it because running:\n\n```bash\ngit diff --stat\n```\n\nreturned:\n\n```text\nwarning",
-		"This decision has been stored as a project preference.",
-	} {
-		assert.Truef(t, looksLikeUnbackedClaim(s), "%q", s)
-	}
-	for _, s := range []string{
-		"What would you like me to create?",
-		"The add function subtracts instead of adding.",
-		"Use git status to check.",
-	} {
-		assert.Falsef(t, looksLikeUnbackedClaim(s), "%q", s)
-	}
-}

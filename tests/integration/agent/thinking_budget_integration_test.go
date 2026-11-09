@@ -28,7 +28,9 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -63,4 +65,20 @@ func TestThinkingBudget_EventOverrideThroughTheAPI(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Contains(t, out, `"budget":4321`)
+}
+
+// A workflow chat's thinking mode with no budgetTokens gets the same event:
+// the override reaches the workflow executor too.
+func TestThinkingBudget_EventOverrideReachesWorkflowChats(t *testing.T) {
+	t.Cleanup(agent.ReloadAssets)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	dir := filepath.Join(home, ".kdeps", "events")
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "thinking-budget-high.yaml"),
+		[]byte("name: thinking-budget-high\nitems: 7777\nrun: cap\n"), 0o600))
+	agent.ReloadAssets()
+
+	require.Equal(t, 7777, executorLLM.ThinkingBudget(domain.ThinkingModeHigh))
 }

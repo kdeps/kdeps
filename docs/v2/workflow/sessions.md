@@ -13,12 +13,11 @@ This page is HTTP session storage. Agent mode conversation history is a differen
 
 ```yaml
 # workflow.yaml
-settings:
-  session:
-    type: sqlite                    # "sqlite" or "memory"
-    path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
-    ttl: "30m"                      # Session expiration
-    cleanupInterval: "5m"           # Cleanup frequency
+memory:
+  type: sqlite                    # "sqlite" or "memory"
+  path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
+  ttl: "30m"                      # Session expiration
+  cleanupInterval: "5m"           # Cleanup frequency
 ```
 
 ## Session types
@@ -29,12 +28,11 @@ Persists to a file - survives restarts and can be shared via a mounted volume.
 
 ```yaml
 # workflow.yaml
-settings:
-  session:
-    type: sqlite
-    path: "/data/sessions.db"   # absolute or relative path
-    ttl: "24h"                  # how long a session lives without activity
-    cleanupInterval: "1h"       # how often expired sessions are purged
+memory:
+  type: sqlite
+  path: "/data/sessions.db"   # absolute or relative path
+  ttl: "24h"                  # how long a session lives without activity
+  cleanupInterval: "1h"       # how often expired sessions are purged
 ```
 
 ### Memory
@@ -43,11 +41,10 @@ Fast (no disk I/O) but lost on restart. Use for development or single-instance s
 
 ```yaml
 # workflow.yaml
-settings:
-  session:
-    type: memory
-    ttl: "30m"
-    cleanupInterval: "5m"
+memory:
+  type: memory
+  ttl: "30m"
+  cleanupInterval: "5m"
 ```
 
 ## TTL (time to live)
@@ -87,9 +84,10 @@ after:
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: |
-    User {{ get('user_id', 'session') }} prefers {{ get('theme', 'session') }}.
-    This is visit #{{ get('visits', 'session') }}.
+  context:
+    prompt: |
+      User {{ get('user_id', 'session') }} prefers {{ get('theme', 'session') }}.
+      This is visit #{{ get('visits', 'session') }}.
 ```
 
 </div>
@@ -104,7 +102,7 @@ chat:
 # Login resource
 actionId: login
 
-validations:
+guardrails:
   check:
     - get('username') != ''
     - get('password') != ''
@@ -134,7 +132,7 @@ apiResponse:
 # resources/example.yaml
 actionId: protectedResource
 
-validations:
+guardrails:
   check:
     - get('authenticated', 'session') == true
   error:
@@ -142,7 +140,8 @@ validations:
     message: Authentication required
 
 chat:
-  prompt: "Hello {{ get('user', 'session') }}, how can I help?"
+  context:
+    prompt: "Hello {{ get('user', 'session') }}, how can I help?"
 ```
 
 </div>
@@ -196,9 +195,10 @@ apiResponse:
 actionId: getContent
 
 chat:
-  prompt: |
-    Respond in {{ get('language', 'session') }}.
-    Current time in {{ get('timezone', 'session') }}: {{ info('timestamp') }}
+  context:
+    prompt: |
+      Respond in {{ get('language', 'session') }}.
+      Current time in {{ get('timezone', 'session') }}: {{ info('timestamp') }}
 ```
 
 </div>
@@ -248,10 +248,9 @@ volumes:
 
 ```yaml
 # workflow.yaml
-settings:
-  session:
-    type: sqlite
-    path: "/data/sessions.db"
+memory:
+  type: sqlite
+  path: "/data/sessions.db"
 ```
 
 ### Shared sessions

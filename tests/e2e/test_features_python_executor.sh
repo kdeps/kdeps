@@ -42,7 +42,7 @@ metadata:
   version: "1.0.0"
   targetActionId: pythonResponse
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3080
@@ -50,7 +50,7 @@ settings:
       - path: /api/v1/python
         methods: [POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -80,8 +80,9 @@ cat > "$RESOURCE_FILE_RESPONSE" <<'EOF'
 
 actionId: pythonResponse
 name: Python Response
-requires:
-  - pythonProcessor
+workflow:
+  requires:
+    - pythonProcessor
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/python]

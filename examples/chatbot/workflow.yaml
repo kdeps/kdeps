@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: responseResource
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -18,7 +18,7 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     installOllama: true  # bake the ollama server into Docker/ISO builds

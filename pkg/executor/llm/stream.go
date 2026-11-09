@@ -1187,13 +1187,36 @@ func buildJSONOpts(cfg *domain.ChatConfig, backend string) []llms.CallOption {
 	return []llms.CallOption{llms.WithJSONMode()}
 }
 
+// thinkingBudget is the reasoning budget of a chat thinking mode with no
+// budgetTokens: the thinking-budget-<mode> event, installed by agent mode.
+//
+//nolint:gochecknoglobals // installed once at startup, read on every chat
+var thinkingBudget atomic.Pointer[func(domain.ThinkingMode) int]
+
+// SetThinkingBudget installs the per-mode reasoning budget both modes use.
+func SetThinkingBudget(budget func(domain.ThinkingMode) int) { thinkingBudget.Store(&budget) }
+
+// ThinkingBudget is mode's installed budget, or 0 when none is installed.
+// An explicit budget matters: with 0 and no maxTokens the provider library
+// computes a zero budget and silently turns thinking off.
+func ThinkingBudget(mode domain.ThinkingMode) int {
+	if f := thinkingBudget.Load(); f != nil {
+		return (*f)(mode)
+	}
+	return 0
+}
+
 func buildThinkingOpts(cfg *domain.ChatConfig) []llms.CallOption {
 	if cfg.Thinking == nil || cfg.Thinking.Mode == domain.ThinkingModeNone {
 		return nil
 	}
+	budget := cfg.Thinking.BudgetTokens
+	if budget <= 0 {
+		budget = ThinkingBudget(cfg.Thinking.Mode)
+	}
 	return []llms.CallOption{llms.WithThinking(&llms.ThinkingConfig{
 		Mode:               llms.ThinkingMode(cfg.Thinking.Mode),
-		BudgetTokens:       cfg.Thinking.BudgetTokens,
+		BudgetTokens:       budget,
 		ReturnThinking:     cfg.Thinking.ReturnOutput,
 		StreamThinking:     cfg.Thinking.StreamThinking,
 		InterleaveThinking: cfg.Thinking.InterleaveThinking,

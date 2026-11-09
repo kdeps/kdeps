@@ -20,10 +20,9 @@ metadata:
   name: stdin-repl
   version: "1.0.0"
   targetActionId: echo
-settings:
-  llm:
-    executionType: stdin   # kdeps run reads messages from stdin
-    prompt: "You: "
+agent:
+  executionType: stdin   # kdeps run reads messages from stdin
+  prompt: "You: "
 EOF
 cat > "$SR_DIR/resources/echo.yaml" << 'EOF'
 actionId: echo

@@ -1,6 +1,7 @@
 actionId: sessionResponse
 name: Response
-requires: [loginHandler, sessionHandler]
+workflow:
+  requires: [loginHandler, sessionHandler]
 
 apiResponse:
   success: true

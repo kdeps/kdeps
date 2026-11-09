@@ -1,9 +1,10 @@
 actionId: toolResponse
 name: Tool Response
-requires:
-    - llmWithTools
+workflow:
+    requires:
+        - llmWithTools
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/tools]
 apiResponse:

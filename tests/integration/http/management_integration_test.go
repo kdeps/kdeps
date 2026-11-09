@@ -242,10 +242,10 @@ metadata:
   name: pushed-agent
   version: 2.0.0
   targetActionId: action1
-settings:
+deploy:
   apiServer:
     portNum: 16395
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 
@@ -393,10 +393,10 @@ metadata:
   name: roundtrip-agent
   version: 1.0.0
   targetActionId: action1
-settings:
+deploy:
   apiServer:
     portNum: 16395
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(initial), 0600))
@@ -416,10 +416,10 @@ metadata:
   name: roundtrip-agent
   version: 2.0.0
   targetActionId: action1
-settings:
+deploy:
   apiServer:
     portNum: 16395
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	resp2, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", []byte(updated)))
@@ -465,10 +465,10 @@ metadata:
   name: pushed-agent
   version: 3.0.0
   targetActionId: action1
-settings:
+deploy:
   apiServer:
     portNum: 16395
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	require.NoError(t, os.WriteFile(workflowPath, []byte(restarted), 0600))
@@ -707,10 +707,10 @@ metadata:
   name: integration-pkg-agent
   version: 7.0.0
   targetActionId: action1
-settings:
+deploy:
   apiServer:
     portNum: 16395
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	archive := buildIntegrationArchive(t, map[string]string{

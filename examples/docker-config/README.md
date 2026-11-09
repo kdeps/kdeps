@@ -16,10 +16,11 @@ This example demonstrates all Docker configuration features in KDeps v2.
 ### Base OS Selection
 
 ```yaml
-agentSettings:
-  # Options: alpine, ubuntu
-  # Default: alpine
-  baseOS: "alpine"
+deploy:
+  runtime:
+    # Options: alpine, ubuntu
+    # Default: alpine
+    baseOS: "alpine"
 ```
 
 **GPU builds auto-select Ubuntu:**
@@ -33,14 +34,15 @@ kdeps bundle build . --gpu cuda   # GPU: ubuntu + official ollama/ollama when Ol
 Install OS-level packages (git, vim, curl, etc.):
 
 ```yaml
-agentSettings:
-  osPackages:
-    - git
-    - vim
-    - curl
-    - jq
-    - postgresql-client  # Database client
-    - redis-tools        # Redis CLI
+deploy:
+  runtime:
+    osPackages:
+      - git
+      - vim
+      - curl
+      - jq
+      - postgresql-client  # Database client
+      - redis-tools        # Redis CLI
 ```
 
 **Package managers by OS:**
@@ -50,16 +52,17 @@ agentSettings:
 ### Python Packages
 
 ```yaml
-agentSettings:
-  pythonVersion: "3.12"
-  pythonPackages:
-    - requests
-    - numpy
-    - pandas
-    - scikit-learn
+deploy:
+  runtime:
+    pythonVersion: "3.12"
+    pythonPackages:
+      - requests
+      - numpy
+      - pandas
+      - scikit-learn
 
-  # Or use requirements file
-  requirementsFile: "requirements.txt"
+    # Or use requirements file
+    requirementsFile: "requirements.txt"
 ```
 
 ### LLM Backend Installation
@@ -69,10 +72,11 @@ backend, and the referenced llamafile models are pre-baked into the image.
 Ollama is an explicit opt-in via the `installOllama` flag:
 
 ```yaml
-agentSettings:
-  installOllama: true   # Bake the ollama server into the image
-  env:
-    KDEPS_DEFAULT_BACKEND: ollama  # route chat resources to ollama at runtime
+deploy:
+  runtime:
+    installOllama: true   # Bake the ollama server into the image
+    env:
+      KDEPS_DEFAULT_BACKEND: ollama  # route chat resources to ollama at runtime
 ```
 
 Ollama is installed when:
@@ -87,13 +91,14 @@ Ollama is installed when:
 ### Example 1: Lightweight Alpine with Ollama
 
 ```yaml
-agentSettings:
-  baseOS: "alpine"
-  installOllama: true
-  pythonPackages:
-    - requests
-  osPackages:
-    - curl
+deploy:
+  runtime:
+    baseOS: "alpine"
+    installOllama: true
+    pythonPackages:
+      - requests
+    osPackages:
+      - curl
 ```
 
 **Build:**
@@ -108,15 +113,16 @@ kdeps bundle build .
 ### Example 2: Ubuntu with Cloud Providers
 
 ```yaml
-agentSettings:
-  baseOS: "ubuntu"
-  installOllama: false  # No local LLM needed
-  pythonPackages:
-    - openai
-    - anthropic
-  osPackages:
-    - git
-    - build-essential
+deploy:
+  runtime:
+    baseOS: "ubuntu"
+    installOllama: false  # No local LLM needed
+    pythonPackages:
+      - openai
+      - anthropic
+    osPackages:
+      - git
+      - build-essential
 
 resources:
   - run:
@@ -138,15 +144,16 @@ kdeps bundle build .
 ### Example 3: Ubuntu with Database Tools
 
 ```yaml
-agentSettings:
-  baseOS: "ubuntu"
-  pythonPackages:
-    - psycopg2-binary
-    - sqlalchemy
-  osPackages:
-    - postgresql-client
-    - redis-tools
-    - git
+deploy:
+  runtime:
+    baseOS: "ubuntu"
+    pythonPackages:
+      - psycopg2-binary
+      - sqlalchemy
+    osPackages:
+      - postgresql-client
+      - redis-tools
+      - git
 ```
 
 **Build:**
@@ -161,19 +168,20 @@ kdeps bundle build .
 ### Example 4: Data Science Stack
 
 ```yaml
-agentSettings:
-  baseOS: "ubuntu"
-  pythonVersion: "3.11"
-  pythonPackages:
-    - numpy
-    - pandas
-    - scikit-learn
-    - matplotlib
-    - jupyter
-  osPackages:
-    - git
-    - vim
-    - graphviz
+deploy:
+  runtime:
+    baseOS: "ubuntu"
+    pythonVersion: "3.11"
+    pythonPackages:
+      - numpy
+      - pandas
+      - scikit-learn
+      - matplotlib
+      - jupyter
+    osPackages:
+      - git
+      - vim
+      - graphviz
 ```
 
 **Build:**
@@ -263,8 +271,9 @@ CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 ### 1. Workflow `baseOS`
 
 ```yaml
-agentSettings:
-  baseOS: "ubuntu"
+deploy:
+  runtime:
+    baseOS: "ubuntu"
 ```
 
 **Result:** Ubuntu base (unless `--gpu` is set, which also forces Ubuntu)
@@ -304,8 +313,9 @@ No `baseOS` in workflow + no `--gpu` = **Alpine** (default)
 You can combine local Ollama with cloud providers:
 
 ```yaml
-agentSettings:
-  installOllama: true  # Enable local Ollama
+deploy:
+  runtime:
+    installOllama: true  # Enable local Ollama
 
 resources:
   # Fast local inference for simple tasks

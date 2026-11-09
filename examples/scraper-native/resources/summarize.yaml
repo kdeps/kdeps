@@ -1,16 +1,21 @@
 actionId: summarize
 name: Summarize Page
-requires: [fetch]
+workflow:
+  requires: [fetch]
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: |
-    Summarize the following web page content in 3-5 sentences.
+  model:
+    name: llama3.2:1b
+    timeout: 60s
+  context:
+    role: user
+    prompt: |
+      Summarize the following web page content in 3-5 sentences.
 
-    URL: {{ get('url') }}
-    Content:
-    {{ output('fetch').content }}
-  jsonResponse: true
-  jsonResponseKeys:
-    - summary
-  timeout: 60s
+      URL: {{ get('url') }}
+      Content:
+      {{ output('fetch').content }}
+  harness:
+    output:
+      json: true
+      keys:
+        - summary

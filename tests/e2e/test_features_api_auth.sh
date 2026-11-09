@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: authResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${PORT}
@@ -49,7 +49,7 @@ settings:
       - path: /api/v1/secure
         methods: [GET]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

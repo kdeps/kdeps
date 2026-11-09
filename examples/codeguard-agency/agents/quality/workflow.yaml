@@ -10,9 +10,9 @@ metadata:
   version: "1.0.0"
   targetActionId: quality-response
 
-settings:
+deploy:
 
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -21,51 +21,56 @@ resources:
   - actionId: quality-check
     name: Quality Check
     chat:
-      model: llama3.2:1b
-      role: user
-      prompt: |
-        You are a senior software engineer performing a code quality review.
-        Analyse the {{ get('language') }} code below for maintainability issues.
+      model:
+        name: llama3.2:1b
+        timeout: 120s
 
-        Focus on:
-        • Readability and naming clarity (variables, functions, classes)
-        • Cyclomatic complexity — functions that are too long or deeply nested
-        • DRY violations (copy-paste code, magic literals)
-        • Error and exception handling completeness
-        • Missing or inadequate documentation / comments
-        • Lack of unit test coverage indicators
-        • Performance anti-patterns (N+1 queries, unbounded loops, etc.)
-        • Language-specific best practices for {{ get('language') }}
+      context:
+        role: user
+        prompt: |
+          You are a senior software engineer performing a code quality review.
+          Analyse the {{ get('language') }} code below for maintainability issues.
 
-        Code:
-        ```{{ get('language') }}
-        {{ get('code') }}
-        ```
+          Focus on:
+          • Readability and naming clarity (variables, functions, classes)
+          • Cyclomatic complexity — functions that are too long or deeply nested
+          • DRY violations (copy-paste code, magic literals)
+          • Error and exception handling completeness
+          • Missing or inadequate documentation / comments
+          • Lack of unit test coverage indicators
+          • Performance anti-patterns (N+1 queries, unbounded loops, etc.)
+          • Language-specific best practices for {{ get('language') }}
 
-        Respond ONLY with a JSON object — no prose, no markdown fences:
-        {
-          "score": <integer 1-10, where 10 = excellent>,
-          "suggestions": [
-            { "category": "readability|complexity|dry|error-handling|docs|testing|performance|best-practice",
-              "issue": "...",
-              "location": "line N or function name",
-              "recommendation": "..." }
-          ],
-          "summary": "One sentence overall quality assessment."
-        }
-      scenario:
-        - role: assistant
-          prompt: |
-            You are a principal engineer who values clean, idiomatic, maintainable code.
-            You ALWAYS respond with valid JSON and nothing else.
-      jsonResponse: true
-      jsonResponseKeys: [score, suggestions, summary]
-      timeout: 120s
+          Code:
+          ```{{ get('language') }}
+          {{ get('code') }}
+          ```
 
+          Respond ONLY with a JSON object — no prose, no markdown fences:
+          {
+            "score": <integer 1-10, where 10 = excellent>,
+            "suggestions": [
+              { "category": "readability|complexity|dry|error-handling|docs|testing|performance|best-practice",
+                "issue": "...",
+                "location": "line N or function name",
+                "recommendation": "..." }
+            ],
+            "summary": "One sentence overall quality assessment."
+          }
+        scenario:
+          - role: assistant
+            prompt: |
+              You are a principal engineer who values clean, idiomatic, maintainable code.
+              You ALWAYS respond with valid JSON and nothing else.
+      harness:
+        output:
+          json: true
+          keys: [score, suggestions, summary]
   # ── Return result to intake agent ─────────────────────────────────────────────
   - actionId: quality-response
     name: Quality Response
-    requires: [quality-check]
+    workflow:
+      requires: [quality-check]
     apiResponse:
       success: true
       response: "{{ get('quality-check') }}"

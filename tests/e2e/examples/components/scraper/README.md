@@ -71,7 +71,8 @@ component:
 
 - actionId: summarise
 chat:
-  prompt: "Summarise this article in 3 bullet points:\n{{ output('scrapeArticle').result }}"
+  context:
+    prompt: "Summarise this article in 3 bullet points:\n{{ output('scrapeArticle').result }}"
 ```
 
 ## Requirements

@@ -42,7 +42,7 @@ metadata:
   name: chat-harness-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}
@@ -56,39 +56,48 @@ YAML
 cat > "$TEST_DIR/resources/with.yaml" <<'YAML'
 actionId: with
 name: With sections
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: "HARNESSCHECK"
-  harness: [accuracy, honesty]
+  model:
+    name: fake
+  context:
+    prompt: "HARNESSCHECK"
+  harness:
+    sections: [accuracy, honesty]
 YAML
 
 cat > "$TEST_DIR/resources/without.yaml" <<'YAML'
 actionId: without
 name: Without sections
-validations:
+guardrails:
   routes: [/ask]
 chat:
-  model: fake
-  prompt: "HARNESSCHECK"
+  model:
+    name: fake
+  context:
+    prompt: "HARNESSCHECK"
 YAML
 
 cat > "$TEST_DIR/resources/bad.yaml" <<'YAML'
 actionId: bad
 name: Unknown section
-validations:
+guardrails:
   routes: [/bad]
 chat:
-  model: fake
-  prompt: "HARNESSCHECK"
-  harness: [no-such-section]
+  model:
+    name: fake
+  context:
+    prompt: "HARNESSCHECK"
+  harness:
+    sections: [no-such-section]
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [with, without, bad]
+workflow:
+  requires: [with, without, bad]
 apiResponse:
   success: true
   response:

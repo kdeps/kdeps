@@ -129,10 +129,13 @@ component:
 
 ---
 actionId: answer
-requires: [findFiles]
+workflow:
+  requires: [findFiles]
 chat:
-  model: llama3.2:1b
-  prompt: "Files found: {{ output('findFiles').results }}. Summarize."
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "Files found: {{ output('findFiles').results }}. Summarize."
 ```
 
 </div>

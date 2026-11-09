@@ -43,7 +43,7 @@ metadata:
   name: kdeps-tools-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${API_PORT}
@@ -57,31 +57,38 @@ YAML
 cat > "$TEST_DIR/resources/calc.yaml" <<'YAML'
 actionId: calc
 name: Calculator chat
-validations:
+guardrails:
   routes: [/calc]
 chat:
-  model: fake
-  prompt: 'CALLJSON calculator {"expression": "6 * 7"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALLJSON calculator {"expression": "6 * 7"}'
   tools:
-    - name: calculator
+    list:
+      - name: calculator
 YAML
 
 cat > "$TEST_DIR/resources/missing.yaml" <<'YAML'
 actionId: missing
 name: Unknown tool chat
-validations:
+guardrails:
   routes: [/missing]
 chat:
-  model: fake
-  prompt: "hello"
+  model:
+    name: fake
+  context:
+    prompt: "hello"
   tools:
-    - name: no_such_tool
+    list:
+      - name: no_such_tool
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [calc, missing]
+workflow:
+  requires: [calc, missing]
 apiResponse:
   success: true
   response:

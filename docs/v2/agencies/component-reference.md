@@ -158,9 +158,11 @@ component:
 # resources/summarize.yaml
 actionId: summarize
 name: Summarize
-requires: [fetch-article]
+workflow:
+  requires: [fetch-article]
 chat:
-  prompt: "Summarize: {{ output('fetch-article').content }}"
+  context:
+    prompt: "Summarize: {{ output('fetch-article').content }}"
 ```
 
 </div>
@@ -232,27 +234,29 @@ kdeps uninstall scraper-native   # Uninstall a component
 
 ## Components as LLM tools
 
-Installed components can be exposed as LLM tools via `componentTools:` on `chat:` resources:
+Installed components can be exposed as LLM tools via `tools.components` on `chat:` resources:
 
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "Research {{ get('q') }} and summarize."
-  componentTools:
-    - web_scraper
-    - web_search
+  context:
+    prompt: "Research {{ get('q') }} and summarize."
+  tools:
+    components:
+      - web_scraper
+      - web_search
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. Rules:
-- `componentTools:` absent or empty - no components are registered (default).
+- `tools.components` absent or empty - no components are registered (default).
 - Names not installed are silently ignored.
-- Explicit `tools:` entries take precedence over `componentTools:` entries.
+- Explicit `tools.list` entries take precedence over `tools.components` entries.
 - An input with a declared `default` is not marked required in the schema - the model may omit it, and the runtime applies the default.
 
 | Priority | Source |
 |---|---|
 | 1 (highest) | Explicit `tools:` in the resource YAML |
-| 2 | `componentTools:` allowlist |
+| 2 | `tools.components` allowlist |
 
 ## Packaging (.komponent)
 

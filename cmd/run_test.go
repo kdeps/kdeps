@@ -68,8 +68,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -559,8 +559,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -613,8 +613,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -1422,8 +1422,8 @@ metadata:
   name: test-ollama-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
     ollamaURL: "http://localhost:11434"
 `
@@ -1442,10 +1442,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  role: user
-  prompt: "Hello"
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    role: user
+    prompt: "Hello"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -1814,8 +1816,8 @@ metadata:
   name: test-ollama-lifecycle
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:11434"
 `
 
@@ -1832,10 +1834,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  role: user
-  prompt: "Hello"
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    role: user
+    prompt: "Hello"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -1881,8 +1885,8 @@ metadata:
   name: test-start-ollama
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:11434"
 `
 
@@ -1898,10 +1902,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "You are a helpful assistant"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "You are a helpful assistant"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -1943,8 +1949,8 @@ metadata:
   name: test-wait-timeout
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:12345"  # Use a port that won't have Ollama
 `
 
@@ -1960,10 +1966,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "You are a helpful assistant"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "You are a helpful assistant"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2003,8 +2011,8 @@ metadata:
   name: test-ollama-integration
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:11434"
 `
 
@@ -2020,10 +2028,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "You are a helpful assistant"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "You are a helpful assistant"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2070,8 +2080,8 @@ metadata:
   name: test-start-ollama
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:11434"
 `
 
@@ -2087,10 +2097,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "You are a helpful assistant"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "You are a helpful assistant"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2135,8 +2147,8 @@ metadata:
   name: test-ollama-wrapper
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:11434"
 `
 
@@ -2152,10 +2164,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "Test prompt"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "Test prompt"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2196,8 +2210,8 @@ metadata:
   name: test-wait-timeout
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:12345"
 `
 
@@ -2213,10 +2227,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "Test prompt"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "Test prompt"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2256,8 +2272,8 @@ metadata:
   name: test-wait-timeout
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     ollamaURL: "http://localhost:12345"  # Use a port that won't have Ollama
 `
 
@@ -2273,10 +2289,12 @@ settings:
 actionId: test-action
 name: Test Action
 chat:
-  backend: ollama
-  model: llama2
-  prompt: "You are a helpful assistant"
-  role: user
+  model:
+    backend: ollama
+    name: llama2
+  context:
+    prompt: "You are a helpful assistant"
+    role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2365,8 +2383,8 @@ metadata:
   name: test
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `,
 			expectError: false,
@@ -2535,8 +2553,8 @@ metadata:
   name: main-workflow
   version: "1.0.0"
   targetActionId: main-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
     offlineMode: true
 resources:

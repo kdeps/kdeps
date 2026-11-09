@@ -129,8 +129,8 @@ metadata:
   name: Test Workflow
   version: 1.0.0
   targetActionId: main-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `,
 			validator:    &mockSchemaValidator{},
@@ -146,7 +146,7 @@ metadata:
   name: API Workflow
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -155,7 +155,7 @@ settings:
         methods:
           - GET
           - POST
-  agentSettings:
+  runtime:
     timezone: UTC
 `,
 			validator:    &mockSchemaValidator{},
@@ -183,8 +183,8 @@ metadata:
   name: Test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `,
 			validator: &mockSchemaValidator{
@@ -250,8 +250,8 @@ metadata:
   name: Test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 
@@ -295,11 +295,15 @@ actionId: test-action
 name: Test Resource
 description: A test resource
 chat:
-  model: llama3.2:latest
-  role: user
-  prompt: "Test prompt"
-  jsonResponse: true
-  timeout: 30s
+  model:
+    name: llama3.2:latest
+    timeout: 30s
+  context:
+    role: user
+    prompt: "Test prompt"
+  harness:
+    output:
+      json: true
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -326,9 +330,10 @@ httpClient:
 			yamlContent: `
 actionID: dependent-action
 name: Dependent Resource
-requires:
-    - action1
-    - action2
+workflow:
+    requires:
+        - action1
+        - action2
 apiResponse:
   success: true
   response:
@@ -353,8 +358,10 @@ actionID: "unclosed
 actionId: test
 name: Test
 chat:
-  model: llama3.2:latest
-  prompt: test
+  model:
+    name: llama3.2:latest
+  context:
+    prompt: test
 `,
 			validator: &mockSchemaValidator{
 				validateResourceFunc: func(_ map[string]interface{}) error {
@@ -414,9 +421,11 @@ func TestParser_ParseResourceNilValidator(t *testing.T) {
 actionId: test
 name: Test
 chat:
-  model: llama3.2:latest
-  prompt: test
-  timeout: 30s
+  model:
+    name: llama3.2:latest
+    timeout: 30s
+  context:
+    prompt: test
 `
 
 	tmpDir := t.TempDir()
@@ -547,8 +556,8 @@ metadata:
   name: Test Workflow
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 			err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -614,8 +623,8 @@ metadata:
   name: Test Workflow
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -673,8 +682,8 @@ metadata:
   name: Test Workflow
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -696,8 +705,8 @@ metadata:
   name: J2 Workflow
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	tests := []struct {
@@ -795,7 +804,7 @@ metadata:
   name: J2 Workflow
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
 {% if env.TEST_PORT is defined %}
     portNum: {{ env.TEST_PORT | int }}
@@ -803,7 +812,7 @@ settings:
     portNum: 16395
 {% endif %}
     routes: []
-  agentSettings:
+  runtime:
     timezone: UTC
 `
 	tests := []struct {
@@ -886,8 +895,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonPackages:
       - numpy
       - pandas
@@ -928,8 +937,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     osPackages:
       - git
 `), 0o600))
@@ -973,8 +982,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonPackages:
       - numpy
 `), 0o600))
@@ -1015,8 +1024,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     osPackages:
       - git
       - make
@@ -1053,8 +1062,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonPackages:
       - numpy
     osPackages:
@@ -1081,8 +1090,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonPackages:
       - numpy
 `), 0o600))
@@ -1109,8 +1118,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: final
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	// Create components/ directory
@@ -1250,8 +1259,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: shared-action
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1301,8 +1310,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: speak
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1332,8 +1341,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1388,8 +1397,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: rendered-action
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	wf, wfErr := p.ParseWorkflow(wfPath)
@@ -1420,8 +1429,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1446,8 +1455,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1478,8 +1487,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1513,8 +1522,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1555,8 +1564,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1597,8 +1606,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1650,8 +1659,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1676,8 +1685,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: action1
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `
 	wfPath := filepath.Join(projectDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(wfPath, []byte(wfContent), 0o600))
@@ -1712,8 +1721,8 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 {# Jinja2 comment - will be stripped #}
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
   apiServer:
 {% if env.TEST_PORT == '9090' %}
     portNum: 9090
@@ -1746,8 +1755,8 @@ metadata:
   name: plain-workflow
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -1772,8 +1781,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -1801,8 +1810,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -1829,8 +1838,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -1841,8 +1850,10 @@ settings:
 actionId: resource1
 name: Resource 1
 chat:
-  model: llama3.2:1b
-  prompt: "test"
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "test"
 `
 	err = os.WriteFile(
 		filepath.Join(resourcesDir, "resource1.yaml"),
@@ -1891,8 +1902,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -1937,8 +1948,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -1992,8 +2003,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -2028,8 +2039,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: inline-resource
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 resources:
   - actionId: inline-resource
@@ -2081,8 +2092,8 @@ metadata:
   name: test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
@@ -2106,8 +2117,8 @@ metadata:
   name: Test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 {% if broken %}
 `), 0600)
@@ -2130,8 +2141,8 @@ func TestParser_ParseWorkflow_UnmarshalError(t *testing.T) {
 	err := os.WriteFile(yamlPath, []byte(`apiVersion: kdeps.io/v1
 kind: Workflow
 metadata: []
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0600)
 	require.NoError(t, err)
@@ -2258,8 +2269,8 @@ metadata:
   name: Test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0600)
 	require.NoError(t, err)
@@ -2301,8 +2312,8 @@ metadata:
   name: component-backing
   version: 1.0.0
   targetActionId: search
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 
@@ -2366,8 +2377,8 @@ metadata:
   name: exec-component-backing
   version: 1.0.0
   targetActionId: shell
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 
@@ -2429,8 +2440,8 @@ metadata:
   name: python-component-backing
   version: 1.0.0
   targetActionId: script
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 
@@ -2492,8 +2503,8 @@ metadata:
   name: embedding-component-backing
   version: 1.0.0
   targetActionId: index
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 
@@ -2556,8 +2567,8 @@ metadata:
   name: http-client-component-backing
   version: 1.0.0
   targetActionId: fetch
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 
@@ -2620,8 +2631,8 @@ metadata:
   name: loader-component-backing
   version: 1.0.0
   targetActionId: load
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 
@@ -2683,8 +2694,8 @@ metadata:
   name: vector-store-component-backing
   version: 1.0.0
   targetActionId: index
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 `), 0o600))
 

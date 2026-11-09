@@ -44,7 +44,7 @@ gt_run() {
     local d
     d=$(mktemp -d "$GT_DIR/wf.XXXX")
     mkdir -p "$d/resources"
-    printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: g\n  version: "1.0.0"\n  targetActionId: g\nsettings: {}\n' \
+    printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: g\n  version: "1.0.0"\n  targetActionId: g\n' \
         > "$d/workflow.yaml"
     printf 'actionId: g\nname: Git\ncomponent:\n  name: git\n  with:\n%s\n    workingDir: "%s"\n' "$1" "$GT_REPO_NATIVE" \
         > "$d/resources/g.yaml"
@@ -75,7 +75,7 @@ fi
 
 D=$(mktemp -d "$GT_DIR/old.XXXX")
 mkdir -p "$D/resources"
-printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: x\nsettings: {}\n' > "$D/workflow.yaml"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: t\n  version: "1.0.0"\n  targetActionId: x\n' > "$D/workflow.yaml"
 printf 'actionId: x\nname: X\ngit:\n  operation: status\n' > "$D/resources/x.yaml"
 if OUT=$("$KDEPS_BIN" validate "$D/workflow.yaml" 2>&1); then
     test_failed "git component - the git: key is gone" "validate accepted it: $OUT"

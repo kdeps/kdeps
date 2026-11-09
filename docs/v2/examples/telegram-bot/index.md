@@ -23,8 +23,8 @@ name: telegram-llm-bot
 description: Telegram bot that answers messages with an LLM
 version: "1.0.0"
 targetActionId: reply
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 
   input:
@@ -42,9 +42,10 @@ settings:
 actionId: llm
 name: LLM Response
 chat:
-  messages:
-    - role: user
-      content: "{{ input('message') }}"   # the incoming message text
+  context:
+    messages:
+      - role: user
+        content: "{{ input('message') }}"   # the incoming message text
 ```
 
 ## resources/reply.yaml
@@ -53,8 +54,9 @@ chat:
 
 actionId: reply
 name: Reply
-requires:
-  - llm
+workflow:
+  requires:
+    - llm
 
 apiResponse:                 # in bot mode the workflow result is the reply
   success: true

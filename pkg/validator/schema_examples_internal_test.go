@@ -4,7 +4,7 @@ import "testing"
 
 // A field that a key merely contains gets no borrowed example ("settings is
 // required. Example: "/api/users"" came from matching
-// settings.apiServer.routes.path); a field path holding a key uses the longest one.
+// deploy.apiServer.routes.path); a field path holding a key uses the longest one.
 func TestGetFieldExamples_OnlyKeysInsideTheField(t *testing.T) {
 	sv := &SchemaValidator{}
 	if got := sv.getFieldExamples("settings", "object"); got != `{"key": "value"}` {
@@ -13,7 +13,7 @@ func TestGetFieldExamples_OnlyKeysInsideTheField(t *testing.T) {
 	if got := sv.getRequiredFieldSuggestion("settings"); got != "This field is required" {
 		t.Errorf("required settings got %q", got)
 	}
-	if got := sv.getFieldExamples("resources.run.chat.model", "string"); got != `"llama3.2:latest"` {
+	if got := sv.getFieldExamples("resources.chat.model.name", "string"); got != `"llama3.2:latest"` {
 		t.Errorf("nested chat model got %s", got)
 	}
 	if got := sv.getFieldExamples("metadata.name", "string"); got != `"My Resource"` {

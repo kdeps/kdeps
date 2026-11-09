@@ -5,9 +5,11 @@ Routing delegates model selection from resource YAML to [config](/workflow/resou
 ```yaml
 # resources/llm.yaml
 chat:
-  model: router       # delegate to config.yaml router
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: router       # delegate to config.yaml router
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 The router in `~/.kdeps/config.yaml` selects which model to use based on the configured strategy.
@@ -121,9 +123,11 @@ Agent mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_M
 ```yaml
 # resources/llm.yaml
 chat:
-  model: auto-router   # zero config -- ignores llm.models/router entirely
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: auto-router   # zero config -- ignores llm.models/router entirely
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 Resolution order, with no config required:

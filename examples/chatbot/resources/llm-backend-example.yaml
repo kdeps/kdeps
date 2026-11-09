@@ -1,7 +1,7 @@
 actionId: llmWithBackend
 name: LLM Chat with Backend Selection
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat-backend]
 
@@ -12,16 +12,20 @@ validations:
     message: Query parameter 'q' is required
 
 chat:
-  model: llama3.2:1b
-  # For online providers, specify apiKey:
-  # apiKey: "{{ env('OPENAI_API_KEY') }}"
-  contextLength: 8192  # Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
-  role: user
-  prompt: "{{ get('q') }}"
-  scenario:
-    - role: assistant
-      prompt: You are a helpful AI assistant.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-  jsonResponse: true
-  jsonResponseKeys:
-    - answer
-  timeout: 60s
+  model:
+    name: llama3.2:1b
+    timeout: 60s
+  context:
+    # For online providers, specify apiKey:
+    # apiKey: "{{ env('OPENAI_API_KEY') }}"
+    contextLength: 8192  # Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
+    role: user
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: assistant
+        prompt: You are a helpful AI assistant.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+  harness:
+    output:
+      json: true
+      keys:
+        - answer

@@ -33,13 +33,13 @@ metadata:
   version: "1.0.0"
   targetActionId: toolResponse
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/v1/tools
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 ```
 
@@ -108,31 +108,36 @@ Create `resources/chat.yaml`:
 actionId: llmWithTools
 name: LLM with tools
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: llama3.2:1b
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
+  harness:
+    output:
+      json: true
   tools:
-    - name: calculate
-      description: "Evaluate a math expression. Supports +, -, *, /, **, sqrt, sin, cos, log, pi, e."
-      script: calcTool                 # the resource that runs this tool
-      parameters:
-        expression:
-          type: string
-          description: "e.g. '2 + 2', 'sqrt(16)', 'sin(pi/2)'"
-          required: true
-    - name: search_database
-      description: "Search the product database."
-      script: dbTool
-      parameters:
-        query:
-          type: string
-          description: "Search query"
-          required: true
-        category:
-          type: string
-          description: "Optional category filter"
-          required: false
-  jsonResponse: true
+    list:
+      - name: calculate
+        description: "Evaluate a math expression. Supports +, -, *, /, **, sqrt, sin, cos, log, pi, e."
+        script: calcTool                 # the resource that runs this tool
+        parameters:
+          expression:
+            type: string
+            description: "e.g. '2 + 2', 'sqrt(16)', 'sin(pi/2)'"
+            required: true
+      - name: search_database
+        description: "Search the product database."
+        script: dbTool
+        parameters:
+          query:
+            type: string
+            description: "Search query"
+            required: true
+          category:
+            type: string
+            description: "Optional category filter"
+            required: false
 ```
 
 </div>
@@ -147,8 +152,9 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: toolResponse
 name: Tool response
-requires: [llmWithTools]
-validations:
+workflow:
+  requires: [llmWithTools]
+guardrails:
   methods: [POST]
   routes: [/api/v1/tools]
 apiResponse:

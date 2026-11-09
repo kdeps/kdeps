@@ -11,7 +11,8 @@ Expressions pass data between resources, validate inputs and run conditional log
 ```yaml
 # resources/example.yaml
 chat:
-  prompt: "Hello {{ get('name') }}, today is {{ info('timestamp') }}"
+  context:
+    prompt: "Hello {{ get('name') }}, today is {{ info('timestamp') }}"
 ```
 
 </div>
@@ -26,11 +27,11 @@ after:
   - set('total', get('price') * get('quantity'))
 ```
 
-**validations.skip / validations.check / onError.when** - a list of boolean expressions; any one true is enough:
+**guardrails.skip / guardrails.check / onError.when** - a list of boolean expressions; any one true is enough:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   skip:
     - get('q') == ''           # bare expression, evaluated as bool
   check:

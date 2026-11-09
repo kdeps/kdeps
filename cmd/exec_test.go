@@ -83,8 +83,8 @@ metadata:
   name: test-agent
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: test-action

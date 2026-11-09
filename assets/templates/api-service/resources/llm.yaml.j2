@@ -1,7 +1,7 @@
 actionId: llm
 name: LLM Chat
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat]
   check:
@@ -11,10 +11,12 @@ validations:
     message: "'q' is required"
 
 chat:
-  model: llama3.2:1b  # llamafile alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
-  # Default backend is "file": the model runs as a local llamafile, no server install needed.
-  # Quantization variants: llama3.2:1b-q6, llama3.2:1b-q8. List all: kdeps llamafile list
-  # To use ollama instead: set KDEPS_DEFAULT_BACKEND=ollama and installOllama: true in workflow.yaml
-  role: user
-  prompt: "{% raw %}{{ get('q') }}{% endraw %}"
-  timeout: 60s
+  model:
+    name: llama3.2:1b  # llamafile alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
+    timeout: 60s
+  context:
+    # Default backend is "file": the model runs as a local llamafile, no server install needed.
+    # Quantization variants: llama3.2:1b-q6, llama3.2:1b-q8. List all: kdeps llamafile list
+    # To use ollama instead: set KDEPS_DEFAULT_BACKEND=ollama and installOllama: true in workflow.yaml
+    role: user
+    prompt: "{% raw %}{{ get('q') }}{% endraw %}"

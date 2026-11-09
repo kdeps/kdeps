@@ -158,8 +158,8 @@ kind: Workflow
 metadata:
   name: test-local-comp
   targetActionId: sayHi
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
 
@@ -179,8 +179,8 @@ kind: Workflow
 metadata:
   name: test-packed-comp
   targetActionId: packerAction
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
 
@@ -200,8 +200,8 @@ kind: Workflow
 metadata:
   name: test-global-comp
   targetActionId: globalAction
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 YAML
 

@@ -52,6 +52,11 @@ def reply_for(msgs):
         return "GOT REFINED"
     if "REFINEME" in last:
         return "GOT ORIGINAL"
+    if "CLAIMNUDGE" in everything:
+        # workflow nudges: claim an action with no tool call until nudged.
+        if "You made no tool call" in last:
+            return "NUDGED BACK"
+        return "I've created notes.md for you."
     if "HARNESSCHECK" in last:
         # chat.harness: report which harness sections reached the model.
         tags = [t for t in ("accuracy", "honesty", "output") if "<%s>" % t in everything]
@@ -85,6 +90,14 @@ def reply_for(msgs):
             return OVERFLOW
         args, _ = json.JSONDecoder().raw_decode(everything[over.end():])
         return json.dumps({"name": over.group(1), "arguments": args})
+    skill = re.search(r"SKILLJSON ([\w-]+)", everything)
+    if skill:
+        # chat skills: load the named skill, then answer from its body.
+        if msgs and msgs[-1].get("role") == "tool":
+            return "USED " + last
+        if "<available_skills>" in everything:
+            return json.dumps({"name": "load_skill", "arguments": {"name": skill.group(1)}})
+        return "NO SKILLS"
     leak = re.search(r"LEAKJSON (\w+) (?=\{)", everything)
     if leak:
         if msgs and msgs[-1].get("role") == "tool":

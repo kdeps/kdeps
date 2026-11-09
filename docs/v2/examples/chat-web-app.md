@@ -31,7 +31,7 @@ metadata:
   version: "1.0.0"
   targetActionId: chat
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -59,7 +59,7 @@ Create `resources/chat.yaml`:
 # resources/chat.yaml
 actionId: chat
 name: Chat handler
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/chat]
   required:
@@ -70,17 +70,20 @@ validations:
       minLength: 1
       message: "message cannot be empty"
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('message') }}"
-  scenario:
-    - role: system
-      prompt: "You are a helpful assistant. Answer clearly and concisely."
-  timeout: 300s
-onError:
-  action: continue
-  fallback:
-    reply: "Sorry, something went wrong. Please try again."
+  model:
+    name: llama3.2:1b
+    timeout: 300s
+  context:
+    role: user
+    prompt: "{{ get('message') }}"
+    scenario:
+      - role: system
+        prompt: "You are a helpful assistant. Answer clearly and concisely."
+workflow:
+  onError:
+    action: continue
+    fallback:
+      reply: "Sorry, something went wrong. Please try again."
 apiResponse:
   success: true
   response:

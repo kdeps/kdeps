@@ -1,6 +1,7 @@
 actionId: finalResult
 name: Final Result
-requires: [systemInfo]
+workflow:
+  requires: [systemInfo]
 
 apiResponse:
   success: true

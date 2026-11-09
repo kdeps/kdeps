@@ -28,8 +28,8 @@ metadata:
   version: "1.0.0"
   targetActionId: transform
 
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   input:
     sources: [api]   # component calls deliver the with: map; no server starts without apiServer

@@ -1,15 +1,15 @@
 # Route and method restrictions
 
-`validations:` gates which HTTP methods and routes trigger a resource. A request that does not match skips the resource silently.
+`guardrails:` gates which HTTP methods and routes trigger a resource. A request that does not match skips the resource silently.
 
 ## HTTP method restrictions
 
-Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:
+Limit a resource to specific HTTP methods using `methods:` inside the `guardrails:` block:
 
 ```yaml
 # resources/create-user.yaml
 actionId: createUser
-validations:
+guardrails:
   methods: [POST]
 
 component:
@@ -23,7 +23,7 @@ component:
           - "{{ get('email') }}"
 ```
 
-When `methods:` is set inside `validations:`:
+When `methods:` is set inside `guardrails:`:
 - Resource only executes for matching HTTP methods
 - Mismatched methods skip the resource silently
 - Multiple methods can be specified
@@ -35,7 +35,7 @@ When `methods:` is set inside `validations:`:
 ```yaml
 # Create - POST only
 actionId: createItem
-validations:
+guardrails:
   methods: [POST]
 component:
   name: sql
@@ -47,7 +47,7 @@ component:
 ---
 # Read - GET only
 actionId: getItem
-validations:
+guardrails:
   methods: [GET]
 component:
   name: sql
@@ -59,7 +59,7 @@ component:
 ---
 # Update - PUT/PATCH
 actionId: updateItem
-validations:
+guardrails:
   methods: [PUT, PATCH]
 component:
   name: sql
@@ -73,7 +73,7 @@ component:
 ---
 # Delete - DELETE only
 actionId: deleteItem
-validations:
+guardrails:
   methods: [DELETE]
 component:
   name: sql
@@ -85,12 +85,12 @@ component:
 
 ## Route restrictions
 
-Limit a resource to specific URL routes using `routes:` inside the `validations:` block:
+Limit a resource to specific URL routes using `routes:` inside the `guardrails:` block:
 
 ```yaml
 # resources/admin-dashboard.yaml
 actionId: adminDashboard
-validations:
+guardrails:
   routes:
     - /admin
     - /admin/*
@@ -120,18 +120,20 @@ component:
 ```yaml
 # V1 API handler
 actionId: apiV1Handler
-validations:
+guardrails:
   routes: [/api/v1/*]
 chat:
-  prompt: "V1 API: {{ get('q') }}"
+  context:
+    prompt: "V1 API: {{ get('q') }}"
 
 ---
 # V2 API handler (different model)
 actionId: apiV2Handler
-validations:
+guardrails:
   routes: [/api/v2/*]
 chat:
-  prompt: "V2 API with enhanced model: {{ get('q') }}"
+  context:
+    prompt: "V2 API with enhanced model: {{ get('q') }}"
 ```
 
 </div>
@@ -141,7 +143,7 @@ chat:
 ```yaml
 # Public content
 actionId: publicContent
-validations:
+guardrails:
   routes:
     - /public/*
     - /
@@ -154,7 +156,7 @@ component:
 ---
 # Admin content (requires auth)
 actionId: adminContent
-validations:
+guardrails:
   routes: [/admin/*]
   check:
     - get('Authorization') != ''
@@ -175,7 +177,7 @@ Combine method and route restrictions for precise control:
 ```yaml
 # resources/user-create.yaml
 actionId: userCreate
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/users]
 
@@ -190,7 +192,7 @@ component:
 
 ---
 actionId: userGet
-validations:
+guardrails:
   methods: [GET]
   routes: [/api/users/*]
 
@@ -214,7 +216,7 @@ kind: Workflow
 name: rest-api
 version: "1.0.0"
 targetActionId: responseHandler
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -228,7 +230,7 @@ settings:
 ```yaml
 # resources/list-users.yaml
 actionId: listUsers
-validations:
+guardrails:
   methods: [GET]
   routes: [/api/users]
 component:
@@ -243,7 +245,7 @@ component:
 ```yaml
 # resources/create-user.yaml
 actionId: createUser
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/users]
   required: [name, email]
@@ -262,7 +264,7 @@ component:
 ```yaml
 # resources/get-user.yaml
 actionId: getUser
-validations:
+guardrails:
   methods: [GET]
   routes: [/api/users/*]
 component:
@@ -278,7 +280,7 @@ component:
 ```yaml
 # resources/update-user.yaml
 actionId: updateUser
-validations:
+guardrails:
   methods: [PUT]
   routes: [/api/users/*]
 component:
@@ -297,7 +299,7 @@ component:
 ```yaml
 # resources/delete-user.yaml
 actionId: deleteUser
-validations:
+guardrails:
   methods: [DELETE]
   routes: [/api/users/*]
 component:
@@ -318,7 +320,7 @@ component:
 
 ## See also
 
-- [Validation and control flow](/workflow/validation) - Full `validations:` block reference
+- [Validation and control flow](/workflow/validation) - Full `guardrails:` block reference
 - [Data access](/workflow/data-access#the-request-object) - the `request` object
 - [Workflow configuration](/workflow/configuration) - Route configuration
 - [Resources overview](/workflow/resources) - Resource basics

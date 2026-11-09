@@ -9,7 +9,7 @@ metadata:
 
 {# Jinja2 comment: set port from environment or use default #}
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
 {% if env.PORT %}
@@ -24,5 +24,5 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC

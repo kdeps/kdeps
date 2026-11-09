@@ -1,7 +1,7 @@
 actionId: apiKeyAuth
 name: API Key Authentication
 
-validations:
+guardrails:
   methods: [POST]
   routes: [/api/v1/http-demo]
 

@@ -45,7 +45,7 @@ Error: Input validation failed (code: VALIDATION)
 Details: [{"field": "email", "message": "required field missing"}]
 ```
 
-A `validations.check` expression evaluated to false.
+A `guardrails.check` expression evaluated to false.
 
 Fix: check the request input against the check expressions. Use `kdeps run --debug` to see the evaluated expression values.
 
@@ -70,7 +70,7 @@ Fix: validate the expression syntax. Common causes:
 Error: Expression evaluation failed (code: EXPRESSION_ERR)
 ```
 
-An expression in `before:`, `after:`, or [`validations`](/reference/glossary#validations) could not be evaluated.
+An expression in `before:`, `after:`, or [`guardrails`](/reference/glossary#guardrails) could not be evaluated.
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)

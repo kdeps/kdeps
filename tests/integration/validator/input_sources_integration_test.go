@@ -87,7 +87,7 @@ func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
 // Shipped schema vs. engine
 // ---------------------------------------------------------------------------
 
-// workflowWithInput returns a minimal workflow document whose settings.input is input.
+// workflowWithInput returns a minimal workflow document whose deploy.input is input.
 func workflowWithInput(input map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
@@ -97,7 +97,7 @@ func workflowWithInput(input map[string]interface{}) map[string]interface{} {
 			"version":        "1.0.0",
 			"targetActionId": "main",
 		},
-		"settings": map[string]interface{}{
+		"deploy": map[string]interface{}{
 			"input": input,
 		},
 	}
@@ -112,7 +112,7 @@ func schemaInputSources(t *testing.T) []string {
 	require.NoError(t, json.Unmarshal(raw, &doc))
 
 	node := doc
-	for _, key := range []string{"properties", "settings", "properties", "input",
+	for _, key := range []string{"properties", "deploy", "properties", "input",
 		"properties", "sources", "items", "enum"} {
 		obj, ok := node.(map[string]interface{})
 		require.True(t, ok, "workflow.json: %s has no parent object", key)

@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   targetActionId: finalResult
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -18,6 +18,6 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"

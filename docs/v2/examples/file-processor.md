@@ -32,8 +32,8 @@ metadata:
   version: "1.0.0"
   targetActionId: response      # the resource whose output is returned
 
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   input:
     sources: [file]             # read one file, then exit
@@ -81,20 +81,23 @@ Create `resources/02-summarize.yaml`:
 # resources/02-summarize.yaml
 actionId: summarize
 name: Summarize document
-requires: [readFile]            # run after readFile
+workflow:
+  requires: [readFile]            # run after readFile
 
 chat:
-  model: llama3.2:1b
-  prompt: |
-    You are a document analyst. Return a JSON object with exactly these keys:
-      - "title": a short descriptive title (max 10 words)
-      - "summary": a 2-3 sentence summary
-      - "key_points": an array of 3-5 bullet-point strings
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      You are a document analyst. Return a JSON object with exactly these keys:
+        - "title": a short descriptive title (max 10 words)
+        - "summary": a 2-3 sentence summary
+        - "key_points": an array of 3-5 bullet-point strings
 
-    Document:
-    {{ input('fileContent') }}
+      Document:
+      {{ input('fileContent') }}
 
-    Return only valid JSON. No markdown, no explanation.
+      Return only valid JSON. No markdown, no explanation.
 ```
 
 </div>
@@ -109,7 +112,8 @@ Create `resources/03-response.yaml`:
 # resources/03-response.yaml
 actionId: response
 name: Final response
-requires: [summarize]
+workflow:
+  requires: [summarize]
 
 apiResponse:
   success: true

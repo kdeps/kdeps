@@ -6,13 +6,13 @@ metadata:
   version: 1.0.0
   targetActionId: main
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/v1/ask
         methods: [POST]
-  agentSettings:
+  runtime:
     # Kubernetes-specific settings
     replicas: 3
     resources:
@@ -30,9 +30,13 @@ resources:
   - actionId: main
     name: Deployment assistant
     chat:
-      model: llama3.2:1b
-      system: "You are a Kubernetes deployment assistant."
-      prompt: "{{ get('q') }}"
+      model:
+        name: llama3.2:1b
+      context:
+        scenario:
+          - role: system
+            prompt: "You are a Kubernetes deployment assistant."
+        prompt: "{{ get('q') }}"
     apiResponse:
       success: true
       response:

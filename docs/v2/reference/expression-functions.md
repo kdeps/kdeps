@@ -132,7 +132,7 @@ output('llmResource')        # Get LLM output
 ```
 
 ### FileExists(path)
-Reports whether a file or directory exists on the machine running the workflow. Typical use is a `validations.skip` that avoids repeating a download.
+Reports whether a file or directory exists on the machine running the workflow. Typical use is a `guardrails.skip` that avoids repeating a download.
 
 - **path**: Filesystem path (an empty path is false).
 
@@ -167,14 +167,14 @@ map(htmlFind(output('page').body, 'a'), #.href)      # every link target
 ```
 
 ### hmacSHA256(key, data)
-Returns the hex HMAC-SHA256 of `data` keyed with `key`. Webhook providers sign the raw body this way; compare against their signature header in a `validations.check`, as the [whatsapp-bot template](/reference/cli-dev#kdeps-new) does.
+Returns the hex HMAC-SHA256 of `data` keyed with `key`. Webhook providers sign the raw body this way; compare against their signature header in a `guardrails.check`, as the [whatsapp-bot template](/reference/cli-dev#kdeps-new) does.
 
 - **key**: The shared secret.
 - **data**: The signed text, usually `request.rawBody`.
 
 **Examples:**
 ```yaml
-validations:
+guardrails:
   check:
     - "request.headers['X-Hub-Signature-256'] == 'sha256=' + hmacSHA256(env('APP_SECRET'), request.rawBody)"
   error: {code: 403, message: invalid signature}

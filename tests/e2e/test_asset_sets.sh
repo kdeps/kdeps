@@ -214,10 +214,10 @@ metadata:
   description: every asset set in use
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   input:
     sources: [file]
-  agentSettings:
+  runtime:
     versions:
       kdeps: v2.0.0
       ollama: 0.5.4
@@ -227,22 +227,27 @@ cat > "$SA_WF/resources/answer.yaml" <<'YAML'
 actionId: answer
 name: Answer
 chat:
-  backend: e2eprov
-  model: fake
-  prompt: "E2E-WORKFLOW-PROMPT {{ input('fileContent') }}"
-  knowledge: false
+  model:
+    backend: e2eprov
+    name: fake
+  context:
+    prompt: "E2E-WORKFLOW-PROMPT {{ input('fileContent') }}"
+  rag:
+    knowledge: false
 YAML
 cat > "$SA_WF/resources/echo.yaml" <<'YAML'
 actionId: echo
 name: Echo
-requires: [answer]
+workflow:
+  requires: [answer]
 component:
   name: e2e-echo
 YAML
 cat > "$SA_WF/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [echo]
+workflow:
+  requires: [echo]
 apiResponse:
   success: true
   response:

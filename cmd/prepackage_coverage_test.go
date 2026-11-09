@@ -70,7 +70,6 @@ metadata:
   name: main
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: respond
     name: Respond
@@ -103,7 +102,6 @@ metadata:
   name: no-chat
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: respond
     name: Respond
@@ -140,16 +138,18 @@ metadata:
   name: unresolved
   version: "1.0.0"
   targetActionId: respond
-settings: {}
 resources:
   - actionId: chat
     name: Chat
     chat:
-      model: not-a-real-model.llamafile
-      prompt: hi
+      model:
+        name: not-a-real-model.llamafile
+      context:
+        prompt: hi
   - actionId: respond
     name: Respond
-    requires: [chat]
+    workflow:
+      requires: [chat]
     apiResponse:
       success: true
       response: ok

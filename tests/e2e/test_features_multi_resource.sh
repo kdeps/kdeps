@@ -43,7 +43,7 @@ metadata:
   version: "1.0.0"
   targetActionId: finalStep
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3090
@@ -51,7 +51,7 @@ settings:
       - path: /api/v1/multi
         methods: [POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -71,8 +71,9 @@ cat > "$RESOURCE_FILE_2" <<'EOF'
 
 actionId: secondStep
 name: Second Step
-requires:
-  - firstStep
+workflow:
+  requires:
+    - firstStep
 
 apiResponse:
   success: true
@@ -85,9 +86,10 @@ cat > "$RESOURCE_FILE_3" <<'EOF'
 
 actionId: finalStep
 name: Final Step
-requires:
-  - firstStep
-  - secondStep
+workflow:
+  requires:
+    - firstStep
+    - secondStep
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/multi]

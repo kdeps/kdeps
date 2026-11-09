@@ -253,7 +253,7 @@ metadata:
   version: "1.0.0"
   targetActionId: healthResource
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -264,7 +264,7 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     models:

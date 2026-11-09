@@ -506,7 +506,7 @@ metadata:
   name: ks-wf
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   input:
     sources: [file]
 YAML
@@ -515,15 +515,18 @@ ks_wf_resources() { # $1: knowledge line for the chat resource
 actionId: answer
 name: Answer
 chat:
-  backend: mockllm
-  model: fake
-  prompt: "workflow question: {{ input('fileContent') }}"
-$1
+  model:
+    backend: mockllm
+    name: fake
+  context:
+    prompt: "workflow question: {{ input('fileContent') }}"
+  $1
 YAML
     cat > "$KS_WF/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [answer]
+workflow:
+  requires: [answer]
 apiResponse:
   success: true
   response:
@@ -545,7 +548,8 @@ if output_grep_fixed "<knowledge-recall>" "$REQ" && output_grep "Billing decisio
 else
     test_failed "knowledge workflow - recall in chat call" "$OUT | $REQ"
 fi
-ks_wf_resources "  knowledge: false"
+ks_wf_resources "rag:
+    knowledge: false"
 : > "$KS_LOG"
 OUT=$(ks_run)
 REQ=$(ks_req "workflow question")

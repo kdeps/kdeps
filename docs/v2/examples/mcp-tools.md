@@ -34,7 +34,7 @@ metadata:
   version: "1.0.0"
   targetActionId: chat
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -52,38 +52,43 @@ Create `resources/chat.yaml`:
 # resources/chat.yaml
 actionId: chat
 name: Chat with MCP filesystem tools
-validations:
+guardrails:
   methods: [POST]
   routes: [/chat]
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ input('message') }}"
-  system: |
-    You are an assistant with filesystem tools via MCP. Use read_file to read
-    files and list_directory to explore. Only access paths the user names.
+  model:
+    name: llama3.2:1b
+  context:
+    scenario:
+      - role: system
+        prompt: |
+          You are an assistant with filesystem tools via MCP. Use read_file to read
+          files and list_directory to explore. Only access paths the user names.
+    role: user
+    prompt: "{{ input('message') }}"
   tools:
-    - name: read_file
-      description: "Read the contents of a file at the given path."
-      mcp:
-        server: npx
-        args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-        transport: stdio        # the only supported transport
-      parameters:
-        path:
-          type: string
-          description: "Absolute path to the file to read."
-          required: true
-    - name: list_directory
-      description: "List files and subdirectories in a directory."
-      mcp:
-        server: npx
-        args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-      parameters:
-        path:
-          type: string
-          description: "Absolute path to the directory to list."
-          required: true
+    list:
+      - name: read_file
+        description: "Read the contents of a file at the given path."
+        mcp:
+          server: npx
+          args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+          transport: stdio        # the only supported transport
+        parameters:
+          path:
+            type: string
+            description: "Absolute path to the file to read."
+            required: true
+      - name: list_directory
+        description: "List files and subdirectories in a directory."
+        mcp:
+          server: npx
+          args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+        parameters:
+          path:
+            type: string
+            description: "Absolute path to the directory to list."
+            required: true
 apiResponse:
   success: true
   response:

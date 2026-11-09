@@ -41,16 +41,20 @@ cat > "$TEST_DIR/resources/ask.yaml" <<YAML
 actionId: ask
 name: Failing read
 chat:
-  model: fake
-  prompt: 'CALLJSON read_file {"path": "${MISSING}"}'
+  model:
+    name: fake
+  context:
+    prompt: 'CALLJSON read_file {"path": "${MISSING}"}'
   tools:
-    - name: read_file
+    list:
+      - name: read_file
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [ask]
+workflow:
+  requires: [ask]
 apiResponse:
   success: true
   response:
@@ -65,7 +69,7 @@ metadata:
   name: failure-brief-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${PORT}

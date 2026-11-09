@@ -33,7 +33,7 @@ metadata:
   version: "1.0.0"
   targetActionId: result
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -51,7 +51,7 @@ Create `resources/call.yaml`:
 # resources/call.yaml
 actionId: authedCall
 name: Authenticated API call
-validations:
+guardrails:
   methods: [GET]
   routes: [/api/v1/call]
 component:
@@ -94,7 +94,8 @@ Create `resources/result.yaml`:
 # resources/result.yaml
 actionId: result
 name: Result
-requires: [authedCall]
+workflow:
+  requires: [authedCall]
 apiResponse:
   success: true
   response:

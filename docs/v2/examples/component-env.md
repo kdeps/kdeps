@@ -135,7 +135,8 @@ Create `resources/03-response.yaml`:
 # resources/03-response.yaml
 actionId: response
 name: Response
-requires: [runTranslate, runSummarize]
+workflow:
+  requires: [runTranslate, runSummarize]
 apiResponse:
   success: true
   response:
@@ -159,7 +160,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:

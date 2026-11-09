@@ -39,10 +39,10 @@ metadata:
   name: integration-test
   version: 1.2.3
   targetActionId: main
-settings:
+deploy:
   apiServer:
     portNum: 1234
-  agentSettings:
+  runtime:
     replicas: 2
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
@@ -64,8 +64,8 @@ metadata:
   name: full-cli-test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)
@@ -98,13 +98,13 @@ metadata:
   name: np-flag-test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     portNum: 8080
     routes:
       - path: /api
         methods: [GET]
-  agentSettings: {}
+  runtime: {}
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)
@@ -139,8 +139,8 @@ metadata:
   name: file-test
   version: 1.0.0
   targetActionId: main
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)

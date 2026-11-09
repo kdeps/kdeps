@@ -45,10 +45,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				"actionId":   "test",
 				"name":       "Test",
 				"chat": map[string]interface{}{
-					"prompt": 123,
+					"context": map[string]interface{}{
+						"prompt": 123,
+					},
 				},
 			},
-			expectedField:      "chat.prompt",
+			expectedField:      "chat.context.prompt",
 			expectedSuggestion: "Example:",
 		},
 		{
@@ -91,14 +93,14 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"version":        "1.0.0",
 					"targetActionId": "main",
 				},
-				"settings": map[string]interface{}{
-					"agentSettings": map[string]interface{}{},
+				"deploy": map[string]interface{}{
+					"runtime": map[string]interface{}{},
 					"apiServer": map[string]interface{}{
 						"portNum": 70000,
 					},
 				},
 			},
-			expectedField:      "settings.apiServer.portNum",
+			expectedField:      "deploy.apiServer.portNum",
 			expectedSuggestion: "between 1 and 65535",
 		},
 		{
@@ -108,21 +110,25 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				"kind":       "Resource",
 				"name":       "Test",
 				"chat": map[string]interface{}{
-					"model":  "llama3.2",
-					"prompt": "test",
+					"model": map[string]interface{}{
+						"name": "llama3.2",
+					},
+					"context": map[string]interface{}{
+						"prompt": "test",
+					},
 				},
 			},
 			expectedField:      "actionId",
 			expectedSuggestion: "Example:",
 		},
 		{
-			name: "pattern error - invalid validations.routes should suggest pattern",
+			name: "pattern error - invalid guardrails.routes should suggest pattern",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
 				"actionId":   "test",
 				"name":       "Test",
-				"validations": map[string]interface{}{
+				"guardrails": map[string]interface{}{
 					"routes": []interface{}{"invalid-route"},
 				},
 			},
@@ -139,14 +145,14 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"version":        "1.0.0",
 					"targetActionId": "main",
 				},
-				"settings": map[string]interface{}{
-					"agentSettings": map[string]interface{}{},
+				"deploy": map[string]interface{}{
+					"runtime": map[string]interface{}{},
 					"apiServer": map[string]interface{}{
 						"portNum": 0,
 					},
 				},
 			},
-			expectedField:      "settings.apiServer.portNum",
+			expectedField:      "deploy.apiServer.portNum",
 			expectedSuggestion: "between 1 and 65535",
 		},
 		{
@@ -157,11 +163,15 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				"actionId":   "test",
 				"name":       "Test",
 				"chat": map[string]interface{}{
-					"contextLength": 100,
-					"model":         "test",
+					"model": map[string]interface{}{
+						"name": "test",
+					},
+					"context": map[string]interface{}{
+						"contextLength": 100,
+					},
 				},
 			},
-			expectedField:      "chat.contextLength",
+			expectedField:      "chat.context.contextLength",
 			expectedSuggestion: "Available options",
 		},
 		{
@@ -172,11 +182,13 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				"actionId":   "test",
 				"name":       "Test",
 				"chat": map[string]interface{}{
-					"contextLength": 999,
-					"prompt":        "test",
+					"context": map[string]interface{}{
+						"contextLength": 999,
+						"prompt":        "test",
+					},
 				},
 			},
-			expectedField:      "chat.contextLength",
+			expectedField:      "chat.context.contextLength",
 			expectedSuggestion: "Available options:",
 		},
 		{
@@ -189,14 +201,14 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"version":        "1.0.0",
 					"targetActionId": "main",
 				},
-				"settings": map[string]interface{}{
-					"agentSettings": map[string]interface{}{},
+				"deploy": map[string]interface{}{
+					"runtime": map[string]interface{}{},
 					"apiServer": map[string]interface{}{
 						"portNum": 100000,
 					},
 				},
 			},
-			expectedField:      "settings.apiServer.portNum",
+			expectedField:      "deploy.apiServer.portNum",
 			expectedSuggestion: "between 1 and 65535",
 		},
 	}
@@ -247,7 +259,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 	t.Run("getTypeSuggestion regex extraction", func(t *testing.T) {
 		// Test regex extraction with custom types
 		result := validator.GetTypeSuggestion(
-			"chat.model",
+			"chat.model.name",
 			"Invalid type. Expected: customtype123, given: string",
 		)
 		expected := "Expected type: customtype123. Example: \"llama3.2:latest\""
@@ -288,13 +300,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 		}{
 			{
 				name:     "Expected: string format",
-				field:    "chat.model",
+				field:    "chat.model.name",
 				descStr:  "Invalid type. Expected: string, given: integer",
 				expected: "Expected type: string. Example: \"llama3.2:latest\"",
 			},
 			{
 				name:     "Expected: integer format",
-				field:    "settings.apiServer.portNum",
+				field:    "deploy.apiServer.portNum",
 				descStr:  "Invalid type. Expected: integer, given: string",
 				expected: "Expected type: integer. Example: 16395",
 			},
@@ -312,25 +324,25 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: array format",
-				field:    "validations.routes",
+				field:    "guardrails.routes",
 				descStr:  "Invalid type. Expected: array, given: string",
 				expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
 			},
 			{
 				name:     "expected string lowercase",
-				field:    "chat.prompt",
+				field:    "chat.context.prompt",
 				descStr:  "Invalid type. expected string, given: integer",
 				expected: "Expected type: string. Example: \"What is the weather?\"",
 			},
 			{
 				name:     "Expected: string with but got (no examples)",
-				field:    "chat.model",
+				field:    "chat.model.name",
 				descStr:  "Invalid type. Expected: string, but got integer",
 				expected: "Expected type: string",
 			},
 			{
 				name:     "Expected: integer with but got (no examples)",
-				field:    "settings.apiServer.portNum",
+				field:    "deploy.apiServer.portNum",
 				descStr:  "Invalid type. Expected: integer, but got string",
 				expected: "Expected type: integer",
 			},
@@ -348,7 +360,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: array with but got (no examples)",
-				field:    "validations.routes",
+				field:    "guardrails.routes",
 				descStr:  "Invalid type. Expected: array, but got string",
 				expected: "Expected type: array",
 			},
@@ -478,8 +490,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
-				name:           "validations.methods direct",
-				field:          "validations.methods",
+				name:           "guardrails.methods direct",
+				field:          "guardrails.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
@@ -487,7 +499,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				name:           "methods in non-validations context",
 				field:          "something.methods",
 				schemaType:     "resource",
-				expectedResult: nil, // Should not match validations.methods
+				expectedResult: nil, // Should not match guardrails.methods
 			},
 			{
 				name:           "apiVersion exact match",
@@ -537,13 +549,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:           "contextLength partial match in chat",
-				field:          "chat.contextLength",
+				field:          "chat.context.contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
 				name:           "methods in apiServer routes",
-				field:          "settings.apiServer.routes.methods",
+				field:          "deploy.apiServer.routes.methods",
 				schemaType:     "workflow",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
@@ -584,8 +596,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
-				name:           "validations.methods nested match",
-				field:          "test.validations.methods",
+				name:           "guardrails.methods nested match",
+				field:          "test.guardrails.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
@@ -837,8 +849,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
-				name:           "validations.methods deeply nested match",
-				field:          "deeply.nested.validations.methods",
+				name:           "guardrails.methods deeply nested match",
+				field:          "deeply.nested.guardrails.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},

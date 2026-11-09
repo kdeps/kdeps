@@ -37,8 +37,8 @@ metadata:
   name: empty-test
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources: []
 EOF
@@ -60,8 +60,8 @@ metadata:
   name: expr-only-test
   version: "1.0.0"
   targetActionId: expr-resource
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: expr-resource
@@ -97,8 +97,8 @@ metadata:
   name: skip-test
   version: "1.0.0"
   targetActionId: final
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: skipped
@@ -139,8 +139,8 @@ metadata:
   name: preflight-test
   version: "1.0.0"
   targetActionId: resource
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: resource
@@ -180,16 +180,17 @@ metadata:
   name: onerror-test
   version: "1.0.0"
   targetActionId: resource
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: resource
     name: Error Handler Resource
-    onError:
-      action: continue
-      fallback:
-        message: "fallback value"
+    workflow:
+      onError:
+        action: continue
+        fallback:
+          message: "fallback value"
     apiResponse:
       success: true
       response:
@@ -218,14 +219,15 @@ metadata:
   name: items-empty-test
   version: "1.0.0"
   targetActionId: process
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: process
     name: Process Items
-    items:
-      - "[]"
+    workflow:
+      items:
+        - "[]"
     apiResponse:
       success: true
       response:
@@ -254,8 +256,8 @@ metadata:
   name: unwrap-test
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: response

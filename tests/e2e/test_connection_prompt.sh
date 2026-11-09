@@ -46,12 +46,12 @@ metadata:
   name: conn-preflight-test
   version: "1.0.0"
   targetActionId: query
-settings:
+deploy:
   input:
     sources: [file]
     file:
       path: ""
-  agentSettings:
+  runtime:
     timezone: UTC
 resources:
   - actionId: query
@@ -146,14 +146,14 @@ metadata:
   name: conn-preflight-api
   version: "1.0.0"
   targetActionId: resp
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: $PORT
     routes:
       - path: /ping
         methods: [GET]
-  agentSettings:
+  runtime:
     timezone: UTC
 resources:
   - actionId: resp

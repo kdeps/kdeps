@@ -390,7 +390,7 @@ metadata:
   name: kdeps-api-e2e
   version: "1.0.0"
   targetActionId: gateway
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${wf_port}
@@ -403,7 +403,7 @@ settings:
         methods: [GET]
       - path: /api/v1/ocr
         methods: [GET]
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 EOF
     cat >"$server_dir/resources/ping.yaml" <<'EOF'
@@ -445,8 +445,9 @@ PY
     cat >"$server_dir/resources/readout.yaml" <<'EOF'
 actionId: readOut
 name: Read response
-requires:
-  - readConfig
+workflow:
+  requires:
+    - readConfig
 apiResponse:
   success: true
   response: "{{ output('readConfig') }}"
@@ -470,11 +471,12 @@ EOF
     cat >"$server_dir/resources/gateway.yaml" <<'EOF'
 actionId: gateway
 name: Gateway
-requires:
-  - ping
-  - readOut
-  - instructRead
-  - ocrText
+workflow:
+  requires:
+    - ping
+    - readOut
+    - instructRead
+    - ocrText
 apiResponse:
   success: true
   response: "{{ (request.path == '/api/v1/instruct' ? output('instructRead') : (request.path == '/api/v1/ocr' ? output('ocrText') : (request.path == '/api/v1/read' ? output('readOut').data : output('ping').data))) }}"
@@ -486,8 +488,8 @@ metadata:
   name: kdeps-api-bare
   version: "1.0.0"
   targetActionId: hold
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 EOF
     cat >"$bare_dir/resources/hold.yaml" <<'EOF'

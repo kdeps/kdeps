@@ -86,9 +86,9 @@
     "name"
   ],
   "properties": {
-    "validations": {
+    "guardrails": {
       "type": "object",
-      "description": "Consolidated validation configuration for the resource",
+      "description": "Request guardrails: allowed methods/routes, required fields, rules and checks.",
       "properties": {
         "methods": {
           "type": "array",
@@ -232,354 +232,484 @@
         }
       }
     },
-    "loop": {
-      "type": "object",
-      "description": "Loop iteration config. Repeats the resource body while the optional 'while' expression is true (or indefinitely up to maxIterations when 'while' is omitted). Add 'every' for a fixed inter-iteration delay or 'at' for scheduled fire times.",
-      "properties": {
-        "while": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Optional boolean expression evaluated before each iteration. Loop continues while truthy. When omitted, the loop runs until maxIterations (default 1000) or until all 'at' entries are consumed."
-        },
-        "maxIterations": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Safety cap on the number of iterations (default: 1000)."
-        },
-        "every": {
-          "anyOf": [
-            {
-              "type": "string",
-              "maxLength": 0
-            },
-            {
-              "type": "string",
-              "pattern": "^[0-9]+(ms|s|m|h)$"
-            }
-          ],
-          "description": "Optional inter-iteration delay (e.g. '1s', '500ms', '2m', '1h'). Mutually exclusive with 'at'."
-        },
-        "at": {
-          "type": "array",
-          "description": "Array of specific dates/times to fire the loop body. Supported formats: RFC3339 ('2026-03-15T10:00:00Z'), time-of-day ('10:00' or '10:00:00'), or date ('2026-03-15'). Mutually exclusive with 'every'.",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      }
-    },
     "chat": {
       "type": "object",
       "properties": {
         "model": {
-          "type": "string",
-          "description": "Model id, \"router\" / \"auto-router\" to delegate to the router, or \"system\" to follow the machine config (~/.kdeps/config.yaml). Empty behaves like \"system\"."
-        },
-        "backend": {
-          "type": "string",
-          "description": "LLM backend name (openai, anthropic, ollama, file, ...) or \"system\" to follow the machine config. Usually left unset."
-        },
-        "contextLength": {
-          "type": "integer",
-          "enum": [
-            4096,
-            8192,
-            16384,
-            32768,
-            65536,
-            131072,
-            262144
-          ]
-        },
-        "role": {
-          "type": "string"
-        },
-        "prompt": {
-          "type": "string"
-        },
-        "messages": {
-          "type": "string"
-        },
-        "scenario": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "role": { "type": "string" },
-              "prompt": { "type": "string" },
-              "name": { "type": "string" },
-              "cacheControl": { "type": "string", "enum": ["ephemeral"] }
+          "type": "object",
+          "description": "Which model answers and how it samples.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Model id, \"router\" / \"auto-router\" to delegate to the router, or \"system\" to follow the machine config (~/.kdeps/config.yaml). Empty behaves like \"system\"."
             },
-            "required": ["role", "prompt"]
-          }
-        },
-        "fewShot": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "role": { "type": "string" },
-              "prompt": { "type": "string" },
-              "name": { "type": "string" },
-              "cacheControl": { "type": "string", "enum": ["ephemeral"] }
+            "backend": {
+              "type": "string",
+              "description": "LLM backend name (openai, anthropic, ollama, file, ...) or \"system\" to follow the machine config. Usually left unset."
             },
-            "required": ["role", "prompt"]
-          }
+            "streaming": {
+              "type": "boolean"
+            },
+            "timeout": {
+              "type": "string"
+            },
+            "thinking": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "minimal",
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh",
+                    "auto"
+                  ]
+                },
+                "budgetTokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "returnOutput": {
+                  "type": "boolean"
+                },
+                "streamThinking": {
+                  "type": "boolean"
+                },
+                "interleaveThinking": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "promptCaching": {
+              "type": "boolean"
+            },
+            "useCache": {
+              "type": "boolean"
+            },
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "topP": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "topK": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "frequencyPenalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2
+            },
+            "presencePenalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2
+            },
+            "repetitionPenalty": {
+              "type": "number",
+              "minimum": 0
+            },
+            "stopWords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "candidateCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minLength": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "googleCachedContent": {
+              "type": "string"
+            },
+            "googleHarmThreshold": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4
+            },
+            "googleCloudProject": {
+              "type": "string"
+            },
+            "googleCloudLocation": {
+              "type": "string"
+            },
+            "googleCredentialsJSON": {
+              "type": "string"
+            },
+            "googleCredentialsFile": {
+              "type": "string"
+            },
+            "anthropicExtendedOutput": {
+              "type": "boolean"
+            },
+            "anthropicBetaHeaders": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "openAILegacyMaxTokens": {
+              "type": "boolean"
+            },
+            "openAIWebSearch": {
+              "type": "boolean"
+            },
+            "ollamaThink": {
+              "type": "boolean"
+            },
+            "ollamaKeepAlive": {
+              "type": "string"
+            },
+            "ollamaPullModel": {
+              "type": "boolean"
+            },
+            "ollamaPullTimeout": {
+              "type": "string"
+            },
+            "ollamaNumCtx": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "contextSize": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
         },
-        "fewShotSelectK": {
-          "type": "integer",
-          "minimum": 0
+        "context": {
+          "type": "object",
+          "description": "What the model sees: prompt, history, files, examples.",
+          "properties": {
+            "contextLength": {
+              "type": "integer",
+              "enum": [
+                4096,
+                8192,
+                16384,
+                32768,
+                65536,
+                131072,
+                262144
+              ]
+            },
+            "role": {
+              "type": "string"
+            },
+            "prompt": {
+              "type": "string"
+            },
+            "messages": {
+              "type": "string"
+            },
+            "scenario": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "cacheControl": {
+                    "type": "string",
+                    "enum": [
+                      "ephemeral"
+                    ]
+                  }
+                },
+                "required": [
+                  "role",
+                  "prompt"
+                ]
+              }
+            },
+            "fewShot": {
+              "type": "object",
+              "properties": {
+                "examples": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "type": "string"
+                      },
+                      "prompt": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "cacheControl": {
+                        "type": "string",
+                        "enum": [
+                          "ephemeral"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "role",
+                      "prompt"
+                    ]
+                  }
+                },
+                "selectK": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxTokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "embeddingModel": {
+                  "type": "string"
+                },
+                "embeddingBackend": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "promptVars": {
+              "type": "object"
+            },
+            "goTemplate": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         },
-        "fewShotMaxTokens": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "fewShotEmbeddingModel": {
-          "type": "string"
-        },
-        "fewShotEmbeddingBackend": {
-          "type": "string"
+        "harness": {
+          "type": "object",
+          "description": "System sections, prompt refine, and output format.",
+          "properties": {
+            "output": {
+              "type": "object",
+              "properties": {
+                "json": {
+                  "type": "boolean"
+                },
+                "keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "schema": {
+                  "type": "object"
+                },
+                "parser": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "refine": {
+              "type": "boolean"
+            },
+            "chainOfThought": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
         },
         "tools": {
-          "type": "array"
-        },
-        "componentTools": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "files": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "jsonResponse": {
-          "type": "boolean"
-        },
-        "jsonResponseKeys": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "jsonSchema": {
-          "type": "object"
-        },
-        "streaming": {
-          "type": "boolean"
-        },
-        "timeout": {
-          "type": "string"
-        },
-        "knowledge": {
-          "type": "boolean",
-          "description": "Add the knowledge vault notes related to this prompt (default true when the vault has a graph); false skips recall for this call"
-        },
-        "thinking": {
           "type": "object",
+          "description": "Tools the model may call.",
           "properties": {
-            "mode": {
-              "type": "string",
-              "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "auto"]
+            "list": {
+              "type": "array"
             },
-            "budgetTokens": { "type": "integer", "minimum": 0 },
-            "returnOutput": { "type": "boolean" },
-            "streamThinking": { "type": "boolean" },
-            "interleaveThinking": { "type": "boolean" }
-          }
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "choice": {
+              "type": "string"
+            },
+            "maxRounds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
         },
-        "promptCaching": {
-          "type": "boolean"
+        "rag": {
+          "type": "object",
+          "description": "Knowledge and retrieved context.",
+          "properties": {
+            "knowledge": {
+              "type": "boolean",
+              "description": "Add the knowledge vault notes related to this prompt (default true when the vault has a graph); false skips recall for this call"
+            },
+            "retriever": {
+              "type": "object",
+              "properties": {
+                "context": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "topK": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxTokens": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "chunk": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "overlap": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "splitter": {
+                  "type": "string",
+                  "enum": [
+                    "recursive",
+                    "token",
+                    "markdown"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         },
-        "useCache": {
-          "type": "boolean"
-        },
-        "toolChoice": {
-          "type": "string"
-        },
-        "maxToolRounds": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "judges": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "additionalProperties": false,
-            "properties": {
-              "name": { "type": "string" },
-              "criteria": { "type": "string" },
-              "tools": { "type": "array", "items": { "type": "string" } },
-              "maxRounds": { "type": "integer", "minimum": 0 },
-              "graders": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["kind"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "kind": { "type": "string", "enum": ["exact", "contains", "not_contains", "regex", "json", "expr"] },
-                    "pattern": { "type": "string" }
+        "guardrails": {
+          "type": "object",
+          "description": "Judges that review the answer before it is returned.",
+          "properties": {
+            "judges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "criteria": {
+                    "type": "string"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "maxRounds": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "graders": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "kind"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "exact",
+                            "contains",
+                            "not_contains",
+                            "regex",
+                            "json",
+                            "expr"
+                          ]
+                        },
+                        "pattern": {
+                          "type": "string"
+                        }
+                      }
+                    }
                   }
                 }
               }
+            },
+            "judgePreset": {
+              "type": "string",
+              "minLength": 1
             }
-          }
-        },
-        "judgePreset": {
-          "type": "string",
-          "minLength": 1
-        },
-        "harness": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
           },
-          "uniqueItems": true
-        },
-        "refine": {
-          "type": "boolean"
-        },
-        "promptVars": {
-          "type": "object"
-        },
-        "retrieverContext": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "retrieverContextTopK": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "retrieverContextMaxTokens": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "goTemplate": {
-          "type": "boolean"
-        },
-        "chainOfThought": {
-          "type": "boolean"
-        },
-        "outputParser": {
-          "type": "string"
-        },
-        "chunkSize": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "chunkOverlap": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "chunkSplitter": {
-          "type": "string",
-          "enum": ["recursive", "token", "markdown"]
-        },
-        "temperature": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 2
-        },
-        "maxTokens": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "topP": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "topK": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "seed": {
-          "type": "integer"
-        },
-        "frequencyPenalty": {
-          "type": "number",
-          "minimum": -2,
-          "maximum": 2
-        },
-        "presencePenalty": {
-          "type": "number",
-          "minimum": -2,
-          "maximum": 2
-        },
-        "repetitionPenalty": {
-          "type": "number",
-          "minimum": 0
-        },
-        "stopWords": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "candidateCount": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "n": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "minLength": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "maxLength": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "googleCachedContent": {
-          "type": "string"
-        },
-        "googleHarmThreshold": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4
-        },
-        "googleCloudProject": {
-          "type": "string"
-        },
-        "googleCloudLocation": {
-          "type": "string"
-        },
-        "googleCredentialsJSON": {
-          "type": "string"
-        },
-        "googleCredentialsFile": {
-          "type": "string"
-        },
-        "anthropicExtendedOutput": {
-          "type": "boolean"
-        },
-        "anthropicBetaHeaders": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "openAILegacyMaxTokens": {
-          "type": "boolean"
-        },
-        "openAIWebSearch": {
-          "type": "boolean"
-        },
-        "ollamaThink": {
-          "type": "boolean"
-        },
-        "ollamaKeepAlive": {
-          "type": "string"
-        },
-        "ollamaPullModel": {
-          "type": "boolean"
-        },
-        "ollamaPullTimeout": {
-          "type": "string"
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "httpClient": {
       "type": "object",
@@ -676,7 +806,9 @@
     "agent": {
       "type": "object",
       "description": "Invoke another agent within the same agency",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -686,43 +818,6 @@
         "params": {
           "type": "object",
           "description": "Input parameters forwarded to the target agent (accessible via get('key'))"
-        }
-      }
-    },
-    "onError": {
-      "type": "object",
-      "description": "Error handling configuration for the resource",
-      "properties": {
-        "action": {
-          "type": "string",
-          "enum": [
-            "continue",
-            "fail",
-            "retry"
-          ],
-          "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
-        },
-        "maxRetries": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 10,
-          "description": "Maximum number of retry attempts (only for action: retry)"
-        },
-        "retryDelay": {
-          "type": "string",
-          "pattern": "^[0-9]+(ms|s|m)$",
-          "description": "Delay between retry attempts (e.g., '1s', '500ms')"
-        },
-        "fallback": {
-          "description": "Fallback value to use when error occurs and action is 'continue'"
-        },
-        "expr": {
-          "type": "array",
-          "description": "Expressions to execute when an error occurs (has access to 'error' object)"
-        },
-        "when": {
-          "type": "array",
-          "description": "Conditions for when to apply this error handler (has access to 'error' object)"
         }
       }
     },
@@ -762,18 +857,6 @@
     "category": {
       "type": "string"
     },
-    "requires": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
     "apiVersion": {
       "type": "string",
       "enum": [
@@ -785,6 +868,99 @@
       "enum": [
         "Resource"
       ]
+    },
+    "workflow": {
+      "type": "object",
+      "description": "DAG wiring: dependencies, iteration, loop, and error handling.",
+      "properties": {
+        "loop": {
+          "type": "object",
+          "description": "Loop iteration config. Repeats the resource body while the optional 'while' expression is true (or indefinitely up to maxIterations when 'while' is omitted). Add 'every' for a fixed inter-iteration delay or 'at' for scheduled fire times.",
+          "properties": {
+            "while": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional boolean expression evaluated before each iteration. Loop continues while truthy. When omitted, the loop runs until maxIterations (default 1000) or until all 'at' entries are consumed."
+            },
+            "maxIterations": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Safety cap on the number of iterations (default: 1000)."
+            },
+            "every": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]+(ms|s|m|h)$"
+                }
+              ],
+              "description": "Optional inter-iteration delay (e.g. '1s', '500ms', '2m', '1h'). Mutually exclusive with 'at'."
+            },
+            "at": {
+              "type": "array",
+              "description": "Array of specific dates/times to fire the loop body. Supported formats: RFC3339 ('2026-03-15T10:00:00Z'), time-of-day ('10:00' or '10:00:00'), or date ('2026-03-15'). Mutually exclusive with 'every'.",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "onError": {
+          "type": "object",
+          "description": "Error handling configuration for the resource",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "continue",
+                "fail",
+                "retry"
+              ],
+              "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
+            },
+            "maxRetries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "description": "Maximum number of retry attempts (only for action: retry)"
+            },
+            "retryDelay": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m)$",
+              "description": "Delay between retry attempts (e.g., '1s', '500ms')"
+            },
+            "fallback": {
+              "description": "Fallback value to use when error occurs and action is 'continue'"
+            },
+            "expr": {
+              "type": "array",
+              "description": "Expressions to execute when an error occurs (has access to 'error' object)"
+            },
+            "when": {
+              "type": "array",
+              "description": "Conditions for when to apply this error handler (has access to 'error' object)"
+            }
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

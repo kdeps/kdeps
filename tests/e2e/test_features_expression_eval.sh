@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: expressionProcessor
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3100
@@ -49,7 +49,7 @@ settings:
       - path: /api/v1/expression
         methods: [POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -214,14 +214,14 @@ metadata:
   name: expr-helpers-test
   version: "1.0.0"
   targetActionId: helpers
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3101
     routes:
       - path: /helpers
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

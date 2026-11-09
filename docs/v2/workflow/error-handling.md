@@ -48,12 +48,13 @@ component:
     url: "https://api.example.com/data"
     method: GET
 
-onError:
-  action: continue
-  fallback:
-    data: []
-    fromCache: false
-    error: true
+workflow:
+  onError:
+    action: continue
+    fallback:
+      data: []
+      fromCache: false
+      error: true
 ```
 
 When the HTTP request fails, the resource returns the fallback value instead of stopping the workflow.
@@ -91,10 +92,11 @@ component:
     url: "https://flaky-api.example.com/data"
     method: GET
 
-onError:
-  action: retry
-  maxRetries: 3
-  retryDelay: "1s"
+workflow:
+  onError:
+    action: retry
+    maxRetries: 3
+    retryDelay: "1s"
 ```
 
 Steps:
@@ -192,10 +194,11 @@ component:
     method: GET
     timeout: 5s
 
-onError:
-  action: retry
-  maxRetries: 3
-  retryDelay: "500ms"
+workflow:
+  onError:
+    action: retry
+    maxRetries: 3
+    retryDelay: "500ms"
 ```
 
 </div>
@@ -208,11 +211,13 @@ onError:
 # resources/llm-enhancement.yaml
 actionId: llmEnhancement
 chat:
-  prompt: "Enhance this text: {{ get('text') }}"
+  context:
+    prompt: "Enhance this text: {{ get('text') }}"
 
-onError:
-  action: continue
-  fallback: "{{ get('text') }}"  # Return original text on failure
+workflow:
+  onError:
+    action: continue
+    fallback: "{{ get('text') }}"  # Return original text on failure
 ```
 
 </div>
@@ -223,7 +228,7 @@ onError:
 # resources/external-service.yaml
 actionId: externalService
 # Check circuit breaker state first
-validations:
+guardrails:
   skip:
   - get('circuitOpen', 'session') == true
 
@@ -233,16 +238,17 @@ component:
     url: "https://api.example.com/data"
     method: GET
 
-onError:
-  action: continue
-  expr:
-    # Increment failure count
-    - set('failCount', default(get('failCount', 'session'), 0) + 1, 'session')
-    # Open circuit after 5 failures
-    - set('circuitOpen', get('failCount', 'session') >= 5, 'session')
-  fallback:
-    error: true
-    circuitBreaker: "open"
+workflow:
+  onError:
+    action: continue
+    expr:
+      # Increment failure count
+      - set('failCount', default(get('failCount', 'session'), 0) + 1, 'session')
+      # Open circuit after 5 failures
+      - set('circuitOpen', get('failCount', 'session') >= 5, 'session')
+    fallback:
+      error: true
+      circuitBreaker: "open"
 ```
 
 ### Database fallback
@@ -260,16 +266,18 @@ component:
     params:
       - "{{ get('userId') }}"
 
-onError:
-  action: continue
-  fallback: null
+workflow:
+  onError:
+    action: continue
+    fallback: null
 
 ---
 actionId: queryReplica
-requires:
-  - queryPrimary
+workflow:
+  requires:
+    - queryPrimary
 # Only query replica if primary failed
-validations:
+guardrails:
   skip:
   - get('queryPrimary') != null
   - safe(get('queryPrimary'), '_error') == nil
@@ -293,29 +301,34 @@ component:
 # resources/primary-l-l-m.yaml
 actionId: primaryLLM
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 
-onError:
-  action: continue
-  fallback: null
+workflow:
+  onError:
+    action: continue
+    fallback: null
 
 ---
 actionId: fallbackLLM
-requires:
-  - primaryLLM
-validations:
+workflow:
+  requires:
+    - primaryLLM
+guardrails:
   skip:
   - get('primaryLLM') != null
   - safe(get('primaryLLM'), '_error') == nil
 
 chat:
-  prompt: "{{ get('q') }}"
+  context:
+    prompt: "{{ get('q') }}"
 
 ---
 actionId: response
-requires:
-  - primaryLLM
-  - fallbackLLM
+workflow:
+  requires:
+    - primaryLLM
+    - fallbackLLM
 apiResponse:
   success: true
   response:
@@ -354,7 +367,7 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 3. **Use when conditions** - Handle specific errors differently
 4. **Log errors with expr** - Store error info for debugging/monitoring
 5. **Provide meaningful fallbacks** - Return useful data even on failure
-6. **Combine with validations.skip** - Create fallback resource chains
+6. **Combine with guardrails.skip** - Create fallback resource chains
 
 ## See also
 

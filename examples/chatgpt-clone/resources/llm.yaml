@@ -3,7 +3,7 @@ name: LLM Chat Handler
 description: Handles chat requests with the selected LLM model
 
 # Only respond to POST requests on /api/v1/chat, and validate required input
-validations:
+guardrails:
   methods:
     - POST
   routes:
@@ -23,16 +23,19 @@ before:
   - "set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')"
 
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('userMessage') }}"
-  scenario:
-    - role: system
-      prompt: "{{ get('systemPrompt') }}"
-  timeout: 300s
+  model:
+    name: llama3.2:1b
+    timeout: 300s
 
-onError:
-  action: continue
-  fallback:
-    error: true
-    message: "Failed to get response from LLM. Please try again."
+  context:
+    role: user
+    prompt: "{{ get('userMessage') }}"
+    scenario:
+      - role: system
+        prompt: "{{ get('systemPrompt') }}"
+workflow:
+  onError:
+    action: continue
+    fallback:
+      error: true
+      message: "Failed to get response from LLM. Please try again."

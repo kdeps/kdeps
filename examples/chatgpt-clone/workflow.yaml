@@ -6,7 +6,7 @@ metadata:
   description: A ChatGPT-like interface with multiple open-source LLMs
   targetActionId: responseResource
 
-settings:
+deploy:
   # Enable both API and Web server modes
 
   # Top-level server configuration
@@ -38,6 +38,6 @@ settings:
         publicPath: ./public
 
   # Agent settings for Docker builds
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     # Pre-load these models when building Docker image

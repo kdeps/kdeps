@@ -62,9 +62,11 @@ llm:
 ```yaml
 # resources/llm.yaml
 chat:
-  model: llama3.2:1b    # kdeps downloads this if not already cached
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: llama3.2:1b    # kdeps downloads this if not already cached
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 **Point to a local file directly:**
@@ -74,9 +76,11 @@ If you have a `.llamafile` binary you downloaded yourself:
 ```yaml
 # resources/llm.yaml
 chat:
-  model: /path/to/mistral-7b-instruct.llamafile    # absolute path to the file
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: /path/to/mistral-7b-instruct.llamafile    # absolute path to the file
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 Or use a URL: the `model` field also accepts a direct download URL.
@@ -128,11 +132,13 @@ llm:
 ```yaml
 # resources/llm.yaml
 chat:
-  model: llama3.2          # must be already pulled via `ollama pull`
-  role: user
-  prompt: "{{ get('q') }}"
-  ollamaPullModel: true    # pull automatically if not present (adds startup time)
-  ollamaKeepAlive: "5m"   # keep model warm in memory for 5 min after request
+  model:
+    name: llama3.2          # must be already pulled via `ollama pull`
+    ollamaPullModel: true    # pull automatically if not present (adds startup time)
+    ollamaKeepAlive: "5m"   # keep model warm in memory for 5 min after request
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 **Extended thinking with Ollama (DeepSeek R1, QwQ):**
@@ -140,10 +146,12 @@ chat:
 ```yaml
 # resources/llm.yaml
 chat:
-  model: deepseek-r1
-  ollamaThink: true    # enable reasoning/thinking output for supported models
-  role: user
-  prompt: "{{ get('q') }}"
+  model:
+    name: deepseek-r1
+    ollamaThink: true    # enable reasoning/thinking output for supported models
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
 ```
 
 ---

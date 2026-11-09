@@ -49,14 +49,14 @@ metadata:
   name: testAgent
   version: "1.0.0"
   targetActionId: responseResource
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
     routes:
       - path: /api/v1/test
         methods: [GET, POST]
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     models:
@@ -92,13 +92,17 @@ func TestYAMLParser_ParseAndValidate_Resource(t *testing.T) {
 	resourceYAML := `actionId: llmResource
 name: Test LLM
 chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
-  jsonResponse: true
-  jsonResponseKeys:
-    - answer
-  timeout: 60s
+  model:
+    name: llama3.2:1b
+    timeout: 60s
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - answer
 `
 
 	err = os.WriteFile(resourcePath, []byte(resourceYAML), 0644)
@@ -128,11 +132,11 @@ metadata:
   name: complex-integration-test
   version: "2.1.0"
   targetActionId: final-aggregation
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
-  agentSettings:
+  runtime:
     pythonVersion: "3.11"
     pythonPackages:
       - requests
@@ -269,8 +273,8 @@ metadata:
   name: workflow-with-resources
   version: "1.0.0"
   targetActionId: final-step
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -349,8 +353,8 @@ metadata:
   name: expression-workflow
   version: "1.0.0"
   targetActionId: dynamic-response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -438,8 +442,8 @@ metadata:
   name: minimal-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `,
 			expectError: false,
@@ -491,14 +495,14 @@ metadata:
   name: large-integration-test
   version: "3.2.1"
   targetActionId: final-aggregation
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 9090
     routes:
       - path: /api/test
         methods: [GET]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
     pythonPackages:
       - requests
@@ -549,14 +553,14 @@ metadata:
   name: component-backed
   version: "1.0.0"
   targetActionId: search
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
     routes:
       - path: /search
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
 `), 0o644))
 
@@ -629,8 +633,8 @@ metadata:
   name: exec-component-backed
   version: "1.0.0"
   targetActionId: shell
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 `), 0o644))
 
@@ -708,8 +712,8 @@ metadata:
   name: embedding-component-backed
   version: "1.0.0"
   targetActionId: index
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 `), 0o644))
 
@@ -781,8 +785,8 @@ metadata:
   name: http-client-component-backed
   version: "1.0.0"
   targetActionId: fetch
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 `), 0o644))
 
@@ -856,8 +860,8 @@ metadata:
   name: loader-component-backed
   version: "1.0.0"
   targetActionId: load
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 `), 0o644))
 
@@ -906,8 +910,8 @@ metadata:
   name: vector-store-component-backed
   version: "1.0.0"
   targetActionId: index
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: Etc/UTC
 `), 0o644))
 

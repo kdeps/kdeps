@@ -53,8 +53,8 @@ metadata:
   name: integration-agent
   version: "2.0.0"
   targetActionId: action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 	src := t.TempDir()
@@ -273,8 +273,8 @@ metadata:
   name: integration-agent-v2
   version: "3.0.0"
   targetActionId: action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `), 0600),
 	)

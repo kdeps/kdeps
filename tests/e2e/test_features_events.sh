@@ -85,8 +85,8 @@ metadata:
   name: events-e2e-test
   version: "1.0.0"
   targetActionId: greet
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   input:
     sources: [file]
@@ -121,8 +121,8 @@ metadata:
   name: events-fail-test
   version: "1.0.0"
   targetActionId: bad
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   input:
     sources: [file]

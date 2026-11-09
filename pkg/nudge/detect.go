@@ -16,9 +16,18 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+// Package nudge holds the reply checks both modes use to push a tool-using
+// model back to work: a fictional self-limit, a bare acknowledgment of the
+// push-back, an action claimed with no tool call, and a failure reported as
+// done. Agent mode installs the nudge texts (harness entries) at startup.
+package nudge
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+)
 
 // selfLimitMarkers are fictional capability claims. A text-only reply that
 // contains one is a product bug: the tools are registered, and saying
@@ -111,9 +120,9 @@ var realFailureAdmissionWords = []string{
 	"fail", "error", "did not", "didn't", "wasn't able", "was not able",
 }
 
-// admitsToolFailure reports whether the reply states that a step failed,
+// AdmitsFailure reports whether the reply states that a step failed,
 // rather than inventing a limit on what the agent can do.
-func admitsToolFailure(content string) bool {
+func AdmitsFailure(content string) bool {
 	return containsAny(strings.ToLower(content), realFailureAdmissionWords...)
 }
 
@@ -140,10 +149,10 @@ var nudgeAckPhrases = []string{
 	"i should call the tool", "i will call the tool", "i will now call the tool",
 }
 
-// looksLikeNudgeAck reports whether content only acknowledges the self-limit
+// Ack reports whether content only acknowledges the self-limit
 // push-back: it agrees the named limit was not real, or promises a call it
 // did not make. Those replies are neither work nor an answer.
-func looksLikeNudgeAck(content string) bool {
+func Ack(content string) bool {
 	folded := foldLimitText(content)
 	if folded == "" || len([]rune(folded)) > nudgeAckMaxRunes {
 		return false
@@ -167,10 +176,10 @@ var providerThrottlePhrases = []string{
 	"rate limit",
 }
 
-// looksLikeSelfLimit reports whether a text-only reply invents a limit on
+// SelfLimit reports whether a text-only reply invents a limit on
 // what the agent can do. A genuine safety stop, or the provider's own
 // throttle text, returns false.
-func looksLikeSelfLimit(content string) bool {
+func SelfLimit(content string) bool {
 	folded := foldLimitText(content)
 	if folded == "" || containsAny(folded, safetyStopMarkers...) ||
 		containsAny(folded, providerThrottlePhrases...) {
@@ -204,6 +213,56 @@ func foldLimitText(s string) string {
 func isLimitFiller(word string) bool {
 	for _, f := range limitFillerWords {
 		if word == f {
+			return true
+		}
+	}
+	return false
+}
+
+// unbackedClaimRe matches a reply reporting an action in the first person or as
+// a line led by the action ("Created notes.md", "Remembered: ...", "I've
+// remembered that ...", "I'll remember that"), beyond the completion claims
+// toolguard already matches.
+var unbackedClaimRe = regexp.MustCompile(`(?im)` +
+	`^\W*(?:created|updated|wrote|written|saved|fixed|deleted|removed|renamed|remembered|stored|recorded)\b` +
+	`|^\W*done\s*:` +
+	// A reported command run or its output ("Command run:", "exited with
+	// code 5", "git diff --stat returned:") and a reported save ("has been
+	// stored").
+	`|^\W*commands?\s+run\s*:|\bexited\s+with\s+\W*(?:code|status)\b|\breturned\s*:\s*$` +
+	`|\b(?:has|have)\s+been\s+(?:stored|saved|recorded|remembered|noted)\b` +
+	`|\bI(?:'ll|\s+will)\s+remember\b` +
+	`|\bI(?:'ve|\s+have)?\s+(?:remembered|stored|noted|recorded|memorized|saved|fixed|corrected|` +
+	`deleted|removed|renamed|moved|installed|ran|run|executed)\b`)
+
+// UnbackedClaim reports whether a text-only reply claims it did something.
+// Callers ask only when no tool ran, so the claim is unbacked whatever
+// backend or model wrote it.
+func UnbackedClaim(content string) bool {
+	return toolguard.LooksLikeHallucinatedCompletion(content) || unbackedClaimRe.MatchString(content)
+}
+
+// failureAcknowledgmentWords are substrings whose presence in a reply signals
+// the model is aware the last work tool failed, rather than silently claiming
+// success over it. Deliberately broad: this only needs to tell "aware of the
+// failure" from "no acknowledgment at all".
+//
+//nolint:gochecknoglobals // static lookup table
+var failureAcknowledgmentWords = []string{
+	"fail", "error", "cannot", "can't", "unable", "did not", "didn't",
+	"not able", "no access", "blocked", "wasn't able", "was not able",
+}
+
+// AcknowledgesFailure reports whether content shows any awareness that the
+// last work tool failed. Only a bald, unqualified success claim draws the
+// unresolved-failure nudge.
+func AcknowledgesFailure(content string) bool {
+	return containsAny(strings.ToLower(content), failureAcknowledgmentWords...)
+}
+
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
 			return true
 		}
 	}

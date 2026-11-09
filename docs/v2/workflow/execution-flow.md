@@ -47,12 +47,15 @@ resources:
         url: https://api.example.com/data
 
   - actionId: analyzeData
-    requires: [fetchData]            # runs only after fetchData succeeds
+    workflow:
+      requires: [fetchData]            # runs only after fetchData succeeds
     chat:
-      prompt: "Analyze: {{ output('fetchData') }}"
+      context:
+        prompt: "Analyze: {{ output('fetchData') }}"
 
   - actionId: respond
-    requires: [analyzeData]          # runs only after analyzeData succeeds
+    workflow:
+      requires: [analyzeData]          # runs only after analyzeData succeeds
     apiResponse:
       response: "{{ output('analyzeData') }}"
 ```
@@ -132,7 +135,7 @@ The engine also orders resources that share a key without `requires`:
 
 A `component:` call runs beside others when the component is read-only in the [permission policy](/agent/tools#permission-modes) (`web_search`, `read_file`, `web_scraper`, ...) and has no `teardown:`. Each call gets its own inputs and outputs, so three `web_search` calls with different queries run at once. Other components (`write_file`, `bash_exec`, `http_request`, ...) run alone.
 
-A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
+A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `guardrails`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
 
 One cap covers both modes: workflow resources, subagents, judges and agent tool calls. It is the `parallel` event:
 
@@ -165,14 +168,14 @@ Both run before the main action, but they behave differently:
 |---|---|---|
 | Logic | ANY expression true triggers skip | ALL expressions must be true |
 | On failure | Resource skipped silently, workflow continues | Workflow stops, error returned |
-| Error code | N/A | Configurable via `validations.error.code` |
+| Error code | N/A | Configurable via `guardrails.error.code` |
 | Use case | Conditional execution, optional resources | Input validation, preconditions |
 
 ### Skip example
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   skip:
     - get('q') == ''          # if query is empty, skip this resource
 ```
@@ -181,7 +184,7 @@ validations:
 
 ```yaml
 # resources/example.yaml
-validations:
+guardrails:
   check:
     - get('apiKey') != nil    # must have API key
     - len(get('q')) <= 500    # query must be under 500 chars

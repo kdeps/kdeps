@@ -9,7 +9,7 @@ Works in workflow and agent mode.
 ```yaml
 # resources/user-lookup.yaml
 actionId: userLookup
-validations:
+guardrails:
   check:
     - get('user_id') != ''
   error:
@@ -77,7 +77,8 @@ component:
 ---
 # Insert into destination database
 actionId: syncProducts
-requires: [fetchSource]
+workflow:
+  requires: [fetchSource]
 component:
   name: sql
   with:
@@ -119,21 +120,26 @@ component:
 ---
 # Enhance with LLM
 actionId: enhancedSearch
-requires: [searchProducts]
+workflow:
+  requires: [searchProducts]
 chat:
-  model: llama3.2:1b
-  prompt: |
-    User searched for: {{ get('q') }}
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      User searched for: {{ get('q') }}
 
-    Found products:
-    {{ get('searchProducts') }}
+      Found products:
+      {{ get('searchProducts') }}
 
-    Provide a helpful summary and recommendations.
-  jsonResponse: true
-  jsonResponseKeys:
-    - summary
-    - recommended
-    - suggestions
+      Provide a helpful summary and recommendations.
+  harness:
+    output:
+      json: true
+      keys:
+        - summary
+        - recommended
+        - suggestions
 ```
 
 </div>

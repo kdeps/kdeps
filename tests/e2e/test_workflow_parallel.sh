@@ -52,7 +52,7 @@ metadata:
   name: parallel-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${API_PORT}
@@ -66,15 +66,18 @@ cat > "$TEST_DIR/resources/$id.yaml" <<EOF
 actionId: $id
 name: Call $id
 chat:
-  model: fake
-  prompt: "SLOW $id"
+  model:
+    name: fake
+  context:
+    prompt: "SLOW $id"
 EOF
 done
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [a, b, c]
+workflow:
+  requires: [a, b, c]
 apiResponse:
   success: true
   response:
@@ -126,8 +129,10 @@ resources:
   - actionId: lookup
     name: Lookup
     chat:
-      model: fake
-      prompt: "SLOW {{ input('q') }}"
+      model:
+        name: fake
+      context:
+        prompt: "SLOW {{ input('q') }}"
 EOF
 cat > "$COMP_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1
@@ -136,7 +141,7 @@ metadata:
   name: parallel-components-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${COMP_PORT}
@@ -157,7 +162,8 @@ done
 cat > "$COMP_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [x, y, z]
+workflow:
+  requires: [x, y, z]
 apiResponse:
   success: true
   response:

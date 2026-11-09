@@ -77,7 +77,7 @@ reference and the glossary document the CLI and the terms, not a mode.
   is workflow mode. Shared pages say it in their first sentence.
 - Every non-obvious YAML field gets an inline comment explaining purpose and
   behavior: `timeout: 30s  # hard stop - returns error, does not retry`.
-- No dot-notation for config (`settings.apiServer.auth`). Show the real YAML block.
+- No dot-notation for config (`deploy.apiServer.auth`). Show the real YAML block.
 - Collect every inline link into a `See also` section at the end.
 
 ## Procedures

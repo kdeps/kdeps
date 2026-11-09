@@ -122,7 +122,7 @@ func TestExportK8sInternal_InvalidPath(t *testing.T) {
 
 func TestExportK8sInternal_WorkflowDir(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -139,7 +139,7 @@ func TestExportK8sInternal_WorkflowDir(t *testing.T) {
 
 func TestExportK8sInternal_DefaultImageName(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: mywf\n  version: \"2.0\"\n  targetActionId: act\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: mywf\n  version: \"2.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -155,7 +155,7 @@ func TestExportK8sInternal_DefaultImageName(t *testing.T) {
 
 func TestRunExportK8sCmd_WithCommand(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -185,7 +185,7 @@ func TestRunExportK8sCmd_WithCommand(t *testing.T) {
 
 func TestExportK8sInternal_NetworkPolicyFromWorkflow(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\nsettings:\n  apiServer:\n    portNum: 8080\n    routes:\n      - path: /api\n        methods: [GET]\n  agentSettings:\n    networkPolicy: true\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  apiServer:\n    portNum: 8080\n    routes:\n      - path: /api\n        methods: [GET]\n  runtime:\n    networkPolicy: true\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -207,7 +207,7 @@ func TestExportK8sInternal_NetworkPolicyFromWorkflow(t *testing.T) {
 
 func TestExportK8sInternal_ReplicaOverride(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(

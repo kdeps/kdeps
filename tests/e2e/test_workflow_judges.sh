@@ -44,7 +44,7 @@ metadata:
   name: judges-e2e
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: ${API_PORT}
@@ -57,41 +57,51 @@ cat > "$TEST_DIR/resources/notes.yaml" <<'YAML'
 actionId: notes
 name: Release notes
 chat:
-  model: fake
-  prompt: "JUDGED: write the release notes"
-  judges:
-    - name: complete
-      criteria: Every change is listed.
-    - name: final
-      criteria: The notes are final, not a draft.
+  model:
+    name: fake
+  context:
+    prompt: "JUDGED: write the release notes"
+  guardrails:
+    judges:
+      - name: complete
+        criteria: Every change is listed.
+      - name: final
+        criteria: The notes are final, not a draft.
 YAML
 
 cat > "$TEST_DIR/resources/graded.yaml" <<'YAML'
 actionId: graded
 name: Graded notes
 chat:
-  model: fake
-  prompt: "JUDGED: write the short notes"
-  judges:
-    - name: no-draft
-      graders:
-        - kind: not_contains
-          pattern: DRAFT
+  model:
+    name: fake
+  context:
+    prompt: "JUDGED: write the short notes"
+  guardrails:
+    judges:
+      - name: no-draft
+        graders:
+          - kind: not_contains
+            pattern: DRAFT
 YAML
 
 cat > "$TEST_DIR/resources/preset.yaml" <<'YAML'
 actionId: preset
 name: Preset-reviewed design
 chat:
-  model: fake
-  prompt: "JUDGED: write the design"
-  judgePreset: design-review
+  model:
+    name: fake
+  context:
+    prompt: "JUDGED: write the design"
+  guardrails:
+    judgePreset: design-review
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-requires: [notes, graded, preset]
+workflow:
+  requires: [notes, graded, preset]
 apiResponse:
   success: true
   response:
@@ -110,11 +120,14 @@ cat > "$TEST_DIR/resources/bad.yaml" <<'YAML'
 actionId: bad
 name: Bad judge
 chat:
-  model: fake
-  prompt: "x"
-  judges:
-    - name: lonely
-      tools: [write_file]
+  model:
+    name: fake
+  context:
+    prompt: "x"
+  guardrails:
+    judges:
+      - name: lonely
+        tools: [write_file]
 YAML
 BAD_OUT=$("$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" 2>&1)
 if echo "$BAD_OUT" | grep -q 'chat.judges\[0\]: judge "lonely" needs criteria or graders'; then
@@ -128,12 +141,15 @@ cat > "$TEST_DIR/resources/both.yaml" <<'YAML'
 actionId: both
 name: Judges and a preset
 chat:
-  model: fake
-  prompt: "x"
-  judgePreset: design-review
-  judges:
-    - name: extra
-      criteria: c
+  model:
+    name: fake
+  context:
+    prompt: "x"
+  guardrails:
+    judgePreset: design-review
+    judges:
+      - name: extra
+        criteria: c
 YAML
 BOTH_OUT=$("$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" 2>&1)
 if echo "$BOTH_OUT" | grep -q 'set judges or judgePreset, not both'; then

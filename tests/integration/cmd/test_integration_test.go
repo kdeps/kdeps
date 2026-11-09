@@ -43,14 +43,14 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
     routes:
       - path: /api/v1/echo
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: "UTC"
 
 resources:
@@ -62,13 +62,14 @@ resources:
         command: "echo hello"
   - actionId: response
     name: Response
-    requires: [shout]
+    workflow:
+      requires: [shout]
     apiResponse:
       success: true
       response:
         text: "{{ get('shout') }}"
 
-tests:
+evals:
 ` + testsYAML
 	path := filepath.Join(dir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
@@ -132,7 +133,7 @@ func TestRunTestCmdIntegration_Fails(t *testing.T) {
 
 	err := cmd.RunTestCmd(testCmd(t), []string{path}, &cmd.TestFlags{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "1 test(s) failed")
+	assert.Contains(t, err.Error(), "1 eval(s) failed")
 }
 
 // TestRunTestCmdIntegration_RequiresAuthToken asserts kdeps test applies the
@@ -153,4 +154,39 @@ func TestRunTestCmdIntegration_RequiresAuthToken(t *testing.T) {
 	err := cmd.RunTestCmd(testCmd(t), []string{path}, &cmd.TestFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "KDEPS_API_AUTH_TOKEN")
+}
+
+// TestRunTestCmdIntegration_EvalJudges scores the body with grader judges,
+// repeated against a pass-rate threshold.
+func TestRunTestCmdIntegration_EvalJudges(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "integration-token")
+	t.Chdir(t.TempDir())
+
+	pass := workflowWithTests(t, t.TempDir(), `  - name: greets
+    request:
+      method: POST
+      path: /api/v1/echo
+    judges:
+      - name: hello
+        graders:
+          - kind: contains
+            pattern: hello
+    repeat: 2
+    threshold: 1
+`)
+	require.NoError(t, cmd.RunTestCmd(testCmd(t), []string{pass}, &cmd.TestFlags{}))
+
+	fail := workflowWithTests(t, t.TempDir(), `  - name: farewell
+    request:
+      method: POST
+      path: /api/v1/echo
+    judges:
+      - name: bye
+        graders:
+          - kind: contains
+            pattern: goodbye
+`)
+	err := cmd.RunTestCmd(testCmd(t), []string{fail}, &cmd.TestFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "1 eval(s) failed")
 }

@@ -33,7 +33,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16404
     routes:
@@ -51,7 +51,7 @@ Create `resources/search.yaml`:
 # resources/search.yaml
 actionId: search
 name: Search
-validations:
+guardrails:
   methods: [POST]
   routes: [/search]
   check:
@@ -80,7 +80,8 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: response
 name: Response
-requires: [search]
+workflow:
+  requires: [search]
 apiResponse:
   success: true
   response:

@@ -36,7 +36,7 @@ Then access the result:
 ## Input Settings
 
 ```yaml
-settings:
+deploy:
   input:
     sources: [api]   # the only sources are api, bot and file
 ```

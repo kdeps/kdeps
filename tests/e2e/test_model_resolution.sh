@@ -44,19 +44,21 @@ metadata:
   name: model-resolution-test
   version: "1.0.0"
   targetActionId: ask
-settings:
+deploy:
   input:
     sources: [file]
     file:
       path: ""
-  agentSettings:
+  runtime:
     timezone: UTC
 resources:
   - actionId: ask
     name: Ask
     chat:
-      prompt: "hello"
-      timeout: 20s
+      model:
+        timeout: 20s
+      context:
+        prompt: "hello"
 EOF
 
 CFG="$WORK/config.yaml"

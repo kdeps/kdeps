@@ -1,7 +1,8 @@
 actionId: reply
 name: Reply
-requires:
-    - llm
+workflow:
+    requires:
+        - llm
 
 # A bot sends the workflow's result: apiResponse's response is the reply text.
 apiResponse:

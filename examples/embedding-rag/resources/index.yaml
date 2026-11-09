@@ -1,6 +1,6 @@
 actionId: indexDoc
 name: Index Document
-validations:
+guardrails:
   methods: [POST]
   routes: [/index]
   check:

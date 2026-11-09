@@ -73,7 +73,7 @@ metadata:
   name: search-e2e-test
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: ${API_PORT}
@@ -86,14 +86,14 @@ settings:
         methods: [POST]
       - path: /search/nomatch
         methods: [POST]
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR/resources/keyword.yaml" <<EOF
 actionId: searchKeyword
 name: Search Keyword
-validations:
+guardrails:
   routes: [/search/keyword]
   methods: [POST]
 component:
@@ -111,7 +111,7 @@ EOF
 cat > "$TEST_DIR/resources/glob.yaml" <<EOF
 actionId: searchGlob
 name: Search Glob
-validations:
+guardrails:
   routes: [/search/glob]
   methods: [POST]
 component:
@@ -129,7 +129,7 @@ EOF
 cat > "$TEST_DIR/resources/limit.yaml" <<EOF
 actionId: searchLimit
 name: Search Limit
-validations:
+guardrails:
   routes: [/search/limit]
   methods: [POST]
 component:
@@ -148,7 +148,7 @@ EOF
 cat > "$TEST_DIR/resources/nomatch.yaml" <<EOF
 actionId: searchNoMatch
 name: Search No Match
-validations:
+guardrails:
   routes: [/search/nomatch]
   methods: [POST]
 component:
@@ -156,8 +156,9 @@ component:
   with:
     path: "${TEST_DIR_NATIVE}/docs"
     query: "zzz_no_such_keyword_zzz"
-onError:
-  action: continue
+workflow:
+  onError:
+    action: continue
 apiResponse:
   success: true
   response:
@@ -167,7 +168,8 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-requires: [searchKeyword, searchGlob, searchLimit, searchNoMatch]
+workflow:
+  requires: [searchKeyword, searchGlob, searchLimit, searchNoMatch]
 apiResponse:
   success: true
   response:

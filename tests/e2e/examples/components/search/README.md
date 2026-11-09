@@ -74,11 +74,12 @@ component:
 
 - actionId: summariseResults
 chat:
-  prompt: |
-    Based on these search results, answer the question: {{ input('topic') }}
+  context:
+    prompt: |
+      Based on these search results, answer the question: {{ input('topic') }}
 
-    Results:
-    {{ output('searchWeb').results }}
+      Results:
+      {{ output('searchWeb').results }}
 ```
 
 ## Requirements

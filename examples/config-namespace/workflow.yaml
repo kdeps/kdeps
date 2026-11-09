@@ -24,7 +24,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
 
   apiServer:
     portNum: 16395
@@ -35,5 +35,5 @@ settings:
       allowOrigins:
         - "*"
 
-  agentSettings:
+  runtime:
     timezone: UTC

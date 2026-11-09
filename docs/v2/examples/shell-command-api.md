@@ -32,7 +32,7 @@ metadata:
   version: "1.0.0"
   targetActionId: finalResult
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -51,7 +51,7 @@ Create `resources/system-info.yaml`:
 # resources/system-info.yaml
 actionId: systemInfo
 name: System information
-validations:
+guardrails:
   methods: [GET]              # only GET reaches this resource
   routes: [/api/v1/exec]
 component:                    # the exec component calls the kdeps API's exec tool
@@ -74,7 +74,8 @@ Create `resources/final-result.yaml`:
 # resources/final-result.yaml
 actionId: finalResult
 name: Final result
-requires: [systemInfo]
+workflow:
+  requires: [systemInfo]
 apiResponse:
   success: true
   response:

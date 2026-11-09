@@ -31,7 +31,7 @@ metadata:
   version: "1.0.0"
   targetActionId: demo
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -49,7 +49,7 @@ Create `resources/demo.yaml`:
 # resources/demo.yaml
 actionId: demo
 name: Control flow demo
-validations:
+guardrails:
   methods: [GET]
   routes: [/api/demo]
 

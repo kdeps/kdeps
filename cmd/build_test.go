@@ -68,8 +68,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   apiServer:
     portNum: 16395
@@ -105,8 +105,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   apiServer:
     portNum: 16395
@@ -151,8 +151,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -194,8 +194,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -236,8 +236,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   apiServer:
     portNum: 16395
@@ -278,8 +278,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   apiServer:
     portNum: 16395
@@ -337,8 +337,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -403,8 +403,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -444,8 +444,8 @@ metadata:
   name: complex-workflow
   version: "2.0.0"
   targetActionId: process-data
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
     pythonPackages:
       - requests
@@ -508,7 +508,7 @@ metadata:
   name: web-workflow
   version: "1.0.0"
   targetActionId: serve-content
-settings:
+deploy:
   webServer:
     portNum: 16395
     routes:
@@ -588,8 +588,8 @@ kind: Workflow
 metadata:
   name: test-workflow
   version: "1.0.0"
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 				workflowPath := filepath.Join(tmpDir, "workflow.yaml")

@@ -44,8 +44,8 @@ metadata:
   name: tts-test
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -80,8 +80,8 @@ metadata:
   name: tts-test
   version: "1.0.0"
   targetActionId: main
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 

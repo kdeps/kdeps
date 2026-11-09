@@ -41,7 +41,7 @@ metadata:
   version: "1.0.0"
   targetActionId: processItems
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3110
@@ -49,7 +49,7 @@ settings:
       - path: /api/v1/items
         methods: [POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -58,10 +58,11 @@ cat > "$RESOURCE_FILE" <<'EOF'
 actionId: processItems
 name: Process Items
 
-items:
-  - "item1"
-  - "item2"
-  - "item3"
+workflow:
+  items:
+    - "item1"
+    - "item2"
+    - "item3"
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/items]
@@ -172,8 +173,8 @@ metadata:
   name: items-where-test
   version: "1.0.0"
   targetActionId: filterItems
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   input:
     sources: [file]

@@ -38,7 +38,8 @@ component:
 # resources/search.yaml
 actionId: search
 name: Semantic Search
-requires: [index]
+workflow:
+  requires: [index]
 component:
   name: vector_store
   with:
@@ -58,7 +59,8 @@ The component returns the tool's JSON body as text. Read fields with `fromJSON`:
 # resources/respond.yaml
 actionId: respond
 name: Respond
-requires: [search]
+workflow:
+  requires: [search]
 apiResponse:
   success: true
   response:
@@ -126,7 +128,8 @@ Each store connects when the resource runs. An unreachable `url` fails the resou
 # resources/index.yaml
 actionId: index
 name: Index
-requires: [load]
+workflow:
+  requires: [load]
 component:
   name: vector_store
   with:

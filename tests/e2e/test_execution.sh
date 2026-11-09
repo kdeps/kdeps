@@ -73,8 +73,8 @@ metadata:
   name: e2e-test
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 resources:
   - actionId: response

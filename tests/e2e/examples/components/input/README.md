@@ -55,8 +55,8 @@ kind: Workflow
 metadata:
   name: my-component-workflow
   targetActionId: process
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 input:
   sources: [component]

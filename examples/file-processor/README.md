@@ -56,7 +56,7 @@ Inside resources, use the `input()` expression:
 ## The `file` Source
 
 ```yaml
-settings:
+deploy:
   input:
     sources: [file]
     file:

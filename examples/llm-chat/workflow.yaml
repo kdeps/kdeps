@@ -7,18 +7,18 @@ metadata:
   version: "1.0.0"
   targetActionId: chat
 
-settings:
+deploy:
   # sources: [api] Start the LLM REPL with --interactive flag.
   # executionType: stdin starts an interactive REPL on stdin/stdout.
   # executionType: apiServer starts the HTTP API server instead.
   input:
     sources: [api]
-  llm:
-    executionType: stdin
-    prompt: "You: "
-    sessionId: "llm-chat-session"
-
-
-  agentSettings:
+  runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
+agent:
+  executionType: stdin
+  prompt: "You: "
+  sessionId: "llm-chat-session"
+
+

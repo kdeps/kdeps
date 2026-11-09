@@ -1,8 +1,9 @@
 actionId: finalResponse
 name: Final Response
-requires:
-    - logResult
-    - addTimestamp
+workflow:
+    requires:
+        - logResult
+        - addTimestamp
 apiResponse:
   success: true
   response:

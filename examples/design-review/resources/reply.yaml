@@ -1,6 +1,7 @@
 actionId: reply
 name: Reply
-requires: [scope, clarity, failure-modes, readiness]
+workflow:
+  requires: [scope, clarity, failure-modes, readiness]
 
 before:
   # A new doc: keep it and the findings for the answer that may follow.

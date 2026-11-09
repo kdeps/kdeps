@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/nudge"
 )
 
 // nudgeVariantFrames and nudgeVariantLines are crossed to build the pool.
@@ -108,4 +109,10 @@ func finishNudge(cfg *domain.ChatConfig, note string, repeat bool) *domain.ChatC
 	nudgeCfg := *cfg
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
+}
+
+// configureNudges installs the nudge texts workflow chats use: this
+// registry's entries, with their maxOccurrences caps.
+func configureNudges() {
+	nudge.Configure(nudge.Settings{Note: harnessRender, Allowed: harnessOccurrenceAllowed})
 }

@@ -68,7 +68,8 @@ component:
 	// Create SQL resource
 	sqlResource := `actionId: store-data
 name: Store Data
-requires: ["fetch-data"]
+workflow:
+  requires: ["fetch-data"]
 component:
   name: sql
   with:
@@ -83,7 +84,8 @@ component:
 	// Create Python resource
 	pythonResource := `actionId: process-data
 name: Process Data
-requires: ["store-data"]
+workflow:
+  requires: ["store-data"]
 component:
   name: python
   with:
@@ -106,7 +108,8 @@ component:
 	// Create final response resource
 	responseResource := `actionId: final-response
 name: Final Response
-requires: ["process-data"]
+workflow:
+  requires: ["process-data"]
 apiResponse:
   success: true
   response:
@@ -128,8 +131,8 @@ metadata:
   name: integration-test-workflow
   version: "1.0.0"
   targetActionId: final-response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
     pythonPackages:
       - requests
@@ -221,8 +224,8 @@ kind: Workflow
 metadata:
   name: test
   version: "1.0.0"
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `,
 			expectError: true,
@@ -236,8 +239,8 @@ metadata:
   name: test
   version: "1.0.0"
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `,
 			expectError: true,
@@ -250,8 +253,8 @@ metadata:
   name: test
   version: "1.0.0"
   targetActionId: test
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `,
 			expectError: true,
 		},
@@ -263,8 +266,8 @@ metadata:
   name: test
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `,
 			expectError: true, // Workflows must have at least one resource
@@ -385,8 +388,8 @@ metadata:
   name: resource-validation-test
   version: "1.0.0"
   targetActionId: response-test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 `
 
@@ -476,7 +479,8 @@ agent:
 	// Write the API-response resource that depends on the agent call.
 	responseResource := `actionId: final-response
 name: Final Response
-requires: [call-helper]
+workflow:
+  requires: [call-helper]
 apiResponse:
   success: true
   response: "done"
@@ -493,8 +497,8 @@ metadata:
   name: agent-validation-test
   version: "1.0.0"
   targetActionId: final-response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 `
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -584,8 +588,8 @@ metadata:
   name: component-default-test
   version: "1.0.0"
   targetActionId: final
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 `
 			workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -621,7 +625,7 @@ metadata:
   name: strict-settings
   version: "1.0.0"
   targetActionId: response
-settings:
+deploy:
   ` + key + `:
     main: {}
 `

@@ -61,11 +61,11 @@ metadata:
   name: my-agent          # lowercase, hyphens only
   version: 1.0.0
   targetActionId: main    # MUST exactly match the actionId of the terminal resource
-settings:
+deploy:
   apiServer:
     portNum: 8080
     routes: []            # define your REST API routes here
-  agentSettings:
+  runtime:
     models: []            # e.g. [llama3.2:1b] for offline; omit for online providers
     env: {}               # environment variables
 ` + "```" + `
@@ -76,10 +76,14 @@ settings:
 # LLM chat
 actionId: my-resource   # lowercase, hyphens only
 chat:
-  model: llama3.2:1b    # or gpt-4o, claude-3-5-sonnet-20241022, etc.
-  backend: ollama        # ollama | openai | anthropic | google | groq | deepseek
-  prompt: "{{ input('message') }}"
-  system: "You are a helpful assistant."
+  model:
+    name: llama3.2:1b    # or gpt-4o, claude-3-5-sonnet-20241022, etc.
+    backend: ollama        # ollama | openai | anthropic | google | groq | deepseek
+  context:
+    scenario:
+      - role: system
+        prompt: "You are a helpful assistant."
+    prompt: "{{ input('message') }}"
 
 # HTTP request (the http_request component)
 actionId: my-resource
@@ -123,7 +127,7 @@ component:
 - ` + "`{{ input('key') }}`" + ` — HTTP request body field
 - ` + "`{{ get('resource-id') }}`" + ` — result of another resource
 - ` + "`{{ get('resource-id.field') }}`" + ` — nested field
-- Resources execute in the order listed; use ` + "`requires: [other-id]`" + ` in metadata for explicit ordering.
+- Resources execute in the order listed; use ` + "`workflow: {requires: [other-id]}`" + ` on a resource for explicit ordering.
 
 %s
 

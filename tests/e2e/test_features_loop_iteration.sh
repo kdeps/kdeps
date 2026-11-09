@@ -43,7 +43,7 @@ metadata:
   version: "1.0.0"
   targetActionId: loopCounter
 
-settings:
+deploy:
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3140
@@ -51,7 +51,7 @@ settings:
       - path: /api/v1/loop
         methods: [POST]
 
-  agentSettings:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -62,9 +62,10 @@ name: Loop Counter
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/loop]
-loop:
-  while: "loop.index() < 5"
-  maxIterations: 1000
+workflow:
+  loop:
+    while: "loop.index() < 5"
+    maxIterations: 1000
 after:
   - "{{ set('result', loop.count()) }}"
 apiResponse:
@@ -189,8 +190,8 @@ metadata:
   version: "1.0.0"
   targetActionId: accumulator
 
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
@@ -199,9 +200,10 @@ cat > "$RESOURCE_FILE2" <<'EOF'
 actionId: accumulator
 name: Accumulator
 
-loop:
-  while: "loop.index() < 4"
-  maxIterations: 100
+workflow:
+  loop:
+    while: "loop.index() < 4"
+    maxIterations: 100
 after:
   - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
 apiResponse:
@@ -230,17 +232,18 @@ metadata:
   name: loop-results-test
   version: "1.0.0"
   targetActionId: selfRef
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$RESOURCE_FILE3" <<'EOF'
 actionId: selfRef
 name: Self Referential
-loop:
-  while: "len(loop.results()) < 3"
-  maxIterations: 10
+workflow:
+  loop:
+    while: "len(loop.results()) < 3"
+    maxIterations: 10
 after:
   - "{{ set('n', loop.count()) }}"
 EOF
@@ -266,18 +269,19 @@ metadata:
   name: scheduled-task-test
   version: "1.0.0"
   targetActionId: ticker
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR4/resources/ticker.yaml" <<'EOF'
 actionId: ticker
 name: Ticker
-loop:
-  while: "loop.index() < 3"
-  maxIterations: 10
-  every: "1ms"
+workflow:
+  loop:
+    while: "loop.index() < 3"
+    maxIterations: 10
+    every: "1ms"
 after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:
@@ -310,18 +314,19 @@ metadata:
   name: bad-every-test
   version: "1.0.0"
   targetActionId: badEvery
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR5/resources/bad-every.yaml" <<'EOF'
 actionId: badEvery
 name: Bad Every
-loop:
-  while: "loop.index() < 2"
-  maxIterations: 5
-  every: "not-a-duration"
+workflow:
+  loop:
+    while: "loop.index() < 2"
+    maxIterations: 5
+    every: "not-a-duration"
 after:
   - "{{ set('n', loop.count()) }}"
 EOF
@@ -345,20 +350,21 @@ metadata:
   name: loop-at-test
   version: "1.0.0"
   targetActionId: atScheduled
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR6/resources/at-scheduled.yaml" <<'EOF'
 actionId: atScheduled
 name: At Scheduled
-loop:
-  while: "loop.index() < 2"
-  maxIterations: 10
-  at:
-    - "2026-03-15T10:00:00Z"
-    - "2026-03-15T14:00:00Z"
+workflow:
+  loop:
+    while: "loop.index() < 2"
+    maxIterations: 10
+    at:
+      - "2026-03-15T10:00:00Z"
+      - "2026-03-15T14:00:00Z"
 after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:

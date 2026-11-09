@@ -76,7 +76,7 @@ VS_BASE="http://127.0.0.1:$VS_PORT"
 
 W="$VS_DIR/wf"
 mkdir -p "$W/resources"
-printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: vs\n  version: "1.0.0"\n  targetActionId: m\nsettings: {}\n' > "$W/workflow.yaml"
+printf 'apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: vs\n  version: "1.0.0"\n  targetActionId: m\n' > "$W/workflow.yaml"
 
 cat > "$W/resources/m.yaml" <<EOF
 actionId: m

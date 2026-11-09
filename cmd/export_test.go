@@ -71,8 +71,8 @@ metadata:
   name: test-workflow
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   apiServer:
     portNum: 16395
@@ -105,8 +105,8 @@ metadata:
   name: test-iso
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
   apiServer:
     portNum: 16395
@@ -142,8 +142,8 @@ metadata:
   name: test-format
   version: "1.0.0"
   targetActionId: test-action
-settings:
-  agentSettings: {}
+deploy:
+  runtime: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")

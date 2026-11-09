@@ -93,8 +93,8 @@ metadata:
   name: bot-a
   version: "1.0.0"
   targetActionId: response
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 cat > "$AGENCY_DIR/agents/bot-a/resources/response.yaml" << 'EOF'
@@ -122,8 +122,8 @@ metadata:
   name: e2e-direct-wf
   version: "1.0.0"
   targetActionId: act
-settings:
-  agentSettings:
+deploy:
+  runtime:
     pythonVersion: "3.12"
 EOF
 cat > "$WFFILE_DIR/resources/act.yaml" << 'EOF'
@@ -232,21 +232,22 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR1/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
 chat:
-  contextLength: "invalid"
-  prompt: test
+  context:
+    contextLength: "invalid"
+    prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR1/invalid-contextlength-type.yaml" \
     "Enhanced error for invalid backend type" \
-    "chat.contextLength" \
+    "chat.context.contextLength" \
     "4096"
 rm -rf "$TEMP_DIR1"
 
@@ -259,21 +260,22 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR2/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
 chat:
-  contextLength: 999
-  prompt: test
+  context:
+    contextLength: 999
+    prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR2/invalid-contextlength-value.yaml" \
     "Enhanced error for invalid backend value" \
-    "chat.contextLength" \
+    "chat.context.contextLength" \
     "4096"
 rm -rf "$TEMP_DIR2"
 
@@ -286,8 +288,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR3/resources/test.yaml" << 'EOF'
@@ -313,8 +315,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR4/resources/test.yaml" << 'EOF'
@@ -340,22 +342,24 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR5/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
 chat:
-  model: llama3.2
-  contextLength: 5000
-  prompt: test
+  model:
+    name: llama3.2
+  context:
+    contextLength: 5000
+    prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR5/invalid-contextlength.yaml" \
     "Enhanced error for invalid contextLength value" \
-    "chat.contextLength" \
+    "chat.context.contextLength" \
     "4096"
 rm -rf "$TEMP_DIR5"
 
@@ -367,8 +371,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 
@@ -386,8 +390,8 @@ kind: InvalidKind
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 
@@ -405,7 +409,7 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
+deploy:
   apiServer:
     hostIp: 0.0.0.0
     portNum: 16395
@@ -413,7 +417,7 @@ settings:
       - path: /api/test
         methods:
           - INVALID
-  agentSettings:
+  runtime:
     timezone: UTC
 EOF
 
@@ -433,8 +437,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 
@@ -452,15 +456,17 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR12/resources/test.yaml" << 'EOF'
 name: test
 chat:
-  model: llama3.2
-  prompt: test
+  model:
+    name: llama3.2
+  context:
+    prompt: test
 EOF
 
 test_validation_error "$TEMP_DIR12/workflow.yaml" \
@@ -477,15 +483,17 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR13/resources/test.yaml" << 'EOF'
 actionId: test
 chat:
-  model: llama3.2
-  prompt: test
+  model:
+    name: llama3.2
+  context:
+    prompt: test
 EOF
 
 test_validation_error "$TEMP_DIR13/workflow.yaml" \
@@ -502,20 +510,21 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR14/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
 chat:
-  prompt: 123
+  context:
+    prompt: 123
 EOF
 
 test_validation_error "$TEMP_DIR14/workflow.yaml" \
     "Type error - chat.model as integer" \
-    "chat.prompt"
+    "chat.context.prompt"
 rm -rf "$TEMP_DIR14"
 
 # Test 15: Type error - httpClient.url as integer
@@ -527,8 +536,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR15/resources/test.yaml" << 'EOF'
@@ -553,8 +562,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR17/resources/test.yaml" << 'EOF'
@@ -578,8 +587,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR18/resources/test.yaml" << 'EOF'
@@ -604,24 +613,26 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
       - path: /api/test
         methods: [POST]
-  agentSettings:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR19/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
-validations:
+guardrails:
   methods:
     - INVALID
 chat:
-  model: llama3.2
-  prompt: test
+  model:
+    name: llama3.2
+  context:
+    prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR19/workflow.yaml" \
@@ -642,15 +653,16 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR20/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
 chat:
-  prompt: 123
+  context:
+    prompt: 123
 EOF
 
 test_validation_error "$TEMP_DIR20/workflow.yaml" \
@@ -667,8 +679,8 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: UTC
   apiServer:
     portNum: 70000
@@ -687,7 +699,7 @@ kind: Workflow
 metadata:
   name: test
   targetActionId: test
-settings:
+deploy:
   apiServer:
     hostIp: 0.0.0.0
     portNum: 16395
@@ -695,7 +707,7 @@ settings:
       - path: api/test
         methods:
           - GET
-  agentSettings:
+  runtime:
     timezone: UTC
 EOF
 
@@ -709,19 +721,15 @@ TEMP_DIR23=$(mktemp -d)
 cat > "$TEMP_DIR23/test.yaml" << 'EOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
-metadata:
-  name: test
-  version: "1.0.0"
-  targetActionId: test
 resources: []
 EOF
 V23_OUT=$("$KDEPS_BIN" validate "$TEMP_DIR23/test.yaml" 2>&1 || true)
-V23_COUNT=$(printf '%s\n' "$V23_OUT" | grep -c "settings is required")
+V23_COUNT=$(printf '%s\n' "$V23_OUT" | grep -c "metadata is required")
 if [ "$V23_COUNT" = "1" ] && output_grep "^Error: " "$V23_OUT" \
     && ! output_grep_fixed "/api/users" "$V23_OUT" && ! output_grep_fixed '\n' "$V23_OUT"; then
-    test_passed "Missing settings block reported once, plainly, without a route example"
+    test_passed "Missing metadata block reported once, plainly, without a route example"
 else
-    test_failed "Missing settings block error" "$V23_OUT"
+    test_failed "Missing metadata block error" "$V23_OUT"
 fi
 rm -rf "$TEMP_DIR23"
 

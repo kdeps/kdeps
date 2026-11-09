@@ -15,11 +15,10 @@ This example demonstrates session management with persistent SQLite storage in K
 Sessions are configured in `workflow.yaml`:
 
 ```yaml
-settings:
-  session:
-    type: "sqlite"              # Storage type: "sqlite" or "memory"
-    ttl: "30m"                  # Session expiration time
-    cleanupInterval: "5m"       # Cleanup interval for expired sessions
+memory:
+  type: "sqlite"              # Storage type: "sqlite" or "memory"
+  ttl: "30m"                  # Session expiration time
+  cleanupInterval: "5m"       # Cleanup interval for expired sessions
 ```
 
 ### Configuration Options
@@ -135,7 +134,7 @@ Python validates credentials. If valid, exits with 0 and expr blocks set session
 If invalid, exits with error code 1 to prevent session from being set.
 
 ```yaml
-validations:
+guardrails:
   routes: [/api/v1/login]
   required: [username, password]
 python:
@@ -161,7 +160,7 @@ expr:
 Returns session data. Requires user to be logged in:
 
 ```yaml
-validations:
+guardrails:
   routes: [/api/v1/session]
   check:
     - "{{ get('logged_in', 'session') == 'true' }}"
@@ -268,8 +267,8 @@ session_data: "{{ session() }}"
 user_id: "{{ get('user_id', 'session') }}"
 logged_in: "{{ get('logged_in', 'session') }}"
 
-# 3. Use validations.check to require login
-validations:
+# 3. Use guardrails.check to require login
+guardrails:
   check:
     - "{{ get('logged_in', 'session') == 'true' }}"
   error:
@@ -286,7 +285,7 @@ python:
         print(json.dumps({"user": user_id, "authenticated": True}))
 
 # 5. Skip resource if not logged in
-validations:
+guardrails:
   skip:
     - "{{ get('logged_in', 'session') != 'true' }}"
 ```
@@ -296,7 +295,7 @@ validations:
 Resources only execute when their route matches:
 
 ```yaml
-validations:
+guardrails:
   routes: [/api/v1/login]  # Only runs for this route
 ```
 

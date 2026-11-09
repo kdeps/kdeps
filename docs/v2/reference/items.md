@@ -13,16 +13,20 @@ Works in workflow and agent mode.
 ```yaml
 # resources/batch-queries.yaml
 actionId: batchQueries
-items:
-  - "What is machine learning?"
-  - "Explain neural networks"
-  - "What is deep learning?"
+workflow:
+  items:
+    - "What is machine learning?"
+    - "Explain neural networks"
+    - "What is deep learning?"
 
 chat:
-  prompt: "{{ get('current') }}"
-  jsonResponse: true
-  jsonResponseKeys:
-    - answer
+  context:
+    prompt: "{{ get('current') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - answer
 ```
 
 </div>
@@ -34,9 +38,10 @@ chat:
 ```yaml
 # resources/enrich-products.yaml
 actionId: enrichProducts
-requires: [fetchProducts]
-items:
-  - "get('fetchProducts')"
+workflow:
+  requires: [fetchProducts]
+  items:
+    - "get('fetchProducts')"
 
 component:
   name: http_request
@@ -54,22 +59,26 @@ component:
 ```yaml
 # resources/generate-report.yaml
 actionId: generateReport
-items:
-  - "executive_summary|Executive Summary"
-  - "analysis|Market Analysis"
-  - "recommendations|Recommendations"
-  - "conclusion|Conclusion"
+workflow:
+  items:
+    - "executive_summary|Executive Summary"
+    - "analysis|Market Analysis"
+    - "recommendations|Recommendations"
+    - "conclusion|Conclusion"
 
 chat:
-  prompt: |
-    Generate the "{{ split(get('current'), '|')[1] }}" section of the report.
-    Data: {{ get('reportData') }}
+  context:
+    prompt: |
+      Generate the "{{ split(get('current'), '|')[1] }}" section of the report.
+      Data: {{ get('reportData') }}
 
-    {{ get('prev') ? 'Previous section: ' + get('prev') : '' }}
-  jsonResponse: true
-  jsonResponseKeys:
-    - content
-    - key_points
+      {{ get('prev') ? 'Previous section: ' + get('prev') : '' }}
+  harness:
+    output:
+      json: true
+      keys:
+        - content
+        - key_points
 ```
 
 </div>
@@ -81,20 +90,24 @@ chat:
 ```yaml
 # resources/translate.yaml
 actionId: translate
-items:
-  - "es|Spanish"
-  - "fr|French"
-  - "de|German"
-  - "ja|Japanese"
+workflow:
+  items:
+    - "es|Spanish"
+    - "fr|French"
+    - "de|German"
+    - "ja|Japanese"
 
 chat:
-  prompt: |
-    Translate to {{ split(get('current'), '|')[1] }}:
-    "{{ get('originalText') }}"
-  jsonResponse: true
-  jsonResponseKeys:
-    - translation
-    - language_code
+  context:
+    prompt: |
+      Translate to {{ split(get('current'), '|')[1] }}:
+      "{{ get('originalText') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - translation
+        - language_code
 ```
 
 </div>
@@ -106,19 +119,21 @@ chat:
 ```yaml
 # resources/chained-process.yaml
 actionId: chainedProcess
-items:
-  - "1|gather_requirements"
-  - "2|design_solution"
-  - "3|implement"
-  - "4|test"
+workflow:
+  items:
+    - "1|gather_requirements"
+    - "2|design_solution"
+    - "3|implement"
+    - "4|test"
 
 chat:
-  prompt: |
-    Step {{ split(get('current'), '|')[0] }}: {{ split(get('current'), '|')[1] }}
+  context:
+    prompt: |
+      Step {{ split(get('current'), '|')[0] }}: {{ split(get('current'), '|')[1] }}
 
-    {{ get('prev') ? 'Previous step output: ' + get('prev') : 'Starting fresh.' }}
+      {{ get('prev') ? 'Previous step output: ' + get('prev') : 'Starting fresh.' }}
 
-    Complete this step.
+      Complete this step.
 ```
 
 </div>
@@ -130,15 +145,17 @@ chat:
 ```yaml
 # resources/analyze-images.yaml
 actionId: analyzeImages
-items:
-  - "/uploads/image1.jpg"
-  - "/uploads/image2.jpg"
-  - "/uploads/image3.jpg"
+workflow:
+  items:
+    - "/uploads/image1.jpg"
+    - "/uploads/image2.jpg"
+    - "/uploads/image3.jpg"
 
 chat:
-  prompt: "Describe this image"
-  files:
-    - "{{ get('current') }}"
+  context:
+    prompt: "Describe this image"
+    files:
+      - "{{ get('current') }}"
 ```
 
 </div>
@@ -152,17 +169,20 @@ Item results are collected into an array:
 ```yaml
 # Processing resource
 actionId: processItems
-items:
-  - "Item 1"
-  - "Item 2"
+workflow:
+  items:
+    - "Item 1"
+    - "Item 2"
 
 chat:
-  prompt: "Process {{ get('current') }}"
+  context:
+    prompt: "Process {{ get('current') }}"
 
 ---
 # Response resource
 actionId: response
-requires: [processItems]
+workflow:
+  requires: [processItems]
 apiResponse:
   response:
     results: get('processItems')      # All results as array

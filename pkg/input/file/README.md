@@ -66,7 +66,7 @@ func readFileInput(r io.Reader, cfg *domain.InputConfig, argPath string) (fileIn
 ## Configuration
 
 ```yaml
-settings:
+deploy:
   input:
     sources: [file]
     file:
@@ -111,8 +111,10 @@ metadata:
   actionId: summarize
 
 chat:
-  model: llama3.2:3b
-  prompt: "Summarize the following document:\n\n{{ input('fileContent') }}"
+  model:
+    name: llama3.2:3b
+  context:
+    prompt: "Summarize the following document:\n\n{{ input('fileContent') }}"
 ```
 
 ## Input resolution order

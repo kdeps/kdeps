@@ -43,8 +43,8 @@ metadata:
   name: param-echo-agent
   version: "1.0.0"
   targetActionId: echo
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: echo
@@ -61,8 +61,8 @@ metadata:
   name: helper-agent
   version: "1.0.0"
   targetActionId: respond
-settings:
-  agentSettings:
+deploy:
+  runtime:
     timezone: "UTC"
 resources:
   - actionId: respond

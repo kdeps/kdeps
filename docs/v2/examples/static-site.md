@@ -44,7 +44,7 @@ metadata:
   version: "1.0.0"
   targetActionId: "none"       # no resource runs; the server just serves files
 
-settings:
+deploy:
   webServer:
     portNum: 16395
     routes:
@@ -78,7 +78,7 @@ build output:
 
 ```yaml
 # workflow.yaml
-settings:
+deploy:
   webServer:
     portNum: 16395
     routes:
@@ -90,6 +90,6 @@ settings:
 ## Next steps
 
 - [Web server mode](/deploy/webserver) - reverse proxy, Streamlit, Gradio, Flask
-- [Workflow configuration](/workflow/configuration) - the full `settings` block
+- [Workflow configuration](/workflow/configuration) - the full `deploy` block
 - [Docker deployment](/deploy/docker) - ship the site as an image
 - [TLS and HTTPS](/deploy/tls-https) - serve it over HTTPS

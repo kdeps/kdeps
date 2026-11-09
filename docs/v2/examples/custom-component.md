@@ -89,7 +89,8 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: response
 name: Response
-requires: [greet]
+workflow:
+  requires: [greet]
 apiResponse:
   success: true
   response:
@@ -112,7 +113,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 
-settings:
+deploy:
   apiServer:
     portNum: 16395
     routes:
@@ -141,7 +142,7 @@ Response:
 
 ## Next steps
 
-- [Components](/agencies/components) - registry components, `componentTools:`
+- [Components](/agencies/components) - registry components, `tools.components`
 - [Components reference](/agencies/component-reference) - full schema, env var derivation, packaging
 - [Registry commands](/registry/cli) - install and publish components
 - [Two-agent agency tutorial](/examples/agency) - composing whole agents instead

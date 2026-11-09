@@ -37,13 +37,13 @@ metadata:
   name: k8s-e2e-test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     portNum: 8080
     routes:
       - path: /api
         methods: [GET]
-  agentSettings:
+  runtime:
     replicas: 2
     resources:
       cpuLimit: "500m"
@@ -166,13 +166,13 @@ metadata:
   name: ollama-e2e-test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     portNum: 8080
     routes:
       - path: /api
         methods: [GET]
-  agentSettings:
+  runtime:
     installOllama: true
 WFEOF
 
@@ -213,13 +213,13 @@ metadata:
   name: np-workflow-test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   apiServer:
     portNum: 8080
     routes:
       - path: /api
         methods: [GET]
-  agentSettings:
+  runtime:
     networkPolicy: true
 WFEOF
 
@@ -240,7 +240,7 @@ metadata:
   name: web-only-test
   version: 1.0.0
   targetActionId: main
-settings:
+deploy:
   webServer:
     portNum: 9090
     routes:

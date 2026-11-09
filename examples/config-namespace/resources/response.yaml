@@ -1,6 +1,7 @@
 actionId: response
 name: Response
-requires: [readConfig]
+workflow:
+  requires: [readConfig]
 
 apiResponse:
   success: true

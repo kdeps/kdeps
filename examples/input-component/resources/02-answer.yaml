@@ -1,13 +1,16 @@
 actionId: answer
 name: Answer the Query
-requires:
-    - collectInputs
+workflow:
+    requires:
+        - collectInputs
 
 chat:
-  model: llama3.2:1b
-  prompt: |
-    Context: {{ output('collectInputs') | json_decode | get('text') }}
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: |
+      Context: {{ output('collectInputs') | json_decode | get('text') }}
 
-    Question: {{ output('collectInputs') | json_decode | get('query') }}
+      Question: {{ output('collectInputs') | json_decode | get('query') }}
 
-    Answer the question concisely based on the provided context.
+      Answer the question concisely based on the provided context.

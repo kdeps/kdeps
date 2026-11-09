@@ -2,20 +2,24 @@ actionId: readiness
 name: Review (readiness)
 
 # Skipped when the request carries no doc (an answer to the question).
-validations:
+guardrails:
   skip:
     - "get('doc') == nil"
 
 # Reads only the request, so the four reviewers run at the same time.
 chat:
-  model: llama3.2:1b
-  prompt: |
-    You review design documents for one criterion only.
-    Criterion (readiness): It can be built as written: ordered steps, named files and interfaces, and a test for each step.
-    Reply with JSON only: {"pass": true|false, "findings": ["..."]}
+  model:
+    name: llama3.2:1b
+    timeout: 120s
+  context:
+    prompt: |
+      You review design documents for one criterion only.
+      Criterion (readiness): It can be built as written: ordered steps, named files and interfaces, and a test for each step.
+      Reply with JSON only: {"pass": true|false, "findings": ["..."]}
 
-    Design document:
-    {{ get('doc') }}
-  jsonResponse: true
-  jsonResponseKeys: [pass, findings]
-  timeout: 120s
+      Design document:
+      {{ get('doc') }}
+  harness:
+    output:
+      json: true
+      keys: [pass, findings]
