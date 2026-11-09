@@ -432,6 +432,14 @@
           "type": "string",
           "minLength": 1
         },
+        "harness": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
         "refine": {
           "type": "boolean"
         },

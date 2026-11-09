@@ -52,6 +52,10 @@ def reply_for(msgs):
         return "GOT REFINED"
     if "REFINEME" in last:
         return "GOT ORIGINAL"
+    if "HARNESSCHECK" in last:
+        # chat.harness: report which harness sections reached the model.
+        tags = [t for t in ("accuracy", "honesty", "output") if "<%s>" % t in everything]
+        return "HARNESS " + (",".join(tags) or "none")
     slow = re.search(r"SLOW (\w+)", last)
     if slow:
         time.sleep(1)  # a slow model call: parallel workflow resources overlap these
