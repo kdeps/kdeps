@@ -38,6 +38,7 @@ const (
 	backendOpenAI       = "openai"
 	fieldName           = "name"
 	fieldError          = "error"
+	fieldBrief          = "brief"
 	fieldFunction       = "function"
 	fieldToolCalls      = "tool_calls"
 	jsonResponseFormat  = "json_object"

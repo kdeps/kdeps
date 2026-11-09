@@ -19,12 +19,16 @@
 package llm
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync/atomic"
+
+	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/failbrief"
 	"github.com/kdeps/kdeps/v2/pkg/reply"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 	"github.com/kdeps/kdeps/v2/pkg/toolcall"
@@ -140,6 +144,8 @@ type callGuard struct {
 	limit   int
 	issued  map[string]int
 	results map[string]interface{}
+	// failures counts failed calls briefed so far (efficiency-failures).
+	failures int
 }
 
 func newCallGuard() *callGuard {
@@ -185,6 +191,26 @@ func (g *callGuard) remember(name, args string, result interface{}) {
 	if g != nil {
 		g.results[toolbudget.Key(name, args)] = result
 	}
+}
+
+// failed is a failed call's result. Within the efficiency-failures budget it
+// carries a brief (pkg/failbrief, as in agent mode): the folder of a missing
+// path or the lines around a failed edit, and the instruction to fix the
+// cause and call again.
+func (g *callGuard) failed(name, args string, id interface{}, err error) map[string]interface{} {
+	result := map[string]interface{}{"tool_call_id": id, fieldName: name, fieldError: err.Error()}
+	if g == nil || g.failures >= failbrief.Failures() {
+		return result
+	}
+	g.failures++
+	parsed := map[string]any{}
+	_ = json.Unmarshal([]byte(args), &parsed)
+	brief := failbrief.Needed
+	if fileCtx := failbrief.FileContext(afero.NewOsFs(), name, parsed); fileCtx != "" {
+		brief = fileCtx + "\n\n" + brief
+	}
+	result[fieldBrief] = brief
+	return result
 }
 
 // toolCallKey identifies a call by name and canonical arguments.

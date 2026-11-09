@@ -57,10 +57,14 @@ func (e *Executor) addToolResultsToMessages(
 
 // formatToolResultContent is a tool result as the model sees it, cut to the
 // tool-result-truncate and tool-error-truncate events (pkg/toolbudget, shared
-// with agent mode).
+// with agent mode). A failure brief follows the error uncut.
 func formatToolResultContent(result map[string]interface{}) string {
 	if errorMsg, okError := result[fieldError].(string); okError {
-		return "Error: " + toolbudget.CapError(errorMsg, toolbudget.ErrorBytes())
+		text := "Error: " + toolbudget.CapError(errorMsg, toolbudget.ErrorBytes())
+		if brief, ok := result[fieldBrief].(string); ok {
+			text += "\n\n" + brief
+		}
+		return text
 	}
 	return toolbudget.CapResult(toolResultText(result), toolbudget.ResultBytes())
 }

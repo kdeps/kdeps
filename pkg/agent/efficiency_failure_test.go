@@ -133,34 +133,6 @@ func TestEfficiencyLLMErrorStop_OnlyFixableErrors(t *testing.T) {
 	assert.Contains(t, note, "one valid call")
 }
 
-func TestEditFocusLine(t *testing.T) {
-	content := "a\nb\nc\nd\n"
-	cases := []struct {
-		args map[string]any
-		want int
-	}{
-		{map[string]any{"line": 3.0}, 3},
-		{map[string]any{"line": "2"}, 2},
-		{map[string]any{"match": "c"}, 3},
-		{map[string]any{"line": 4.0, "match": "zzz"}, 4},
-		{map[string]any{"match": "zzz"}, 1},
-		{map[string]any{"match": "  "}, 1},
-		{map[string]any{}, 1},
-	}
-	for _, c := range cases {
-		assert.Equal(t, c.want, editFocusLine(content, c.args), "%v", c.args)
-	}
-}
-
-func TestFileExcerpt(t *testing.T) {
-	assert.Equal(t, "f is empty.", fileExcerpt("f", "", 1))
-	assert.Equal(t, "Current content of f, lines 1-2 of 2:\n1\ta\n2\tb", fileExcerpt("f", "a\nb\n", 99))
-	long := strings.Repeat(strings.Repeat("x", 500)+"\n", 50)
-	out := fileExcerpt("f", long, 25)
-	assert.LessOrEqual(t, len(out), defaultFailureContextBytes+100)
-	assert.True(t, strings.HasSuffix(out, "..."))
-}
-
 func TestFailureFileContext_Skips(t *testing.T) {
 	dir := t.TempDir()
 	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, `not json`)))
@@ -175,14 +147,6 @@ func TestFailureFileContext_Skips(t *testing.T) {
 	assert.Empty(t, failureFileContext(effCall(toolNameEditFile, pathArgs(bin))), "binary")
 	assert.Contains(t, failureFileContext(effCall(toolNameListFiles, `{"path":"/nonexistent-kdeps/x"}`)),
 		"/nonexistent-kdeps/x does not exist.")
-}
-
-func TestToolErrorTextAndQuote(t *testing.T) {
-	assert.Equal(t, "boom", toolErrorText(`{"error":"boom"}`))
-	assert.Equal(t, "plain", toolErrorText("plain"))
-	q := failureQuote(strings.Repeat("é", defaultFailureErrorBytes))
-	assert.True(t, strings.HasSuffix(q, `..."`))
-	assert.LessOrEqual(t, len(q), defaultFailureErrorBytes+10)
 }
 
 // newFailingToolLoop wires an output tool that fails until it has been called
@@ -357,6 +321,6 @@ func TestRunStreaming_LLMErrorReturnedWhenRoundsRunOut(t *testing.T) {
 func TestBriefLimit_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
 	withEvent(t, Event{Name: eventFailureErrorBytes, Items: 7, Run: actionTruncate})
 	withEvent(t, Event{Name: eventFailureDirEntries, Items: 9, Run: actionCap, Disabled: true})
-	assert.Equal(t, 7, briefLimit(eventFailureErrorBytes, defaultFailureErrorBytes))
-	assert.Equal(t, defaultFailureDirEntries, briefLimit(eventFailureDirEntries, defaultFailureDirEntries))
+	assert.Equal(t, 7, briefLimit(eventFailureErrorBytes))
+	assert.Equal(t, 0, briefLimit(eventFailureDirEntries), "off: the failbrief default applies")
 }
