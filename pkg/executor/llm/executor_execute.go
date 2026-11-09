@@ -101,7 +101,9 @@ func (e *Executor) executeChat(
 	timeout := e.resolveTimeout(resolvedConfig)
 	maxOutputBytes := e.resolveMaxOutputBytes()
 
-	raw := limitBody(backendName, langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout))
+	raw := limitBody(backendName, freeModelCall(backendName, modelStr, func(model string) chatCall {
+		return langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, model, timeout)
+	}))
 	if resolvedConfig.Refine {
 		promptStr = refineChat(raw, messages, promptStr, requestConfig.ContextLength)
 	}

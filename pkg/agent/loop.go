@@ -520,10 +520,9 @@ func (l *Loop) recordToolCall(name, args, result string) {
 // session tools: a side loop (a judge or a subagent) gets exactly the tools
 // it was scoped to, sent in full, with no load_tools, no session tools and no
 // subagent, so a verdict-only judge sees only judge_verdict. It also writes
-// the process-wide state (the free-model queue cap, the loop memory_query
-// reads); a side loop never does, so side loops can be built in parallel.
+// the process-wide state (the loop memory_query reads); a side loop never
+// does, so side loops can be built in parallel.
 func (l *Loop) becomeSessionLoop() {
-	setFreeModelQueueCap()
 	activeLoop = l
 	l.registerToolLoader()
 	l.registerIdentityTool()

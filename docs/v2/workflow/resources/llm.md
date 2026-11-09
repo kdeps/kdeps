@@ -556,6 +556,8 @@ An unknown name, or a tool that needs a live agent session (`session_ops`), fail
 
 The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the run's memory store, so start the workflow with `kdeps run --memory`; without it they answer that no store is configured. `knowledge_recall` reads the [knowledge vault](/agent/knowledge) notes related to a query, as in agent mode.
 
+A chat on an OpenRouter free model (`backend: openrouter`, an id ending in `:free`) moves to the next free id when the provider rate-limits or refuses the request, as agent mode does (`openrouter-provider-limit`, `openrouter-refusal` events), and stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue with agent mode.
+
 `subagent` hands a task to a fresh chat call on the same model. It has not seen this chat and gets only the chat's read-only tools (`read_file`, `web_search`, `calculator`, ...), never a write tool or another subagent. It returns a plain-text report as the tool result.
 
 ```yaml
