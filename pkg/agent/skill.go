@@ -31,6 +31,7 @@ import (
 	"github.com/kdeps/kartographer/graph"
 
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v2/pkg/skills"
 )
 
 // Skill represents a loaded skill from a SKILL.md file.
@@ -227,32 +228,53 @@ func loadSkillFromFile(path string) *Skill {
 // formatSkillsForPrompt formats skills as an XML <available_skills> block
 // for injection into the system prompt. Skills with Hidden=true are excluded.
 // Returns empty string when no visible skills exist.
-func formatSkillsForPrompt(skills []Skill) string {
-	visible := make([]Skill, 0, len(skills))
-	for _, sk := range skills {
-		if !sk.Hidden {
-			visible = append(visible, sk)
+func formatSkillsForPrompt(list []Skill) string {
+	return skills.Block(harnessText("skills-preamble"), visibleSkills(list))
+}
+
+// visibleSkills converts the skills the model may see (not Hidden) to the
+// shared form; Body is the folder note plus the skill text.
+func visibleSkills(list []Skill) []skills.Skill {
+	out := make([]skills.Skill, 0, len(list))
+	for i := range list {
+		if !list[i].Hidden {
+			out = append(out, skills.Skill{
+				Name: list[i].Name, Description: list[i].Description, Body: list[i].Body(),
+			})
 		}
 	}
-	if len(visible) == 0 {
-		return ""
-	}
-	var sb strings.Builder
-	sb.WriteString(harnessText("skills-preamble"))
-	sb.WriteString("\n\n<available_skills>\n")
-	for _, sk := range visible {
-		// Names + descriptions only. Full content is loaded on demand via the
-		// load_skill tool, so it is not re-sent in the system prompt every turn.
-		desc := strings.TrimSpace(sk.Description)
-		if desc == "" {
-			desc = "(no description)"
+	return out
+}
+
+// configureSkills installs the SKILL.md loader and the skills-preamble
+// harness, which workflow chats with skills: use.
+func configureSkills() {
+	skills.Configure(skills.Settings{
+		Load:     loadSkillPaths,
+		Preamble: func() string { return harnessText("skills-preamble") },
+	})
+}
+
+// loadSkillPaths reads the skills in each path (a folder of SKILL.md files or
+// one skill file), first name wins.
+func loadSkillPaths(paths []string) []skills.Skill {
+	var list []Skill
+	seen := map[string]bool{}
+	for _, p := range paths {
+		found := discoverSkillsInDir(p)
+		if info, err := AppFS.Stat(p); err == nil && !info.IsDir() {
+			if sk := loadSkillFromFile(p); sk != nil {
+				found = []Skill{*sk}
+			}
 		}
-		// No source path: load_skill takes the name, and 80+ absolute paths
-		// cost ~2k tokens on every request.
-		fmt.Fprintf(&sb, "<skill name=%q>%s</skill>\n", sk.Name, desc)
+		for _, sk := range found {
+			if !seen[sk.Name] {
+				seen[sk.Name] = true
+				list = append(list, sk)
+			}
+		}
 	}
-	sb.WriteString("</available_skills>")
-	return sb.String()
+	return visibleSkills(list)
 }
 
 // computeRelatedSkills builds a skill-name -> related-skill-names map.

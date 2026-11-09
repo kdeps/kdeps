@@ -314,6 +314,11 @@ type ChatConfig struct {
 	// JudgePreset names a preset (assets/presets) whose judges review the
 	// answer, as agent mode's /harness preset applies them. Not with judges.
 	JudgePreset string `yaml:"judgePreset,omitempty"`
+	// Skills lists skill folders or SKILL.md files; relative paths resolve
+	// against the run's working folder, as a python scriptFile does. Their
+	// names go in the system prompt and the model reads one in full with the
+	// load_skill tool, as in agent mode.
+	Skills []string `yaml:"skills,omitempty"`
 }
 
 // Judge is one reviewer of a chat answer: a workflow chat's judges: entry, or

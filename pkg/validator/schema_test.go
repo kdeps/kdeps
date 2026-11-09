@@ -245,6 +245,28 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "chat skills",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "skills-action",
+				"name":       "Skills",
+				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "skills": []interface{}{"skills"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "chat skills must be paths",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "skills-action",
+				"name":       "Skills",
+				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "skills": []interface{}{""}},
+			},
+			wantErr: true,
+		},
+		{
 			name: "valid HTTP resource",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",

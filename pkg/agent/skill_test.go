@@ -27,8 +27,11 @@ import (
 	"time"
 
 	"github.com/kdeps/kartographer/graph"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v2/pkg/skills"
 )
 
 func TestLoadSkillFromFile_WithFrontmatter(t *testing.T) {
@@ -460,4 +463,31 @@ func TestRelatedSkillNames_GraphFileErrorOnClosedStore(t *testing.T) {
 	if got != nil {
 		t.Fatalf("expected nil querying a closed graph store, got %v", got)
 	}
+}
+
+func TestConfigureSkills(t *testing.T) {
+	dir := t.TempDir()
+	write := func(rel, body string) string {
+		p := filepath.Join(dir, rel)
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte(body), 0o600))
+		return p
+	}
+	write("lib/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship it\n---\n\nbuild, then ship")
+	write("lib/secret/SKILL.md", "---\nname: secret\nhidden: true\n---\n\nnot for the model")
+	one := write("one/SKILL.md", "---\nname: review\n---\n\nread the diff")
+	dup := write("dup/SKILL.md", "---\nname: deploy\n---\n\nsecond copy")
+
+	t.Cleanup(func() { skills.Configure(skills.Settings{}) })
+	configureSkills()
+	list, err := skills.Load([]string{filepath.Join(dir, "lib"), one, dup, filepath.Join(dir, "missing")})
+	require.NoError(t, err)
+	names := make([]string, len(list))
+	for i, sk := range list {
+		names[i] = sk.Name
+	}
+	assert.Equal(t, []string{"deploy", "review"}, names, "hidden skills are left out, the first name wins")
+	assert.Contains(t, list[0].Body, "build, then ship")
+	assert.Contains(t, skills.Prompt(list), harnessText("skills-preamble"))
+	assert.Contains(t, skills.Prompt(list), `<skill name="deploy">Ship it</skill>`)
 }

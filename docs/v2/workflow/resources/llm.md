@@ -359,6 +359,18 @@ chat:
 
 An unknown preset, or one with no judges, fails the resource.
 
+## Skills
+
+`skills:` gives the chat agent mode's skills: each listed folder of `SKILL.md` files (or one skill file) is read, the skill names and descriptions join the system prompt, and the model reads one in full with the `load_skill` tool:
+
+```yaml
+chat:
+  prompt: "Release {{ get('version') }}."
+  skills: [skills]   # skills/deploy/SKILL.md -> skill "deploy"; relative to the run's working folder
+```
+
+A path with no skills fails the resource. A skill marked `hidden: true` is not offered.
+
 ## Vision (file attachments)
 
 Process images (set a vision-capable model in the resource's `model:`):
