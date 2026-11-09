@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/harness"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -248,4 +249,24 @@ func TestSetHarnessEnabled_DisabledPreambleSectionDroppedFromAssembly(t *testing
 	require.NoError(t, SetHarnessEnabled(name, false))
 	after := harnessAssembledPreamble()
 	assert.NotContains(t, after, "internals", "disabled preamble section must not appear in the assembled preamble")
+}
+
+func TestConfigureChatHarness(t *testing.T) {
+	t.Cleanup(func() { harness.Configure(harness.Settings{}) })
+	configureChatHarness()
+	out, err := harness.Sections([]string{"Accuracy", "honesty"})
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(out, "<accuracy>"))
+	assert.Contains(t, out, "<honesty>")
+	out, err = harness.Sections([]string{"output"})
+	require.NoError(t, err)
+	assert.NotContains(t, out, "{{", "templates are rendered")
+	_, err = harness.Sections([]string{"compaction-system"})
+	require.Error(t, err, "a standalone entry is not a section")
+
+	harnessRegistry["honesty"].disabled = true
+	t.Cleanup(func() { harnessRegistry["honesty"].disabled = false })
+	out, err = harness.Sections([]string{"honesty"})
+	require.NoError(t, err)
+	assert.Empty(t, out, "a disabled section adds nothing")
 }

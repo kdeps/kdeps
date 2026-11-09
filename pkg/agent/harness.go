@@ -24,6 +24,8 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+
+	"github.com/kdeps/kdeps/v2/pkg/harness"
 )
 
 //nolint:gochecknoglobals // the harness registry, loaded once at init
@@ -527,3 +529,24 @@ func initHarness() {
 
 //nolint:gochecknoinits // one-time load of the harness registry
 func init() { initHarness() }
+
+// configureChatHarness lets workflow chats name preamble sections in
+// chat.harness: each renders as agent mode renders it, user overrides
+// included; a disabled section renders as nothing.
+func configureChatHarness() {
+	harness.Configure(harness.Settings{Section: chatHarnessSection})
+}
+
+// chatHarnessSection renders the preamble section name, or false when there
+// is no preamble section by that name.
+func chatHarnessSection(name string) (string, bool) {
+	key := strings.ToLower(strings.TrimSpace(name))
+	e, ok := harnessRegistry[key]
+	if !ok || e.kind != harnessKindPreambleSection {
+		return "", false
+	}
+	if e.disabled {
+		return "", true
+	}
+	return harnessRender(key, currentPreambleData()), true
+}

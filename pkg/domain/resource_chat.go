@@ -314,6 +314,9 @@ type ChatConfig struct {
 	// JudgePreset names a preset (assets/presets) whose judges review the
 	// answer, as agent mode's /harness preset applies them. Not with judges.
 	JudgePreset string `yaml:"judgePreset,omitempty"`
+	// Harness names agent mode's preamble sections (accuracy, honesty,
+	// output, ...) to add to the system prompt, in order.
+	Harness []string `yaml:"harness,omitempty"`
 }
 
 // Judge is one reviewer of a chat answer: a workflow chat's judges: entry, or

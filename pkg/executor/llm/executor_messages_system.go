@@ -23,14 +23,24 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/harness"
 )
 
-func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
+// buildSystemPrompt is the chat's harness sections (chat.harness), then its
+// JSON response and tool instructions.
+func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) (string, error) {
 	kdeps_debug.Log("enter: buildSystemPrompt")
+	sections, err := harness.Sections(config.Harness)
+	if err != nil {
+		return "", err
+	}
 	var sb strings.Builder
 	appendJSONResponseInstructions(&sb, config)
 	appendToolInstructions(&sb, config)
-	return sb.String()
+	if sections != "" && sb.Len() > 0 {
+		return sections + "\n\n" + sb.String(), nil
+	}
+	return sections + sb.String(), nil
 }
 
 func appendJSONResponseInstructions(sb *strings.Builder, config *domain.ChatConfig) {
