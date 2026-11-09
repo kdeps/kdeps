@@ -435,6 +435,8 @@ Each model call is checked against the backend's [request body limit](/reference
 
 A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call; later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.
 
+A call that overflows the model's context is compacted and retried once, as in agent mode: everything after the system messages is summarized with the `compaction-system` and `compaction-user` harness prompts, and the model resumes from that summary and the original prompt. A prompt that overflows on its own still fails.
+
 ### kdeps tools (by name)
 
 A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.

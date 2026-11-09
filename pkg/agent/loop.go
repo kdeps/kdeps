@@ -55,6 +55,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v2/pkg/overflow"
 	"github.com/kdeps/kdeps/v2/pkg/reply"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 	"github.com/kdeps/kdeps/v2/pkg/toolcall"
@@ -1235,7 +1236,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
-	if err != nil && IsContextOverflowError(err) {
+	if err != nil && overflow.Is(err) {
 		finalContent, err = l.compactAndRetry(ctx, input, w)
 	}
 	if err != nil {
@@ -1345,7 +1346,7 @@ func (l *Loop) streamChatWithRetry(
 		if again {
 			continue
 		}
-		if !isTransientError(err) || IsContextOverflowError(err) {
+		if !isTransientError(err) || overflow.Is(err) {
 			return "", nil, err
 		}
 		lastErr = err
@@ -1426,24 +1427,9 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 		if l.onAutoCompact != nil {
 			l.onAutoCompact(summary)
 		}
-		// Inject checkpoint reference into the compacted context so the LLM
-		// knows where to resume from.
-		input = fmt.Sprintf(
-			"CONTEXT OVERFLOW RECOVERY. The conversation was too long and was compacted. "+
-				"Summary of previous work: %s\n\n"+
-				"Check if the original task is already completed. If YES, respond with the final status. "+
-				"If NO, continue from where you left off.\n\n"+
-				"Original request: %s",
-			summary, input,
-		)
+		input = overflow.RecoveryPrompt(summary, input)
 	} else {
-		// Compaction failed: inject a minimal continuation prompt.
-		input = fmt.Sprintf(
-			"CONTEXT OVERFLOW. Check if the task is already done. "+
-				"If YES, respond with final status. If NO, continue.\n\n"+
-				"Original request: %s",
-			input,
-		)
+		input = overflow.RecoveryPrompt("", input)
 	}
 
 	preamble := l.cachedSystemPreamble()

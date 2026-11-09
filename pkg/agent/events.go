@@ -315,6 +315,7 @@ func initEvents() {
 	configureToolBudget()
 	configureBodyLimit()
 	configureFailureBrief()
+	configureCompaction()
 }
 
 // applyParallel sets the one cap on concurrent work for both modes from the
