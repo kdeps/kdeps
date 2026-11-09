@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package reply
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSanitizeLoopArtifacts(t *testing.T) {
+func TestClean(t *testing.T) {
 	cases := []struct {
 		name string
 		in   string
@@ -68,21 +68,21 @@ func TestSanitizeLoopArtifacts(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			assert.Equal(t, c.want, sanitizeLoopArtifacts(c.in))
+			assert.Equal(t, c.want, Clean(c.in))
 		})
 	}
 }
 
-func TestSanitizeLoopArtifacts_KeepsMemoryWordInProse(t *testing.T) {
+func TestClean_KeepsMemoryWordInProse(t *testing.T) {
 	// "GOAL:" only triggers the directive strip when the distinctive header text
 	// is present; a sentence that merely contains the word "goal" is safe.
 	in := "Memory is the bridge between models. The goal: keep it in sync."
-	assert.Equal(t, in, sanitizeLoopArtifacts(in))
+	assert.Equal(t, in, Clean(in))
 }
 
 // Instrument session hunt1: a reply carried private-use citation markers and
 // <File> wrappers, which reached the terminal as stray text.
-func TestSanitizeLoopArtifacts_StripsCitationMarkersAndFileTags(t *testing.T) {
+func TestClean_StripsCitationMarkersAndFileTags(t *testing.T) {
 	in := "Keep `<File>calc.py</File>` dependency-free. citerecord_memory0\n\n- <File>notes.md</File> citeturn2file2"
-	assert.Equal(t, "Keep `calc.py` dependency-free.\n\n- notes.md", sanitizeLoopArtifacts(in))
+	assert.Equal(t, "Keep `calc.py` dependency-free.\n\n- notes.md", Clean(in))
 }

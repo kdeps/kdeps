@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/reply"
 )
 
 // A model's refusal record: every time the loop catches a model inventing a
@@ -88,7 +90,7 @@ func modelRecordKey(backend, model string) string {
 
 // refusalSentence is the first sentence of a refusal, cut to refusalTextMax.
 func refusalSentence(content string) string {
-	t := strings.Join(strings.Fields(sanitizeLoopArtifacts(content)), " ")
+	t := strings.Join(strings.Fields(reply.Clean(content)), " ")
 	if loc := sentenceEndRe.FindStringIndex(t); loc != nil {
 		t = t[:loc[0]+1] // a "." inside a name (notes.md) is not an end
 	}

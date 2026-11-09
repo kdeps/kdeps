@@ -55,6 +55,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v2/pkg/reply"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 	"github.com/kdeps/kdeps/v2/pkg/toolcall"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
@@ -1149,7 +1150,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
 	}
-	response = sanitizeLoopArtifacts(response)
+	response = reply.Clean(response)
 
 	// Preserve conversation history
 	l.session.Append(input, response)
@@ -1274,7 +1275,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
 	}
-	response = sanitizeLoopArtifacts(response)
+	response = reply.Clean(response)
 
 	l.session.Append(input, response)
 	l.resumeNote = ""

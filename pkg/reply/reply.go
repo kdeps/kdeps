@@ -16,7 +16,9 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+// Package reply strips control syntax a model leaked into its answer. Agent
+// mode and workflow chats both run it on the reply.
+package reply
 
 import (
 	"regexp"
@@ -59,11 +61,12 @@ var citationMarkerRe = regexp.MustCompile(`[ \t]*\x{E200}[^\x{E201}\n]*\x{E201}`
 // name; the name is kept.
 var fileTagRe = regexp.MustCompile(`<File>([^<\n]*)</File>`)
 
-// sanitizeLoopArtifacts strips agent-loop control syntax the model emitted into
-// its reply -- "[MEMORY: ...]" markers and echoed goal-directive lines -- after
-// the loop has already extracted whatever it needed from them. The visible
-// answer and the session transcript keep only real content.
-func sanitizeLoopArtifacts(text string) string {
+// Clean strips control syntax the model emitted into its reply --
+// "[MEMORY: ...]" markers, echoed goal-directive lines, private citation
+// markers and <File> wrappers -- after the caller has extracted whatever it
+// needed from them. The visible answer and any transcript keep only real
+// content.
+func Clean(text string) string {
 	if text == "" {
 		return text
 	}
