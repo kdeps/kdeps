@@ -517,3 +517,12 @@ func TestMaxRoundsEvents(t *testing.T) {
 	assert.Equal(t, 9, applyConfigDefaults(Config{MaxToolRounds: 9}).MaxToolRounds, "a set value wins")
 	assert.Equal(t, 5, executorLLM.ChatToolRounds())
 }
+
+// TestThinkingBudgetEvents: a workflow chat's thinking mode with no
+// budgetTokens reads the same thinking-budget-<mode> events as agent mode.
+func TestThinkingBudgetEvents(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	assert.Equal(t, 16000, executorLLM.ThinkingBudget(domain.ThinkingModeHigh))
+	assert.Equal(t, thinkingBudget(domain.ThinkingModeLow), executorLLM.ThinkingBudget(domain.ThinkingModeLow))
+}

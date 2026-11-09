@@ -193,9 +193,12 @@ chat:
     n: 1                       # alias for candidateCount (OpenAI style)
     minLength: 0               # minimum response length in tokens
     maxLength: 0               # maximum response length in tokens (alias for maxTokens)
+    thinking:
+      mode: high               # none | minimal | low | medium | high | xhigh | auto
+      # budgetTokens: 8000     # omit to use the thinking-budget-high event (16000), as agent mode's /thinking does
   context:
     fewShot:
-      embeddingModel: ""  # embedding model for semantic few-shot selection (requires fewShotSelectK)
+      embeddingModel: ""  # embedding model for semantic few-shot selection (requires selectK)
       embeddingBackend: "" # backend serving the embedding model above
 
   harness:

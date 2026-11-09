@@ -312,6 +312,7 @@ func initEvents() {
 	configureJudges()
 	configureSubagent()
 	executorLLM.SetChatToolRounds(func() int { return effectiveRounds(eventChatMaxRounds) })
+	executorLLM.SetThinkingBudget(thinkingBudget)
 	configureToolBudget()
 	configureBodyLimit()
 	configureChatHarness()

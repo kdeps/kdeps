@@ -143,7 +143,7 @@ run: truncate
 
 ## Thinking budgets
 
-Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model may spend up to that many tokens reasoning before it answers; models that do not reason ignore it. A missing or disabled budget event uses 10000.
+Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model may spend up to that many tokens reasoning before it answers; models that do not reason ignore it. A workflow chat's `thinking:` mode with no `budgetTokens` uses the same event. A missing or disabled budget event uses 10000.
 
 | Event | `/thinking` mode | Default |
 |---|---|---|

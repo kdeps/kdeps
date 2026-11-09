@@ -35,17 +35,18 @@ func IsSystemSentinel(v string) bool {
 }
 
 // ThinkingMode controls the reasoning/thinking budget for models that support it.
+// With no budgetTokens a mode gets its thinking-budget-<mode> event.
 // Applies to Anthropic Claude 3.7+, OpenAI o-series, DeepSeek-R1, and similar.
 type ThinkingMode string
 
 const (
 	ThinkingModeNone    ThinkingMode = "none"
-	ThinkingModeMinimal ThinkingMode = "minimal" // pi-compatible alias for light reasoning
-	ThinkingModeLow     ThinkingMode = "low"     // ~20% of max tokens
-	ThinkingModeMedium  ThinkingMode = "medium"  // ~50% of max tokens
-	ThinkingModeHigh    ThinkingMode = "high"    // ~80% of max tokens
-	ThinkingModeXHigh   ThinkingMode = "xhigh"   // maximum reasoning (selected models only)
-	ThinkingModeAuto    ThinkingMode = "auto"    // provider decides
+	ThinkingModeMinimal ThinkingMode = "minimal"
+	ThinkingModeLow     ThinkingMode = "low"
+	ThinkingModeMedium  ThinkingMode = "medium"
+	ThinkingModeHigh    ThinkingMode = "high"
+	ThinkingModeXHigh   ThinkingMode = "xhigh" // selected models only
+	ThinkingModeAuto    ThinkingMode = "auto"
 )
 
 // ThinkingConfig controls extended reasoning/thinking for models that support it.
