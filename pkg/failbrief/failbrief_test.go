@@ -100,7 +100,7 @@ func TestSettings(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(fs, "/w/a", nil, 0o600))
 	require.NoError(t, afero.WriteFile(fs, "/w/b", nil, 0o600))
-	assert.Equal(t, "/w/c does not exist. Entries in /w: a, ... 1 more",
+	assert.Equal(t, "/w/c does not exist. Entries in "+filepath.FromSlash("/w")+": a, ... 1 more",
 		FileContext(fs, "read_file", map[string]any{"path": "/w/c"}))
 	assert.Equal(t, "Current content of f, lines 1-3 of 3:\n1\taaaa\n...", fileExcerpt("f", "aaaa\nb\nc\n", 1))
 	assert.Equal(t, `"short"`, Quote("short"), "a value below 1 uses the default")
