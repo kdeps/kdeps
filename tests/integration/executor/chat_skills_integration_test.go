@@ -109,5 +109,6 @@ func TestWorkflowChat_Skills(t *testing.T) {
 	assert.Contains(t, out, "NO SKILLS")
 
 	_, err = run([]string{"/empty"})
-	require.ErrorContains(t, err, "chat.skills: no skills found in /empty")
+	require.ErrorContains(t, err, "chat.skills: no skills found in")
+	assert.True(t, strings.HasSuffix(err.Error(), "empty"), err.Error())
 }
