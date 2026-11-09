@@ -432,6 +432,9 @@
           "type": "string",
           "minLength": 1
         },
+        "refine": {
+          "type": "boolean"
+        },
         "promptVars": {
           "type": "object"
         },

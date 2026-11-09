@@ -245,6 +245,28 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "chat refine",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "refine-action",
+				"name":       "Refine",
+				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "refine": true},
+			},
+			wantErr: false,
+		},
+		{
+			name: "chat refine must be a boolean",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "refine-action",
+				"name":       "Refine",
+				"chat":       map[string]interface{}{"model": "m", "prompt": "p", "refine": "yes"},
+			},
+			wantErr: true,
+		},
+		{
 			name: "valid HTTP resource",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
