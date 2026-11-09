@@ -23,6 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/bodylimit"
 )
 
 func TestProviderMaxRequestBodyBytes(t *testing.T) {
@@ -97,16 +99,6 @@ func TestCheckRequestBodySizePreflight_UnboundedBackend(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestFormatBytes(t *testing.T) {
-	assert.Equal(t, "1.0 MB", formatBytes(1<<20))
-	assert.Equal(t, "6.0 MB", formatBytes(6_291_456))
-	assert.Equal(t, "100.0 MB", formatBytes(104_857_600))
-	assert.Equal(t, "500 bytes", formatBytes(500))
-	assert.Equal(t, "0 bytes", formatBytes(0))
-	assert.Equal(t, "999 bytes", formatBytes(999))
-	assert.Equal(t, "1024 bytes", formatBytes(1024)) // below MB threshold
-}
-
 func TestRequestSizePreflightWarnings(t *testing.T) {
 	warnings := RequestSizePreflightWarnings("dashscope")
 	require.Len(t, warnings, 1)
@@ -127,4 +119,12 @@ func TestRequestSizePreflightWarnings_UseTheEvents(t *testing.T) {
 		Name: eventProviderSmallThreshold, On: EventTrigger{Bytes: 10_000_000}, Run: actionReject, Disabled: true,
 	})
 	assert.Empty(t, RequestSizePreflightWarnings("dashscope"), "a disabled threshold warns about nothing")
+}
+
+func TestConfigureBodyLimit(t *testing.T) {
+	withEvent(t, Event{Name: eventProviderBodyLimitDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
+	t.Cleanup(func() { bodylimit.Configure(bodylimit.Settings{}) })
+	configureBodyLimit()
+	assert.Equal(t, int64(6_291_456), bodylimit.Limit("dashscope"))
+	assert.Zero(t, bodylimit.Limit("ollama"))
 }

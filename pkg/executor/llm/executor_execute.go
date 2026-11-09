@@ -19,8 +19,10 @@
 package llm
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/kdeps/kdeps/v2/pkg/bodylimit"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -95,7 +97,7 @@ func (e *Executor) executeChat(
 	timeout := e.resolveTimeout(resolvedConfig)
 	maxOutputBytes := e.resolveMaxOutputBytes()
 
-	call := langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout)
+	call := limitBody(backendName, langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, modelStr, timeout))
 	recordWorkflowRequest(resolvedConfig, backendName, modelStr, messages, allTools)
 	started := time.Now()
 	response := e.callWithFallback(ctx.Ctx, call, fallbackRoutes, resolvedConfig, messages, requestConfig, timeout)
@@ -127,4 +129,20 @@ func (e *Executor) executeChat(
 		logWorkflowRun(ctx, resolvedConfig, promptStr, result)
 	}
 	return result, chatRun{cfg: resolvedConfig, prompt: promptStr}, err
+}
+
+// limitBody refuses a model call whose messages exceed backend's request body
+// limit (the provider-body-limit-* events), as agent mode does, so an
+// oversized request fails with an actionable error instead of a provider 400.
+func limitBody(backend string, call chatCall) chatCall {
+	return func(messages []map[string]any, requestConfig ChatRequestConfig) (map[string]any, error) {
+		if limit := bodylimit.Limit(backend); limit > 0 {
+			if body, err := json.Marshal(messages); err == nil {
+				if tooBig := bodylimit.Check(backend, int64(len(body)), limit); tooBig != nil {
+					return nil, tooBig
+				}
+			}
+		}
+		return call(messages, requestConfig)
+	}
 }

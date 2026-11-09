@@ -431,6 +431,8 @@ A model that writes a tool call as text instead of a structured call (`<tool_cal
 
 The answer of a chat with tools is cleaned as in agent mode: `[MEMORY: ...]` markers, tool-call markup, a self-written `<tool_response>` and `<File>` wrappers are stripped. A `jsonResponse` chat is left to its JSON parser.
 
+Each model call is checked against the backend's [request body limit](/reference/security#request-body-size-preflight) first; a request over it fails with an actionable error and never reaches the model.
+
 ### kdeps tools (by name)
 
 A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
