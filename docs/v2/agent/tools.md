@@ -375,6 +375,8 @@ Tokens are YAML files in `~/.kdeps/tokens`. Without a valid token the call is re
 
 Workflow stages use the same tiers. The file's `resources` table maps each primary resource kind (`exec`, `python`, `httpClient`, `sql`-style kinds, `chat`, `agent`, `component`, ...) to a tier. Every run, including plain `kdeps run`, checks each stage against `KDEPS_PERMISSION_MODE` before it executes. A stage needing a higher mode is refused and the workflow stops. An `ask`-tier kind is refused too, since a workflow run has no one to ask. The default run mode is `danger-full-access`, so nothing changes until an operator sets a stricter one.
 
+A workflow chat's kdeps tool calls (`write_file`, `bash_exec`, ...) pass the `tools` table the same way: a call above the run mode, an `ask`-tier tool, or a `token`-tier tool with no token is refused, and the model gets the refusal as the tool result.
+
 While an instrument session records, every gate decision is a `permission_decision` event with the tool, the mode it needs (`required`), the mode in force (`mode`), `decision` (`allow` or `deny`), and the `reason` when denied.
 
 ## Lean mode

@@ -54,6 +54,9 @@ func kdepsTools(ctx context.Context, tools []domain.Tool) ([]domain.Tool, error)
 		}
 		name := t.Name
 		out[i].Execute = func(args map[string]any) (string, error) {
+			if err := executor.ToolPermission(name); err != nil {
+				return "", err
+			}
 			return api.CallTool(ctx, name, args)
 		}
 	}

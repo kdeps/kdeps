@@ -63,3 +63,21 @@ var readOnlyTool func(name string) bool
 
 // SetReadOnlyTool installs the read-only check for component calls.
 func SetReadOnlyTool(check func(name string) bool) { readOnlyTool = check }
+
+// toolPermission decides whether a workflow chat may call a kdeps tool by
+// name (write_file, bash_exec, ...). The agent package installs it with the
+// stage check, from the same policy and run mode. Nil allows every tool.
+//
+//nolint:gochecknoglobals // set once at startup by the agent package
+var toolPermission func(name string) error
+
+// SetToolPermission installs the check every workflow chat tool call passes.
+func SetToolPermission(check func(name string) error) { toolPermission = check }
+
+// ToolPermission is the installed check's verdict on tool, or nil.
+func ToolPermission(tool string) error {
+	if toolPermission == nil {
+		return nil
+	}
+	return toolPermission(tool)
+}
