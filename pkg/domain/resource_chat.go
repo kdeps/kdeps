@@ -317,6 +317,9 @@ type ChatConfig struct {
 	// Harness names agent mode's preamble sections (accuracy, honesty,
 	// output, ...) to add to the system prompt, in order.
 	Harness []string `yaml:"harness,omitempty"`
+	// Refine rewrites the prompt into a clearer, self-contained request
+	// before the call, as agent mode's /refine does (refine-system harness).
+	Refine bool `yaml:"refine,omitempty"`
 }
 
 // Judge is one reviewer of a chat answer: a workflow chat's judges: entry, or

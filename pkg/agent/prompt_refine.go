@@ -22,9 +22,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/refine"
 )
 
 // Pre-turn prompt refinement. Before the real action call, one cheap synthetic
@@ -35,15 +35,6 @@ import (
 // per the agent loop executor contract.
 
 const refineActionID = "agent_loop_refine"
-
-// refineExpansionSlack bounds how much longer a rewrite may be than the
-// original before it is treated as a runaway expansion and discarded.
-const (
-	refineExpansionFactor = 4
-	refineExpansionSlack  = 200
-	// minQuotedLen is the shortest string that can be quote-wrapped ("").
-	minQuotedLen = 2
-)
 
 // PromptRefineEnabled reports whether pre-turn prompt refinement is active.
 func (l *Loop) PromptRefineEnabled() bool {
@@ -81,7 +72,7 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 	if l == nil || l.engine == nil || ctx.Err() != nil {
 		return input
 	}
-	if strings.TrimSpace(input) == "" || looksTrivial(input) {
+	if refine.Skip(input) {
 		return input
 	}
 	// Local models must be served before the refiner can call them; otherwise
@@ -108,9 +99,9 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 		// Deliberately NOT routed through turo: the input is the exact request
 		// being clarified and the system prompt is an instruction spec;
 		// reducing either to content words defeats the purpose.
-		Prompt: "Request:\n" + input,
+		Prompt: refine.Request(input),
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: harnessText("refine-system")},
+			{Role: "system", Prompt: refine.SystemPrompt()},
 		},
 		// No tools, no JSON mode: a plain-text rewrite.
 	}
@@ -122,31 +113,14 @@ func refinePrompt(ctx context.Context, l *Loop, input string) string {
 		return input
 	}
 
-	out := cleanRefined(formatLoopResult(result))
-	if out == "" || out == input {
-		return input
-	}
-	if len(out) > len(input)*refineExpansionFactor+refineExpansionSlack {
-		return input
-	}
-	return out
+	return refine.Accept(input, formatLoopResult(result))
 }
 
-// cleanRefined strips wrapping quotes and a leading "rewritten request:" style
-// label that some models add despite the instruction not to.
-func cleanRefined(s string) string {
-	s = strings.TrimSpace(s)
-	for _, prefix := range []string{
-		"rewritten request:", "rewritten:", "refined request:", "refined:", "request:",
-	} {
-		if len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix) {
-			s = strings.TrimSpace(s[len(prefix):])
-		}
-	}
-	if len(s) >= minQuotedLen {
-		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
-			s = strings.TrimSpace(s[1 : len(s)-1])
-		}
-	}
-	return s
+// configureRefine installs the refine-system harness and the trivial-prompt
+// rule, which workflow chats with refine: true use too.
+func configureRefine() {
+	refine.Configure(refine.Settings{
+		SystemPrompt: func() string { return harnessText("refine-system") },
+		Trivial:      looksTrivial,
+	})
 }

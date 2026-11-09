@@ -440,6 +440,9 @@
           },
           "uniqueItems": true
         },
+        "refine": {
+          "type": "boolean"
+        },
         "promptVars": {
           "type": "object"
         },

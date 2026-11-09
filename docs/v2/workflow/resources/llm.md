@@ -371,6 +371,18 @@ chat:
 
 Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing; an unknown name fails the resource.
 
+## Prompt refine
+
+`refine: true` rewrites the prompt into a clearer, self-contained request before the call, as agent mode's `/refine` does:
+
+```yaml
+chat:
+  prompt: "{{ get('q') }}"   # e.g. "fix it" -> "Fix the failing build in ./cmd and report what changed."
+  refine: true                 # one extra model call with the refine-system harness prompt
+```
+
+The chat's history is context for the rewrite. A trivial prompt, a failed refine call or an unusable reply keeps the prompt as written.
+
 ## Vision (file attachments)
 
 Process images (set a vision-capable model in the resource's `model:`):

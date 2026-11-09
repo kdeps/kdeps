@@ -315,6 +315,7 @@ func initEvents() {
 	configureToolBudget()
 	configureBodyLimit()
 	configureChatHarness()
+	configureRefine()
 	configureFailureBrief()
 	configureCompaction()
 }
