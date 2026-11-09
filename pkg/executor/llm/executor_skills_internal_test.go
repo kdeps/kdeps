@@ -50,10 +50,11 @@ func TestWithSkills(t *testing.T) {
 	assert.Len(t, msgs, 1, "no skills: unchanged")
 	assert.Empty(t, tools)
 
-	cfg := &domain.ChatConfig{Skills: []string{"skills", "/abs/SKILL.md"}}
+	abs := filepath.Join(t.TempDir(), "SKILL.md") // absolute on every OS
+	cfg := &domain.ChatConfig{Skills: []string{"skills", abs}}
 	msgs, tools, err = withSkills(ctx, cfg, []map[string]any{user}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, []string{filepath.Join("/wf", "skills"), "/abs/SKILL.md"}, asked)
+	assert.Equal(t, []string{filepath.Join("/wf", "skills"), abs}, asked)
 	require.Len(t, msgs, 2)
 	assert.Equal(t, roleSystem, msgs[0][jsonFieldRole])
 	assert.Contains(t, msgs[0][jsonFieldContent], "SKILLS\n\n<available_skills>")
@@ -80,5 +81,5 @@ func TestWithSkills(t *testing.T) {
 
 	skills.Configure(skills.Settings{Load: func([]string) []skills.Skill { return nil }})
 	_, _, err = withSkills(nil, cfg, nil, nil)
-	require.ErrorContains(t, err, "chat.skills: no skills found in skills, /abs/SKILL.md")
+	require.ErrorContains(t, err, "chat.skills: no skills found in skills, "+abs)
 }
