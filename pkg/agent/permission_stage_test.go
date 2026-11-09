@@ -3,9 +3,10 @@ package agent
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 func TestStageGate_DangerModeAllowsEveryKind(t *testing.T) {
@@ -56,7 +57,8 @@ func TestToolGate_ApprovalAndTokenTiers(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	writeUserPolicy(t, home, "default: allow\ntiers:\n  T2: ask\n  T3: token\ntools:\n  write_file: T2\n  bash_exec: T3\n")
+	policy := "default: allow\ntiers:\n  T2: ask\n  T3: token\ntools:\n  write_file: T2\n  bash_exec: T3\n"
+	writeUserPolicy(t, home, policy)
 	initPermissionPolicy()
 	t.Cleanup(initPermissionPolicy)
 	t.Setenv("KDEPS_PERMISSION_MODE", "danger-full-access")
