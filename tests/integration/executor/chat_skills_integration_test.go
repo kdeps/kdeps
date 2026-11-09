@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -41,7 +42,7 @@ func TestWorkflowChat_Skills(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	skills.Configure(skills.Settings{
 		Load: func(paths []string) []skills.Skill {
-			if paths[0] != "/skills" {
+			if filepath.Base(paths[0]) != "skills" {
 				return nil
 			}
 			return []skills.Skill{{Name: "deploy", Description: "Ship it", Body: "STEP ONE: build"}}
