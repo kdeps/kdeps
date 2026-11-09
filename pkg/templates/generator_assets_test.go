@@ -41,7 +41,7 @@ func TestGenerateProject_SkipsManifestAndUsesDownloadedBundle(t *testing.T) {
 	assert.FileExists(t, filepath.Join(out, "workflow.yaml"))
 	assert.NoFileExists(t, filepath.Join(out, assets.ManifestFile), "version manifest is not project content")
 
-	bundle := []byte("version: 1.1.0\nfiles:\n  workflow.yaml.j2: \"name: {{ name }}-v2\\n\"\n")
+	bundle := []byte("version: 9.0.0\nfiles:\n  workflow.yaml.j2: \"name: {{ name }}-v2\\n\"\n")
 	require.NoError(t, assets.Install(root, "templates/api-service", bundle, false))
 	out = filepath.Join(t.TempDir(), "updated")
 	require.NoError(t, gen.GenerateProject("api-service", out, templates.TemplateData{Name: "demo"}))
