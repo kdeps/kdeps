@@ -524,6 +524,8 @@ A model that writes a tool call as text instead of a structured call (`<tool_cal
 
 The answer of a chat with tools is cleaned as in agent mode: `[MEMORY: ...]` markers, tool-call markup, a self-written `<tool_response>` and `<File>` wrappers are stripped. A `harness.output.json` chat is left to its JSON parser.
 
+A text answer that ends the tool loop is pushed back as in agent mode: a failed call reported as done gets `nudge-unresolved-failure`, a made-up limit ("I can't access the files") gets `nudge-self-limit`, and an action claimed with no tool call gets `nudge-unbacked-claim`. Each fires up to its harness entry's `maxOccurrences`; the model then answers again.
+
 Each model call is checked against the backend's [request body limit](/reference/security#request-body-size-preflight) first; a request over it fails with an actionable error and never reaches the model.
 
 A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call; later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.

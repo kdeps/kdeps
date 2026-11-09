@@ -52,6 +52,11 @@ def reply_for(msgs):
         return "GOT REFINED"
     if "REFINEME" in last:
         return "GOT ORIGINAL"
+    if "CLAIMNUDGE" in everything:
+        # workflow nudges: claim an action with no tool call until nudged.
+        if "You made no tool call" in last:
+            return "NUDGED BACK"
+        return "I've created notes.md for you."
     if "HARNESSCHECK" in last:
         # chat.harness: report which harness sections reached the model.
         tags = [t for t in ("accuracy", "honesty", "output") if "<%s>" % t in everything]

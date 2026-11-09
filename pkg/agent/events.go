@@ -317,6 +317,7 @@ func initEvents() {
 	configureChatHarness()
 	configureRefine()
 	configureSkills()
+	configureNudges()
 	configureFailureBrief()
 	configureCompaction()
 }

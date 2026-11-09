@@ -54,7 +54,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v2/pkg/nudge"
 	"github.com/kdeps/kdeps/v2/pkg/overflow"
 	"github.com/kdeps/kdeps/v2/pkg/reply"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
@@ -1675,29 +1675,6 @@ var sandboxArtifactRe = regexp.MustCompile(`(?i)` +
 	// /repo: No such file or directory" about a directory that exists.
 	`|\b(?:/bin/)?(?:ba)?sh: line \d+:`)
 
-// unbackedClaimRe matches a reply reporting an action in the first person or as
-// a line led by the action ("Created notes.md", "Remembered: ...", "I've
-// remembered that ...", "I'll remember that"), beyond the completion claims
-// toolguard already matches.
-var unbackedClaimRe = regexp.MustCompile(`(?im)` +
-	`^\W*(?:created|updated|wrote|written|saved|fixed|deleted|removed|renamed|remembered|stored|recorded)\b` +
-	`|^\W*done\s*:` +
-	// A reported command run or its output ("Command run:", "exited with
-	// code 5", "git diff --stat returned:") and a reported save ("has been
-	// stored"): instrument session hunt7.
-	`|^\W*commands?\s+run\s*:|\bexited\s+with\s+\W*(?:code|status)\b|\breturned\s*:\s*$` +
-	`|\b(?:has|have)\s+been\s+(?:stored|saved|recorded|remembered|noted)\b` +
-	`|\bI(?:'ll|\s+will)\s+remember\b` +
-	`|\bI(?:'ve|\s+have)?\s+(?:remembered|stored|noted|recorded|memorized|saved|fixed|corrected|` +
-	`deleted|removed|renamed|moved|installed|ran|run|executed)\b`)
-
-// looksLikeUnbackedClaim reports whether a text-only reply claims it did
-// something. The caller asks only when no tool ran this turn, so the claim is
-// unbacked whatever backend or model wrote it.
-func looksLikeUnbackedClaim(content string) bool {
-	return toolguard.LooksLikeHallucinatedCompletion(content) || unbackedClaimRe.MatchString(content)
-}
-
 // looksLikeSandboxHallucination reports whether a text-only round reads as a
 // simulated sandbox session rather than a real answer.
 func looksLikeSandboxHallucination(content string) bool {
@@ -2281,33 +2258,6 @@ func toolFailureUnresolvedNotice(f *toolFailure) string {
 		" call actually failed (" + f.msg + ") and was never retried successfully.]\n"
 }
 
-// failureAcknowledgmentWords are substrings whose presence in a round's text
-// signals the model is aware the last work tool failed, rather than silently
-// claiming success over it. Deliberately broad (word fragments, not exact
-// phrases) since a model has endless ways to phrase an admission -- this only
-// needs to distinguish "aware of the failure" from "no acknowledgment at
-// all," not classify the admission precisely.
-//
-//nolint:gochecknoglobals // static lookup table
-var failureAcknowledgmentWords = []string{
-	"fail", "error", "cannot", "can't", "unable", "did not", "didn't",
-	"not able", "no access", "blocked", "wasn't able", "was not able",
-}
-
-// acknowledgesFailure reports whether content shows any awareness that the
-// last work tool failed. A round that admits it (however it phrases that) is
-// accepted as the turn's honest answer rather than nudged/flagged as an
-// unresolved success claim -- only a bald, unqualified claim draws that.
-func acknowledgesFailure(content string) bool {
-	lower := strings.ToLower(content)
-	for _, w := range failureAcknowledgmentWords {
-		if strings.Contains(lower, w) {
-			return true
-		}
-	}
-	return false
-}
-
 // handleEmptyToolRound processes a round the streamer returned with no native
 // tool calls. It first tries to recover a tool call the model wrote as text
 // (<tool_call>{...}, <function=...>, DSML, a bare JSON object) --- returned as
@@ -2354,7 +2304,7 @@ func (l *Loop) handleEmptyToolRound(
 		content = sandboxUnverifiedBanner + content
 		buffered = sandboxUnverifiedBanner + buffered
 	}
-	if !sandbox && !nudges.acted && len(chatCfg.Tools) > 0 && looksLikeUnbackedClaim(content) &&
+	if !sandbox && !nudges.acted && len(chatCfg.Tools) > 0 && nudge.UnbackedClaim(content) &&
 		harnessOccurrenceAllowed("nudge-unbacked-claim", nudges.unbacked) {
 		l.recordModelRefusal(refusalKindUnbacked, content)
 		repeat := nudges.unbacked > 0
@@ -2405,7 +2355,7 @@ func (l *Loop) resolveEmptyToolRound(
 		_, _ = io.WriteString(w, notice)
 		return nil, notice + res.content, res.chatCfg, true
 	}
-	if l.lastWorkFailure != nil && !acknowledgesFailure(res.content) {
+	if l.lastWorkFailure != nil && !nudge.AcknowledgesFailure(res.content) {
 		if harnessOccurrenceAllowed("nudge-unresolved-failure", nudges.workFailure) {
 			repeat := nudges.workFailure > 0
 			nudges.workFailure++
@@ -2463,15 +2413,15 @@ func (l *Loop) handleTextOnlyRound(
 	// real", a promise to call the tool) is neither work nor an answer. It has
 	// no tool call and leaves the task where it was, so it draws the same
 	// self-limit push again, bounded by that entry's occurrence cap.
-	if looksLikeNudgeAck(content) &&
+	if nudge.Ack(content) &&
 		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
 		nudges.selfLimit++
 		return nudgeSelfLimitConfig(chatCfg, nudges.selfLimit > 1), true
 	}
 	// A reply that states the last tool failure ("was not able", "did not")
 	// is an honest admission, not a fictional limit.
-	if (l.lastWorkFailure == nil || !admitsToolFailure(content)) &&
-		looksLikeSelfLimit(content) &&
+	if (l.lastWorkFailure == nil || !nudge.AdmitsFailure(content)) &&
+		nudge.SelfLimit(content) &&
 		harnessOccurrenceAllowed("nudge-self-limit", nudges.selfLimit) {
 		l.recordModelRefusal(refusalKindLimit, content)
 		repeat := nudges.selfLimit > 0

@@ -21,6 +21,7 @@ package llm
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/spf13/afero"
@@ -29,6 +30,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/failbrief"
+	"github.com/kdeps/kdeps/v2/pkg/nudge"
 	"github.com/kdeps/kdeps/v2/pkg/reply"
 	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
 	"github.com/kdeps/kdeps/v2/pkg/toolcall"
@@ -76,7 +78,19 @@ func (e *Executor) handleToolCalls(
 	for range maxIterations {
 		toolCalls, hasToolCalls := e.pendingToolCalls(currentResponse, tools)
 		if !hasToolCalls {
-			return currentResponse, nil
+			note := guard.nudge(cfg, replyContent(currentResponse))
+			if note == "" {
+				return currentResponse, nil
+			}
+			currentMessages = append(currentMessages,
+				map[string]interface{}{"role": "assistant", jsonFieldContent: replyContent(currentResponse)},
+				map[string]interface{}{"role": "user", jsonFieldContent: note})
+			nextResponse, err := e.chatFollowUp(cfg, call, currentMessages, requestConfig)
+			if err != nil {
+				return nil, err
+			}
+			currentResponse = nextResponse
+			continue
 		}
 		// A model that keeps re-issuing calls it already has the results of is
 		// looping (common with small models); stop and make it answer.
@@ -146,7 +160,15 @@ type callGuard struct {
 	results map[string]interface{}
 	// failures counts failed calls briefed so far (efficiency-failures).
 	failures int
+	// ran is true once any call ran; lastFailure is the last call that
+	// failed with no success since; nudged counts each nudge's uses.
+	ran         bool
+	lastFailure *toolFailure
+	nudged      map[string]int
 }
+
+// toolFailure is a failed call the reply must not report as done.
+type toolFailure struct{ Tool, Msg string }
 
 func newCallGuard() *callGuard {
 	return &callGuard{
@@ -154,6 +176,7 @@ func newCallGuard() *callGuard {
 		limit:   max(toolbudget.IdenticalCalls(), 1),
 		issued:  map[string]int{},
 		results: map[string]interface{}{},
+		nudged:  map[string]int{},
 	}
 }
 
@@ -190,6 +213,7 @@ func (g *callGuard) answer(name, args string, id interface{}) map[string]interfa
 func (g *callGuard) remember(name, args string, result interface{}) {
 	if g != nil {
 		g.results[toolbudget.Key(name, args)] = result
+		g.ran, g.lastFailure = true, nil
 	}
 }
 
@@ -199,6 +223,9 @@ func (g *callGuard) remember(name, args string, result interface{}) {
 // cause and call again.
 func (g *callGuard) failed(name, args string, id interface{}, err error) map[string]interface{} {
 	result := map[string]interface{}{"tool_call_id": id, fieldName: name, fieldError: err.Error()}
+	if g != nil {
+		g.ran, g.lastFailure = true, &toolFailure{Tool: name, Msg: err.Error()}
+	}
 	if g == nil || g.failures >= failbrief.Failures() {
 		return result
 	}
@@ -211,6 +238,44 @@ func (g *callGuard) failed(name, args string, id interface{}, err error) map[str
 	}
 	result[fieldBrief] = brief
 	return result
+}
+
+// nudge is the push-back for a text reply that ends the tool loop, as agent
+// mode gives it (pkg/nudge): a failed call reported as done, a fictional
+// limit ("I can't access the files"), or an action claimed with no call.
+// Each fires up to its harness entry's maxOccurrences; "" accepts the reply.
+func (g *callGuard) nudge(cfg *domain.ChatConfig, content string) string {
+	if strings.TrimSpace(content) == "" || (cfg != nil && cfg.JSONResponse) {
+		return ""
+	}
+	fire := func(entry string, data any) string {
+		note := nudge.Text(entry, g.nudged[entry], data)
+		if note != "" {
+			g.nudged[entry]++
+		}
+		return note
+	}
+	if g.lastFailure != nil && !nudge.AcknowledgesFailure(content) {
+		if note := fire(nudge.UnresolvedFailureEntry, *g.lastFailure); note != "" {
+			return note
+		}
+	}
+	if (g.lastFailure == nil || !nudge.AdmitsFailure(content)) && (nudge.SelfLimit(content) || nudge.Ack(content)) {
+		if note := fire(nudge.SelfLimitEntry, nil); note != "" {
+			return note
+		}
+	}
+	if !g.ran && nudge.UnbackedClaim(content) {
+		return fire(nudge.UnbackedClaimEntry, nil)
+	}
+	return ""
+}
+
+// replyContent is a response's message text.
+func replyContent(response map[string]interface{}) string {
+	message, _ := response[jsonFieldMessage].(map[string]interface{})
+	content, _ := message[jsonFieldContent].(string)
+	return content
 }
 
 // toolCallKey identifies a call by name and canonical arguments.

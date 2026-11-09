@@ -113,6 +113,7 @@ scenario test_workflow_body_limit.sh
 scenario test_workflow_chat_harness.sh
 scenario test_workflow_chat_refine.sh
 scenario test_workflow_chat_skills.sh
+scenario test_workflow_chat_nudges.sh
 scenario test_workflow_failure_brief.sh
 scenario test_workflow_overflow_compaction.sh
 scenario test_workflow_text_tool_calls.sh
