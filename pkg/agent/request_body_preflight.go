@@ -18,17 +18,14 @@
 
 package agent
 
-// MINE-12: Request Body Size Preflight.
-// Ported from claw-code rust/crates/api/src/providers/openai_compat.rs.
-//
-// Per-provider maximum request body size enforcement. Prevents silent 400
-// errors from providers with strict payload limits (e.g. DashScope/kimi at
-// 6 MB). Called before every LLM API call.
+// Per-provider request body limits: a request over the limit fails early with
+// an actionable error instead of a silent provider 400.
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/bodylimit"
 )
 
 // providerBodyLimitEvent names the event that holds a backend's request body
@@ -76,20 +73,8 @@ func EstimateRequestSizeBytes(tokenCount int, messageCount int) int64 {
 
 // CheckRequestBodySize checks whether the estimated request size exceeds the
 // provider's limit. Returns nil if within limits or no limit is configured.
-// Returns an error with an actionable message if the request would exceed the limit.
 func CheckRequestBodySize(backend string, estimatedBytes int64) error {
-	limit := providerMaxRequestBodyBytes(backend)
-	if limit <= 0 {
-		return nil // no known limit
-	}
-	if estimatedBytes > limit {
-		return fmt.Errorf(
-			"request body size ~%s exceeds %s limit of %s "+
-				"(reduce context window, trim conversation history, or switch models)",
-			formatBytes(estimatedBytes), backend, formatBytes(limit),
-		)
-	}
-	return nil
+	return bodylimit.Check(backend, estimatedBytes, providerMaxRequestBodyBytes(backend))
 }
 
 // CheckRequestBodySizePreflight checks the request size from a known token count
@@ -98,15 +83,6 @@ func CheckRequestBodySize(backend string, estimatedBytes int64) error {
 func CheckRequestBodySizePreflight(backend string, tokenCount, messageCount int) error {
 	estimated := EstimateRequestSizeBytes(tokenCount, messageCount)
 	return CheckRequestBodySize(backend, estimated)
-}
-
-// formatBytes returns a human-readable byte string (e.g. "6.0 MB").
-func formatBytes(b int64) string {
-	const mb = 1 << 20
-	if b >= mb {
-		return fmt.Sprintf("%.1f MB", float64(b)/float64(mb))
-	}
-	return fmt.Sprintf("%d bytes", b)
 }
 
 // RequestSizePreflightWarnings returns the startup warning for backend when
@@ -120,7 +96,7 @@ func RequestSizePreflightWarnings(backend string) []string {
 	}
 	return []string{fmt.Sprintf(
 		"Backend %q has a %s request body limit — reduce MaxHistoryTokens if you hit payload errors",
-		backend, formatBytes(limit),
+		backend, bodylimit.FormatBytes(limit),
 	)}
 }
 
@@ -136,5 +112,8 @@ func EstimateTokenCountFromStrings(strs ...string) int {
 	return totalLen / avgBytesPerToken
 }
 
-// Re-export encoding/json for callers convenience.
-var _ = json.Marshal
+// configureBodyLimit installs the provider-body-limit-* events as the limits
+// workflow chats check before each model call.
+func configureBodyLimit() {
+	bodylimit.Configure(bodylimit.Settings{Limit: providerMaxRequestBodyBytes})
+}
