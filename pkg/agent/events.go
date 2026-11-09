@@ -313,6 +313,7 @@ func initEvents() {
 	configureSubagent()
 	executorLLM.SetChatToolRounds(func() int { return effectiveRounds(eventChatMaxRounds) })
 	configureToolBudget()
+	configureBodyLimit()
 	configureFailureBrief()
 }
 

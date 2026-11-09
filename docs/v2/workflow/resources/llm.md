@@ -431,6 +431,8 @@ A model that writes a tool call as text instead of a structured call (`<tool_cal
 
 The answer of a chat with tools is cleaned as in agent mode: `[MEMORY: ...]` markers, tool-call markup, a self-written `<tool_response>` and `<File>` wrappers are stripped. A `jsonResponse` chat is left to its JSON parser.
 
+Each model call is checked against the backend's [request body limit](/reference/security#request-body-size-preflight) first; a request over it fails with an actionable error and never reaches the model.
+
 A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call; later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.
 
 ### kdeps tools (by name)
