@@ -133,7 +133,7 @@ chat:
 ```yaml
 # resources/response.yaml
 actionId: response
-workflow:
+flow:
   requires: [llm]
 before:
   - memory_save('last_response', get('llm').message.content)

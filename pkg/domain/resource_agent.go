@@ -23,8 +23,15 @@ type APIResponseConfig struct {
 	Response   interface{}       `yaml:"response"`             // Can be any type: string, array, map, number, etc.
 	Headers    map[string]string `yaml:"headers,omitempty"`    // HTTP headers for the response
 	StatusCode int               `yaml:"statusCode,omitempty"` // HTTP status code for the response
-	Model      string            `yaml:"model,omitempty"`
-	Backend    string            `yaml:"backend,omitempty"`
+	// Meta overrides the model and backend reported in the response's _meta.
+	Meta *APIResponseMeta `yaml:"meta,omitempty"`
+}
+
+// APIResponseMeta is the model and backend an apiResponse reports; a chat
+// that ran fills them when they are unset.
+type APIResponseMeta struct {
+	Model   string `yaml:"model,omitempty"`
+	Backend string `yaml:"backend,omitempty"`
 }
 
 // AgentCallConfig configures a call to a sibling agent within the same agency.

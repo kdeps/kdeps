@@ -127,7 +127,7 @@ component:
 - ` + "`{{ input('key') }}`" + ` — HTTP request body field
 - ` + "`{{ get('resource-id') }}`" + ` — result of another resource
 - ` + "`{{ get('resource-id.field') }}`" + ` — nested field
-- Resources execute in the order listed; use ` + "`workflow: {requires: [other-id]}`" + ` on a resource for explicit ordering.
+- Resources execute in the order listed; use ` + "`flow: {requires: [other-id]}`" + ` on a resource for explicit ordering.
 
 %s
 

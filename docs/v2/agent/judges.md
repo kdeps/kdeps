@@ -87,7 +87,7 @@ cfg := agent.Config{
 }
 ```
 
-A `JudgeSpec.Tools` list scopes which registered tools that judge may call.
+A judge's `allowedTools:` list scopes which registered tools it may call.
 An empty list means `judge_verdict` only: the judge reads the candidate text
 and rules once. Name tools when the judge should check claims against the
 workspace. With `AutoJudges`, the
@@ -130,7 +130,7 @@ judges:
   - name: compatibility
     criteria: >-                  # the rubric folded into the judge's system prompt
       No existing route, field or status code changes meaning.
-    tools: [read_file, search_local]   # tools it may call to check the answer; empty = judge_verdict only
+    allowedTools: [read_file, search_local]   # tools it may call to check the answer; empty = judge_verdict only
     maxRounds: 10                 # its tool rounds; 0 = the judge-max-rounds event
   - name: errors
     criteria: Every new failure returns a documented status and message.

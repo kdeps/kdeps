@@ -1,6 +1,6 @@
 actionId: searchDocs
 name: Search Documents
-guardrails:
+validations:
   methods: [POST]
   routes: [/search]
   check:

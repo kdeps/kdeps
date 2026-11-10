@@ -64,7 +64,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [invoke, dsml]
 apiResponse:
   success: true

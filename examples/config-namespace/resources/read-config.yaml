@@ -1,7 +1,7 @@
 actionId: readConfig
 name: Read Config
 
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/v1/config]
 

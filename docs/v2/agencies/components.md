@@ -52,18 +52,18 @@ my-workflow/
 6. Component output is accessed via `output('<callerActionId>')`
 7. kdeps ships its own components in the `components` asset set: [ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql) (web_search and web_scraper are tools). One loads only when a workflow calls it and has no component of that name itself
 
-A component's resources run in order. A resource whose `skip:` condition (under `guardrails:`) is true is skipped, so a component can choose resources from its inputs. A false `check:` condition fails the call with its `error.message`:
+A component's resources run in order. A resource whose `skip:` condition (under `validations:`) is true is skipped, so a component can choose resources from its inputs. A false `check:` condition fails the call with its `error.message`:
 
 ```yaml
 # components/fetch/component.yaml (resources, abridged)
 resources:
   - actionId: viaAPI
-    guardrails:
+    validations:
       skip:
         - "get('fetch.mode') != 'api'"     # inputs are get('<component>.<input>')
     httpClient: {method: GET, url: "{{ get('fetch.url') }}"}
   - actionId: viaCLI
-    guardrails:
+    validations:
       skip:
         - "get('fetch.mode') != 'cli'"
     exec: {command: curl, args: ["-s", "{{ get('fetch.url') }}"]}

@@ -31,7 +31,7 @@ deploy:
 
 Requests are JSON and routed to resources by `targetActionId:` under the workflow's `metadata:`.
 
-Use `guardrails.methods` and `guardrails.routes` in individual resources to scope them to specific routes.
+Use `validations.methods` and `validations.routes` in individual resources to scope them to specific routes.
 
 ## Bot source
 

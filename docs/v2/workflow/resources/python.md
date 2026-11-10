@@ -140,7 +140,7 @@ component:
 </div>
 
 ```yaml
-workflow:
+flow:
   # resources/response.yaml
   requires: [summarize]
 apiResponse:
@@ -219,7 +219,7 @@ component:
   with:
     script: |
       raise SystemExit(3)
-workflow:
+flow:
   onError:
     action: continue
 ```

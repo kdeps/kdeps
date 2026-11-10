@@ -135,7 +135,7 @@ Create `resources/03-response.yaml`:
 # resources/03-response.yaml
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [runTranslate, runSummarize]
 apiResponse:
   success: true

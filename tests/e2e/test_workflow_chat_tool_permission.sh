@@ -59,7 +59,7 @@ YAML
 cat > "$TEST_DIR/resources/ask.yaml" <<YAML
 actionId: ask
 name: Ask
-guardrails:
+validations:
   routes: [/ask]
 chat:
   model:
@@ -74,7 +74,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [ask]
 apiResponse:
   success: true

@@ -61,7 +61,7 @@ Create `resources/main.yaml`:
 # resources/main.yaml
 actionId: main
 name: Process with inline resources
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/process]
   required:
@@ -106,7 +106,7 @@ after:
           import json
           print(json.dumps({"post": "done"}))
 
-workflow:
+flow:
   onError:
     action: continue
     fallback:

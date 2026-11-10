@@ -1,7 +1,7 @@
 actionId: proxyTls
 name: Proxy and TLS Configuration
 
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/v1/http-demo]
 

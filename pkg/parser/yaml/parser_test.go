@@ -330,7 +330,7 @@ httpClient:
 			yamlContent: `
 actionID: dependent-action
 name: Dependent Resource
-workflow:
+flow:
     requires:
         - action1
         - action2

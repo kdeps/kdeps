@@ -1,6 +1,6 @@
 actionId: response
 name: API Response
-workflow:
+flow:
   requires: [summarize]
 apiResponse:
   success: true

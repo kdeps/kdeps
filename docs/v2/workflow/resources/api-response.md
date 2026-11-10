@@ -12,7 +12,7 @@
 # resources/respond.yaml
 actionId: responseResource
 name: API Response
-workflow:
+flow:
   requires:
     - llmResource
 apiResponse:
@@ -36,8 +36,9 @@ apiResponse:
   headers:
     Header-Name: value
   statusCode: 200              # HTTP status code (optional)
-  model: llama3.2:1b
-  backend: file
+  meta:                        # optional: model/backend reported in _meta
+    model: llama3.2:1b
+    backend: file
 ```
 
 ## Response structure
@@ -131,7 +132,7 @@ apiResponse:
 
 ## Adding metadata
 
-Include model and backend information in responses:
+Report a model and backend in the response `_meta` with `meta:`:
 
 ```yaml
 # resources/example.yaml
@@ -139,8 +140,9 @@ apiResponse:
   success: true
   response:
     answer: get('llmResource')
-  model: llama3.2:1b
-  backend: file
+  meta:
+    model: llama3.2:1b         # reported in the response _meta
+    backend: file
 ```
 
 **Automatic Metadata**: If an LLM resource was used in the workflow, model and backend information are automatically added to the response metadata (unless explicitly specified).
@@ -160,7 +162,7 @@ chat:
 ---
 # Response automatically includes model/backend
 actionId: responseResource
-workflow:
+flow:
   requires: [llmResource]
 apiResponse:
   success: true
@@ -211,7 +213,7 @@ For error handling, use preflight checks or conditional responses:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   check:
     - get('user_id') != ''
   error:
@@ -242,7 +244,7 @@ apiResponse:
 ```yaml
 # resources/chat-response.yaml
 actionId: chatResponse
-workflow:
+flow:
   requires: [llmResource]
 apiResponse:
   success: true
@@ -261,7 +263,7 @@ apiResponse:
 ```yaml
 # resources/upload-response.yaml
 actionId: uploadResponse
-workflow:
+flow:
   requires: [processFile]
 apiResponse:
   success: true
@@ -281,7 +283,7 @@ apiResponse:
 ```yaml
 # resources/list-response.yaml
 actionId: listResponse
-workflow:
+flow:
   requires: [fetchItems]
 apiResponse:
   success: true
@@ -302,7 +304,7 @@ apiResponse:
 ```yaml
 # resources/dashboard-response.yaml
 actionId: dashboardResponse
-workflow:
+flow:
   requires:
     - userResource
     - statsResource
@@ -329,9 +331,9 @@ apiResponse:
 ```yaml
 # Successful case
 actionId: successResponse
-workflow:
+flow:
   requires: [dataResource]
-guardrails:
+validations:
   skip:
   - get('dataResource').error != null
 
@@ -343,9 +345,9 @@ apiResponse:
 ---
 # Error case
 actionId: errorResponse
-workflow:
+flow:
   requires: [dataResource]
-guardrails:
+validations:
   skip:
   - get('dataResource').error == null
 
@@ -364,7 +366,7 @@ Transform data before returning:
 ```yaml
 # resources/transformed-response.yaml
 actionId: transformedResponse
-workflow:
+flow:
   requires: [rawData]
 after:
   - set('formatted', filter(get('rawData'), .active == true))

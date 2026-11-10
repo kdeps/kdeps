@@ -23,7 +23,7 @@ resources:
   - actionId: process-items
     name: process-items
     description: "Fetch data for each item"
-    workflow:
+    flow:
       requires: []
       items:
         - "{{input.items}}"  # Iterate over items from request
@@ -40,7 +40,7 @@ resources:
   - actionId: transform-results
     name: transform-results
     description: "Extract key information from each result"
-    workflow:
+    flow:
       requires: ["process-items"]
       items:
         - "{{get('process-items')}}"  # Iterate over previous results
@@ -55,7 +55,7 @@ resources:
   - actionId: aggregate-results
     name: aggregate-results
     description: "Aggregate all processed items"
-    workflow:
+    flow:
       requires: ["transform-results"]
     component:
       name: exec
@@ -71,7 +71,7 @@ resources:
   - actionId: api-response
     name: api-response
     description: "Format results as API response"
-    workflow:
+    flow:
       requires: ["transform-results"]
     apiResponse:
       success: true

@@ -36,14 +36,14 @@ actionId: test-action
 name: Test Resource
 description: A test resource
 category: testing
-workflow:
+flow:
     requires:
         - dep1
         - dep2
     items:
       - item1
       - item2
-guardrails:
+validations:
   methods:
     - GET
     - POST

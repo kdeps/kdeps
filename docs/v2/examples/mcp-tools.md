@@ -52,7 +52,7 @@ Create `resources/chat.yaml`:
 # resources/chat.yaml
 actionId: chat
 name: Chat with MCP filesystem tools
-guardrails:
+validations:
   methods: [POST]
   routes: [/chat]
 chat:

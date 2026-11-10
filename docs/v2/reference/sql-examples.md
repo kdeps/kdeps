@@ -9,7 +9,7 @@ Works in workflow and agent mode.
 ```yaml
 # resources/user-lookup.yaml
 actionId: userLookup
-guardrails:
+validations:
   check:
     - get('user_id') != ''
   error:
@@ -77,7 +77,7 @@ component:
 ---
 # Insert into destination database
 actionId: syncProducts
-workflow:
+flow:
   requires: [fetchSource]
 component:
   name: sql
@@ -120,7 +120,7 @@ component:
 ---
 # Enhance with LLM
 actionId: enhancedSearch
-workflow:
+flow:
   requires: [searchProducts]
 chat:
   model:

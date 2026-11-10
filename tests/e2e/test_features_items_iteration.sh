@@ -58,7 +58,7 @@ cat > "$RESOURCE_FILE" <<'EOF'
 actionId: processItems
 name: Process Items
 
-workflow:
+flow:
   items:
     - "item1"
     - "item2"

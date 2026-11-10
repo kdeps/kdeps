@@ -60,7 +60,7 @@ cat > "$RESOURCE_FILE" <<'EOF'
 actionId: validator
 name: Input Validator
 
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/validate]
 apiResponse:

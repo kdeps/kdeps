@@ -1,6 +1,6 @@
 # Validation and control flow - examples
 
-Best practices and examples for the [`guardrails:` block](/workflow/validation).
+Best practices and examples for the [`validations:` block](/workflow/validation).
 
 Workflow mode only.
 
@@ -10,7 +10,7 @@ Workflow mode only.
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   skip:
     - get('enableCache') != true
 ```
@@ -21,7 +21,7 @@ guardrails:
 
 ```yaml
 # Good: Catch errors before expensive operations
-guardrails:
+validations:
   check:
     - get('userId') != null
     - get('apiKey') != ''
@@ -38,7 +38,7 @@ guardrails:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   routes: [/api/v1/admin]
   methods: [POST]
 ```
@@ -51,7 +51,7 @@ guardrails:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/admin]
   headers: [Authorization]
@@ -77,7 +77,7 @@ chat:
 # resources/smart-processor.yaml
 actionId: smartProcessor
 name: Smart Processor
-guardrails:
+validations:
   skip:
     - get('process') != true
   check:
@@ -102,7 +102,7 @@ component:
 # resources/secure-endpoint.yaml
 actionId: secureEndpoint
 name: Secure Endpoint
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/secure]
   headers: [Authorization, Content-Type]
@@ -121,6 +121,6 @@ chat:
 
 ## See also
 
-- [Validation and control flow](/workflow/validation) - Full `guardrails:` block reference
+- [Validation and control flow](/workflow/validation) - Full `validations:` block reference
 - [Expressions](/workflow/expressions) - Expression syntax for conditions
 - [Unified API](/workflow/data-access) - Using `get()` in validations

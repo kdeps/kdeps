@@ -71,7 +71,7 @@ EOF
 cat > "$TEST_DIR/resources/store.yaml" <<EOF
 actionId: memStore
 name: Memory Store
-guardrails:
+validations:
   routes: [/mem/store]
   methods: [POST]
 component:
@@ -86,7 +86,7 @@ EOF
 cat > "$TEST_DIR/resources/retrieve.yaml" <<EOF
 actionId: memRetrieve
 name: Memory Retrieve
-guardrails:
+validations:
   routes: [/mem/retrieve]
   methods: [POST]
 component:
@@ -100,7 +100,7 @@ EOF
 cat > "$TEST_DIR/resources/forget.yaml" <<EOF
 actionId: memForget
 name: Memory Forget
-guardrails:
+validations:
   routes: [/mem/forget]
   methods: [POST]
 component:
@@ -114,7 +114,7 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [memStore, memRetrieve, memForget]
 apiResponse:
   success: true

@@ -16,7 +16,7 @@ deploy:
   runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-agent:
+repl:
   executionType: stdin
   prompt: "You: "
   sessionId: "llm-chat-session"

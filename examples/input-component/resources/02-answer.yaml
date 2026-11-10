@@ -1,6 +1,6 @@
 actionId: answer
 name: Answer the Query
-workflow:
+flow:
     requires:
         - collectInputs
 

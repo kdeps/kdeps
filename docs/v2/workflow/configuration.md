@@ -19,7 +19,7 @@ deploy: workflow.yaml deploy {
   B2: "webServer\nstatic files or subprocess proxy"
   B3: "runtime\nPython, OS packages, env vars"
 }
-memory: "memory\ncross-request key-value store"
+session: "session\ncross-request key-value store"
 
 global: "~/.kdeps/config.yaml" {
   G1: "bot_connections\nchat-bot platform tokens"
@@ -28,9 +28,9 @@ global: "~/.kdeps/config.yaml" {
   G4: "sql_connections\nnamed DB connections"
 }
 
-settings.B3 -> C: configures runtime
-settings.B5 -> C: provides session store
-settings.B2 -> B: runs alongside
+deploy.B3 -> C: configures runtime
+session -> C: provides session store
+deploy.B2 -> B: runs alongside
 global.G1 -> C: provides connections
 global.G2 -> C: provides connections
 global.G3 -> C: provides connections
@@ -53,11 +53,12 @@ metadata:
 deploy:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
-  runtime: { ... }   # runtime environment (Python, OS packages, LLM backend)
-memory: { ... }         # session persistence settings
+  runtime: { ... }         # runtime environment (Python, OS packages, LLM backend)
+session: { ... }           # per-session key-value store: set(k, v, 'session')
+repl: { ... }              # stdin chat prompt (executionType: stdin)
 ```
 
-Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `settings:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
+Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 
@@ -78,11 +79,11 @@ In an [agency](/reference/glossary#agency), each agent resolves its own profile 
 
 ## Interactive stdin REPL
 
-`settings.llm.executionType: stdin` makes `kdeps run` an interactive prompt (workflow mode): each line you type runs the target resource with that line as `input('message')`, and the result prints back - a chat resource's reply as text, anything else as JSON. `--interactive` does the same for any workflow; a server or bot workflow keeps running in the background while you type.
+`executionType: stdin` under `repl:` makes `kdeps run` an interactive prompt (workflow mode): each line you type runs the target resource with that line as `input('message')`, and the result prints back - a chat resource's reply as text, anything else as JSON. `--interactive` does the same for any workflow; a server or bot workflow keeps running in the background while you type.
 
 ```yaml
 # workflow.yaml
-agent:
+repl:
   executionType: stdin   # each stdin line runs targetActionId with it as the message
   prompt: "You: "        # the prompt shown before each line
 ```
@@ -176,7 +177,7 @@ deploy:
         command: "streamlit run app.py"
 ```
 
-## Agent settings
+## Runtime
 
 `runtime` controls the runtime environment. These settings affect Docker image builds and local execution.
 
@@ -229,7 +230,7 @@ Session storage persists values set with `set('key', val, 'session')` across req
 
 ```yaml
 # workflow.yaml
-memory:
+session:
   ttl: "30m"     # how long a session lives without activity
   type: sqlite   # storage backend
 ```

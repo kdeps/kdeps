@@ -59,7 +59,7 @@ Create `resources/chat.yaml`:
 # resources/chat.yaml
 actionId: chat
 name: Chat handler
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/chat]
   required:
@@ -79,7 +79,7 @@ chat:
     scenario:
       - role: system
         prompt: "You are a helpful assistant. Answer clearly and concisely."
-workflow:
+flow:
   onError:
     action: continue
     fallback:

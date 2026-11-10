@@ -50,7 +50,7 @@ deploy:
 resources:
   - actionId: llm
     name: Ask the AI
-    guardrails:
+    validations:
       check:
         - get('q') != ''        # reject the request before any model call
       error:
@@ -64,7 +64,7 @@ resources:
         prompt: "{{ get('q') }}"
   - actionId: response
     name: Return the answer
-    workflow:
+    flow:
       requires: [llm]             # runs after llm
     apiResponse:
       success: true

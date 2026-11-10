@@ -89,7 +89,7 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [greet]
 apiResponse:
   success: true

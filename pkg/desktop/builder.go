@@ -116,7 +116,7 @@ const (
 	keyName        = "name"
 	keyDescription = "description"
 	keyRequires    = "requires"
-	keyWorkflow    = "workflow"
+	keyFlow        = "flow"
 	keyResources   = "resources"
 	keyMetadata    = "metadata"
 	resourcesDir   = "resources"
@@ -140,7 +140,7 @@ var multilineFields = map[string]bool{
 // nonActionBlocks are Resource struct blocks that are not actions.
 //
 //nolint:gochecknoglobals // static lookup table
-var nonActionBlocks = map[string]bool{"guardrails": true, "loop": true, "onError": true}
+var nonActionBlocks = map[string]bool{"validations": true, "loop": true, "onError": true}
 
 //nolint:gochecknoglobals // computed once from the domain types
 var (
@@ -394,7 +394,7 @@ func (s *Service) toForm(n *yaml.Node) (ResourceForm, error) {
 	form.ActionID, _ = m[keyActionID].(string)
 	form.Name, _ = m[keyName].(string)
 	form.Description, _ = m[keyDescription].(string)
-	wf, _ := m[keyWorkflow].(map[string]any)
+	wf, _ := m[keyFlow].(map[string]any)
 	if reqs, ok := wf[keyRequires].([]any); ok {
 		for _, r := range reqs {
 			form.Requires = append(form.Requires, fmt.Sprint(r))
@@ -404,7 +404,7 @@ func (s *Service) toForm(n *yaml.Node) (ResourceForm, error) {
 	for _, item := range orderedKeys(n) {
 		switch {
 		case item == keyActionID || item == keyName || item == keyDescription:
-		case item == keyWorkflow && len(wf) == 1 && wf[keyRequires] != nil:
+		case item == keyFlow && len(wf) == 1 && wf[keyRequires] != nil:
 		case form.Kind == "" && s.kind(item) != nil:
 			form.Kind = item
 			form.Action = s.actionToForm(item, mappingValue(n, item))
@@ -423,7 +423,7 @@ func withoutRequires(n *yaml.Node) *yaml.Node {
 	out := &yaml.Node{Kind: yaml.MappingNode}
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		k, v := n.Content[i], n.Content[i+1]
-		if k.Value == keyWorkflow && v.Kind == yaml.MappingNode {
+		if k.Value == keyFlow && v.Kind == yaml.MappingNode {
 			wf := &yaml.Node{Kind: yaml.MappingNode, Tag: v.Tag}
 			for j := 0; j+1 < len(v.Content); j += 2 {
 				if v.Content[j].Value != keyRequires {
@@ -514,9 +514,9 @@ func withRequires(kvs []keyValue, reqs []string) []keyValue {
 	_ = list.Encode(reqs)
 	pair := []*yaml.Node{scalarNode(keyRequires), &list}
 	for i, kv := range kvs {
-		if wf, ok := kv.Value.(*yaml.Node); ok && kv.Key == keyWorkflow && wf.Kind == yaml.MappingNode {
+		if wf, ok := kv.Value.(*yaml.Node); ok && kv.Key == keyFlow && wf.Kind == yaml.MappingNode {
 			merged := &yaml.Node{Kind: yaml.MappingNode, Content: append(pair, wf.Content...)}
-			kvs[i] = keyValue{keyWorkflow, merged}
+			kvs[i] = keyValue{keyFlow, merged}
 			return kvs
 		}
 	}
@@ -524,7 +524,7 @@ func withRequires(kvs []keyValue, reqs []string) []keyValue {
 	for at < len(kvs) && (kvs[at].Key == keyActionID || kvs[at].Key == keyName || kvs[at].Key == keyDescription) {
 		at++
 	}
-	wf := keyValue{keyWorkflow, &yaml.Node{Kind: yaml.MappingNode, Content: pair}}
+	wf := keyValue{keyFlow, &yaml.Node{Kind: yaml.MappingNode, Content: pair}}
 	return append(kvs[:at], append([]keyValue{wf}, kvs[at:]...)...)
 }
 

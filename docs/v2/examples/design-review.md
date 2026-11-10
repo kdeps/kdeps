@@ -27,7 +27,7 @@ One file per criterion. Each reads only the request, so all four run at once.
 ```yaml
 # resources/scope.yaml
 actionId: scope
-guardrails:
+validations:
   skip:
     - "get('doc') == nil"   # an answer request carries no doc: skip the review
 chat:
@@ -56,7 +56,7 @@ chat:
 ```yaml
 # resources/reply.yaml
 actionId: reply
-workflow:
+flow:
   requires: [scope, clarity, failure-modes, readiness]
 before:
   # keep the findings in the session for the answer request

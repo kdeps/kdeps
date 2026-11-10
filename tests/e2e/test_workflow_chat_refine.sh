@@ -55,7 +55,7 @@ YAML
 cat > "$TEST_DIR/resources/refined.yaml" <<'YAML'
 actionId: refined
 name: Refined
-guardrails:
+validations:
   routes: [/ask]
 chat:
   model:
@@ -69,7 +69,7 @@ YAML
 cat > "$TEST_DIR/resources/plain.yaml" <<'YAML'
 actionId: plain
 name: Plain
-guardrails:
+validations:
   routes: [/ask]
 chat:
   model:
@@ -81,7 +81,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [refined, plain]
 apiResponse:
   success: true

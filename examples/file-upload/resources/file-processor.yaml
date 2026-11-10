@@ -1,7 +1,7 @@
 actionId: fileProcessor
 name: File Processor
 
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/upload]
 apiResponse:

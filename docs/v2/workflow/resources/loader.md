@@ -117,7 +117,7 @@ component:
 ```yaml
 # resources/index.yaml
 actionId: index
-workflow:
+flow:
   requires: [load]
 component:
   name: vector_store

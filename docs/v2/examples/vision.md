@@ -88,9 +88,9 @@ Create `resources/vision-response.yaml`:
 # resources/vision-response.yaml
 actionId: visionResponse
 name: Vision response
-workflow:
+flow:
   requires: [visionLLM]
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/vision]
 apiResponse:

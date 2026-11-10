@@ -85,7 +85,7 @@ resources:
         url: "http://127.0.0.1:${PORT_BACKEND}/data.json"
   - actionId: response
     name: HTTP Response
-    workflow:
+    flow:
       requires: [httpCall]
     restrictToHttpMethods: [GET]
     restrictToRoutes: [/api/fetch]

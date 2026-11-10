@@ -38,18 +38,18 @@ deploy:
     portNum: 3000
   runtime:
     timezone: Etc/UTC
-memory:
+session:
   backend: memory
-agent:
+repl:
   executionType: stdin
 resources:
   - actionId: a
     name: A
-    workflow:
+    flow:
       requires: [b]
       onError:
         action: continue
-    guardrails:
+    validations:
       required: [q]
     chat:
       model:
@@ -69,6 +69,7 @@ resources:
         maxRounds: 3
       rag:
         retriever:
+          passages: [chunk one]
           topK: 4
       guardrails:
         judgePreset: design-review
@@ -98,6 +99,7 @@ func TestYAMLLayout_RoundTrip(t *testing.T) {
 	assert.True(t, c.JSONResponse)
 	assert.Equal(t, 3, c.MaxToolRounds)
 	assert.Equal(t, 4, c.RetrieverContextTopK)
+	assert.Equal(t, []string{"chunk one"}, c.RetrieverContext)
 	assert.Equal(t, "design-review", c.JudgePreset)
 
 	out, err := yaml.Marshal(&wf)
@@ -116,8 +118,9 @@ func TestYAMLLayout_Errors(t *testing.T) {
 		"flat chat key":    {"chat:\n  prompt: hi\n", "chat.prompt moved to chat.context.prompt"},
 		"model scalar":     {"chat:\n  model: m\n", "chat.model must be a mapping"},
 		"unknown in group": {"chat:\n  model:\n    nope: 1\n", "unknown key chat.model.nope"},
-		"flat requires":    {"requires: [a]\n", "resource.requires moved to resource.workflow.requires"},
-		"validations":      {"validations: {}\n", "resource.validations is now guardrails"},
+		"flat requires":    {"requires: [a]\n", "resource.requires moved to resource.flow.requires"},
+		"workflow group":   {"workflow:\n  requires: [a]\n", "resource.workflow is now flow"},
+		"guardrails":       {"guardrails: {}\n", "resource.guardrails is now validations"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var r domain.Resource
@@ -128,7 +131,11 @@ func TestYAMLLayout_Errors(t *testing.T) {
 	}
 	var wf domain.Workflow
 	err := yaml.Unmarshal([]byte("settings:\n  input: {}\n"), &wf)
-	require.ErrorContains(t, err, "workflow.settings is now deploy, memory and agent")
+	require.ErrorContains(t, err, "workflow.settings is now deploy, session and repl")
 	err = yaml.Unmarshal([]byte("tests: []\n"), &wf)
 	require.ErrorContains(t, err, "workflow.tests is now evals")
+	err = yaml.Unmarshal([]byte("memory:\n  type: sqlite\n"), &wf)
+	require.ErrorContains(t, err, "workflow.memory is now session")
+	err = yaml.Unmarshal([]byte("agent:\n  executionType: stdin\n"), &wf)
+	require.ErrorContains(t, err, "workflow.agent is now repl")
 }

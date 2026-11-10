@@ -1,6 +1,6 @@
 actionId: finalResult
 name: Combined HTTP Results
-workflow:
+flow:
   requires: [authenticatedApi, apiKeyAuth, proxyTls]
 
 apiResponse:

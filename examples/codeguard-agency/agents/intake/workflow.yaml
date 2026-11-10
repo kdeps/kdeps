@@ -27,7 +27,7 @@ resources:
   # ── Step 0: Validate ──────────────────────────────────────────────────────────
   - actionId: validate
     name: Validate Input
-    guardrails:
+    validations:
       methods: [POST]
       routes: [/api/v1/review]
       check:
@@ -44,7 +44,7 @@ resources:
   # ── Step 1a: Security review (parallel) ───────────────────────────────────────
   - actionId: callSecurity
     name: Call Security Agent
-    workflow:
+    flow:
       requires: [validate]
     agent:
       name: code-security
@@ -55,7 +55,7 @@ resources:
   # ── Step 1b: Quality review (parallel with 1a) ────────────────────────────────
   - actionId: callQuality
     name: Call Quality Agent
-    workflow:
+    flow:
       requires: [validate]
     agent:
       name: code-quality
@@ -66,7 +66,7 @@ resources:
   # ── Step 2: Synthesise report (waits for both 1a and 1b) ─────────────────────
   - actionId: callReport
     name: Call Report Agent
-    workflow:
+    flow:
       requires: [callSecurity, callQuality]
     agent:
       name: code-report
@@ -79,7 +79,7 @@ resources:
   # ── Step 3: Return final report ───────────────────────────────────────────────
   - actionId: final-response
     name: Final Response
-    workflow:
+    flow:
       requires: [callReport]
     apiResponse:
       success: true

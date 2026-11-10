@@ -1,10 +1,10 @@
 actionId: respond
 name: Webhook Response
-workflow:
+flow:
   requires:
     - reply
 
-guardrails:
+validations:
   routes: [/webhook]
   # GET is Meta's verification handshake: echo hub.challenge (digits only)
   # when hub.verify_token matches.

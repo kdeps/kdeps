@@ -113,7 +113,7 @@ func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 	kdeps_debug.Log("enter: getPatternSuggestion")
 	// Known patterns
 	patternMap := map[string]string{
-		"guardrails.routes":            routePatternSuggestion,
+		"validations.routes":           routePatternSuggestion,
 		"deploy.apiServer.routes.path": routePatternSuggestion,
 		"routes.path":                  routePatternSuggestion,
 	}

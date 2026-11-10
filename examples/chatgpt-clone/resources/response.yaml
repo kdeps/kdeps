@@ -1,7 +1,7 @@
 actionId: responseResource
 name: API Response Router
 description: Routes and formats responses based on the endpoint called
-workflow:
+flow:
     requires:
         - llmResource
         - modelsResource

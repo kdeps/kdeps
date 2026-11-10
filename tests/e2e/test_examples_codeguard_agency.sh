@@ -146,11 +146,11 @@ else
 fi
 
 # ── Test 14: input validation present in intake ───────────────────────────────
-if grep -q "guardrails:" "$INTAKE_WF"; then
-    test_passed "Codeguard Agency - intake has input guardrails"
+if grep -q "validations:" "$INTAKE_WF"; then
+    test_passed "Codeguard Agency - intake has input validations"
 else
-    test_failed "Codeguard Agency - intake has input guardrails" \
-        "No guardrails: block found in $INTAKE_WF"
+    test_failed "Codeguard Agency - intake has input validations" \
+        "No validations: block found in $INTAKE_WF"
 fi
 
 # ── Test 15: callSecurity and callQuality both require validate ───────────────

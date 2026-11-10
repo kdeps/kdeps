@@ -1,7 +1,7 @@
 actionId: authenticatedApi
 name: Authenticated API Call
 
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/v1/http-demo]
 

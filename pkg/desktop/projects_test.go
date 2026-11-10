@@ -294,7 +294,7 @@ func TestValidateProject(t *testing.T) {
 	assert.Empty(t, h.svc.ValidateProject(h.addGreeter(t)))
 
 	writeFile(t, filepath.Join(h.ws, "hello", "resources", "respond.yaml"),
-		"actionId: respond\nname: Respond\nworkflow:\n  requires: [missing]\napiResponse:\n  success: true\n")
+		"actionId: respond\nname: Respond\nflow:\n  requires: [missing]\napiResponse:\n  success: true\n")
 	problems := h.svc.ValidateProject(hello)
 	require.NotEmpty(t, problems)
 	assert.Contains(t, strings.Join(problems, "\n"), "missing")

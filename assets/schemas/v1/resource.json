@@ -18,11 +18,18 @@
           "type": "integer",
           "description": "HTTP status code for the response"
         },
-        "model": {
-          "type": "string"
-        },
-        "backend": {
-          "type": "string"
+        "meta": {
+          "type": "object",
+          "description": "Model and backend reported in the response _meta; a chat that ran fills them when unset.",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "backend": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -86,9 +93,9 @@
     "name"
   ],
   "properties": {
-    "guardrails": {
+    "validations": {
       "type": "object",
-      "description": "Request guardrails: allowed methods/routes, required fields, rules and checks.",
+      "description": "Request validations: allowed methods/routes, required fields, rules and checks.",
       "properties": {
         "methods": {
           "type": "array",
@@ -601,7 +608,7 @@
             "retriever": {
               "type": "object",
               "properties": {
-                "context": {
+                "passages": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -662,7 +669,7 @@
                   "criteria": {
                     "type": "string"
                   },
-                  "tools": {
+                  "allowedTools": {
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -869,7 +876,7 @@
         "Resource"
       ]
     },
-    "workflow": {
+    "flow": {
       "type": "object",
       "description": "DAG wiring: dependencies, iteration, loop, and error handling.",
       "properties": {

@@ -23,7 +23,7 @@ resources:
   - actionId: fetch-repo-data
     name: fetch-repo-data
     description: "Fetch GitHub repository information"
-    workflow:
+    flow:
       requires: []
     component:
       name: http_request
@@ -39,7 +39,7 @@ resources:
   - actionId: fetch-commits
     name: fetch-commits
     description: "Fetch recent commits"
-    workflow:
+    flow:
       requires: ["fetch-repo-data"]
     component:
       name: http_request
@@ -55,7 +55,7 @@ resources:
   - actionId: fetch-contributors
     name: fetch-contributors
     description: "Fetch repository contributors"
-    workflow:
+    flow:
       requires: ["fetch-repo-data"]
     component:
       name: http_request
@@ -71,7 +71,7 @@ resources:
   - actionId: fetch-issues
     name: fetch-issues
     description: "Fetch recent issues"
-    workflow:
+    flow:
       requires: ["fetch-repo-data"]
     component:
       name: http_request
@@ -87,7 +87,7 @@ resources:
   - actionId: analyze-activity
     name: analyze-activity
     description: "Analyze repository activity with AI"
-    workflow:
+    flow:
       requires: ["fetch-commits", "fetch-contributors", "fetch-issues"]
     chat:
       model:
@@ -123,7 +123,7 @@ resources:
   - actionId: generate-recommendations
     name: generate-recommendations
     description: "Generate improvement recommendations"
-    workflow:
+    flow:
       requires: ["analyze-activity"]
     chat:
       model:
@@ -153,7 +153,7 @@ resources:
   - actionId: save-analysis
     name: save-analysis
     description: "Save analysis results to file"
-    workflow:
+    flow:
       requires: ["analyze-activity", "generate-recommendations"]
     component:
       name: exec
@@ -195,7 +195,7 @@ resources:
   - actionId: final-report
     name: final-report
     description: "Generate final summary report"
-    workflow:
+    flow:
       requires: ["save-analysis"]
     component:
       name: exec
@@ -221,7 +221,7 @@ resources:
   - actionId: api-response
     name: api-response
     description: "Format results as API response"
-    workflow:
+    flow:
       requires: ["final-report"]
     apiResponse:
       success: true

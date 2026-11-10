@@ -78,8 +78,7 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 				Response: map[string]interface{}{
 					"message": "Hello {{get('targetModel')}}",
 				},
-				Model:   "{{get('targetModel')}}",
-				Backend: "{{get('targetBackend')}}",
+				Meta: &domain.APIResponseMeta{Model: "{{get('targetModel')}}", Backend: "{{get('targetBackend')}}"},
 				Headers: map[string]string{
 					"X-Custom-Model": "{{get('targetModel')}}",
 				},

@@ -86,7 +86,7 @@ EOF
 cat > "$TEST_DIR/resources/echo.yaml" <<'EOF'
 actionId: echoHello
 name: Echo Hello
-guardrails:
+validations:
   routes: [/exec/echo]
   methods: [POST]
 # The exec component POSTs to the kdeps API's exec tool.
@@ -107,7 +107,7 @@ EOF
 cat > "$TEST_DIR/resources/args.yaml" <<'EOF'
 actionId: echoArgs
 name: Echo Args
-guardrails:
+validations:
   routes: [/exec/args]
   methods: [POST]
 component:
@@ -126,7 +126,7 @@ EOF
 cat > "$TEST_DIR/resources/env.yaml" <<'EOF'
 actionId: execEnv
 name: Exec Env
-guardrails:
+validations:
   routes: [/exec/env]
   methods: [POST]
 component:
@@ -147,7 +147,7 @@ EOF
 cat > "$TEST_DIR/resources/multiline.yaml" <<'EOF'
 actionId: execMultiline
 name: Exec Multiline
-guardrails:
+validations:
   routes: [/exec/multiline]
   methods: [POST]
 component:
@@ -175,7 +175,7 @@ EOF
 cat > "$TEST_DIR/resources/fail.yaml" <<'EOF'
 actionId: execFail
 name: Exec Fail
-guardrails:
+validations:
   routes: [/exec/fail]
   methods: [POST]
 component:
@@ -183,7 +183,7 @@ component:
   with:
     command: sh
     args: ["-c", "exit 1"]
-workflow:
+flow:
   onError:
     action: continue
 apiResponse:
@@ -198,7 +198,7 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [echoHello, echoArgs, execEnv, execMultiline, execFail]
 apiResponse:
   success: true

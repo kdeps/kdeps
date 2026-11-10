@@ -80,7 +80,7 @@ index, no vector database.
 Best for:
 - The retrieval half of a RAG pipeline
 - A lightweight search endpoint over your own text
-- Learning `guardrails.routes` scoping
+- Learning `validations.routes` scoping
 
 [Build it step by step](/examples/rag-search)
 

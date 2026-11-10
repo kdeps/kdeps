@@ -27,7 +27,7 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-workflow:
+flow:
   requires: [scrape]
 apiResponse:
   success: true

@@ -1,10 +1,10 @@
 actionId: visionResponse
 name: Vision Response
-workflow:
+flow:
     requires:
         - visionLLM
 
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/vision]
 apiResponse:

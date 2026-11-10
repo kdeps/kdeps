@@ -31,7 +31,7 @@ component:
 ---
 
 actionId: analyzeRepo
-workflow:
+flow:
   requires: [fetchData]
 chat:
   model:

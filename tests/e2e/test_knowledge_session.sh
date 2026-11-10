@@ -525,7 +525,7 @@ YAML
     cat > "$KS_WF/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [answer]
 apiResponse:
   success: true

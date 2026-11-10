@@ -3,7 +3,7 @@ name: Main Resource with Inline Resources
 description: Demonstrates inline resources that execute before and after the main resource
 
 # Restrict to specific routes and methods, and validate input
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/process]
   required:
@@ -83,7 +83,7 @@ apiResponse:
     message: "Data processed with inline resources"
     result: "{{get('_output')}}"
 
-workflow:
+flow:
   # Error handling
   onError:
     action: continue

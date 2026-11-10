@@ -93,7 +93,7 @@ EOF
 cat > "$TEST_DIR/resources/keyword.yaml" <<EOF
 actionId: searchKeyword
 name: Search Keyword
-guardrails:
+validations:
   routes: [/search/keyword]
   methods: [POST]
 component:
@@ -111,7 +111,7 @@ EOF
 cat > "$TEST_DIR/resources/glob.yaml" <<EOF
 actionId: searchGlob
 name: Search Glob
-guardrails:
+validations:
   routes: [/search/glob]
   methods: [POST]
 component:
@@ -129,7 +129,7 @@ EOF
 cat > "$TEST_DIR/resources/limit.yaml" <<EOF
 actionId: searchLimit
 name: Search Limit
-guardrails:
+validations:
   routes: [/search/limit]
   methods: [POST]
 component:
@@ -148,7 +148,7 @@ EOF
 cat > "$TEST_DIR/resources/nomatch.yaml" <<EOF
 actionId: searchNoMatch
 name: Search No Match
-guardrails:
+validations:
   routes: [/search/nomatch]
   methods: [POST]
 component:
@@ -156,7 +156,7 @@ component:
   with:
     path: "${TEST_DIR_NATIVE}/docs"
     query: "zzz_no_such_keyword_zzz"
-workflow:
+flow:
   onError:
     action: continue
 apiResponse:
@@ -168,7 +168,7 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [searchKeyword, searchGlob, searchLimit, searchNoMatch]
 apiResponse:
   success: true

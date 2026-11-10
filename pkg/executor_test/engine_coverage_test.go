@@ -318,8 +318,7 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_YAMLOverride(t *testing.T) {
 			Response: map[string]interface{}{
 				"message": "ok",
 			},
-			Model:   "claude-3",  // YAML overrides
-			Backend: "anthropic", // YAML overrides
+			Meta: &domain.APIResponseMeta{Model: "claude-3", Backend: "anthropic"}, // YAML overrides
 		},
 	}
 

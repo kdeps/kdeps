@@ -111,7 +111,7 @@ component:
 
 # Step 2: Index it
 actionId: storeDoc
-workflow:
+flow:
   requires: [fetch]
   requires: [findDocs]
 component:

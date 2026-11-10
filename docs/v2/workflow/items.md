@@ -12,7 +12,7 @@ In workflow mode it is a DAG step. In agent mode it runs inside the workflow whe
 # resources/process-items.yaml
 
 actionId: processItems
-workflow:
+flow:
   items:
     - "Item 1"
     - "Item 2"
@@ -76,7 +76,7 @@ Both syntaxes are equivalent. Use whichever is more readable for your use case.
 ```yaml
 # resources/process-with-item-object.yaml
 actionId: processWithItemObject
-workflow:
+flow:
   items:
     - "first"
     - "second"
@@ -107,7 +107,7 @@ Pass an action ID to `item.values()` to get all iteration values from a specific
 ```yaml
 # resources/collect-results.yaml
 actionId: collectResults
-workflow:
+flow:
   requires:
     - processItems
 after:
@@ -130,7 +130,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   items:
     - "apple"
@@ -151,7 +151,7 @@ chat:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   items:
     - "Introduction"
@@ -173,14 +173,14 @@ chat:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   items:
     - "process"
     - "skip_this"
     - "process"
 
-guardrails:
+validations:
   skip:
   - get('current') == 'skip_this'
 
@@ -198,14 +198,14 @@ Items iterate over expressions that evaluate to strings. To filter, use `skip` o
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   items:
     - "Task 1|high"
     - "Task 2|low"
     - "Task 3|high"
 
-guardrails:
+validations:
   skip:
     - "!(get('current') contains '|high')"
 

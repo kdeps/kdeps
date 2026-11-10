@@ -50,7 +50,7 @@ type Workflow struct {
 	APIVersion string           `yaml:"apiVersion"`
 	Kind       string           `yaml:"kind"`
 	Metadata   WorkflowMetadata `yaml:"metadata"`
-	Settings   WorkflowSettings `yaml:"settings"`            // written as deploy, memory and agent (yaml_layout.go)
+	Settings   WorkflowSettings `yaml:"settings"`            // written as deploy, session and repl (yaml_layout.go)
 	Resources  []*Resource      `yaml:"resources,omitempty"` // Can be inline or loaded from resources/ directory.
 	Tests      []TestCase       `yaml:"evals,omitempty"`     // Cases run by kdeps test.
 

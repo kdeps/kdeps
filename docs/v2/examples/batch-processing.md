@@ -54,7 +54,7 @@ Create `resources/01-fetch.yaml`:
 # resources/01-fetch.yaml
 actionId: fetch
 name: Fetch repo data
-workflow:
+flow:
   items:
     - "{{ input.items }}"           # the "items" array from the request body
 component:
@@ -83,7 +83,7 @@ Create `resources/02-transform.yaml`:
 # resources/02-transform.yaml
 actionId: transform
 name: Extract star counts
-workflow:
+flow:
   requires: [fetch]
   items:
     - "{{ get('fetch') }}"          # iterate over fetch's collected results
@@ -110,7 +110,7 @@ Create `resources/03-response.yaml`:
 # resources/03-response.yaml
 actionId: response
 name: API response
-workflow:
+flow:
   requires: [transform]
 apiResponse:
   success: true

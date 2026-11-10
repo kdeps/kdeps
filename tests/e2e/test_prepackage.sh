@@ -201,7 +201,7 @@ YAML
     cat > "$dir/resources/respond.yaml" <<'YAML'
 actionId: respond
 name: Respond
-workflow:
+flow:
   requires: [chat]
 apiResponse:
   success: true

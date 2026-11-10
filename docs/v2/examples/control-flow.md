@@ -49,7 +49,7 @@ Create `resources/demo.yaml`:
 # resources/demo.yaml
 actionId: demo
 name: Control flow demo
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/demo]
 

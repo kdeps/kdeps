@@ -57,7 +57,7 @@ YAML
 cat > "$TEST_DIR/resources/review.yaml" <<'YAML'
 actionId: review
 name: Subagent chat
-guardrails:
+validations:
   routes: [/review]
 chat:
   model:
@@ -73,7 +73,7 @@ YAML
 cat > "$TEST_DIR/resources/refused.yaml" <<'YAML'
 actionId: refused
 name: Subagent asked for a write tool
-guardrails:
+validations:
   routes: [/refused]
 chat:
   model:
@@ -89,7 +89,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [review, refused]
 apiResponse:
   success: true

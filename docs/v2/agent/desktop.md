@@ -252,7 +252,7 @@ Saving a card with type `chat` and three fields writes this file:
 # resources/ask.yaml - written by the Build tab
 actionId: ask                       # what other resources list in requires and read with output('ask')
 name: Ask the model
-workflow:
+flow:
   requires:
     - fetch                           # ticked in the requires checkboxes
 chat:

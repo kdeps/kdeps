@@ -71,7 +71,7 @@ cat > "$RESOURCE_FILE_2" <<'EOF'
 
 actionId: secondStep
 name: Second Step
-workflow:
+flow:
   requires:
     - firstStep
 
@@ -86,7 +86,7 @@ cat > "$RESOURCE_FILE_3" <<'EOF'
 
 actionId: finalStep
 name: Final Step
-workflow:
+flow:
   requires:
     - firstStep
     - secondStep

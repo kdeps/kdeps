@@ -56,7 +56,7 @@ YAML
 cat > "$TEST_DIR/resources/with.yaml" <<'YAML'
 actionId: with
 name: With sections
-guardrails:
+validations:
   routes: [/ask]
 chat:
   model:
@@ -70,7 +70,7 @@ YAML
 cat > "$TEST_DIR/resources/without.yaml" <<'YAML'
 actionId: without
 name: Without sections
-guardrails:
+validations:
   routes: [/ask]
 chat:
   model:
@@ -82,7 +82,7 @@ YAML
 cat > "$TEST_DIR/resources/bad.yaml" <<'YAML'
 actionId: bad
 name: Unknown section
-guardrails:
+validations:
   routes: [/bad]
 chat:
   model:
@@ -96,7 +96,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [with, without, bad]
 apiResponse:
   success: true

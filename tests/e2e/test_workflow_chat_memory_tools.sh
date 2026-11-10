@@ -57,7 +57,7 @@ YAML
 cat > "$TEST_DIR/resources/save.yaml" <<'YAML'
 actionId: save
 name: Save
-guardrails:
+validations:
   routes: [/ask]
 chat:
   model:
@@ -72,9 +72,9 @@ YAML
 cat > "$TEST_DIR/resources/recall.yaml" <<'YAML'
 actionId: recall
 name: Recall
-guardrails:
+validations:
   routes: [/ask]
-workflow:
+flow:
   requires: [save]
 chat:
   model:
@@ -89,7 +89,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [save, recall]
 apiResponse:
   success: true

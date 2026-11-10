@@ -129,7 +129,7 @@ component:
 
 ---
 actionId: answer
-workflow:
+flow:
   requires: [findFiles]
 chat:
   model:

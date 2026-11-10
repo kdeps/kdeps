@@ -146,7 +146,7 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-workflow:
+flow:
   requires:
     - readConfig
 apiResponse:

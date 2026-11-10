@@ -34,7 +34,7 @@ type Resource struct {
 
 	// Cross-cutting execution fields
 	Tool        string             `yaml:"tool,omitempty"        json:"tool,omitempty"`
-	Validations *ValidationsConfig `yaml:"guardrails,omitempty"`
+	Validations *ValidationsConfig `yaml:"validations,omitempty"`
 	Loop        *LoopConfig        `yaml:"loop,omitempty"`
 	Before      []ActionConfig     `yaml:"before,omitempty"` // expressions/actions before primary
 	After       []ActionConfig     `yaml:"after,omitempty"`  // expressions/actions after primary

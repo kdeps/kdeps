@@ -1,6 +1,6 @@
 actionId: finalResponse
 name: Final Response
-workflow:
+flow:
     requires:
         - sayHello
 apiResponse:

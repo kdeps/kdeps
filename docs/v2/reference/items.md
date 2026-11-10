@@ -13,7 +13,7 @@ Works in workflow and agent mode.
 ```yaml
 # resources/batch-queries.yaml
 actionId: batchQueries
-workflow:
+flow:
   items:
     - "What is machine learning?"
     - "Explain neural networks"
@@ -38,7 +38,7 @@ chat:
 ```yaml
 # resources/enrich-products.yaml
 actionId: enrichProducts
-workflow:
+flow:
   requires: [fetchProducts]
   items:
     - "get('fetchProducts')"
@@ -59,7 +59,7 @@ component:
 ```yaml
 # resources/generate-report.yaml
 actionId: generateReport
-workflow:
+flow:
   items:
     - "executive_summary|Executive Summary"
     - "analysis|Market Analysis"
@@ -90,7 +90,7 @@ chat:
 ```yaml
 # resources/translate.yaml
 actionId: translate
-workflow:
+flow:
   items:
     - "es|Spanish"
     - "fr|French"
@@ -119,7 +119,7 @@ chat:
 ```yaml
 # resources/chained-process.yaml
 actionId: chainedProcess
-workflow:
+flow:
   items:
     - "1|gather_requirements"
     - "2|design_solution"
@@ -145,7 +145,7 @@ chat:
 ```yaml
 # resources/analyze-images.yaml
 actionId: analyzeImages
-workflow:
+flow:
   items:
     - "/uploads/image1.jpg"
     - "/uploads/image2.jpg"
@@ -169,7 +169,7 @@ Item results are collected into an array:
 ```yaml
 # Processing resource
 actionId: processItems
-workflow:
+flow:
   items:
     - "Item 1"
     - "Item 2"
@@ -181,7 +181,7 @@ chat:
 ---
 # Response resource
 actionId: response
-workflow:
+flow:
   requires: [processItems]
 apiResponse:
   response:

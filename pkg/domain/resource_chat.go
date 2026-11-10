@@ -337,7 +337,7 @@ type Judge struct {
 	Criteria string `yaml:"criteria,omitempty"`
 	// Tools names the tools the judge may call to check claims: the chat's
 	// own tools in workflow mode, read-only session tools in agent mode.
-	Tools []string `yaml:"tools,omitempty"`
+	Tools []string `yaml:"allowedTools,omitempty"`
 	// MaxRounds caps the judge's tool rounds; 0 uses the judge-max-rounds event.
 	MaxRounds int `yaml:"maxRounds,omitempty"`
 	// Graders are deterministic checks run before any model call. A failed

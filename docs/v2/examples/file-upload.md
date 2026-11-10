@@ -52,7 +52,7 @@ Create `resources/file-processor.yaml`:
 # resources/file-processor.yaml
 actionId: fileProcessor
 name: File processor
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/upload]
 apiResponse:

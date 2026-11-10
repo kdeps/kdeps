@@ -2072,8 +2072,7 @@ func TestEngine_executeAPIResponse_MetaModelBackend(t *testing.T) {
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
 			Response: "ok",
-			Model:    "gpt-4",
-			Backend:  "openai",
+			Meta:     &domain.APIResponseMeta{Model: "gpt-4", Backend: "openai"},
 		},
 	}
 

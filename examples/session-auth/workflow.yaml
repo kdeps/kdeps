@@ -25,7 +25,7 @@ deploy:
     pythonVersion: "3.12"
 
 # Session storage configuration
-memory:
+session:
   type: "sqlite"              # Use SQLite for persistent storage
   # path omitted: the db is ~/.kdeps/sessions.db, outside the project, so
   # session data never ends up in its git history

@@ -37,7 +37,7 @@ then reach for the rest as you need them.
 
 | Concept | What it is | Mode |
 |---|---|---|
-| [Validation and control](/workflow/validation) | The `guardrails:` block - skip, preflight check, route/method limits, input schema | Workflow |
+| [Validation and control](/workflow/validation) | The `validations:` block - skip, preflight check, route/method limits, input schema | Workflow |
 | [Error handling (onError)](/workflow/error-handling) | Retry, fallback value, or fail on a resource error | Workflow |
 | [Items iteration](/workflow/items) | Run a resource once per list entry (for-each) | Both |
 | [While-loop](/workflow/loop) | Repeat a resource while a condition holds; `every:` for scheduled tasks | Both |

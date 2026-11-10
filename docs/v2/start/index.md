@@ -89,7 +89,7 @@ chat:
 ```yaml
 # my-agent/resources/response.yaml - shape the reply
 actionId: response
-workflow:
+flow:
   requires: [llm]              # runs after llm
 apiResponse:
   success: true

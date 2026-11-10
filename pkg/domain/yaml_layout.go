@@ -235,7 +235,7 @@ var (
 			"maxToolRounds":             "tools.maxRounds",
 			"skills":                    "tools.skills",
 			"knowledge":                 "rag.knowledge",
-			"retrieverContext":          "rag.retriever.context",
+			"retrieverContext":          "rag.retriever.passages",
 			"retrieverContextTopK":      "rag.retriever.topK",
 			"retrieverContextMaxTokens": "rag.retriever.maxTokens",
 			"chunkSize":                 "rag.chunk.size", "chunkOverlap": "rag.chunk.overlap",
@@ -244,17 +244,19 @@ var (
 		},
 	)
 	resourceLayout = func() layout {
-		l := newLayout([]string{"workflow"}, map[string]string{
-			"requires": "workflow.requires",
-			"items":    "workflow.items",
-			"loop":     "workflow.loop",
-			"onError":  "workflow.onError",
+		l := newLayout([]string{"flow"}, map[string]string{
+			"requires": "flow.requires",
+			"items":    "flow.items",
+			"loop":     "flow.loop",
+			"onError":  "flow.onError",
 		})
-		l.renamed = map[string]string{"validations": "guardrails"}
+		l.renamed = map[string]string{
+			"guardrails": "validations (chat judges stay under chat.guardrails)", "workflow": "flow",
+		}
 		return l
 	}()
 	workflowLayout = func() layout {
-		l := newLayout([]string{"deploy", "memory", "agent"}, map[string]string{
+		l := newLayout([]string{"deploy", "session", "repl"}, map[string]string{
 			"apiServer":     "deploy.apiServer",
 			"webServer":     "deploy.webServer",
 			"certFile":      "deploy.certFile",
@@ -262,10 +264,12 @@ var (
 			"letsEncrypt":   "deploy.letsEncrypt",
 			"input":         "deploy.input",
 			"agentSettings": "deploy.runtime",
-			"session":       "memory",
-			"llm":           "agent",
+			"session":       "session",
+			"llm":           "repl",
 		})
-		l.renamed = map[string]string{"settings": "deploy, memory and agent", "tests": "evals"}
+		l.renamed = map[string]string{
+			"settings": "deploy, session and repl", "tests": "evals", "memory": "session", "agent": "repl",
+		}
 		return l
 	}()
 )
@@ -293,7 +297,7 @@ func (c ChatConfig) MarshalYAML() (any, error) {
 
 type resourcePlain Resource
 
-// UnmarshalYAML reads the resource layout (workflow: requires, items, loop, onError).
+// UnmarshalYAML reads the resource layout (flow: requires, items, loop, onError).
 func (r *Resource) UnmarshalYAML(node *yaml.Node) error {
 	flat, err := resourceLayout.ungroup(node, "resource")
 	if err != nil {
@@ -315,7 +319,7 @@ type workflowPlain Workflow
 
 const settingsKey = "settings"
 
-// UnmarshalYAML reads the workflow layout: deploy, memory and agent hold
+// UnmarshalYAML reads the workflow layout: deploy, session and repl hold
 // what Settings carries.
 func (w *Workflow) UnmarshalYAML(node *yaml.Node) error {
 	flat, err := workflowLayout.ungroup(node, "workflow")

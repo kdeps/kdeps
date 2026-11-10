@@ -152,9 +152,9 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: toolResponse
 name: Tool response
-workflow:
+flow:
   requires: [llmWithTools]
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/tools]
 apiResponse:

@@ -54,7 +54,7 @@ chat:
 
 actionId: reply
 name: Reply
-workflow:
+flow:
   requires:
     - llm
 

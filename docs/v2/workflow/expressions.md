@@ -27,11 +27,11 @@ after:
   - set('total', get('price') * get('quantity'))
 ```
 
-**guardrails.skip / guardrails.check / onError.when** - a list of boolean expressions; any one true is enough:
+**validations.skip / validations.check / onError.when** - a list of boolean expressions; any one true is enough:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   skip:
     - get('q') == ''           # bare expression, evaluated as bool
   check:

@@ -35,7 +35,7 @@ var yamlUnmarshalToMap = func(in []byte, out *map[string]interface{}) error {
 
 var resourceMetaKeys = map[string]bool{ //nolint:gochecknoglobals // immutable lookup set
 	"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
-	"category": true, "workflow": true, "guardrails": true,
+	"category": true, "flow": true, "validations": true,
 	"tool": true, "before": true, "after": true,
 }
 
@@ -139,7 +139,7 @@ func resourceHasValidAction(rawDoc map[string]interface{}) bool {
 func unrecognizedActionMessage(name, actionID string, rawDoc map[string]interface{}) string {
 	var actions []string
 	for key := range rawDoc {
-		if key == "apiVersion" || key == "kind" || key == "metadata" || key == "workflow" {
+		if key == "apiVersion" || key == "kind" || key == "metadata" || key == "flow" {
 			continue
 		}
 		actions = append(actions, key)

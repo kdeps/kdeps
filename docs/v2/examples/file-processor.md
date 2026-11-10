@@ -81,7 +81,7 @@ Create `resources/02-summarize.yaml`:
 # resources/02-summarize.yaml
 actionId: summarize
 name: Summarize document
-workflow:
+flow:
   requires: [readFile]            # run after readFile
 
 chat:
@@ -112,7 +112,7 @@ Create `resources/03-response.yaml`:
 # resources/03-response.yaml
 actionId: response
 name: Final response
-workflow:
+flow:
   requires: [summarize]
 
 apiResponse:

@@ -40,7 +40,7 @@ trap 'kill $KDEPS_PID 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 cat > "$TEST_DIR/resources/loop.yaml" <<'YAML'
 actionId: loop
 name: Looping chat
-guardrails:
+validations:
   routes: [/loop]
 chat:
   model:
@@ -55,7 +55,7 @@ YAML
 cat > "$TEST_DIR/resources/repeat.yaml" <<'YAML'
 actionId: repeat
 name: Repeating chat
-guardrails:
+validations:
   routes: [/repeat]
 chat:
   model:
@@ -71,7 +71,7 @@ YAML
 cat > "$TEST_DIR/resources/big.yaml" <<'YAML'
 actionId: big
 name: Big result chat
-guardrails:
+validations:
   routes: [/big]
 chat:
   model:
@@ -101,7 +101,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [loop, repeat, big]
 apiResponse:
   success: true
