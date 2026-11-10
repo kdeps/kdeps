@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"os"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/events"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
-	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
+	llminput "github.com/kdeps/kdeps/v3/pkg/input/llm"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
 )
 
 // StartBotRunners starts bot execution in either polling or stateless mode.

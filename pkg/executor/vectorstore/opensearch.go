@@ -29,7 +29,7 @@ import (
 	"github.com/tmc/langchaingo/schema"
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 const basicAuthPartCount = 2

@@ -22,10 +22,10 @@ import (
 	"os"
 	"time"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 )
 
 // resolveLLMTimeout parses the chat timeout string with embedded defaults as fallback.

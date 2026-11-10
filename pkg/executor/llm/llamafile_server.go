@@ -42,7 +42,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/fileflow"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // servedLlamafiles tracks running llamafile servers by resolved binary path

@@ -21,11 +21,11 @@ package expression_test
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestNewParser(t *testing.T) {

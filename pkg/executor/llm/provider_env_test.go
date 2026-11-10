@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 func TestProviderAPIKeyEnvVar_MatchesConfig(t *testing.T) {

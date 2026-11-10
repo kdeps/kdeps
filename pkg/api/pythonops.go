@@ -23,9 +23,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	pythonx "github.com/kdeps/kdeps/v2/pkg/executor/python"
-	pythoninfra "github.com/kdeps/kdeps/v2/pkg/infra/python"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	pythonx "github.com/kdeps/kdeps/v3/pkg/executor/python"
+	pythoninfra "github.com/kdeps/kdeps/v3/pkg/infra/python"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
+	"github.com/kdeps/kdeps/v3/pkg/archive/targz"
 )
 
 func httpPackageExtractOpts() targz.Options {

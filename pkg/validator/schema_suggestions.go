@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // expectedTypeRe extracts the expected type from messages like "Expected: string".

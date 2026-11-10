@@ -23,8 +23,8 @@ import (
 	"os"
 	"text/tabwriter"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/catalog"
 
 	"github.com/spf13/cobra"
 )

@@ -33,8 +33,8 @@ import (
 	"github.com/kdeps/kartographer/graph"
 	kgknowledge "github.com/kdeps/kartographer/knowledge"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // failOpenFs wraps an afero.Fs and fails Open for one specific path, letting

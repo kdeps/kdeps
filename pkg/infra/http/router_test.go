@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	httppkg "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 // TestRequireManagementAuth_NoTokenConfigured verifies 503 when env var is unset.

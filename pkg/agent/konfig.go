@@ -34,7 +34,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 // Konfig is the top-level konfig document. Every field is exported at full

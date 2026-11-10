@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // toolNameAskQuestion is the tool that puts a question to the user.

@@ -3,8 +3,8 @@ package llm
 import (
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 // recordWorkflowRequest records a chat resource's request in an instrumented

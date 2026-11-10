@@ -28,8 +28,8 @@ import (
 
 	"github.com/spf13/fileflow"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/infra/iso"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 // llmFormatMap maps user format flags to linuxkit --format values.

@@ -22,8 +22,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/jsonutil"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/jsonutil"
 )
 
 const (

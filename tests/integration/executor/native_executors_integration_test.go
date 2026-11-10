@@ -28,10 +28,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	embeddingexec "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
-	searchlocalexec "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	embeddingexec "github.com/kdeps/kdeps/v3/pkg/executor/embedding"
+	searchlocalexec "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 )
 
 func newCtx(t *testing.T) *executor.ExecutionContext {

@@ -38,13 +38,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cmd "github.com/kdeps/kdeps/v2/cmd"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	cmd "github.com/kdeps/kdeps/v3/cmd"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 // skipIfOllamaRunning skips the test when Ollama is reachable at localhost:11434.

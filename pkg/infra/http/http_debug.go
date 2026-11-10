@@ -18,7 +18,7 @@
 
 package http
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 func debugEnter(name string) {
 	kdeps_debug.Log("enter: " + name)

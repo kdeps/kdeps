@@ -34,12 +34,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // knowledgeLoop returns a loop with a sample vault whose card covers the

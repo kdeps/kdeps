@@ -21,8 +21,8 @@ package http
 import (
 	stdhttp "net/http"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/schema"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/schema"
 )
 
 func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int, message string) {

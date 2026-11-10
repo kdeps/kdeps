@@ -47,7 +47,7 @@ import (
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 // Sets lists every versioned set, in display order.
@@ -171,7 +171,7 @@ func repoAssetsFromCwd() string {
 	for {
 		mod := filepath.Join(dir, "go.mod")
 		data, readErr := os.ReadFile(mod)
-		if readErr == nil && bytes.HasPrefix(data, []byte("module github.com/kdeps/kdeps/v2\n")) {
+		if readErr == nil && bytes.HasPrefix(data, []byte("module github.com/kdeps/kdeps/v3\n")) {
 			assets := filepath.Join(dir, "assets")
 			if st, statErr := os.Stat(filepath.Join(assets, "harness")); statErr == nil && st.IsDir() {
 				return assets

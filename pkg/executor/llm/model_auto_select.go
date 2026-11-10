@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 // runLlamaFitTimeout bounds the llmfit subprocess. It normally returns in

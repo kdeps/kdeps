@@ -18,7 +18,7 @@
 
 package domain
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 // HasSource reports whether the given source is in the Sources list.
 func (c *InputConfig) HasSource(source string) bool {

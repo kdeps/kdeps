@@ -25,7 +25,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
 func isYAMLResourceFile(name string) bool {

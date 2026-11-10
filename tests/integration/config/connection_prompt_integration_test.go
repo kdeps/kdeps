@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 // A missing connection prompted at run time must be written to config.yaml and

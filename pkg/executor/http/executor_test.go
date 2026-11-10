@@ -34,11 +34,11 @@ import (
 
 	"context"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	httpexecutor "github.com/kdeps/kdeps/v2/pkg/executor/http"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	httpexecutor "github.com/kdeps/kdeps/v3/pkg/executor/http"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 )
 
 // TestMain ensures all tests in this package use an isolated in-memory

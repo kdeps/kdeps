@@ -28,8 +28,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	httppkg "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestGetRequestID(t *testing.T) {

@@ -21,7 +21,7 @@ package templates
 import (
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // isJinja2Template checks if a file is a Jinja2 template (.j2 extension).

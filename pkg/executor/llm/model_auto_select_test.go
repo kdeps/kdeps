@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 // resetLlamaFitIndexCache clears the process-lifetime llmfit index cache so

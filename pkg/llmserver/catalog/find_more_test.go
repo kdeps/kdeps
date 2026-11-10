@@ -21,7 +21,7 @@ package catalog
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 func TestFindAndGet(t *testing.T) {

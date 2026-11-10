@@ -18,7 +18,7 @@
 
 package http
 
-import "github.com/kdeps/kdeps/v2/pkg/domain"
+import "github.com/kdeps/kdeps/v3/pkg/domain"
 
 func workflowMetadataName(workflow *domain.Workflow) string {
 	if workflow == nil {

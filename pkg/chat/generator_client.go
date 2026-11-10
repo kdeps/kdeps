@@ -28,7 +28,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // HTTPLLMClient implements LLMClient using direct HTTP calls to the backend API.

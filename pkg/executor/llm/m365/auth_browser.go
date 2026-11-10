@@ -12,7 +12,7 @@ import (
 
 	"github.com/mxschmitt/playwright-go"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // This file drives the Azure AD interactive login headlessly with Playwright,

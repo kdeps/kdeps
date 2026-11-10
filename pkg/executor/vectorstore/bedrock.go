@@ -27,7 +27,7 @@ import (
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcbedrockkb "github.com/tmc/langchaingo/vectorstores/bedrockknowledgebases"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // bedrockStore wraps the langchaingo Bedrock Knowledge Bases vector store.

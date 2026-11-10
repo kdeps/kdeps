@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cmd "github.com/kdeps/kdeps/v2/cmd"
+	cmd "github.com/kdeps/kdeps/v3/cmd"
 )
 
 // ---------------------------------------------------------------------------

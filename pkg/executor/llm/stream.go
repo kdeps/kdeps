@@ -50,8 +50,8 @@ import (
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 	lcwatsonx "github.com/tmc/langchaingo/llms/watsonx"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // chainOfThoughtInstruction is the system-level CoT prompt injected when ChainOfThought is true.

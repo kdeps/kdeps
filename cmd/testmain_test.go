@@ -23,7 +23,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
 )
 
 func TestMain(m *testing.M) {

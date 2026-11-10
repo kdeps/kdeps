@@ -24,7 +24,7 @@ import (
 	"io/fs"
 	"path"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // modelsSet is the asset set holding the model registries.

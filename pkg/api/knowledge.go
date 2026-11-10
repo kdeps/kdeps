@@ -25,7 +25,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 const toolKnowledgeRecall = "knowledge_recall"

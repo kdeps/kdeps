@@ -33,10 +33,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
-	"github.com/kdeps/kdeps/v2/pkg/selftest"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/selftest"
 )
 
 // fixedExecutor returns one canned result for every workflow invocation.

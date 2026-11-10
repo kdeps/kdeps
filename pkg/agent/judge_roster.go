@@ -25,8 +25,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
 )
 
 // Judge roster resolution: an explicit Config.Judges list is used as-is;

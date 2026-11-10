@@ -24,10 +24,10 @@ import (
 	"os"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 func ensureKdepsFile(

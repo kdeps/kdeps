@@ -26,12 +26,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
-	"github.com/kdeps/kdeps/v2/pkg/templates"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
 // isAgencyFile reports whether path points to an agency file based on its base name.

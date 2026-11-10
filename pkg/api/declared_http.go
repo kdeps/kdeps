@@ -36,7 +36,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // HTTPToolSpec is a tool asset's http: block: the HTTP call that implements

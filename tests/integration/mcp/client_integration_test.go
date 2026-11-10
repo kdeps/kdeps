@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/tools/mcp"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/tools/mcp"
 )
 
 var testServerBin string

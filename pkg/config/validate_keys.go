@@ -25,7 +25,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/yamlutil"
+	"github.com/kdeps/kdeps/v3/pkg/yamlutil"
 )
 
 // Validate checks the config for common mistakes and returns human-readable

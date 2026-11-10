@@ -21,7 +21,7 @@ package version_test
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 func TestVersion(t *testing.T) {

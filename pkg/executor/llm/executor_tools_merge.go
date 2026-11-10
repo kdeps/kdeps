@@ -19,8 +19,8 @@
 package llm
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func (e *Executor) buildTools(tools []domain.Tool) []map[string]interface{} {

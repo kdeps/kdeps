@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 // TestParseResource_Jinja2Preprocessing verifies that Jinja2 control tags in a

@@ -24,11 +24,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 func resolveBuildWorkflowPaths(packagePath string) (string, string, func(), error) {

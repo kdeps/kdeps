@@ -29,7 +29,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // ProfileEnv picks the install profile without asking (first run, or a

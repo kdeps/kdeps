@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // getItemFromContext retrieves an item from the context or returns an error.

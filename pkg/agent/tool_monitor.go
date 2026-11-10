@@ -29,7 +29,7 @@ import (
 
 	"golang.org/x/term"
 
-	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	llm "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 const (

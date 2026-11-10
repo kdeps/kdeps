@@ -32,7 +32,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm/m365"
 )
 
 const (

@@ -3,7 +3,7 @@ package screen
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
+	"github.com/kdeps/kdeps/v3/pkg/tui/layout"
 )
 
 // Overlay is a view that takes the keys and the main area until it is done,

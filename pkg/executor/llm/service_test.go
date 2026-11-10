@@ -35,7 +35,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 func TestNewModelService(t *testing.T) {

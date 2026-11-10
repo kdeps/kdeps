@@ -27,8 +27,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/infra/registry"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/infra/registry"
 )
 
 func newRegistryInfoCmd() *cobra.Command {

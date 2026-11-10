@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/templates"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
 func TestNewNewCmd_RunE(t *testing.T) {

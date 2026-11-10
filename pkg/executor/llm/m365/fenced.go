@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/toolcall"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/toolcall"
 )
 
 // The chat model has no native tool-calling API. Tool calls are emulated with

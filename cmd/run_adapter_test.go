@@ -28,10 +28,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/cmd"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	httpExec "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/cmd"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	httpExec "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestRequestContextAdapter_Execute_NilRequest(t *testing.T) {

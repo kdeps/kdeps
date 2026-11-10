@@ -18,7 +18,7 @@
 
 package domain
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 func hostIPFromServers(api *APIServerConfig, web *WebServerConfig) string {
 	if api != nil && api.HostIP != "" {

@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 // TestExtractKdepsPackage_CorruptTarEntry verifies that a non-EOF error from

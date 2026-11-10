@@ -21,9 +21,9 @@ package api
 import (
 	"context"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	execVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	execVectorStore "github.com/kdeps/kdeps/v3/pkg/executor/vectorstore"
 )
 
 const (

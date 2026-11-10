@@ -23,7 +23,7 @@ import (
 	stdhttp "net/http"
 	"runtime/debug"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 const sessionCookieMaxAge = 3600

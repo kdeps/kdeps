@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 // BuildRequest is input for rendering an appliance Dockerfile.

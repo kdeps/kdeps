@@ -30,9 +30,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 
-	"github.com/kdeps/kdeps/v2/cmd"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	"github.com/kdeps/kdeps/v3/cmd"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 const (

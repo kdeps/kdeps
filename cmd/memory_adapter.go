@@ -19,8 +19,8 @@
 package cmd
 
 import (
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
 )
 
 // MemoryStoreAdapter wraps *agent.MemoryStore to implement executor.AgentMemoryStore.

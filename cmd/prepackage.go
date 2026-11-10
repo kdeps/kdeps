@@ -28,11 +28,11 @@ import (
 	"strings"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 // PrePackageFlags holds the configuration flags for the prepackage command.

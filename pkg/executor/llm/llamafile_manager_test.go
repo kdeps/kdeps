@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 func newMgrWithDir(t *testing.T) (*llm.LlamafileManager, string) {

@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/input/bot"
+	"github.com/kdeps/kdeps/v3/pkg/input/bot"
 )
 
 func TestReplyText(t *testing.T) {

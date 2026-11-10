@@ -25,7 +25,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 // Themes. The whole agent-loop REPL renders from the current theme's

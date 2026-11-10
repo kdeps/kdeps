@@ -25,8 +25,8 @@ import (
 	stdhttp "net/http"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/toolbudget"
 )
 
 func (e *Executor) addToolResultsToMessages(

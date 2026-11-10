@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestToExecutorRequestContext_WithFiles(t *testing.T) {

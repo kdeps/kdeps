@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
 )
 
 func TestSummaryPrompts(t *testing.T) {

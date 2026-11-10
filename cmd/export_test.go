@@ -28,8 +28,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cmd "github.com/kdeps/kdeps/v2/cmd"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	cmd "github.com/kdeps/kdeps/v3/cmd"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestExportISO_MissingWorkflow(t *testing.T) {

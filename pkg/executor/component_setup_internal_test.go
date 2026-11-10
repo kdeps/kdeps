@@ -25,8 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	pythonpkg "github.com/kdeps/kdeps/v2/pkg/infra/python"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	pythonpkg "github.com/kdeps/kdeps/v3/pkg/infra/python"
 )
 
 func TestDetectPackageManager_NoPackageManagerFound(t *testing.T) {

@@ -28,7 +28,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // boltOpen is a test hook for bolt.Open.

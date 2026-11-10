@@ -25,9 +25,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 func parseAgencyStep(agencyPath string) (*domain.Agency, []string, *yaml.Parser, error) {

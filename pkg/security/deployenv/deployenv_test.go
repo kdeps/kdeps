@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
+	"github.com/kdeps/kdeps/v3/pkg/security/deployenv"
 )
 
 func TestValidateBuildTimeEnv_acceptsSafeKeys(t *testing.T) {

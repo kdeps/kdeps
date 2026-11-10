@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/api"
 )
 
 // sessionToolBridge serves the API session tool routes from the agent loop's

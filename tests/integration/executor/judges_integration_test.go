@@ -30,12 +30,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/kdeps/kdeps/v2/pkg/agent" // installs the judge settings from the events and harness
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/judge"
-	"github.com/kdeps/kdeps/v2/pkg/parallel"
+	_ "github.com/kdeps/kdeps/v3/pkg/agent" // installs the judge settings from the events and harness
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/judge"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
 )
 
 // A workflow chat with two judges: the draft is rejected by both (reviewing

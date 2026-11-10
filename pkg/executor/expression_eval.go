@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 )
 
 // ContainsExpressionSyntax reports whether s contains {{ expression markers.

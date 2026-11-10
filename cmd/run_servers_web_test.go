@@ -27,8 +27,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestStartWebServer_StartError(t *testing.T) {

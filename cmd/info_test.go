@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/registry"
+	"github.com/kdeps/kdeps/v3/pkg/infra/registry"
 )
 
 func TestFetchReadmeURL_ReadError(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/events"
 )
 
 func TestWorkflowStarted(t *testing.T) {

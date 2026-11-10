@@ -27,7 +27,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // ConfirmModelDownload asks before auto-downloading a local model that is not

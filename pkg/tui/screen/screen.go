@@ -12,9 +12,9 @@ import (
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
-	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/layout"
 )
 
 // OutputMsg adds text to the main pane. Each line of text is one row.

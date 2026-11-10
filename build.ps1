@@ -25,8 +25,8 @@ try {
 
 Write-Host "Building kdeps v$Version..."
 
-$ldflags = "-X github.com/kdeps/kdeps/v2/pkg/version.Version=$Version " +
-           "-X github.com/kdeps/kdeps/v2/pkg/version.Commit=$commit"
+$ldflags = "-X github.com/kdeps/kdeps/v3/pkg/version.Version=$Version " +
+           "-X github.com/kdeps/kdeps/v3/pkg/version.Commit=$commit"
 
 go build -ldflags $ldflags -o kdeps.exe main.go
 

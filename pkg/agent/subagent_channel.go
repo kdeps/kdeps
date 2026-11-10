@@ -22,7 +22,7 @@ import (
 	"errors"
 	"strings"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // Subagent channel: knowledge-graph extraction, prompt refinement, and

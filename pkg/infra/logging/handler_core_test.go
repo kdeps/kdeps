@@ -23,7 +23,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
 )
 
 // TestPrettyHandler_Enabled_LevelThreshold tests level threshold checking.

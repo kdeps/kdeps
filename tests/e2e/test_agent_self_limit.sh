@@ -41,7 +41,7 @@ CASES = [
 TEXTS = {
     "read the README title": "README starts with the title.",
     "read the license": "The license is Apache-2.0.",
-    "show the module path": "The module path is github.com/kdeps/kdeps/v2.",
+    "show the module path": "The module path is github.com/kdeps/kdeps/v3.",
 }
 
 def log(line):
@@ -190,7 +190,7 @@ fi
 
 if output_grep_fixed "The license is Apache-2.0." "$OUT" \
     && output_grep_fixed "FICTION read the license" "$LOG" \
-    && output_grep_fixed "The module path is github.com/kdeps/kdeps/v2." "$OUT" \
+    && output_grep_fixed "The module path is github.com/kdeps/kdeps/v3." "$OUT" \
     && output_grep_fixed "FICTION show the module path" "$LOG" \
     && output_grep_fixed "FICTION count the go files" "$LOG"; then
     test_passed "self-limit - paraphrases are nudged into the real answer"

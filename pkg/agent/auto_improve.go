@@ -34,8 +34,8 @@ import (
 	"strings"
 	"time"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 // defaultBugCaptureMaxErrors is the error-line cap when the event is missing or off.
@@ -69,7 +69,7 @@ var (
 )
 
 const (
-	kdepsModule        = "github.com/kdeps/kdeps/v2"
+	kdepsModule        = "github.com/kdeps/kdeps/v3"
 	autoImproveSession = "auto-improve"
 	autoImproveNotRepo = "/auto-improve runs in the kdeps repo (module " + kdepsModule + "). This folder is %s"
 )

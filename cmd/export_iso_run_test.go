@@ -30,8 +30,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	docker "github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
+	docker "github.com/kdeps/kdeps/v3/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/infra/iso"
 )
 
 func TestEnableISOOfflineMode(t *testing.T) {

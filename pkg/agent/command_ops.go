@@ -24,7 +24,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/api"
 )
 
 // commandMethod runs one built-in slash command against a REPL. Every method

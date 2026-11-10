@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/refine"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/refine"
 )
 
 // Pre-turn prompt refinement. Before the real action call, one cheap synthetic

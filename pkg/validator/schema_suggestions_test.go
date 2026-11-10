@@ -21,7 +21,7 @@ package validator_test
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 // TestSchemaValidator_ErrorSuggestions tests that error messages include helpful suggestions.

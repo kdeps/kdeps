@@ -26,14 +26,14 @@ import (
 
 	"github.com/spf13/afero"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/failbrief"
-	"github.com/kdeps/kdeps/v2/pkg/nudge"
-	"github.com/kdeps/kdeps/v2/pkg/reply"
-	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
-	"github.com/kdeps/kdeps/v2/pkg/toolcall"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/failbrief"
+	"github.com/kdeps/kdeps/v3/pkg/nudge"
+	"github.com/kdeps/kdeps/v3/pkg/reply"
+	"github.com/kdeps/kdeps/v3/pkg/toolbudget"
+	"github.com/kdeps/kdeps/v3/pkg/toolcall"
 )
 
 // chatToolRounds is a chat's tool-round cap when it sets no maxToolRounds:

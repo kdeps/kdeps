@@ -33,9 +33,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/infra/iso"
 )
 
 func TestShowLinuxKitConfig_WithArch(t *testing.T) {

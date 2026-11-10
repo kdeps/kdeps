@@ -25,8 +25,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/cmd"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/cmd"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestStartFileRunner_NoEvents(t *testing.T) {

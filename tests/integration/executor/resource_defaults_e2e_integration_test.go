@@ -43,13 +43,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
-	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorExec "github.com/kdeps/kdeps/v3/pkg/executor/exec"
+	executorHTTP "github.com/kdeps/kdeps/v3/pkg/executor/http"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	executorPython "github.com/kdeps/kdeps/v3/pkg/executor/python"
 )
 
 // loadConfigDefaults writes a config.yaml with resource_defaults, calls

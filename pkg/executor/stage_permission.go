@@ -21,7 +21,7 @@ package executor
 import (
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // stagePermission decides whether a primary resource kind (exec, python,

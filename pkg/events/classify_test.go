@@ -18,7 +18,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/events"
 )
 
 func TestClassifyError(t *testing.T) {

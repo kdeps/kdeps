@@ -29,8 +29,8 @@ import (
 
 	"golang.org/x/mod/semver"
 
-	gh "github.com/kdeps/kdeps/v2/pkg/infra/github"
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	gh "github.com/kdeps/kdeps/v3/pkg/infra/github"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 // kdepsReleaseRepo is the GitHub "owner/repo" this package checks against.

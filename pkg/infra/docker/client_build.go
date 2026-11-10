@@ -26,7 +26,7 @@ import (
 	"io"
 	"os"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/moby/moby/api/types/build"
 	"github.com/moby/moby/client"

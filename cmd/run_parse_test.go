@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v3/cmd"
 )
 
 func TestParseAgencyFile_InvalidPath(t *testing.T) {

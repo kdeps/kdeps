@@ -33,7 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	domainpkg "github.com/kdeps/kdeps/v2/pkg/domain"
+	domainpkg "github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // TestServeFileModel_NewLlamafileManagerFailure covers line 183-185:

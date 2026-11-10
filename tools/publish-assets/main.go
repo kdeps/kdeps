@@ -36,9 +36,9 @@ import (
 
 	// The loaders register what each set sends the model, so the index
 	// carries each version's context-token estimate.
-	_ "github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	_ "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	_ "github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	_ "github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 // exitUsage is the exit code for a missing flag.

@@ -25,7 +25,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // OverrideURLEnv names an OpenAI-compatible endpoint that takes every chat

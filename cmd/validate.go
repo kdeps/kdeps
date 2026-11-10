@@ -26,12 +26,12 @@ import (
 	"github.com/spf13/cobra"
 	goyaml "gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 // newValidateCmd creates the validate command.

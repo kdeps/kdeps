@@ -21,7 +21,7 @@ package executor
 import (
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // buildReadmeContent renders the README.md content from component metadata.

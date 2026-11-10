@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
+	"github.com/kdeps/kdeps/v3/pkg/archive/targz"
 )
 
 func TestSafeJoin(t *testing.T) {

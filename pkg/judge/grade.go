@@ -28,7 +28,7 @@ import (
 
 	"github.com/expr-lang/expr"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // KnownGraderKind reports whether kind is a grader kind.

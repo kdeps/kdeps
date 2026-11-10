@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm/m365"
 )
 
 // M365 Copilot speaks SignalR over a WebSocket, not HTTP. The m365 package wraps

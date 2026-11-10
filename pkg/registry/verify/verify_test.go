@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/registry/verify"
+	"github.com/kdeps/kdeps/v3/pkg/registry/verify"
 )
 
 func writeYAML(t *testing.T, dir, name, content string) {

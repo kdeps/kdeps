@@ -27,8 +27,8 @@ import (
 
 	"github.com/expr-lang/expr"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // defaultRelQueryMaxRows applies when the memory-query-rows-max event is off.

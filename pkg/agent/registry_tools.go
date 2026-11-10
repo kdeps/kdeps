@@ -25,8 +25,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // The call route lives in pkg/api. This package owns the registries, so the

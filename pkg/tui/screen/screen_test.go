@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
-	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/layout"
 )
 
 func resized(t *testing.T, m Model) Model {

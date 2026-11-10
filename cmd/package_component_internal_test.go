@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
-	yamlparser "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	yamlparser "github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 func TestPackageComponentWithFlags_Success(t *testing.T) {

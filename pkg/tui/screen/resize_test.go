@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
-	"github.com/kdeps/kdeps/v2/pkg/tui/layout"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/layout"
 )
 
 // dragBorder presses on the main/feed border and drags it to x.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // CopilotStream is the streamed result of one chat turn. Consume Deltas until it

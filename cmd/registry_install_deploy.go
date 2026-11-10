@@ -30,9 +30,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	kdepsmanifest "github.com/kdeps/kdeps/v2/pkg/manifest"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	kdepsmanifest "github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
 // installWorkflowOrAgency copies the staged package into ~/.kdeps/agents/<name>/.

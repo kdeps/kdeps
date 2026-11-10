@@ -27,12 +27,12 @@ import (
 
 	"context"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
-	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/infra/texttmpl"
+	"github.com/kdeps/kdeps/v3/pkg/security/deployenv"
 )
 
 // releaseVersionRe matches release versions injected by goreleaser; dev

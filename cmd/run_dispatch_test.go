@@ -34,12 +34,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
-	"github.com/kdeps/kdeps/v2/pkg/input/bot"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
+	"github.com/kdeps/kdeps/v3/pkg/input/bot"
 )
 
 func TestDispatchExecution_DefaultNil(t *testing.T) {

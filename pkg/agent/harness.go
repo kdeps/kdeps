@@ -25,8 +25,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/kdeps/kdeps/v2/pkg/harness"
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
+	"github.com/kdeps/kdeps/v3/pkg/harness"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
 )
 
 //nolint:gochecknoglobals // the harness registry, loaded once at init

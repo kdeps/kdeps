@@ -25,7 +25,7 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // chatCall sends one chat request through langchaingo and returns the reply in

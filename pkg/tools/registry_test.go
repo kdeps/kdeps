@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestNewRegistry(t *testing.T) {

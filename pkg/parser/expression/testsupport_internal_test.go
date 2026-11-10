@@ -18,7 +18,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // TestControlFlowListOperations tests filter, map, all, any as loop alternatives.

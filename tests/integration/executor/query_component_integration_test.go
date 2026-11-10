@@ -26,8 +26,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func TestCalculatorComponent_MatchesTool(t *testing.T) {

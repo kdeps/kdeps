@@ -5,7 +5,7 @@ VERSION ?= 2.0.0-dev
 CODEQL_DB := .codeql-db
 GOLANGCI_VERSION := $(shell cat .golangci-lint-version 2>/dev/null | tr -d '[:space:]')
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
-LDFLAGS := -ldflags "-X github.com/kdeps/kdeps/v2/pkg/version.Version=$(VERSION) -X github.com/kdeps/kdeps/v2/pkg/version.Commit=$(COMMIT)"
+LDFLAGS := -ldflags "-X github.com/kdeps/kdeps/v3/pkg/version.Version=$(VERSION) -X github.com/kdeps/kdeps/v3/pkg/version.Commit=$(COMMIT)"
 
 # Build the binary
 build:

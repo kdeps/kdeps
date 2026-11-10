@@ -21,9 +21,9 @@ package executor
 import (
 	"errors"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/events"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 )
 
 // resolveExecuteRequest extracts the request context and session ID from the Execute argument.

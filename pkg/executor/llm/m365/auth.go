@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // This file authenticates against Azure AD as a public client using the

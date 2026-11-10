@@ -25,8 +25,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func TestListFilesComponent_MatchesTool(t *testing.T) {

@@ -49,17 +49,17 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/nudge"
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
-	"github.com/kdeps/kdeps/v2/pkg/reply"
-	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
-	"github.com/kdeps/kdeps/v2/pkg/toolcall"
-	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/nudge"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
+	"github.com/kdeps/kdeps/v3/pkg/reply"
+	"github.com/kdeps/kdeps/v3/pkg/toolbudget"
+	"github.com/kdeps/kdeps/v3/pkg/toolcall"
+	"github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // Streamer makes streaming LLM calls for the agent loop.

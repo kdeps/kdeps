@@ -27,8 +27,8 @@ import (
 	kggraph "github.com/kdeps/kartographer/graph"
 	"github.com/spf13/afero"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // dependencies is the graph's edges as kartographer's dependency graph.

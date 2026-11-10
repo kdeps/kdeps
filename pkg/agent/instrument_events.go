@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 // sentBefore remembers the system prompt and tool list of the last model

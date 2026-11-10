@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/failbrief"
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/failbrief"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
 )
 
 // Failure soft stops: a failed tool call or a failed LLM call is stopped by

@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	module         = "github.com/kdeps/kdeps/v2"
+	module         = "github.com/kdeps/kdeps/v3"
 	assetsPkg      = module + "/pkg/assets"
 	agentPkg       = module + "/pkg/agent"
 	builtinOpsFunc = "builtinCommandOps"

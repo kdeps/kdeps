@@ -18,7 +18,7 @@
 
 package expression
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 func (p *Parser) isExpression(value string) bool {
 	kdeps_debug.Log("enter: isExpression")

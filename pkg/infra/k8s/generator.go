@@ -21,11 +21,11 @@ package k8s
 import (
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
-	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/texttmpl"
+	"github.com/kdeps/kdeps/v3/pkg/security/deployenv"
 )
 
 // The manifest templates are the "manifests" item of the "k8s" asset set,

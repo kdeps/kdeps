@@ -38,7 +38,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // Memory lives in the knowledge vault as markdown notes, one per entry:

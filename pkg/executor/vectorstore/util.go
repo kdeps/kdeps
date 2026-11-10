@@ -24,7 +24,7 @@ import (
 
 	lcemb "github.com/tmc/langchaingo/embeddings"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 // normalizeTopK returns n if n > 0, otherwise the executor defaults'

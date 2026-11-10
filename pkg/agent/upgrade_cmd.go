@@ -25,7 +25,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/kdeps/kdeps/v2/pkg/upgrade"
+	"github.com/kdeps/kdeps/v3/pkg/upgrade"
 )
 
 // upgradeFreshFunc, upgradeFreshNightlyFunc, upgradeDetectFunc,

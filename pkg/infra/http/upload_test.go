@@ -33,8 +33,8 @@ import (
 	"net/textproto"
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestNewUploadHandler(t *testing.T) {

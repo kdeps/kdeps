@@ -27,9 +27,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // newKnowledgeFoldersCmd is "kdeps knowledge folders": the folders outside

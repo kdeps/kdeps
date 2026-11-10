@@ -22,10 +22,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/namespace"
-	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/namespace"
+	"github.com/kdeps/kdeps/v3/pkg/utils/dotpath"
 )
 
 // GetConfigField retrieves a value from a config namespace by full dot-path.

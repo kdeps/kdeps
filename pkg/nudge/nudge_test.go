@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/nudge"
+	"github.com/kdeps/kdeps/v3/pkg/nudge"
 )
 
 func TestText(t *testing.T) {

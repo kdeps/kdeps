@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 )
 
 func TestQueryIndex(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
-	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui/screen"
 )
 
 // fakeScreenOverlay is an overlay that is done as soon as it is opened.

@@ -160,7 +160,7 @@ Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
 ```d2
 direction: down
 start: "/auto-improve" {shape: oval}
-repo: "module github.com/kdeps/kdeps/v2?" {shape: diamond}
+repo: "module github.com/kdeps/kdeps/v3?" {shape: diamond}
 session: "record ~/.kdeps/instrument/auto-improve"
 jump: "OpenRouter: another free model"
 task: "model runs the next task"

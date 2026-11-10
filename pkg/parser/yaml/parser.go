@@ -25,8 +25,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 //nolint:gochecknoglobals // test-replaceable

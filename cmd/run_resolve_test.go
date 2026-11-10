@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v3/cmd"
 )
 
 func TestFindComponentFile_NonePresent(t *testing.T) {

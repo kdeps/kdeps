@@ -42,8 +42,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	httppkg "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestNewWebServer(t *testing.T) {

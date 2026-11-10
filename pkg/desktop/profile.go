@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 )
 
 // instructionsFile is the per-workspace custom-instructions file the agent loop

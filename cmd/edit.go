@@ -19,11 +19,11 @@ import (
 	"os"
 	"os/exec"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 func newEditCmd() *cobra.Command {

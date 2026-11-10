@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm/m365"
 )
 
 func stubM365Login(t *testing.T, fn func(context.Context) (string, error)) {

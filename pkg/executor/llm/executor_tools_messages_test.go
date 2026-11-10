@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
+	"github.com/kdeps/kdeps/v3/pkg/toolbudget"
 )
 
 func TestFormatToolResultContent_MarshalFallback(t *testing.T) {

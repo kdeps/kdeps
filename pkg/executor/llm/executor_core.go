@@ -23,12 +23,12 @@ import (
 	stdhttp "net/http"
 	"sync"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
-	mcpclient "github.com/kdeps/kdeps/v2/pkg/tools/mcp"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
+	mcpclient "github.com/kdeps/kdeps/v3/pkg/tools/mcp"
 )
 
 // toolExecutorInterface defines the interface for tool execution (to avoid import cycle).

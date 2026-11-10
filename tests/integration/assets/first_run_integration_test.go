@@ -29,15 +29,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	"github.com/kdeps/kdeps/v2/pkg/infra/k8s"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/infra/k8s"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/catalog"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 // TestFirstRun_EnsureInstallsEveryAsset starts from what a release binary

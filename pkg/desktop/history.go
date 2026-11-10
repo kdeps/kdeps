@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 )
 
 // SessionHit is one search result: the chat plus a snippet of what matched.

@@ -30,7 +30,7 @@ import (
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/require"
 
-	dockerpkg "github.com/kdeps/kdeps/v2/pkg/infra/docker"
+	dockerpkg "github.com/kdeps/kdeps/v3/pkg/infra/docker"
 )
 
 // roundTripFunc adapts a function to the http.RoundTripper interface so we can

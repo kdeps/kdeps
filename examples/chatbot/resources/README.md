@@ -151,7 +151,7 @@ When using the LLM executor with Ollama, models are automatically downloaded and
 You can also manage models manually:
 
 ```go
-import "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+import "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 
 manager := llm.NewModelManager(logger)
 

@@ -28,8 +28,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/parallel"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
 )
 
 // Verdict is one judge's ruling on a candidate output.

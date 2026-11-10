@@ -29,7 +29,7 @@ import (
 
 	"github.com/kdeps/kartographer/codegraph"
 	// The rules come from the codegraph asset set; the adapter configures them.
-	_ "github.com/kdeps/kdeps/v2/pkg/codegraph"
+	_ "github.com/kdeps/kdeps/v3/pkg/codegraph"
 )
 
 // policy().MaxCodeFiles caps the Go files read per repo.

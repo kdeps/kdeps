@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
+	"github.com/kdeps/kdeps/v3/pkg/utils/dotpath"
 )
 
 // GetField retrieves a config value by dot-path (e.g. "llm.openai_api_key").

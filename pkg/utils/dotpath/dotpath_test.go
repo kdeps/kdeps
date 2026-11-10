@@ -26,7 +26,7 @@ import (
 
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
+	"github.com/kdeps/kdeps/v3/pkg/utils/dotpath"
 )
 
 type nested struct {

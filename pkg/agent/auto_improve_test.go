@@ -31,13 +31,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 func TestKdepsRepoRoot(t *testing.T) {
 	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module github.com/kdeps/kdeps/v2\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module github.com/kdeps/kdeps/v3\n"), 0o644))
 	sub := filepath.Join(root, "pkg", "agent")
 	require.NoError(t, os.MkdirAll(sub, 0o755))
 	got, err := kdepsRepoRoot(sub)

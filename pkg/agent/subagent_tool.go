@@ -26,10 +26,10 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/parallel"
-	"github.com/kdeps/kdeps/v2/pkg/subagent"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
+	"github.com/kdeps/kdeps/v3/pkg/subagent"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // toolNameSubagent is the tool that hands a task to a fresh agent loop.

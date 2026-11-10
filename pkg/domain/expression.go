@@ -18,7 +18,7 @@
 
 package domain
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 // Expression represents an expression in the workflow.
 type Expression struct {

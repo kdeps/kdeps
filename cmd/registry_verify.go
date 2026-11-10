@@ -21,7 +21,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 func newRegistryVerifyCmd() *cobra.Command {

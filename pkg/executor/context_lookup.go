@@ -19,8 +19,8 @@
 package executor
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/namespace"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/namespace"
 )
 
 func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, error) {

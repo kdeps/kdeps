@@ -32,7 +32,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/api"
 )
 
 // Needed is the instruction that closes a failure brief.

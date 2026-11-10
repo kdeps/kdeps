@@ -32,9 +32,9 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/parallel"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
 )
 
 // Events replace scattered hardcoded thresholds (auto-compact, fold, ...)

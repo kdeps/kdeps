@@ -18,7 +18,7 @@
 
 package http
 
-import "github.com/kdeps/kdeps/v2/pkg/domain"
+import "github.com/kdeps/kdeps/v3/pkg/domain"
 
 func apiServerConfigured(workflow *domain.Workflow) bool {
 	return workflow != nil && workflow.Settings.APIServer != nil

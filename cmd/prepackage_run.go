@@ -26,8 +26,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
 )
 
 func buildPrepackageTarget(

@@ -33,7 +33,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v3/cmd"
 )
 
 const outFile = "pkg/assets/setflow_gen.go"

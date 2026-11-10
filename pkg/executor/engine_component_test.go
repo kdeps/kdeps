@@ -28,9 +28,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorExec "github.com/kdeps/kdeps/v3/pkg/executor/exec"
 )
 
 // makeComponentTestWorkflow builds a workflow with a named component and a

@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 const (

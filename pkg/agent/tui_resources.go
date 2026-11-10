@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
 )
 
 // pendingResources are resource loads that happened before a feed was set.

@@ -23,7 +23,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // assetModes names where a set is used, for kdeps info.

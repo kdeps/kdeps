@@ -24,9 +24,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	pythonexecutor "github.com/kdeps/kdeps/v2/pkg/executor/python"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	pythonexecutor "github.com/kdeps/kdeps/v3/pkg/executor/python"
 )
 
 func TestNewAdapter(t *testing.T) {

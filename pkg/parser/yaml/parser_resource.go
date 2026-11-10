@@ -26,9 +26,9 @@ import (
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/templates"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
 // preprocessing, unmarshals into a raw map, and optionally calls validate.

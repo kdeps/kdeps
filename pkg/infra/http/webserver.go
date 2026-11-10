@@ -25,7 +25,7 @@ import (
 	stdhttp "net/http"
 	"os/exec"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // WebServer is the HTTP web server for serving static files and proxying apps.

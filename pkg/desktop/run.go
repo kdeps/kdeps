@@ -33,8 +33,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/events"
-	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // Project event kinds.

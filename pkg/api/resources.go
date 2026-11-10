@@ -30,11 +30,11 @@ import (
 
 	kgsearch "github.com/kdeps/kartographer/search"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
-	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
-	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	execEmbedding "github.com/kdeps/kdeps/v3/pkg/executor/embedding"
+	execLoader "github.com/kdeps/kdeps/v3/pkg/executor/loader"
+	execSearch "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 )
 
 const (

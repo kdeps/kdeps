@@ -25,8 +25,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // The desktop is a client of the same REPL the CLI runs: slash commands, model

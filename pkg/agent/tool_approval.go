@@ -35,7 +35,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/api"
 )
 
 // approvalDecision is the user's answer to a tool-approval prompt.

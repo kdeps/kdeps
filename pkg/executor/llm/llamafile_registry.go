@@ -27,7 +27,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // LlamafileEntry represents a single llamafile distribution in the registry.

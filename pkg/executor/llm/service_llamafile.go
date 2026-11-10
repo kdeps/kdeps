@@ -21,7 +21,7 @@ package llm
 import (
 	"context"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // prepareLlamafile resolves a llamafile model path and ensures it is executable.

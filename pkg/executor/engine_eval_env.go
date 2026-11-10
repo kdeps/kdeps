@@ -18,7 +18,7 @@
 
 package executor
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEvaluationEnvironment")

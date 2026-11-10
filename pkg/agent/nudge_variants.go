@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/nudge"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/nudge"
 )
 
 // nudgeVariantFrames and nudgeVariantLines are crossed to build the pool.

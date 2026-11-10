@@ -23,14 +23,14 @@ import (
 	"context"
 	"os"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
-	"github.com/kdeps/kdeps/v2/pkg/infra/k8s"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/infra/iso"
+	"github.com/kdeps/kdeps/v3/pkg/infra/k8s"
 )
 
 // ExportFlags holds the flags for the export iso command.

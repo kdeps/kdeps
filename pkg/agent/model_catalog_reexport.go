@@ -19,7 +19,7 @@
 package agent
 
 import (
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // The cloud model catalog (KnownCloudModels, ModelMaxOutputTokens, etc.) lives

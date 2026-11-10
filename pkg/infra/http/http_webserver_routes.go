@@ -22,7 +22,7 @@ import (
 	"context"
 	stdhttp "net/http"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 const (

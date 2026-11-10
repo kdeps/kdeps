@@ -24,10 +24,10 @@ import (
 	"os"
 	"strconv"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/clientconfig"
-	llmexport "github.com/kdeps/kdeps/v2/pkg/llmserver/export"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/catalog"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/clientconfig"
+	llmexport "github.com/kdeps/kdeps/v3/pkg/llmserver/export"
 
 	"github.com/spf13/cobra"
 )
