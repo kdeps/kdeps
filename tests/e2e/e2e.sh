@@ -177,6 +177,7 @@ scenario test_agent_tool_schemas.sh
 scenario test_agent_subagent.sh
 scenario test_agent_approve.sh
 scenario test_agent_ask_question.sh
+scenario test_agent_plan_council.sh
 scenario test_providers.sh
 scenario test_publish_resources.sh
 scenario test_agent_refine.sh

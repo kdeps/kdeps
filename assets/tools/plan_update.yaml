@@ -1,0 +1,21 @@
+version: 1.0.0
+category: agent
+description: 'Update the plan progress file the planning council wrote for this task. Mark a job order doing, done, blocked or dropped with a short note, or add a job order you discovered (status added, with title). The file keeps every update in order.'
+parameters:
+  id:
+    type: integer
+    description: The job order id (#n in the plan). Omit when adding a new job order.
+    required: false
+  status:
+    type: string
+    description: 'doing, done, blocked, dropped, or added'
+    required: true
+    enum: [doing, done, blocked, dropped, added]
+  title:
+    type: string
+    description: Title of a new job order (status added only)
+    required: false
+  note:
+    type: string
+    description: What happened, in one line
+    required: false

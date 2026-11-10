@@ -144,6 +144,7 @@ export default defineConfig({
           text: 'Control',
           items: [
             { text: 'Prompt refinement', link: '/agent/refine' },
+            { text: 'Planning council', link: '/agent/plan' },
             { text: 'Subagents', link: '/agent/subagent' },
             { text: 'Efficiency enforcement', link: '/agent/efficiency' },
             { text: 'Judge panel', link: '/agent/judges' },

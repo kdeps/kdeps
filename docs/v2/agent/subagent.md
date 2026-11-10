@@ -1,6 +1,6 @@
 # Subagents
 
-A subagent is a fresh agent loop: it starts without the conversation and sees only the task it was given. Judges, knowledge-graph extraction and prompt refinement run as subagents, and the model can start one itself with the `subagent` tool. All of them use the subagent channel's model. The turn itself, compaction, the handshake, and branch summaries stay on the session model.
+A subagent is a fresh agent loop: it starts without the conversation and sees only the task it was given. Judges, knowledge-graph extraction, prompt refinement and the planning council run as subagents, and the model can start one itself with the `subagent` tool. All of them use the subagent channel's model. The turn itself, compaction, the handshake, and branch summaries stay on the session model.
 
 ```text
 turn -> subagent {task, instructions, tools}
@@ -22,6 +22,7 @@ Each runs beside the turn where it can:
 | Knowledge-graph extraction | in the background; recall never waits for it |
 | `subagent` calls a reply opens with | in parallel, in one round; each call gets its own report |
 | Prompt refinement | before the turn, beside roster generation: the turn runs on its rewrite |
+| Planning council | before the turn, after refinement: members draft, revise, and rank job orders |
 
 Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at once).
 

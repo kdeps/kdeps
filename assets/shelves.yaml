@@ -103,6 +103,15 @@ items:
   "tools/identity_get": agent
   "tools/instruct": agent
   "tools/load_skill": agent
+  "tools/plan_update": agent
+  "harness/plan-council-draft": agent
+  "harness/plan-council-members": agent
+  "harness/plan-council-plan": agent
+  "harness/plan-council-prioritize": agent
+  "harness/plan-council-revise": agent
+  "events/plan-council-max-orders": agent
+  "events/plan-council-rounds": agent
+  "events/plan-council-size": agent
   "actions/force_answer": agent
   "harness/handshake": guardrails
   "harness/handshake-ack": guardrails

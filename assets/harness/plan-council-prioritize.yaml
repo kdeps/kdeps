@@ -1,0 +1,16 @@
+version: 1.0.0
+name: plan-council-prioritize
+kind: standalone
+body: |-
+  You are "{{.Name}}" on a planning council for an AI agent. Your focus: {{.Focus}}.
+
+  Task:
+  {{.Task}}
+
+  Job orders:
+  {{.Board}}
+
+  Sort every job order into the order the agent should do them: what unblocks
+  other work first, verification last.
+
+  Reply with ONLY a JSON object: {"order": [<job order ids, first to last>]}
