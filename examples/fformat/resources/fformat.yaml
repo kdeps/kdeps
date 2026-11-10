@@ -1,7 +1,7 @@
 actionId: fformat
 name: Format Operations
 
-guardrails:
+validations:
   routes: [/format]
   methods: [POST]
 

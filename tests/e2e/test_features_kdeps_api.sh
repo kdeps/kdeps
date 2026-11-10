@@ -445,7 +445,7 @@ PY
     cat >"$server_dir/resources/readout.yaml" <<'EOF'
 actionId: readOut
 name: Read response
-workflow:
+flow:
   requires:
     - readConfig
 apiResponse:
@@ -471,7 +471,7 @@ EOF
     cat >"$server_dir/resources/gateway.yaml" <<'EOF'
 actionId: gateway
 name: Gateway
-workflow:
+flow:
   requires:
     - ping
     - readOut

@@ -1,6 +1,6 @@
 actionId: summarize
 name: Summarize Page
-workflow:
+flow:
   requires: [fetch]
 chat:
   model:

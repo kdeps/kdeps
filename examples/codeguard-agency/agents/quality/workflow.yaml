@@ -69,7 +69,7 @@ resources:
   # ── Return result to intake agent ─────────────────────────────────────────────
   - actionId: quality-response
     name: Quality Response
-    workflow:
+    flow:
       requires: [quality-check]
     apiResponse:
       success: true

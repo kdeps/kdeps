@@ -36,10 +36,10 @@ resources:
 
   - actionId: response
     name: API Response
-    workflow:
+    flow:
       requires:
       - setup
-    guardrails:
+    validations:
       methods: [GET, POST]
       routes: [/api/demo]
 

@@ -51,7 +51,7 @@ Create `resources/process.yaml`:
 # resources/process.yaml
 actionId: process
 name: Format operations
-guardrails:
+validations:
   methods: [POST]
   routes: [/format]
 component:

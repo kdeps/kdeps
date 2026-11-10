@@ -1,6 +1,6 @@
 actionId: answer
 name: Answer from Search
-workflow:
+flow:
   requires: [search]
 chat:
   model:

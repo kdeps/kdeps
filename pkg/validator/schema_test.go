@@ -402,7 +402,7 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 						"message": "OK",
 					},
 				},
-				"workflow": map[string]interface{}{
+				"flow": map[string]interface{}{
 					"requires": []interface{}{
 						"action1",
 						"action2",
@@ -1511,8 +1511,8 @@ func TestSchemaValidator_GetPatternSuggestion_Direct(t *testing.T) {
 			expected: "Must start with '/'. Example: '/api/users'",
 		},
 		{
-			name:     "guardrails.routes",
-			field:    "guardrails.routes",
+			name:     "validations.routes",
+			field:    "validations.routes",
 			expected: "Must start with '/'. Example: '/api/users'",
 		},
 		{
@@ -1934,8 +1934,8 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization(t *testing.T) {
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
 		{
-			name:       "guardrails.methods normalized",
-			field:      "run.0.guardrails.methods",
+			name:       "validations.methods normalized",
+			field:      "run.0.validations.methods",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -2088,7 +2088,7 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 		"deploy.apiServer.routes.1.methods.0", // Should normalize to routes.methods
 		"chat.0.contextLength",                // Should normalize to chat.context.contextLength
 		"httpClient.0.method",                 // Should normalize to httpClient.method
-		"guardrails.methods",                  // Should match guardrails.methods enum
+		"validations.methods",                 // Should match validations.methods enum
 	}
 
 	for _, field := range testFields {
@@ -2266,7 +2266,7 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "array type with example from known field",
-			field:    "guardrails.methods",
+			field:    "validations.methods",
 			descStr:  "Expected: array, given: string",
 			expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
 		},
@@ -2441,8 +2441,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 		},
 		{
-			name:       "guardrails.methods field",
-			field:      "guardrails.methods",
+			name:       "validations.methods field",
+			field:      "validations.methods",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -2459,8 +2459,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			expected:   []interface{}{"Workflow", "Resource"},
 		},
 		{
-			name:       "normalized guardrails.methods",
-			field:      "run.0.guardrails.methods",
+			name:       "normalized validations.methods",
+			field:      "run.0.validations.methods",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -3076,7 +3076,7 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 	}
 }
 
-// TestSchemaValidator_ValidationsMethodsEnum tests guardrails.methods enum validation.
+// TestSchemaValidator_ValidationsMethodsEnum tests validations.methods enum validation.
 func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 	validator, err := validator.NewSchemaValidator()
 	if err != nil {
@@ -3090,13 +3090,13 @@ func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 		expectedOption string
 	}{
 		{
-			name: "invalid guardrails.methods value",
+			name: "invalid validations.methods value",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
 				"actionId":   "test",
 				"name":       "Test",
-				"guardrails": map[string]interface{}{
+				"validations": map[string]interface{}{
 					"methods": []interface{}{"INVALID"},
 				},
 				"chat": map[string]interface{}{
@@ -3112,13 +3112,13 @@ func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 			expectedOption: "GET",
 		},
 		{
-			name: "invalid guardrails.methods type - integer",
+			name: "invalid validations.methods type - integer",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
 				"actionId":   "test",
 				"name":       "Test",
-				"guardrails": map[string]interface{}{
+				"validations": map[string]interface{}{
 					"methods": []interface{}{123},
 				},
 				"chat": map[string]interface{}{
@@ -3235,13 +3235,13 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "valid resource with guardrails.methods",
+			name: "valid resource with validations.methods",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
 				"actionId":   "test",
 				"name":       "Test",
-				"guardrails": map[string]interface{}{
+				"validations": map[string]interface{}{
 					"methods": []interface{}{"GET", "POST"},
 				},
 				"chat": map[string]interface{}{

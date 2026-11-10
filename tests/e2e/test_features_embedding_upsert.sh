@@ -70,7 +70,7 @@ EOF
 cat > "$TEST_DIR/resources/upsert.yaml" <<EOF
 actionId: embedUpsert
 name: Embed Upsert
-guardrails:
+validations:
   routes: [/embed/upsert]
   methods: [POST]
 component:
@@ -89,7 +89,7 @@ EOF
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
 actionId: embedSearch
 name: Embed Search
-guardrails:
+validations:
   routes: [/embed/search]
   methods: [POST]
 component:
@@ -104,7 +104,7 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [embedUpsert, embedSearch]
 apiResponse:
   success: true

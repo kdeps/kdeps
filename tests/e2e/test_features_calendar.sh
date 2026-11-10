@@ -78,7 +78,7 @@ EOF
 cat > "$TEST_DIR/resources/create.yaml" <<EOF
 actionId: calCreate
 name: Calendar Create
-guardrails:
+validations:
   routes: [/calendar/ops]
   methods: [POST]
 calendar:
@@ -97,7 +97,7 @@ EOF
 cat > "$TEST_DIR/resources/list.yaml" <<EOF
 actionId: calList
 name: Calendar List
-workflow:
+flow:
   requires: [calCreate]
 calendar:
   action: list
@@ -111,7 +111,7 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [calCreate, calList]
 apiResponse:
   success: true

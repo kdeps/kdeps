@@ -1,6 +1,6 @@
 actionId: summarize
 name: Summarize Document
-workflow:
+flow:
     requires:
         - readFile
 

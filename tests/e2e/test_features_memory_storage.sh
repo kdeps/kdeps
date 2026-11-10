@@ -92,7 +92,7 @@ cat > "$RESOURCE_FILE_ROUTER" <<'EOF'
 
 actionId: router
 name: Router
-workflow:
+flow:
   requires:
     - setMemory
     - getMemory

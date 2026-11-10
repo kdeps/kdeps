@@ -193,10 +193,10 @@
       },
       "additionalProperties": false
     },
-    "memory": {
+    "session": {
       "type": "object"
     },
-    "agent": {
+    "repl": {
       "type": "object"
     },
     "resources": {
@@ -322,7 +322,7 @@
                 "criteria": {
                   "type": "string"
                 },
-                "tools": {
+                "allowedTools": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -424,7 +424,7 @@
         "description": {
           "type": "string"
         },
-        "workflow": {
+        "flow": {
           "type": "object",
           "properties": {
             "requires": {

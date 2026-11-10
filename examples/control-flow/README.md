@@ -11,7 +11,7 @@ This example demonstrates control flow in kdeps:
 The `loop` block enables unbounded while-loop iteration in a resource:
 
 ```yaml
-workflow:
+flow:
   loop:
     while: "loop.index() < 5"
     maxIterations: 1000   # safety cap (default: 1000)

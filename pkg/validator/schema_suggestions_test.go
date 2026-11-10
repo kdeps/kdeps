@@ -122,13 +122,13 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			expectedSuggestion: "Example:",
 		},
 		{
-			name: "pattern error - invalid guardrails.routes should suggest pattern",
+			name: "pattern error - invalid validations.routes should suggest pattern",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
 				"actionId":   "test",
 				"name":       "Test",
-				"guardrails": map[string]interface{}{
+				"validations": map[string]interface{}{
 					"routes": []interface{}{"invalid-route"},
 				},
 			},
@@ -324,7 +324,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: array format",
-				field:    "guardrails.routes",
+				field:    "validations.routes",
 				descStr:  "Invalid type. Expected: array, given: string",
 				expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
 			},
@@ -360,7 +360,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: array with but got (no examples)",
-				field:    "guardrails.routes",
+				field:    "validations.routes",
 				descStr:  "Invalid type. Expected: array, but got string",
 				expected: "Expected type: array",
 			},
@@ -490,8 +490,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
-				name:           "guardrails.methods direct",
-				field:          "guardrails.methods",
+				name:           "validations.methods direct",
+				field:          "validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
@@ -499,7 +499,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				name:           "methods in non-validations context",
 				field:          "something.methods",
 				schemaType:     "resource",
-				expectedResult: nil, // Should not match guardrails.methods
+				expectedResult: nil, // Should not match validations.methods
 			},
 			{
 				name:           "apiVersion exact match",
@@ -596,8 +596,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
-				name:           "guardrails.methods nested match",
-				field:          "test.guardrails.methods",
+				name:           "validations.methods nested match",
+				field:          "test.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
@@ -849,8 +849,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
-				name:           "guardrails.methods deeply nested match",
-				field:          "deeply.nested.guardrails.methods",
+				name:           "validations.methods deeply nested match",
+				field:          "deeply.nested.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},

@@ -57,7 +57,7 @@ YAML
 cat > "$TEST_DIR/resources/calc.yaml" <<'YAML'
 actionId: calc
 name: Calculator chat
-guardrails:
+validations:
   routes: [/calc]
 chat:
   model:
@@ -72,7 +72,7 @@ YAML
 cat > "$TEST_DIR/resources/missing.yaml" <<'YAML'
 actionId: missing
 name: Unknown tool chat
-guardrails:
+validations:
   routes: [/missing]
 chat:
   model:
@@ -87,7 +87,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [calc, missing]
 apiResponse:
   success: true

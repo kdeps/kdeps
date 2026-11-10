@@ -64,7 +64,7 @@ resources:
   # ── Return result to intake agent ─────────────────────────────────────────────
   - actionId: security-response
     name: Security Response
-    workflow:
+    flow:
       requires: [security-check]
     apiResponse:
       success: true

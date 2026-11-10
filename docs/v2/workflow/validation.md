@@ -1,12 +1,12 @@
 # Validation and control flow
 
-The `guardrails:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
+The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
 
-Set per resource. When agent mode calls this workflow as a tool, the same `guardrails:` rules apply inside that run.
+Set per resource. When agent mode calls this workflow as a tool, the same `validations:` rules apply inside that run.
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   methods: [POST]          # skip unless method matches
   routes: [/api/v1/data]  # skip unless route matches
   headers: [Authorization] # skip unless header present
@@ -41,7 +41,7 @@ Skip conditions allow you to conditionally skip resource execution based on runt
 # resources/conditional-resource.yaml
 actionId: conditionalResource
 name: Conditional Resource
-guardrails:
+validations:
   skip:
     - get('skip') == true
     - get('mode') == 'dry-run'
@@ -60,7 +60,7 @@ Any true condition skips the resource silently. It produces no output, but its s
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   skip:
     # Skip if flag is set
     - get('skip') == true
@@ -84,7 +84,7 @@ Preflight checks validate inputs before resource execution begins. If any condit
 # resources/validated-resource.yaml
 actionId: validatedResource
 name: Validated Resource
-guardrails:
+validations:
   check:
     - get('q') != ''
     - get('userId') != null
@@ -109,7 +109,7 @@ All `check` conditions must pass (AND logic). If one fails, execution stops and 
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   check:
     - get('q') != ''
     - get('userId') != null
@@ -152,7 +152,7 @@ Limit which HTTP requests can trigger a resource.
 # resources/api-resource.yaml
 actionId: apiResource
 name: API Resource
-guardrails:
+validations:
   methods: [GET, POST]
   routes: [/api/v1/data, /api/v1/query]
 chat:
@@ -172,7 +172,7 @@ chat:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   methods: [GET]         # only GET
   methods: [GET, POST]   # GET and POST
   # omit to allow all methods
@@ -182,7 +182,7 @@ guardrails:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   routes: [/api/v1/users]                   # single route
   routes: [/api/v1/users, /api/v1/profiles] # multiple routes
   # omit to allow all routes
@@ -194,7 +194,7 @@ guardrails:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   methods: [POST]
   routes:
     - /api/v1/create
@@ -218,7 +218,7 @@ Validate the structure and content of request data using `required`, `rules`, an
 # resources/validated-input.yaml
 actionId: validatedInput
 name: Validated Input
-guardrails:
+validations:
   required:
     - userId
     - action
@@ -247,7 +247,7 @@ kdeps supports multiple syntaxes for field validation:
 **`properties` (map format)**
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   required: [email, name]
   properties:
     email:
@@ -261,7 +261,7 @@ guardrails:
 **`rules` (array format)**
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   required: [email, name]
   rules:
     - field: email
@@ -275,7 +275,7 @@ guardrails:
 **`fields` (alternative map format)**
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   required: [email, name]
   fields:
     email:
@@ -308,7 +308,7 @@ guardrails:
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   required: [email, password, confirmPassword]
   properties:
     email:
@@ -339,7 +339,7 @@ Restrict which headers and query parameters are allowed in requests.
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   headers:
     - Authorization
     - Content-Type
@@ -359,7 +359,7 @@ Headers not in this list are inaccessible via `get()`.
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   params:
     - q
     - userId
@@ -379,7 +379,7 @@ Parameters not in this list are inaccessible via `get()`.
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/secure]
   headers:

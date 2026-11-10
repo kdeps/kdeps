@@ -1,6 +1,6 @@
 # Expression operators
 
-All comparison and logical operators available in `guardrails.check`, `guardrails.skip`, and any boolean expression context.
+All comparison and logical operators available in `validations.check`, `validations.skip`, and any boolean expression context.
 
 Works in workflow and agent mode.
 
@@ -67,11 +67,11 @@ Highest to lowest:
 
 ## Usage contexts
 
-### In guardrails.check (all must pass)
+### In validations.check (all must pass)
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   check:
     - get('email') != nil
     - get('email') contains '@'
@@ -81,11 +81,11 @@ guardrails:
     message: Invalid email or password too short
 ```
 
-### In guardrails.skip (any triggers skip)
+### In validations.skip (any triggers skip)
 
 ```yaml
 # resources/example.yaml
-guardrails:
+validations:
   skip:
     - get('q') == ''
     - get('q') == nil

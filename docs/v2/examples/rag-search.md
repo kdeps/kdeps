@@ -53,7 +53,7 @@ Create `resources/index.yaml`:
 # resources/index.yaml
 actionId: indexDoc
 name: Index document
-guardrails:
+validations:
   methods: [POST]
   routes: [/index]              # this resource only runs for POST /index
   check:
@@ -84,7 +84,7 @@ Create `resources/search.yaml`:
 # resources/search.yaml
 actionId: searchDocs
 name: Search documents
-guardrails:
+validations:
   methods: [POST]
   routes: [/search]            # this resource only runs for POST /search
   check:
@@ -113,7 +113,7 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: response
 name: API response
-workflow:
+flow:
   requires: [indexDoc, searchDocs]
 apiResponse:
   success: true

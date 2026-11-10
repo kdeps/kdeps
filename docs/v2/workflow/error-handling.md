@@ -48,7 +48,7 @@ component:
     url: "https://api.example.com/data"
     method: GET
 
-workflow:
+flow:
   onError:
     action: continue
     fallback:
@@ -92,7 +92,7 @@ component:
     url: "https://flaky-api.example.com/data"
     method: GET
 
-workflow:
+flow:
   onError:
     action: retry
     maxRetries: 3
@@ -194,7 +194,7 @@ component:
     method: GET
     timeout: 5s
 
-workflow:
+flow:
   onError:
     action: retry
     maxRetries: 3
@@ -214,7 +214,7 @@ chat:
   context:
     prompt: "Enhance this text: {{ get('text') }}"
 
-workflow:
+flow:
   onError:
     action: continue
     fallback: "{{ get('text') }}"  # Return original text on failure
@@ -228,7 +228,7 @@ workflow:
 # resources/external-service.yaml
 actionId: externalService
 # Check circuit breaker state first
-guardrails:
+validations:
   skip:
   - get('circuitOpen', 'session') == true
 
@@ -238,7 +238,7 @@ component:
     url: "https://api.example.com/data"
     method: GET
 
-workflow:
+flow:
   onError:
     action: continue
     expr:
@@ -266,18 +266,18 @@ component:
     params:
       - "{{ get('userId') }}"
 
-workflow:
+flow:
   onError:
     action: continue
     fallback: null
 
 ---
 actionId: queryReplica
-workflow:
+flow:
   requires:
     - queryPrimary
 # Only query replica if primary failed
-guardrails:
+validations:
   skip:
   - get('queryPrimary') != null
   - safe(get('queryPrimary'), '_error') == nil
@@ -304,17 +304,17 @@ chat:
   context:
     prompt: "{{ get('q') }}"
 
-workflow:
+flow:
   onError:
     action: continue
     fallback: null
 
 ---
 actionId: fallbackLLM
-workflow:
+flow:
   requires:
     - primaryLLM
-guardrails:
+validations:
   skip:
   - get('primaryLLM') != null
   - safe(get('primaryLLM'), '_error') == nil
@@ -325,7 +325,7 @@ chat:
 
 ---
 actionId: response
-workflow:
+flow:
   requires:
     - primaryLLM
     - fallbackLLM
@@ -367,7 +367,7 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 3. **Use when conditions** - Handle specific errors differently
 4. **Log errors with expr** - Store error info for debugging/monitoring
 5. **Provide meaningful fallbacks** - Return useful data even on failure
-6. **Combine with guardrails.skip** - Create fallback resource chains
+6. **Combine with validations.skip** - Create fallback resource chains
 
 ## See also
 

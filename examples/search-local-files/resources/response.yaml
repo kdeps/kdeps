@@ -1,6 +1,6 @@
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [search]
 apiResponse:
   success: true

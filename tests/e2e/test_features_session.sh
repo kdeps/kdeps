@@ -54,7 +54,7 @@ deploy:
   runtime:
     pythonVersion: "3.12"
 
-memory:
+session:
   enabled: true
   ttl: 30s
   storage:
@@ -204,7 +204,7 @@ deploy:
   runtime:
     pythonVersion: "3.12"
 
-memory:
+session:
   enabled: true
   ttl: 60s
   storage:

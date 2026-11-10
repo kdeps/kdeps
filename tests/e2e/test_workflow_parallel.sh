@@ -76,7 +76,7 @@ done
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [a, b, c]
 apiResponse:
   success: true
@@ -162,7 +162,7 @@ done
 cat > "$COMP_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [x, y, z]
 apiResponse:
   success: true

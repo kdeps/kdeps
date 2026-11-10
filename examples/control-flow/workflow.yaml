@@ -24,7 +24,7 @@ deploy:
 resources:
   - actionId: controlFlowDemo
     name: Control Flow Demo
-    guardrails:
+    validations:
       methods: [GET, POST]
       routes: [/api/demo]
 

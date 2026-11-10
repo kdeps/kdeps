@@ -117,7 +117,7 @@ deploy:
 resources:
   - actionId: llmResource
     name: LLM Test
-    guardrails:
+    validations:
       methods: [POST]
       routes: [/api/v1/test]
     preflightCheck:
@@ -144,10 +144,10 @@ resources:
             - answer
   - actionId: responseResource
     name: API Response
-    workflow:
+    flow:
       requires:
         - llmResource
-    guardrails:
+    validations:
       methods: [POST]
       routes: [/api/v1/test]
     apiResponse:

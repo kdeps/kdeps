@@ -1,7 +1,7 @@
 actionId: chat
 name: Chat with MCP Filesystem Tools
 
-guardrails:
+validations:
   routes: [/chat]
   methods: [POST]
 

@@ -102,7 +102,7 @@ resources:
 
   - actionId: greet
     name: Greet
-    workflow:
+    flow:
       requires: [callResponder]
     apiResponse:
       success: true

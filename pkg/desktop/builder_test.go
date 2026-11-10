@@ -168,7 +168,7 @@ func TestSaveResource_NewFileAndFieldTypes(t *testing.T) {
 			"rag":     "",
 			"tools":   "list:\n  - name: lookup\n    description: look things up",
 		},
-		Extra: "workflow:\n  onError:\n    action: continue",
+		Extra: "flow:\n  onError:\n    action: continue",
 	}
 	res, err := h.svc.SaveResource(hello, form)
 	require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestSaveResource_NewFileAndFieldTypes(t *testing.T) {
 	assert.Contains(t, out, "json: true")
 	assert.NotContains(t, out, "rag", "empty fields are left out")
 	assert.Contains(t, out, "- name: lookup")
-	assert.Contains(t, out, "workflow:\n  requires:\n    - respond\n  onError:\n    action: continue")
+	assert.Contains(t, out, "flow:\n  requires:\n    - respond\n  onError:\n    action: continue")
 
 	// A second resource with the same actionId gets refused; a fresh one with
 	// a taken file name gets a suffix.

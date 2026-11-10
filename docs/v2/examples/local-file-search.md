@@ -51,7 +51,7 @@ Create `resources/search.yaml`:
 # resources/search.yaml
 actionId: search
 name: Search
-guardrails:
+validations:
   methods: [POST]
   routes: [/search]
   check:
@@ -80,7 +80,7 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [search]
 apiResponse:
   success: true

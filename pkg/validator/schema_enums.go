@@ -51,7 +51,7 @@ func schemaEnumMap() map[string][]interface{} {
 		enumKeyContextLength: {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
-		"guardrails.methods":              httpMethods,
+		"validations.methods":             httpMethods,
 		"deploy.apiServer.routes.methods": httpMethods,
 		"routes.methods":                  httpMethods,
 		"apiVersion":                      {"kdeps.io/v1"},
@@ -124,8 +124,8 @@ func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interfa
 		if strings.Contains(normalizedField, "routes") || strings.Contains(normalizedField, "apiServer") {
 			return enumMap["deploy.apiServer.routes.methods"]
 		}
-		if strings.Contains(normalizedField, "guardrails") {
-			return enumMap["guardrails.methods"]
+		if strings.Contains(normalizedField, "validations") {
+			return enumMap["validations.methods"]
 		}
 	}
 	return nil

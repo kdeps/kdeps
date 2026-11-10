@@ -31,7 +31,7 @@ get('API_KEY', 'env')  # environment variable
 Reading a resource output works the same way - `get('llm')` returns whatever the `llm` resource produced:
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   requires: [llm]
 apiResponse:

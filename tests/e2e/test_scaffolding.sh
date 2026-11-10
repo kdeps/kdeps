@@ -125,10 +125,10 @@ else
     test_failed "kdeps new - llm.yaml prompt uses get('q')" "not found in $LLM_RES"
 fi
 
-if grep -q "guardrails:" "$LLM_RES" 2>/dev/null; then
-    test_passed "kdeps new - llm.yaml has guardrails"
+if grep -q "validations:" "$LLM_RES" 2>/dev/null; then
+    test_passed "kdeps new - llm.yaml has validations"
 else
-    test_failed "kdeps new - llm.yaml has guardrails" "not found in $LLM_RES"
+    test_failed "kdeps new - llm.yaml has validations" "not found in $LLM_RES"
 fi
 
 # --- resources/response.yaml schema ---

@@ -16,7 +16,7 @@ A chat's keys sit in six groups:
 | `context` | `prompt`, `role`, `messages`, `scenario`, `files`, `promptVars`, `goTemplate`, `contextLength`, `fewShot` |
 | `harness` | `sections`, `refine`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
 | `tools` | `list`, `components`, `choice`, `maxRounds`, `skills` |
-| `rag` | `knowledge`, `retriever` (`context`, `topK`, `maxTokens`), `chunk` |
+| `rag` | `knowledge`, `retriever` (`passages`, `topK`, `maxTokens`), `chunk` |
 | `guardrails` | `judges`, `judgePreset` |
 
 ## Where config lives
@@ -380,7 +380,7 @@ chat:
     judges:
       - name: complete
         criteria: Every change in the changelog is listed.   # the rubric the judge reviews against
-        tools: [changelog]         # only this chat's tools or tools.components
+        allowedTools: [changelog]         # only this chat's tools or tools.components
         maxRounds: 5               # its tool rounds; 0 = the judge-max-rounds event
       - name: format
         graders:                   # checks without a model call; a failure rejects
@@ -735,7 +735,7 @@ Both fields can be combined: `fewShot.selectK` ranks examples by similarity firs
 
 ## RAG context injection
 
-Pass pre-fetched retriever chunks into the system prompt with `rag.retriever.context`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from the `vector_store` component's output.
+Pass pre-fetched retriever chunks into the system prompt with `rag.retriever.passages`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from the `vector_store` component's output.
 
 <div v-pre>
 
@@ -749,7 +749,7 @@ chat:
         prompt: Answer using only the retrieved context.
   rag:
     retriever:
-      context: "{{ $actions.search.output.documents }}"
+      passages: "{{ $actions.search.output.documents }}"
 ```
 
 </div>
@@ -766,7 +766,7 @@ chat:
     prompt: "{{ get('q') }}"
   rag:
     retriever:
-      context: "{{ $actions.search.output.documents }}"
+      passages: "{{ $actions.search.output.documents }}"
       topK: 5   # keep 5 most relevant chunks
 ```
 
@@ -784,7 +784,7 @@ chat:
     prompt: "{{ get('q') }}"
   rag:
     retriever:
-      context: "{{ $actions.search.output.documents }}"
+      passages: "{{ $actions.search.output.documents }}"
       topK: 10           # pick 10 most relevant
       maxTokens: 1000    # but never use more than 1000 tokens
 ```
@@ -866,9 +866,9 @@ chat:
 ---
 # Detailed response (only runs when confidence >= 0.8)
 actionId: detailedResponse
-workflow:
+flow:
   requires: [classifier]
-guardrails:
+validations:
   skip:
   - get('classifier').confidence < 0.8
 
@@ -887,7 +887,7 @@ chat:
 ## Accessing output
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   requires: [llmResource]
 apiResponse:

@@ -146,7 +146,7 @@ component:
 
 ---
 actionId: response
-workflow:
+flow:
   requires: [gitInfo]
 apiResponse:
   success: true
@@ -221,7 +221,7 @@ component:
   name: exec
   with:
     command: "exit 3"
-workflow:
+flow:
   onError:
     action: continue
 ```
@@ -248,7 +248,7 @@ args: ["{{ get('user_input') }}"]
 Validate input as well:
 
 ```yaml
-guardrails:
+validations:
   check:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```

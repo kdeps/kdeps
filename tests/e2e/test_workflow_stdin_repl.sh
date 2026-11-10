@@ -20,7 +20,7 @@ metadata:
   name: stdin-repl
   version: "1.0.0"
   targetActionId: echo
-agent:
+repl:
   executionType: stdin   # kdeps run reads messages from stdin
   prompt: "You: "
 EOF

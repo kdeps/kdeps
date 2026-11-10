@@ -3,7 +3,7 @@ name: LLM Chat Handler
 description: Handles chat requests with the selected LLM model
 
 # Only respond to POST requests on /api/v1/chat, and validate required input
-guardrails:
+validations:
   methods:
     - POST
   routes:
@@ -33,7 +33,7 @@ chat:
     scenario:
       - role: system
         prompt: "{{ get('systemPrompt') }}"
-workflow:
+flow:
   onError:
     action: continue
     fallback:

@@ -1,6 +1,6 @@
 actionId: search
 name: Search
-guardrails:
+validations:
   methods: [POST]
   routes: [/search]
   check:

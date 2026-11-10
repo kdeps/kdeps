@@ -186,7 +186,7 @@ deploy:
 resources:
   - actionId: resource
     name: Error Handler Resource
-    workflow:
+    flow:
       onError:
         action: continue
         fallback:
@@ -225,7 +225,7 @@ deploy:
 resources:
   - actionId: process
     name: Process Items
-    workflow:
+    flow:
       items:
         - "[]"
     apiResponse:

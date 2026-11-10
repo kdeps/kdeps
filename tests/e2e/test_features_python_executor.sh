@@ -80,7 +80,7 @@ cat > "$RESOURCE_FILE_RESPONSE" <<'EOF'
 
 actionId: pythonResponse
 name: Python Response
-workflow:
+flow:
   requires:
     - pythonProcessor
 

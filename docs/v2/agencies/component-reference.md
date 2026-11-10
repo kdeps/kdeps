@@ -158,7 +158,7 @@ component:
 # resources/summarize.yaml
 actionId: summarize
 name: Summarize
-workflow:
+flow:
   requires: [fetch-article]
 chat:
   context:

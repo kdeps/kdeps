@@ -51,7 +51,7 @@ Create `resources/system-info.yaml`:
 # resources/system-info.yaml
 actionId: systemInfo
 name: System information
-guardrails:
+validations:
   methods: [GET]              # only GET reaches this resource
   routes: [/api/v1/exec]
 component:                    # the exec component calls the kdeps API's exec tool
@@ -74,7 +74,7 @@ Create `resources/final-result.yaml`:
 # resources/final-result.yaml
 actionId: finalResult
 name: Final result
-workflow:
+flow:
   requires: [systemInfo]
 apiResponse:
   success: true

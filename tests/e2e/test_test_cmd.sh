@@ -84,7 +84,7 @@ resources:
         command: "echo hello"
   - actionId: response
     name: Response
-    workflow:
+    flow:
       requires: [shout]
     apiResponse:
       success: true

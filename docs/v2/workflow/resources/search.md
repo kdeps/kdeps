@@ -24,7 +24,7 @@ component:
 ```yaml
 # resources/respond.yaml
 actionId: respond
-workflow:
+flow:
   requires: [find]
 apiResponse:
   response:

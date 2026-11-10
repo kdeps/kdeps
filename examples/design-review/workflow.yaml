@@ -18,6 +18,6 @@ deploy:
     timezone: Etc/UTC
 
 # The session keeps the reviewed doc between the question and its answer.
-memory:
+session:
   type: sqlite
   ttl: 30m

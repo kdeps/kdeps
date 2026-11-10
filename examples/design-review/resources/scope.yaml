@@ -2,7 +2,7 @@ actionId: scope
 name: Review (scope)
 
 # Skipped when the request carries no doc (an answer to the question).
-guardrails:
+validations:
   skip:
     - "get('doc') == nil"
 

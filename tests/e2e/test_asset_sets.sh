@@ -238,7 +238,7 @@ YAML
 cat > "$SA_WF/resources/echo.yaml" <<'YAML'
 actionId: echo
 name: Echo
-workflow:
+flow:
   requires: [answer]
 component:
   name: e2e-echo
@@ -246,7 +246,7 @@ YAML
 cat > "$SA_WF/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [echo]
 apiResponse:
   success: true

@@ -270,7 +270,7 @@ chat:
   context:
     prompt: "{{get('prompt')}}"
 
-workflow:
+flow:
   onError:
     action: continue
     fallback:
@@ -436,7 +436,7 @@ after:
 Inline resources work with the `items` feature:
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   items:
     - item1

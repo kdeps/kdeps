@@ -625,7 +625,7 @@ EOF
 cat > "$TEMP_DIR19/resources/test.yaml" << 'EOF'
 actionId: test
 name: test
-guardrails:
+validations:
   methods:
     - INVALID
 chat:

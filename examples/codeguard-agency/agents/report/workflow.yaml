@@ -83,7 +83,7 @@ resources:
   # ── Return final report to intake agent ───────────────────────────────────────
   - actionId: report-response
     name: Report Response
-    workflow:
+    flow:
       requires: [synthesize]
     apiResponse:
       success: true

@@ -24,7 +24,7 @@ deploy:
 resources:
   - actionId: withoutBraces
     name: Direct Expressions Without Braces
-    guardrails:
+    validations:
       methods: [GET, POST]
       routes: [/api/demo]
 
@@ -37,7 +37,7 @@ resources:
 
   - actionId: withBraces
     name: String Interpolation With Braces
-    workflow:
+    flow:
       requires:
       - withoutBraces
     apiResponse:
@@ -49,7 +49,7 @@ resources:
 
   - actionId: mixed
     name: Mixed Direct and Interpolated
-    workflow:
+    flow:
       requires:
       - withBraces
     apiResponse:

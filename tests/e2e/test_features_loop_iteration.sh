@@ -62,7 +62,7 @@ name: Loop Counter
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/loop]
-workflow:
+flow:
   loop:
     while: "loop.index() < 5"
     maxIterations: 1000
@@ -200,7 +200,7 @@ cat > "$RESOURCE_FILE2" <<'EOF'
 actionId: accumulator
 name: Accumulator
 
-workflow:
+flow:
   loop:
     while: "loop.index() < 4"
     maxIterations: 100
@@ -240,7 +240,7 @@ EOF
 cat > "$RESOURCE_FILE3" <<'EOF'
 actionId: selfRef
 name: Self Referential
-workflow:
+flow:
   loop:
     while: "len(loop.results()) < 3"
     maxIterations: 10
@@ -277,7 +277,7 @@ EOF
 cat > "$TEST_DIR4/resources/ticker.yaml" <<'EOF'
 actionId: ticker
 name: Ticker
-workflow:
+flow:
   loop:
     while: "loop.index() < 3"
     maxIterations: 10
@@ -322,7 +322,7 @@ EOF
 cat > "$TEST_DIR5/resources/bad-every.yaml" <<'EOF'
 actionId: badEvery
 name: Bad Every
-workflow:
+flow:
   loop:
     while: "loop.index() < 2"
     maxIterations: 5
@@ -358,7 +358,7 @@ EOF
 cat > "$TEST_DIR6/resources/at-scheduled.yaml" <<'EOF'
 actionId: atScheduled
 name: At Scheduled
-workflow:
+flow:
   loop:
     while: "loop.index() < 2"
     maxIterations: 10

@@ -46,7 +46,7 @@ resources:
         prompt: hi
   - actionId: respond
     name: Respond
-    workflow:
+    flow:
       requires: [chat]
     apiResponse:
       success: true
@@ -194,7 +194,7 @@ resources:
         prompt: hi
   - actionId: respond
     name: Respond
-    workflow:
+    flow:
       requires: [chat]
     apiResponse:
       success: true
@@ -345,7 +345,7 @@ resources:
         prompt: hi
   - actionId: respond
     name: Respond
-    workflow:
+    flow:
       requires: [chat]
     apiResponse:
       success: true

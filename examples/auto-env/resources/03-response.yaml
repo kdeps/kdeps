@@ -1,6 +1,6 @@
 actionId: response
 name: Final Response
-workflow:
+flow:
     requires:
         - translate
         - summarize

@@ -1,15 +1,15 @@
 # Route and method restrictions
 
-`guardrails:` gates which HTTP methods and routes trigger a resource. A request that does not match skips the resource silently.
+`validations:` gates which HTTP methods and routes trigger a resource. A request that does not match skips the resource silently.
 
 ## HTTP method restrictions
 
-Limit a resource to specific HTTP methods using `methods:` inside the `guardrails:` block:
+Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:
 
 ```yaml
 # resources/create-user.yaml
 actionId: createUser
-guardrails:
+validations:
   methods: [POST]
 
 component:
@@ -23,7 +23,7 @@ component:
           - "{{ get('email') }}"
 ```
 
-When `methods:` is set inside `guardrails:`:
+When `methods:` is set inside `validations:`:
 - Resource only executes for matching HTTP methods
 - Mismatched methods skip the resource silently
 - Multiple methods can be specified
@@ -35,7 +35,7 @@ When `methods:` is set inside `guardrails:`:
 ```yaml
 # Create - POST only
 actionId: createItem
-guardrails:
+validations:
   methods: [POST]
 component:
   name: sql
@@ -47,7 +47,7 @@ component:
 ---
 # Read - GET only
 actionId: getItem
-guardrails:
+validations:
   methods: [GET]
 component:
   name: sql
@@ -59,7 +59,7 @@ component:
 ---
 # Update - PUT/PATCH
 actionId: updateItem
-guardrails:
+validations:
   methods: [PUT, PATCH]
 component:
   name: sql
@@ -73,7 +73,7 @@ component:
 ---
 # Delete - DELETE only
 actionId: deleteItem
-guardrails:
+validations:
   methods: [DELETE]
 component:
   name: sql
@@ -85,12 +85,12 @@ component:
 
 ## Route restrictions
 
-Limit a resource to specific URL routes using `routes:` inside the `guardrails:` block:
+Limit a resource to specific URL routes using `routes:` inside the `validations:` block:
 
 ```yaml
 # resources/admin-dashboard.yaml
 actionId: adminDashboard
-guardrails:
+validations:
   routes:
     - /admin
     - /admin/*
@@ -120,7 +120,7 @@ component:
 ```yaml
 # V1 API handler
 actionId: apiV1Handler
-guardrails:
+validations:
   routes: [/api/v1/*]
 chat:
   context:
@@ -129,7 +129,7 @@ chat:
 ---
 # V2 API handler (different model)
 actionId: apiV2Handler
-guardrails:
+validations:
   routes: [/api/v2/*]
 chat:
   context:
@@ -143,7 +143,7 @@ chat:
 ```yaml
 # Public content
 actionId: publicContent
-guardrails:
+validations:
   routes:
     - /public/*
     - /
@@ -156,7 +156,7 @@ component:
 ---
 # Admin content (requires auth)
 actionId: adminContent
-guardrails:
+validations:
   routes: [/admin/*]
   check:
     - get('Authorization') != ''
@@ -177,7 +177,7 @@ Combine method and route restrictions for precise control:
 ```yaml
 # resources/user-create.yaml
 actionId: userCreate
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/users]
 
@@ -192,7 +192,7 @@ component:
 
 ---
 actionId: userGet
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/users/*]
 
@@ -230,7 +230,7 @@ deploy:
 ```yaml
 # resources/list-users.yaml
 actionId: listUsers
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/users]
 component:
@@ -245,7 +245,7 @@ component:
 ```yaml
 # resources/create-user.yaml
 actionId: createUser
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/users]
   required: [name, email]
@@ -264,7 +264,7 @@ component:
 ```yaml
 # resources/get-user.yaml
 actionId: getUser
-guardrails:
+validations:
   methods: [GET]
   routes: [/api/users/*]
 component:
@@ -280,7 +280,7 @@ component:
 ```yaml
 # resources/update-user.yaml
 actionId: updateUser
-guardrails:
+validations:
   methods: [PUT]
   routes: [/api/users/*]
 component:
@@ -299,7 +299,7 @@ component:
 ```yaml
 # resources/delete-user.yaml
 actionId: deleteUser
-guardrails:
+validations:
   methods: [DELETE]
   routes: [/api/users/*]
 component:
@@ -320,7 +320,7 @@ component:
 
 ## See also
 
-- [Validation and control flow](/workflow/validation) - Full `guardrails:` block reference
+- [Validation and control flow](/workflow/validation) - Full `validations:` block reference
 - [Data access](/workflow/data-access#the-request-object) - the `request` object
 - [Workflow configuration](/workflow/configuration) - Route configuration
 - [Resources overview](/workflow/resources) - Resource basics

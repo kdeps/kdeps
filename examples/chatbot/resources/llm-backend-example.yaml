@@ -1,7 +1,7 @@
 actionId: llmWithBackend
 name: LLM Chat with Backend Selection
 
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/chat-backend]
 

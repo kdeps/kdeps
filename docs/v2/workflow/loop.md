@@ -13,7 +13,7 @@ Set on a resource. In agent mode it runs inside the workflow when the LLM calls 
 
 actionId: countToFive
 name: Count to Five
-workflow:
+flow:
   loop:
     while: "loop.index() < 5"
     maxIterations: 1000   # safety cap (default: 1000)
@@ -102,7 +102,7 @@ When `apiResponse` is present, every iteration produces one response map. Multip
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "loop.index() < 3"
@@ -143,7 +143,7 @@ Add `every:` to pause the loop for a fixed duration between iterations, turning 
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "loop.index() < 10"
@@ -167,7 +167,7 @@ The sleep is skipped after the last iteration - the caller receives results with
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "true"          # run until maxIterations
@@ -203,7 +203,7 @@ Use `at:` to fire the loop body at a list of specific dates and/or times, in ord
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "loop.index() < 2"
@@ -236,7 +236,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "true"
@@ -288,7 +288,7 @@ The three primitives of Turing completeness are:
 |-----------|----------------------|
 | **Unbounded iteration** | `loop.while` with configurable `maxIterations` |
 | **Mutable state** | `set()` / `get()` across iterations |
-| **Conditional branching** | Arbitrary boolean `while` expression + `guardrails.skip` |
+| **Conditional branching** | Arbitrary boolean `while` expression + `validations.skip` |
 
 Together with `loop.results()` feeding back into the `while` condition, the system can simulate any computable function - including mu-recursion (search until an unpredictable condition is met).
 
@@ -299,7 +299,7 @@ Together with `loop.results()` feeding back into the `while` condition, the syst
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "loop.index() < 4"
@@ -319,7 +319,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "int(default(get('phase'), 0)) < 3"
@@ -339,7 +339,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "get('done') == nil"
@@ -363,7 +363,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-workflow:
+flow:
   # resources/example.yaml
   loop:
     while: "len(loop.results()) < 5"
@@ -388,7 +388,7 @@ A resource that runs a loop and a downstream resource that reads the final state
 ```yaml
 # resources/compute.yaml
 actionId: compute
-workflow:
+flow:
   loop:
     while: "loop.index() < 3"
     maxIterations: 10
@@ -398,7 +398,7 @@ after:
 ---
 # resources/respond.yaml
 actionId: respond
-workflow:
+flow:
   requires: [compute]
 apiResponse:
   success: true

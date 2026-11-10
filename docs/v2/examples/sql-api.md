@@ -74,7 +74,7 @@ Create `resources/report.yaml`:
 # resources/report.yaml
 actionId: report
 name: User report
-guardrails:
+validations:
   methods: [GET]
   routes: [/report]
 component:
@@ -107,7 +107,7 @@ Create `resources/update.yaml`:
 # resources/update.yaml
 actionId: update
 name: Batch status update
-guardrails:
+validations:
   methods: [POST]
   routes: [/update]
 component:
@@ -135,7 +135,7 @@ Create `resources/results.yaml`:
 # resources/results.yaml
 actionId: results
 name: Combined results
-workflow:
+flow:
   requires: [report, update]
 apiResponse:
   success: true

@@ -100,7 +100,7 @@ YAML
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [notes, graded, preset]
 apiResponse:
   success: true
@@ -127,7 +127,7 @@ chat:
   guardrails:
     judges:
       - name: lonely
-        tools: [write_file]
+        allowedTools: [write_file]
 YAML
 BAD_OUT=$("$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" 2>&1)
 if echo "$BAD_OUT" | grep -q 'chat.judges\[0\]: judge "lonely" needs criteria or graders'; then

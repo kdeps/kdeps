@@ -41,7 +41,7 @@ deploy:
         methods: [GET, POST]
   runtime:
     pythonVersion: "3.12"
-memory:
+session:
   type: sqlite                 # persist to a file
   # no path: the db is ~/.kdeps/sessions.db, outside the project and its git history
   ttl: 30m                     # session expires 30 minutes after last use
@@ -58,7 +58,7 @@ Create `resources/login.yaml`:
 # resources/login.yaml
 actionId: loginHandler
 name: Login handler
-guardrails:
+validations:
   routes: [/api/v1/login]
   required:
     - username                  # 400 if either field is missing
@@ -103,7 +103,7 @@ Create `resources/session.yaml`:
 # resources/session.yaml
 actionId: sessionHandler
 name: Session handler
-guardrails:
+validations:
   routes: [/api/v1/session]
   check:
     - "{{ get('logged_in', 'session') == 'true' }}"   # must be logged in
@@ -132,7 +132,7 @@ Create `resources/response.yaml`:
 # resources/response.yaml
 actionId: sessionResponse
 name: Response
-workflow:
+flow:
   requires: [loginHandler, sessionHandler]
 apiResponse:
   success: true

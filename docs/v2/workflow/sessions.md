@@ -1,6 +1,6 @@
 # Session configuration
 
-Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
+Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under the top-level `session:` block.
 
 This page is HTTP session storage. Agent mode conversation history is a different store: JSONL under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
@@ -13,7 +13,7 @@ This page is HTTP session storage. Agent mode conversation history is a differen
 
 ```yaml
 # workflow.yaml
-memory:
+session:
   type: sqlite                    # "sqlite" or "memory"
   path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
   ttl: "30m"                      # Session expiration
@@ -28,7 +28,7 @@ Persists to a file - survives restarts and can be shared via a mounted volume.
 
 ```yaml
 # workflow.yaml
-memory:
+session:
   type: sqlite
   path: "/data/sessions.db"   # absolute or relative path
   ttl: "24h"                  # how long a session lives without activity
@@ -41,7 +41,7 @@ Fast (no disk I/O) but lost on restart. Use for development or single-instance s
 
 ```yaml
 # workflow.yaml
-memory:
+session:
   type: memory
   ttl: "30m"
   cleanupInterval: "5m"
@@ -102,7 +102,7 @@ chat:
 # Login resource
 actionId: login
 
-guardrails:
+validations:
   check:
     - get('username') != ''
     - get('password') != ''
@@ -132,7 +132,7 @@ apiResponse:
 # resources/example.yaml
 actionId: protectedResource
 
-guardrails:
+validations:
   check:
     - get('authenticated', 'session') == true
   error:
@@ -248,7 +248,7 @@ volumes:
 
 ```yaml
 # workflow.yaml
-memory:
+session:
   type: sqlite
   path: "/data/sessions.db"
 ```

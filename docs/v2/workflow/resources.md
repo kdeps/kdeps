@@ -15,7 +15,7 @@ name: My Resource           # required: human-readable label
 description: What it does   # optional
 category: api               # optional grouping label
 
-workflow:
+flow:
   requires:                   # like imports -- these run first and must produce output
     - otherResource           # myResource will not run until otherResource is done
 
@@ -27,7 +27,7 @@ workflow:
     while: "loop.index() < 5"
 
 # Gate whether the resource runs at all -- see /workflow/validation
-guardrails:
+validations:
   methods: [POST]                # only run on POST requests
   routes: [/api/v1/endpoint]    # only run on this route
   headers: [Authorization]      # only run when this header is present
@@ -75,7 +75,7 @@ The tables under [Resource types](#resource-types) are the allowlist. An action 
 # resources/response.yaml
 actionId: response
 name: API Response
-workflow:
+flow:
   requires: [llm]          # response will not run until llm is done
 apiResponse:
   response:
@@ -182,7 +182,7 @@ A -> B -> C -> loop -> E -> F
 
 ## See also
 
-- [Validation and control flow](/workflow/validation) - the `guardrails:` block
+- [Validation and control flow](/workflow/validation) - the `validations:` block
 - [Expressions](/workflow/expressions) - `before:`/`after:`, `get()`, `set()`
 - [Items iteration](/workflow/items) and [While-loop](/workflow/loop)
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback

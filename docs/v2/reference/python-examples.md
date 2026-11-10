@@ -13,7 +13,7 @@ Works in workflow and agent mode.
 ```yaml
 # resources/transform-data.yaml
 actionId: transformData
-workflow:
+flow:
   requires: [fetchData]
 component:
   name: python
@@ -51,7 +51,7 @@ component:
 ```yaml
 # resources/ml-predict.yaml
 actionId: mlPredict
-guardrails:
+validations:
   check:
     - get('features') != ''
   error:

@@ -80,7 +80,7 @@ deploy:
 # resources/llm.yaml
 actionId: llm
 name: LLM Chat
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/chat]
   check:
@@ -107,7 +107,7 @@ chat:
 # resources/response.yaml
 actionId: response
 name: API Response
-workflow:
+flow:
   requires: [llm]
 apiResponse:
   success: true

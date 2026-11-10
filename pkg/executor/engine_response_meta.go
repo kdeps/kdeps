@@ -69,13 +69,16 @@ func (e *Engine) buildAPIResponseMeta(
 			metaMap["headers"] = headers
 		}
 	}
-	if config.Model != "" {
-		if evaluatedModel, evalErr := e.evaluateResponseValue(config.Model, env); evalErr == nil {
+	if config.Meta == nil {
+		return metaMap
+	}
+	if config.Meta.Model != "" {
+		if evaluatedModel, evalErr := e.evaluateResponseValue(config.Meta.Model, env); evalErr == nil {
 			metaMap["model"] = fmt.Sprintf("%v", evaluatedModel)
 		}
 	}
-	if config.Backend != "" {
-		if evaluatedBackend, evalErr := e.evaluateResponseValue(config.Backend, env); evalErr == nil {
+	if config.Meta.Backend != "" {
+		if evaluatedBackend, evalErr := e.evaluateResponseValue(config.Meta.Backend, env); evalErr == nil {
 			metaMap["backend"] = fmt.Sprintf("%v", evaluatedBackend)
 		}
 	}

@@ -68,7 +68,7 @@ component:
 	// Create SQL resource
 	sqlResource := `actionId: store-data
 name: Store Data
-workflow:
+flow:
   requires: ["fetch-data"]
 component:
   name: sql
@@ -84,7 +84,7 @@ component:
 	// Create Python resource
 	pythonResource := `actionId: process-data
 name: Process Data
-workflow:
+flow:
   requires: ["store-data"]
 component:
   name: python
@@ -108,7 +108,7 @@ component:
 	// Create final response resource
 	responseResource := `actionId: final-response
 name: Final Response
-workflow:
+flow:
   requires: ["process-data"]
 apiResponse:
   success: true
@@ -479,7 +479,7 @@ agent:
 	// Write the API-response resource that depends on the agent call.
 	responseResource := `actionId: final-response
 name: Final Response
-workflow:
+flow:
   requires: [call-helper]
 apiResponse:
   success: true

@@ -1,7 +1,7 @@
 actionId: llmResource
 name: Llamafile Chat
 
-guardrails:
+validations:
   methods: [POST]
   routes: [/api/v1/chat]
 

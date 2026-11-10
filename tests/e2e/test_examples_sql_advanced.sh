@@ -399,7 +399,7 @@ RESEOF
     cat > "$MOCK_WORK_DIR/resources/response.yaml" <<RESEOF
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [sqltest]
 apiResponse:
   success: true

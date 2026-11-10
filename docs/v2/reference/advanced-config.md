@@ -49,7 +49,7 @@ after:
   # Different behavior based on request method
   - set('isPost', request.method == 'POST')
   - set('isGet', request.method == 'GET')
-guardrails:
+validations:
   skip:
     - "!get('isPost')"
 ```

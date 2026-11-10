@@ -36,7 +36,7 @@ resources:
   # ── Step 2: Return the greeting ──────────────────────────────────────────────
   - actionId: greet
     name: Greet
-    workflow:
+    flow:
       requires: [callResponder]
     # The callResponder output is the value returned by responder-agent.
     apiResponse:

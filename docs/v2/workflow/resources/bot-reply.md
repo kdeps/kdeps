@@ -39,7 +39,7 @@ chat:
 # resources/reply.yaml
 actionId: reply
 name: Reply
-workflow:
+flow:
   requires: [llm]
 apiResponse:
   success: true

@@ -315,7 +315,7 @@ after:
   - set('age', int(get('age')))
   - set('is_valid', get('email') contains '@' && get('age') >= 18)   # read by the check below
 
-guardrails:
+validations:
   check:
     - get('is_valid') == true
   error:

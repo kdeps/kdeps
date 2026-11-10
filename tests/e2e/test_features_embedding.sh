@@ -68,7 +68,7 @@ EOF
 cat > "$TEST_DIR/resources/index.yaml" <<EOF
 actionId: indexDoc
 name: Index Document
-guardrails:
+validations:
   routes: [/embed/index]
   methods: [POST]
 component:
@@ -88,7 +88,7 @@ EOF
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
 actionId: searchDocs
 name: Search Documents
-guardrails:
+validations:
   routes: [/embed/search]
   methods: [POST]
 component:
@@ -108,7 +108,7 @@ EOF
 cat > "$TEST_DIR/resources/delete.yaml" <<EOF
 actionId: deleteDoc
 name: Delete Document
-guardrails:
+validations:
   routes: [/embed/delete]
   methods: [POST]
 component:
@@ -127,7 +127,7 @@ EOF
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 actionId: response
 name: Response
-workflow:
+flow:
   requires: [indexDoc, searchDocs, deleteDoc]
 apiResponse:
   success: true

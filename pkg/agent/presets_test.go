@@ -167,7 +167,7 @@ func TestParseYAMLPreset_ReadsJudges(t *testing.T) {
 judges:
   - name: scope
     criteria: solves the stated problem
-    tools: [read_file]
+    allowedTools: [read_file]
     maxRounds: 3
 `), "panel.yaml")
 	require.NoError(t, err)
