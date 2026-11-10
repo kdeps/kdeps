@@ -749,7 +749,8 @@ chat:
         prompt: Answer using only the retrieved context.
   rag:
     retriever:
-      passages: "{{ $actions.search.output.documents }}"
+      passages:
+        - "{{ $actions.search.output.documents }}"
 ```
 
 </div>
@@ -766,7 +767,8 @@ chat:
     prompt: "{{ get('q') }}"
   rag:
     retriever:
-      passages: "{{ $actions.search.output.documents }}"
+      passages:
+        - "{{ $actions.search.output.documents }}"
       topK: 5   # keep 5 most relevant chunks
 ```
 
@@ -784,7 +786,8 @@ chat:
     prompt: "{{ get('q') }}"
   rag:
     retriever:
-      passages: "{{ $actions.search.output.documents }}"
+      passages:
+        - "{{ $actions.search.output.documents }}"
       topK: 10           # pick 10 most relevant
       maxTokens: 1000    # but never use more than 1000 tokens
 ```

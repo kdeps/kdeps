@@ -40,10 +40,10 @@ deploy:
 actionId: llm
 name: LLM Response
 chat:
+  model:
+    name: llama3.2:1b
   context:
-    messages:
-      - role: user
-        content: "{{ input('message') }}"   # the incoming message text
+    prompt: "{{ input('message') }}"   # the incoming message text
 ```
 
 ## resources/reply.yaml
