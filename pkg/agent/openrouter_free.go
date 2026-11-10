@@ -38,6 +38,11 @@ const defaultFreeModelPerMinute = 20
 // setFreeModelQueueCap hands the executor the account cap from the event asset.
 // Every OpenRouter free-model request in the process waits in one queue under it.
 func setFreeModelQueueCap() {
+	// A workflow chat on a free id moves to the next id on the same errors
+	// that move agent mode: a provider 429 or a provider refusal.
+	executorLLM.SetFreeModelHop(func(err error) bool {
+		return !overflow.Is(err) && (isProviderRateLimit(err) || isFreeModelRefusal(err))
+	})
 	executorLLM.SetFreeModelPerMinute(func() int {
 		n := effectiveItems(eventOpenrouterFreePerMinute, defaultFreeModelPerMinute)
 		if n == disabledSentinel || n < 1 {
@@ -226,17 +231,8 @@ func pruneFreeModelCalls(ts []time.Time, now time.Time) []time.Time {
 	return kept
 }
 
-func openRouterFreeID(model string) bool {
-	for _, id := range executorLLM.OpenRouterFreeModelIDs() {
-		if id == model {
-			return true
-		}
-	}
-	return false
-}
-
 func (l *Loop) openRouterFree(model string) bool {
-	if !openRouterFreeID(model) {
+	if !executorLLM.IsOpenRouterFreeID(model) {
 		return false
 	}
 	switch l.config.Backend {
@@ -272,30 +268,6 @@ func (l *Loop) pauseFreeModel(ctx context.Context, model string) error {
 	}
 	l.noteFreeModelCall(model)
 	return nil
-}
-
-// nextOpenRouterFreeID returns the next catalog id after current, skipping
-// ids in skip. It wraps once. current itself is never returned.
-func nextOpenRouterFreeID(current string, skip map[string]struct{}) (string, bool) {
-	ids := executorLLM.OpenRouterFreeModelIDs()
-	if len(ids) < 2 || !openRouterFreeID(current) {
-		return "", false
-	}
-	start := 0
-	for i, id := range ids {
-		if id == current {
-			start = i
-			break
-		}
-	}
-	for step := 1; step < len(ids); step++ {
-		id := ids[(start+step)%len(ids)]
-		if _, blocked := skip[id]; blocked {
-			continue
-		}
-		return id, true
-	}
-	return "", false
 }
 
 func (l *Loop) applyFreeModel(chatCfg *domain.ChatConfig, from, to, why string) {
@@ -394,7 +366,7 @@ func (l *Loop) continueOnFreeModelRateLimit(
 	if l.bugCapture {
 		next, ok = randomBugCaptureID(model, tried)
 	} else {
-		next, ok = nextOpenRouterFreeID(model, tried)
+		next, ok = executorLLM.NextOpenRouterFreeID(model, tried)
 	}
 	if !ok {
 		return false

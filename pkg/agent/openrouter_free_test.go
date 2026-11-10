@@ -92,23 +92,6 @@ func TestFreeModelPace_WaitsWhenMinuteIsFull(t *testing.T) {
 	assert.Equal(t, time.Duration(0), pace.waitFor())
 }
 
-func TestNextOpenRouterFreeID_WrapsAndSkips(t *testing.T) {
-	ids := executorLLM.OpenRouterFreeModelIDs()
-	require.GreaterOrEqual(t, len(ids), 2)
-	next, ok := nextOpenRouterFreeID(ids[0], nil)
-	require.True(t, ok)
-	assert.Equal(t, ids[1], next)
-	next, ok = nextOpenRouterFreeID(ids[len(ids)-1], nil)
-	require.True(t, ok)
-	assert.Equal(t, ids[0], next)
-	_, ok = nextOpenRouterFreeID(ids[0], map[string]struct{}{ids[1]: {}})
-	require.True(t, ok)
-	_, ok = nextOpenRouterFreeID("not-a-free-model", nil)
-	assert.False(t, ok)
-	_, ok = nextOpenRouterFreeID(ids[0]+"-other", nil)
-	assert.False(t, ok)
-}
-
 type modelListStreamer struct {
 	models []string
 	fail   map[string]error

@@ -319,6 +319,7 @@ func initEvents() {
 	configureRefine()
 	configureSkills()
 	configureNudges()
+	setFreeModelQueueCap()
 	configureFailureBrief()
 	configureCompaction()
 }

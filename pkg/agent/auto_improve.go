@@ -256,7 +256,7 @@ func (r *REPL) jumpAutoImproveModel() {
 		return
 	}
 	cfg := &r.loop.config
-	if cfg.Backend != openrouterBackend && !openRouterFreeID(cfg.Model) {
+	if cfg.Backend != openrouterBackend && !executorLLM.IsOpenRouterFreeID(cfg.Model) {
 		return
 	}
 	ids := preferLargeFreeModels(freeModelIDs())
