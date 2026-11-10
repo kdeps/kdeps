@@ -1,4 +1,4 @@
-version: 1.3.0
+version: 1.4.0
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
@@ -35,6 +35,7 @@ tools:
   bash_job_list: T0
   subagent: T0           # the subagent it starts gets only T0 tools
   ask_question: T0       # shows a question and ends the turn
+  plan_update: T1        # writes the plan progress file
   bash_exec: T1
   write_file: T1
   edit_file: T1

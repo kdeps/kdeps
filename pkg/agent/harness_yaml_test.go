@@ -50,6 +50,8 @@ var (
 		"compaction-system", "compaction-user", "compaction-update-user",
 		"judge-roster-system",
 		"judge-system", "subagent-system", "skill-folder", "ask-question", "refine-system",
+		"plan-council-members", "plan-council-draft", "plan-council-revise",
+		"plan-council-prioritize", "plan-council-plan",
 		"branch-summary", "handshake",
 		"knowledge-extract-system",
 		"handshake-ack", "invoke-example", "repeat-offense-note",

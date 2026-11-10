@@ -93,6 +93,9 @@ type ToolTuning struct {
 	// KnowledgeOff persists /knowledge off (default on; off is not the zero
 	// value, so an older snapshot restores on).
 	KnowledgeOff bool
+	// PlanCouncilOff persists /plan off (default on; off is not the zero
+	// value, so an older snapshot restores on).
+	PlanCouncilOff bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
 	// since the last checkpoint that triggers an automatic fold). 0 means
 	// never configured -- applyConfigDefaults' default (2000) applies.
@@ -173,6 +176,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		RefineConfigured:     true,
 		HandshakeOn:          c.HandshakeEnabled,
 		KnowledgeOff:         r.loop.knowledgeOff,
+		PlanCouncilOff:       c.PlanCouncilOff,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
@@ -269,6 +273,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	}
 	r.loop.SetHandshakeEnabled(t.HandshakeOn)
 	r.loop.knowledgeOff = t.KnowledgeOff
+	c.PlanCouncilOff = t.PlanCouncilOff
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold
 	}

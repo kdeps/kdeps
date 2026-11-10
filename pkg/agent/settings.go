@@ -69,6 +69,10 @@ type sessionSetting struct {
 //
 //nolint:gochecknoglobals // fixed table of live REPL state
 var sessionSettings = map[string]sessionSetting{
+	"plan": {
+		get: func(r *REPL) map[string]any { return onOffState(r.loop.PlanCouncilEnabled()) },
+		set: func(r *REPL, v string) error { r.loop.SetPlanCouncil(v == toggleOn); return nil },
+	},
 	"refine": {
 		get: func(r *REPL) map[string]any { return onOffState(r.loop.PromptRefineEnabled()) },
 		set: func(r *REPL, v string) error { r.loop.SetPromptRefine(v == toggleOn); return nil },

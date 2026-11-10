@@ -45,6 +45,15 @@ def text(m):
 def reply_for(msgs):
     everything = "\n".join(text(m) for m in msgs)
     last = text(msgs[-1]) if msgs else ""
+    if "on a planning council for an AI agent" in last:
+        # agent planning council: drafts and revisions add a job order named
+        # after the seat; prioritizing ranks the board in reverse.
+        seat = re.search(r'You are "(\w+)"', last)
+        name = seat.group(1) if seat else "member"
+        if '{"order":' in last:
+            ids = [int(i) for i in re.findall(r"^#(\d+) ", last, re.M)]
+            return json.dumps({"order": list(reversed(ids))})
+        return json.dumps({"answer": name + " plan", "job_orders": [{"title": "COUNCILJOB " + name}]})
     if "You rewrite a user's request" in everything:
         # chat refine: / agent /refine: REFINEME marks a prompt to rewrite.
         return last.split("Request:\n", 1)[-1].replace("REFINEME", "REFINEDCHECK")

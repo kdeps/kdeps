@@ -174,6 +174,10 @@ prints `[refine] -> <rewritten prompt>` before any work starts, and the rewrite
 is what gets saved to the session. Toggle with `/refine on|off` (persists to
 `~/.kdeps/agent-loop-settings.yaml`). Full details: [Prompt refinement](/agent/refine).
 
+## Planning council
+
+Before a task that is worth planning, a council of members drafts an approach, revises it after reading the others, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
+
 ## Response rendering
 
 The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It auto-detects the terminal's color depth (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.

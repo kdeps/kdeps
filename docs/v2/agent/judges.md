@@ -34,7 +34,7 @@ real answer with a blank or a canned message.
 
 **The roster is generated beside the turn.** Auto-judges make one subagent call
 (the same synthetic JSON call the loop uses for compaction). It starts with the
-turn, on the prompt as typed, and runs while prompt refinement and the turn do. The
+turn, on the prompt as typed, and runs while prompt refinement, the planning council and the turn do. The
 REPL prints the panel when the answer is ready, just before the judges review it:
 
 ```

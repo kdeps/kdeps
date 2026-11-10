@@ -246,6 +246,9 @@ type Config struct {
 	// Off by default in the REPL; /refine on enables it. Persisted via
 	// ToolTuning. A saved session that already stored refine-on stays on.
 	PromptRefine bool
+	// PlanCouncilOff skips the planning council that runs before a task
+	// (after refine); on by default, /plan off turns it off.
+	PlanCouncilOff bool
 	// Subagent is the model for subagent calls: knowledge-graph extraction,
 	// prompt refinement, and judges. Empty or "current" uses this loop's
 	// model. "free" picks a large OpenRouter free model for each call.
@@ -328,6 +331,7 @@ var activeLoop *Loop
 type Loop struct {
 	ctx               context.Context
 	knowledge         *knowledgeState // nil when no vault is configured
+	plan              *planState      // the current task's council plan; nil before one
 	knowledgeOff      bool            // /knowledge off
 	knowledgeBuild    string          // /knowledge build; empty until that command is saved
 	knowledgeBuildSet bool
@@ -524,6 +528,7 @@ func (l *Loop) recordToolCall(name, args, result string) {
 // does, so side loops can be built in parallel.
 func (l *Loop) becomeSessionLoop() {
 	activeLoop = l
+	l.registerPlanTool()
 	l.registerToolLoader()
 	l.registerIdentityTool()
 	l.registerSessionHandshakeTool()
@@ -1230,9 +1235,15 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// refined string replaces input everywhere below (preamble, chat config,
 	// session history). It runs while the roster call is in flight.
 	input = l.applyPromptRefine(ctx, input, w)
+	// The planning council turns the (refined) task into a sorted plan the
+	// turn carries as a system message; the session keeps the task as typed.
+	planNote := l.applyPlanCouncil(ctx, input, w)
 
 	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
+	if planNote != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: planNote})
+	}
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && overflow.Is(err) {
