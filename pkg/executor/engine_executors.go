@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"reflect"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // isNilConfig reports whether v is nil, including typed nil pointers in interfaces.

@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestTopologicalSort_SameOrderEveryCall(t *testing.T) {

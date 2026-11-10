@@ -16,7 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	httppkg "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 // TestSetSessionCookie_XForwardedProto verifies that SetSessionCookie sets Secure=true

@@ -23,7 +23,7 @@ import (
 	"log/slog"
 	stdhttp "net/http"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func writeRawOKBytes(w stdhttp.ResponseWriter, payload []byte) (int, error) {

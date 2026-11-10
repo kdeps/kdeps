@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/python"
+	"github.com/kdeps/kdeps/v3/pkg/infra/python"
 )
 
 // TestManager_InstallPackages_NoVenv exercises the error path when the venv

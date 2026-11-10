@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func prefixedErrorMessage(prefix string, err error) string {

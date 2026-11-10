@@ -37,8 +37,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
 // testCreateTarGz builds a .kdeps archive from a map of filename->content.

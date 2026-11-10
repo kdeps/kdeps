@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/datadir"
+	"github.com/kdeps/kdeps/v3/pkg/datadir"
 )
 
 func TestProject_UnderGlobalKdeps(t *testing.T) {

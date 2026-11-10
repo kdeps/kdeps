@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func TestRunStreamToolCall_NotFoundListsOfferedTools(t *testing.T) {

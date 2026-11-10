@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	parser "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
+	parser "github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
 )
 
 // defaultFeedBodyLines is the activity body length when the event is missing.

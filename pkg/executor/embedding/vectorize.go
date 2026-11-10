@@ -35,8 +35,8 @@ import (
 	lchf "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 //nolint:gochecknoglobals // test-replaceable

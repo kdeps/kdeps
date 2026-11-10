@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
+	"github.com/kdeps/kdeps/v3/pkg/tui/screen"
 )
 
 func TestTUIEnabled_DefaultFollowsModeAndTerminal(t *testing.T) {

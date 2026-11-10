@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // modelOps are the session_ops operations behind /model. Each returns JSON

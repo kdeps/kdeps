@@ -29,9 +29,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // CreateBuildContext creates a tar archive for Docker build context.

@@ -19,8 +19,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // defaultKonfigPath mirrors pkg/agent's REPL /konfig default.

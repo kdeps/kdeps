@@ -21,7 +21,7 @@ package executor
 import (
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // writeDotEnvHeader writes the comment header for a scaffolded .env file.

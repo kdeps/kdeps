@@ -31,7 +31,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // BundledAssetsDir is the reserved directory inside a prepackaged archive

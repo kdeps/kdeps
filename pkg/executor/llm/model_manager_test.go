@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 func TestModelManager_DownloadModel(t *testing.T) {

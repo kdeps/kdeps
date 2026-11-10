@@ -35,7 +35,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	lccache "github.com/tmc/langchaingo/llms/cache"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // ---- parseRegexDictOutput: empty key / empty value branches ----

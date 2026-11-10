@@ -28,9 +28,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/judge"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/judge"
 )
 
 // A Preset is a named, coherent bundle of harness/event overrides -- e.g.

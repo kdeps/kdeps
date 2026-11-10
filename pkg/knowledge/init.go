@@ -25,7 +25,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // workspaceTemplate is the templates bundle Init copies.

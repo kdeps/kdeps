@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // This file exposes the M365 client as a local OpenAI-compatible HTTP endpoint

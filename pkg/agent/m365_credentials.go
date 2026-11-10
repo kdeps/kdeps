@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm/m365"
 )
 
 // m365LoginFunc is m365.InteractiveLogin, overridable in tests so the

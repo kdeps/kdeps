@@ -21,7 +21,7 @@ package validator
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestPrimaryResourceConfigValidators_KeysArePrimaryTypes(t *testing.T) {

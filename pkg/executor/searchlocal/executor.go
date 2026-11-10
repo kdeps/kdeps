@@ -36,11 +36,11 @@ import (
 
 	"github.com/kdeps/kartographer/graph"
 
-	"github.com/kdeps/kdeps/v2/pkg/datadir"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/datadir"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 //nolint:gochecknoglobals // enables test injection for filesystem and output

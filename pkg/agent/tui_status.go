@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/statuswindow"
+	"github.com/kdeps/kdeps/v3/pkg/tui/statuswindow"
 )
 
 // tuiEnv forces the full-screen view on ("1") or off ("0"). Unset, the view is

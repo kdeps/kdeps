@@ -12,9 +12,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
-	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/screen"
 )
 
 // screenCompletions is what Tab asks for in the full-screen prompt. An @ token

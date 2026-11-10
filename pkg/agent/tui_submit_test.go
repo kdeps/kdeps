@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/screen"
+	"github.com/kdeps/kdeps/v3/pkg/tui/screen"
 )
 
 func TestSubmitQueue_PopsInPushOrder(t *testing.T) {

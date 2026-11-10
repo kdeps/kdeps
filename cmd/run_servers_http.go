@@ -23,11 +23,11 @@ import (
 	"fmt"
 	"os"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/infra/http"
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
 )
 
 func startHTTPServerWithEngine(

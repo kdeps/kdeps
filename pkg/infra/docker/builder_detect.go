@@ -19,8 +19,8 @@
 package docker
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // shouldInstallUV determines if uv should be installed in the Docker image.

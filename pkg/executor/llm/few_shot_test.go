@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	lc "github.com/tmc/langchaingo/llms"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func findTextInMessages(msgs []lc.MessageContent, role lc.ChatMessageType, text string) bool {

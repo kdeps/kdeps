@@ -21,7 +21,7 @@ package domain
 import (
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 const (

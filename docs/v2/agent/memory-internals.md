@@ -9,7 +9,7 @@ The loop extracts facts from every turn without a `memory_save` call. Four mecha
 **1. Explicit markers.** The model writes `[MEMORY: key] value` on its own line:
 
 ```
-[MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v2
+[MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v3
 ```
 
 The marker is saved, then removed from the reply before it is shown or written to the transcript. Echoed `GOAL:` / `ACTIVE TASK` fragments are removed too.

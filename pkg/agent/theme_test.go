@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 // parseChannels returns the R,G,B values of a "#rrggbb" hex string.

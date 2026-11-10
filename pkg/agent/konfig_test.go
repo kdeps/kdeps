@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 // isolateKonfigHome points os.UserHomeDir (via HOME/USERPROFILE) at a fresh

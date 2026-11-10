@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 func TestPackageAgencyWithFlags_Success(t *testing.T) {

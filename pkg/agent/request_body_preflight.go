@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/bodylimit"
+	"github.com/kdeps/kdeps/v3/pkg/bodylimit"
 )
 
 // providerBodyLimitEvent names the event that holds a backend's request body

@@ -29,7 +29,7 @@ import (
 	"os"
 	"strings"
 
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // AgentPreset defines the available presets for lean agent mode.

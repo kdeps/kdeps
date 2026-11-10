@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	execx "github.com/kdeps/kdeps/v2/pkg/executor/exec"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	execx "github.com/kdeps/kdeps/v3/pkg/executor/exec"
 )
 
 const (

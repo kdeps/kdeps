@@ -29,7 +29,7 @@ import (
 	kword "github.com/kdeps/kartographer/text"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // Recall results and the index come from the kartographer knowledge package;

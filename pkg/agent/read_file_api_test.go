@@ -29,8 +29,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func TestReadFile_ExecuteCallsHandler(t *testing.T) {

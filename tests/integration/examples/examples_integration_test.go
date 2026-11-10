@@ -31,14 +31,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/executor/exec"
-	"github.com/kdeps/kdeps/v2/pkg/executor/http"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/executor/python"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/executor/exec"
+	"github.com/kdeps/kdeps/v3/pkg/executor/http"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/python"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 // setupExecutor creates an executor with all necessary adapters.

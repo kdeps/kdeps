@@ -26,9 +26,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 // isAssetRef reports whether ref names kdeps assets rather than a package:

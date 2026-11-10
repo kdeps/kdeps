@@ -21,7 +21,7 @@ package knowledge
 import (
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // yamlItem is one YAML item of the knowledge asset set, parsed on first use.

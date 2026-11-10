@@ -39,7 +39,7 @@ import (
 	_ "github.com/microsoft/go-mssqldb" // sqlserver driver
 	_ "github.com/sijms/go-ora/v2"      // oracle driver
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 const (

@@ -33,9 +33,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // execCommandContext is a replaceable shim for exec.CommandContext, used in tests to inject errors.

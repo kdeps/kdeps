@@ -25,9 +25,9 @@ import (
 	"os/exec"
 	"os/signal"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/infra/http"
-	"github.com/kdeps/kdeps/v2/pkg/input/bot"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/input/bot"
 )
 
 type executionMode int

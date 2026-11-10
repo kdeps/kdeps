@@ -21,7 +21,7 @@ package http
 import (
 	stdhttp "net/http"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // Handler wires the router (middleware, security, routes) and returns it

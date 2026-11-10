@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // TestE2E_ModelService_ServerURL_Ollama_Reachable pins the fix for the REPL

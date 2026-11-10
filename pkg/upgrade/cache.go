@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/version"
+	"github.com/kdeps/kdeps/v3/pkg/version"
 )
 
 // checkCacheTTL is how long a cached check result is trusted before

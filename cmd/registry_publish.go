@@ -24,8 +24,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/registry/verify"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/registry/verify"
 )
 
 func doRegistryVerify(cmd *cobra.Command, dir string) error {

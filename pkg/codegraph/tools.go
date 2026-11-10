@@ -10,9 +10,9 @@ import (
 	"github.com/kdeps/kartographer/mcp"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // The exposed tools are the "tools" item of the "codegraph" asset set.

@@ -19,7 +19,7 @@
 package validator
 
 import (
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func toFloat64(value interface{}) (float64, bool) {

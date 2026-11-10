@@ -27,10 +27,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	execexecutor "github.com/kdeps/kdeps/v2/pkg/executor/exec"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	execexecutor "github.com/kdeps/kdeps/v3/pkg/executor/exec"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 )
 
 // MockCommandRunner is a mock implementation for testing.

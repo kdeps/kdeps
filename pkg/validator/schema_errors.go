@@ -25,7 +25,7 @@ import (
 
 	"github.com/xeipuuv/gojsonschema"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 func (sv *SchemaValidator) isTypeError(errorType, descStr string) bool {

@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // kdepsAPIRe matches {{ expr }} blocks where expr begins with a kdeps runtime API

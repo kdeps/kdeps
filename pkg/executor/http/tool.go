@@ -21,11 +21,11 @@ package http
 import (
 	"context"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/storage"
 )
 
 // The call route lives in pkg/api. This package already imports pkg/api, so

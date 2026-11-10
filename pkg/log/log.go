@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
 )
 
 //nolint:gochecknoglobals // package-level logger

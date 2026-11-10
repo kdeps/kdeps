@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/yamlutil"
+	"github.com/kdeps/kdeps/v3/pkg/yamlutil"
 )
 
 func writeTempConfig(t *testing.T, dir, content string) {

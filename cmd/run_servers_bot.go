@@ -24,13 +24,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
-	"github.com/kdeps/kdeps/v2/pkg/input/bot"
-	fileinput "github.com/kdeps/kdeps/v2/pkg/input/file"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
+	"github.com/kdeps/kdeps/v3/pkg/input/bot"
+	fileinput "github.com/kdeps/kdeps/v3/pkg/input/file"
 )
 
 func botPlatformsFromInput(input *domain.InputConfig) []string {

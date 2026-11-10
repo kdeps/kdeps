@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/nikolalohinski/gonja/v2"
 	gonjaExec "github.com/nikolalohinski/gonja/v2/exec"

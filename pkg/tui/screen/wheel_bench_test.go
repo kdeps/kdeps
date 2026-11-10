@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
 )
 
 // BenchmarkWheel_BusyFeed is one wheel event with a long session on screen:

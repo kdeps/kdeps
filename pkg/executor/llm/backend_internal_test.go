@@ -35,8 +35,8 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	lccache "github.com/tmc/langchaingo/llms/cache"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestServeFileModelIfNeeded_SetsBaseURLFromHealthyPort(t *testing.T) {

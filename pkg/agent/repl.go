@@ -43,17 +43,17 @@ import (
 	"time"
 	"unicode"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
 
 	"charm.land/lipgloss/v2"
 	"github.com/chzyer/readline"
 	"github.com/spf13/afero"
 	"golang.org/x/term"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/reply"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	llm "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/reply"
 )
 
 //nolint:gochecknoglobals // overridable in tests for timing-sensitive spinner assertions

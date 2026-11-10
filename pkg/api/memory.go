@@ -25,7 +25,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm/toolguard"
 )
 
 const (

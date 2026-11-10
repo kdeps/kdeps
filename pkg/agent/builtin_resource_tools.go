@@ -23,11 +23,11 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
-	_ "github.com/kdeps/kdeps/v2/pkg/executor/http" // wires http_request; that package imports pkg/api
-	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	execEmbedding "github.com/kdeps/kdeps/v3/pkg/executor/embedding"
+	_ "github.com/kdeps/kdeps/v3/pkg/executor/http" // wires http_request; that package imports pkg/api
+	execSearch "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // registerResourceTools registers all resource-based tools (HTTP, SearchLocal, etc.)

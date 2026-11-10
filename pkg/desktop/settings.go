@@ -18,7 +18,7 @@
 
 package desktop
 
-import "github.com/kdeps/kdeps/v2/pkg/config"
+import "github.com/kdeps/kdeps/v3/pkg/config"
 
 // Settings returns every editable kdeps setting from config.yaml, grouped by
 // section via SettingField.Group. Secret values are never included.

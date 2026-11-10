@@ -29,7 +29,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 // The harness is every piece of text kdeps sends the LLM to shape its

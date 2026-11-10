@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/reply"
+	"github.com/kdeps/kdeps/v3/pkg/reply"
 )
 
 // A model's refusal record: every time the loop catches a model inventing a

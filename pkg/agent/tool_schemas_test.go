@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/subagent"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/subagent"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // withCoreTools makes coreToolSet return names for the test.

@@ -25,8 +25,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 func TestRunLLMBuildAndRun_BadEngine(t *testing.T) {

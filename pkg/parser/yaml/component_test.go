@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 func TestFindComponentFile(t *testing.T) {

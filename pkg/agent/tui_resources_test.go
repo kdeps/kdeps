@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui/feed"
+	"github.com/kdeps/kdeps/v3/pkg/tui/feed"
 )
 
 func TestResourceFeed_HeldLoadsAppearWhenTheFeedAttaches(t *testing.T) {

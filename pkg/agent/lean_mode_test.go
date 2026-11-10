@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func TestPresetPermissionMode(t *testing.T) {

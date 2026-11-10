@@ -21,7 +21,7 @@ package expression
 import (
 	"os"
 
-	"github.com/kdeps/kdeps/v2/pkg/namespace"
+	"github.com/kdeps/kdeps/v3/pkg/namespace"
 )
 
 func (e *Evaluator) apiItemAccessor(field string, fallback interface{}) func() interface{} {

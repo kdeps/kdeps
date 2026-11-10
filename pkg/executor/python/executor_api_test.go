@@ -29,8 +29,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	pythonexecutor "github.com/kdeps/kdeps/v2/pkg/executor/python"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	pythonexecutor "github.com/kdeps/kdeps/v3/pkg/executor/python"
 )
 
 // recordingUVManager captures the venv request and returns a fixed path.

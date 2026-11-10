@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func callToolResponderWithError(r io.Reader, w io.Writer) {

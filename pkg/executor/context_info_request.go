@@ -21,7 +21,7 @@ package executor
 import (
 	"errors"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // getRequestMethod retrieves the HTTP method.

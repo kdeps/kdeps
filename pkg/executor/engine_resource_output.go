@@ -21,8 +21,8 @@ package executor
 import (
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/events"
 )
 
 // finalizeWorkflowOutput returns the target resource output, unwrapping API response envelopes.

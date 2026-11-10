@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/events"
 )
 
 // runWorkflowResource executes a single resource in the workflow pipeline.

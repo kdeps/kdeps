@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
 )
 
 // InstallStagePermission makes every resource run pass the policy's resources

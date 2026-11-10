@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // getFromBody retrieves value from request body with filtering.

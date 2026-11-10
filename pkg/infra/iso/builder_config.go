@@ -24,8 +24,8 @@ import (
 	"os"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func validateBuildInputs(workflow *domain.Workflow, kdepsImageName string) error {

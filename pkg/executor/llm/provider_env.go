@@ -18,7 +18,7 @@
 
 package llm
 
-import kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+import kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 
 // providerAPIKeyEnvVar is the API key environment variable of the cloud
 // provider name (built-in or from the providers asset set), or "".

@@ -43,11 +43,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
+	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func stubDispatchHooks(t *testing.T) {

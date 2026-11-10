@@ -34,13 +34,13 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // maxInlineAttachmentBytes caps a dropped text file inlined into the prompt;

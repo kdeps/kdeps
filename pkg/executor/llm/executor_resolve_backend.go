@@ -22,7 +22,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // isSystemSentinel recognises the "system" opt-in on chat.backend / chat.model:

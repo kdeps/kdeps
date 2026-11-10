@@ -23,7 +23,7 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // walk traverses the directory tree and collects matching files.

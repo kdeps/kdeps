@@ -31,7 +31,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // asFloat64 coerces numeric and string values to float64 for where() helpers.

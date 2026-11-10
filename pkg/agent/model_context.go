@@ -6,7 +6,7 @@ package agent
 import (
 	"strings"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // modelContextWindows maps model names to their known context window sizes in tokens.

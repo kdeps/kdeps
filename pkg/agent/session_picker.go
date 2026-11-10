@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 // newSessionSentinel is the picker id for "start fresh".

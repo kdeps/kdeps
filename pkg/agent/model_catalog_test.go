@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // The model catalog itself (KnownCloudModels, ModelMaxOutputTokens, etc.)

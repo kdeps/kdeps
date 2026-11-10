@@ -28,8 +28,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestCreateRequest_KdepsAPIHost(t *testing.T) {

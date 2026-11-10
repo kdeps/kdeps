@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/judge"
-	"github.com/kdeps/kdeps/v2/pkg/selftest"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/judge"
+	"github.com/kdeps/kdeps/v3/pkg/selftest"
 )
 
 // ValidateTestCases validates test case definitions.

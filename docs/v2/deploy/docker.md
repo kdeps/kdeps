@@ -245,7 +245,7 @@ Override any field with an explicit semver (`v1.2.3` or `1.2.3`). Use `latest` o
 deploy:
   runtime:
     versions:
-      kdeps: v2.0.0    # optional - default: newest GitHub release when bundle build runs
+      kdeps: v3.0.0    # optional - default: newest GitHub release when bundle build runs
       ollama: 0.5.4    # optional - default: newest ollama/ollama release
       uv: 0.6.3        # optional - default: newest astral-sh/uv release
 ```
@@ -346,7 +346,7 @@ RUN apk upgrade --no-cache && \
 
 # Install kdeps via official install script. Released CLIs pin both the
 # script ref and the binary tag to their own version; dev builds use main.
-RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/v2.1.0/install.sh | sh -s -- -b /usr/local/bin v2.1.0
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/v3.0.0/install.sh | sh -s -- -b /usr/local/bin v3.0.0
 
 # kdeps assets (harness, tool definitions, model registries, ...) from the
 # machine running kdeps build: the binary ships none, so the container needs

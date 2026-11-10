@@ -25,10 +25,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 // newPackageYAMLParser creates a YAML parser for packaging commands.

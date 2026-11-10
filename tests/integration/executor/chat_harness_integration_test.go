@@ -28,10 +28,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/harness"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/harness"
 )
 
 // chat.harness puts the named harness sections, in order, at the start of

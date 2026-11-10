@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 func runInstrument(t *testing.T, args ...string) (string, error) {

@@ -27,8 +27,8 @@ import (
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
 	lcredis "github.com/tmc/langchaingo/vectorstores/redisvector"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // redisStore wraps the langchaingo Redis vector store (rueidis backend).

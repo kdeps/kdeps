@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v3/cmd"
 )
 
 // TestPackageAgencyWithFlags verifies that an agency directory is correctly

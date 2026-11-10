@@ -18,7 +18,7 @@
 
 package llm
 
-import "github.com/kdeps/kdeps/v2/pkg/refine"
+import "github.com/kdeps/kdeps/v3/pkg/refine"
 
 // refineChat rewrites prompt into a clearer, self-contained request before the
 // real call, as agent mode's /refine does: one call with the refine-system

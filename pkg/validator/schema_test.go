@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 func TestNewSchemaValidator(t *testing.T) {

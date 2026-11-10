@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/api"
 )
 
 func TestParseApprovalKey(t *testing.T) {

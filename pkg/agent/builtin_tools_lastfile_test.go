@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func toolByName(t *testing.T, name string) *kdepstools.Tool {

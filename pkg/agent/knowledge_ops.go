@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // knowledgeOps are the session_ops operations behind /recall and

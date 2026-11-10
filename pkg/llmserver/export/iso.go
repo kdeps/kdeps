@@ -25,7 +25,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 // ISOOptions configures LinuxKit YAML generation for an LLM appliance image.

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

@@ -28,7 +28,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 const cohereDefaultRerankModel = "rerank-v3.5"

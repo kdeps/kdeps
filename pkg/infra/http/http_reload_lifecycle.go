@@ -22,7 +22,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/kdeps/kdeps/v2/pkg/templates"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
 func requireWatcher(watcher FileWatcher) error {

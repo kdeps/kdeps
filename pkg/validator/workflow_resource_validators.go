@@ -18,7 +18,7 @@
 
 package validator
 
-import "github.com/kdeps/kdeps/v2/pkg/domain"
+import "github.com/kdeps/kdeps/v3/pkg/domain"
 
 type primaryResourceConfigValidator func(
 	*WorkflowValidator,

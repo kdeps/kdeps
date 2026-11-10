@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 )
 
 // Workspace is the folder sessions, memory and tools are scoped to.

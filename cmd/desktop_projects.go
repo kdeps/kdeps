@@ -30,11 +30,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/desktop"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/events"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/desktop"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/events"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // DesktopCLIFlag is the first argument that makes the desktop binary act as

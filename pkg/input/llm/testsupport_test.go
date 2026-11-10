@@ -22,7 +22,7 @@ import (
 
 	"github.com/chzyer/readline"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // newTestReadline pipes input into a *readline.Instance so that the first

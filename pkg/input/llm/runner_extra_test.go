@@ -23,7 +23,7 @@ import (
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 
-	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
+	llminput "github.com/kdeps/kdeps/v3/pkg/input/llm"
 )
 
 // TestRun_TerminalPath_Quit exercises the terminal code path of Run by

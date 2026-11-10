@@ -29,13 +29,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
-	kupgrade "github.com/kdeps/kdeps/v2/pkg/upgrade"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	kupgrade "github.com/kdeps/kdeps/v3/pkg/upgrade"
 
 	"github.com/spf13/cobra"
 )

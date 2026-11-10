@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/tools/fformat"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/tools/fformat"
 )
 
 var (

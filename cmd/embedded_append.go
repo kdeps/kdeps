@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // AppendEmbeddedPackage creates a self-contained executable at outputPath by

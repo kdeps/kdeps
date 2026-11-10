@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // forceRetryLoopExit, when true, breaks out of executeRequestWithRetry instead of

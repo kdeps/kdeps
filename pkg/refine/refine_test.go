@@ -24,7 +24,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/refine"
+	"github.com/kdeps/kdeps/v3/pkg/refine"
 )
 
 func TestClean(t *testing.T) {

@@ -18,7 +18,7 @@
 
 package http
 
-import "github.com/kdeps/kdeps/v2/pkg/domain"
+import "github.com/kdeps/kdeps/v3/pkg/domain"
 
 func (s *Server) lockedWorkflow() *domain.Workflow {
 	s.mu.RLock()

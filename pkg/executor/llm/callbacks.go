@@ -27,7 +27,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/schema"
 
-	"github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 const logMsgPreviewLen = 200 // max chars of message content shown in debug logs

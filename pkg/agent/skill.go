@@ -30,8 +30,8 @@ import (
 
 	"github.com/kdeps/kartographer/graph"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
-	"github.com/kdeps/kdeps/v2/pkg/skills"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/skills"
 )
 
 // Skill represents a loaded skill from a SKILL.md file.

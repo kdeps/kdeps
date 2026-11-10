@@ -21,8 +21,8 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
 )
 
 // AgentToolDef wraps a single agent workflow as a callable Tool.

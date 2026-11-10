@@ -26,9 +26,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 	// Links the codegraph asset set into the binary, so its rules register.
-	_ "github.com/kdeps/kdeps/v2/pkg/codegraph"
+	_ "github.com/kdeps/kdeps/v3/pkg/codegraph"
 )
 
 // warnAsset reports an asset file a loader skipped. Asset files are

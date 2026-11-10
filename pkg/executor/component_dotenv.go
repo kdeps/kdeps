@@ -27,7 +27,7 @@ import (
 	"regexp"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // envExprPattern matches env('VAR_NAME') or env("VAR_NAME") in any field value.

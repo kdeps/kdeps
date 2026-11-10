@@ -29,11 +29,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/kdeps/kdeps/v2/pkg/agent" // installs the subagent settings and the asset-declared tools
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	_ "github.com/kdeps/kdeps/v3/pkg/agent" // installs the subagent settings and the asset-declared tools
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // A workflow chat lists subagent by name: the model hands it a task, a fresh

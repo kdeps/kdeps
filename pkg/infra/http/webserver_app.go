@@ -21,7 +21,7 @@ package http
 import (
 	"context"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute) {

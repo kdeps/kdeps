@@ -30,7 +30,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // contextSegment is one labeled, sized contributor to the current turn's

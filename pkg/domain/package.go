@@ -23,7 +23,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // KdepsPkg represents the kdeps.pkg.yaml package manifest.

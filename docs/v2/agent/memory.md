@@ -49,7 +49,7 @@ Creates or updates a memory entry. The entry is persisted immediately to disk.
   "name": "memory_save",
   "parameters": {
     "key": "project_name",
-    "value": "kdeps - Go module github.com/kdeps/kdeps/v2"
+    "value": "kdeps - Go module github.com/kdeps/kdeps/v3"
   }
 }
 ```
@@ -71,7 +71,7 @@ Returns matching entries as formatted text. At most 20 matches are printed, best
 
 ```
 Found 2 memory entries:
-- project_name: kdeps - Go module github.com/kdeps/kdeps/v2
+- project_name: kdeps - Go module github.com/kdeps/kdeps/v3
 - project_structure: Monorepo layout: cmd/, pkg/ (25 packages), docs/, tests/
 ```
 

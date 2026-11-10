@@ -21,9 +21,9 @@ package validator
 import (
 	"strings"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {

@@ -23,9 +23,9 @@ import (
 	"os"
 	"path/filepath"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
 )
 
 // componentUpdateInternal runs the update logic for a given path.

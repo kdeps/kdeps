@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 func TestContextPathStatus_EmptyWithNoSegments(t *testing.T) {

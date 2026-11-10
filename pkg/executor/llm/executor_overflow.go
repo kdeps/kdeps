@@ -24,7 +24,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
 )
 
 // compactOnOverflow retries a model call that overflowed the model's context,

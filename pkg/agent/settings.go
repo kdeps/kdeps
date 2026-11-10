@@ -29,9 +29,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	llm "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // settingSpec is a command asset's setting: block. The command reads or sets

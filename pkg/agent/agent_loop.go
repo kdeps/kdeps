@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/parallel"
+	"github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
 )
 
 // AgentLoop starts an agent loop with one or more new prompt messages.

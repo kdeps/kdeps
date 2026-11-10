@@ -27,13 +27,13 @@ import (
 	"strconv"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	telegrambot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 const telegramPlatform = "telegram"

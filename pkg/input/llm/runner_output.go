@@ -25,7 +25,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // printHelp writes the available REPL commands to w.

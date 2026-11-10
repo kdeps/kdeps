@@ -22,7 +22,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/api"
 )
 
 // startControlAPI starts the process control API for this command.

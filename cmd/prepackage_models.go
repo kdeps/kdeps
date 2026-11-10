@@ -31,10 +31,10 @@ import (
 	"runtime"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
 // BundledModelsDir is the reserved directory inside .kdeps/.kagency archives

@@ -28,8 +28,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // TestMemoryLivesInTheVault: memory saved by the agent becomes notes in the

@@ -25,9 +25,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/desktop"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/desktop"
 )
 
 // TestDesktop_DownloadedCommandRunsWithoutARelease installs a slash command

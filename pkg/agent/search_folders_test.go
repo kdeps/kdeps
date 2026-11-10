@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	execSearch "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 )
 
 // searchFolderLoop is knowledgeLoop plus a docs folder outside the project

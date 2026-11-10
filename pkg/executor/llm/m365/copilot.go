@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // modelTones maps a caller-facing model name to the server-side "tone" the chat

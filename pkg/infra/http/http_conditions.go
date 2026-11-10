@@ -25,8 +25,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 func serverHasWorkflow(s *Server) bool {

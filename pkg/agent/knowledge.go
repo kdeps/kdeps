@@ -32,12 +32,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // knowledgeRecallMarker starts the per-turn recall system item.

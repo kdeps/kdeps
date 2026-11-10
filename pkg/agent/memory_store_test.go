@@ -30,13 +30,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
 
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 func TestNewMemoryStore_Defaults(t *testing.T) {
@@ -2004,7 +2004,7 @@ func TestExtractTurn_StructuredSections_TooShort(t *testing.T) {
 func TestExtractTurn_ToolResults(t *testing.T) {
 	store := setupMemoryStoreForTools(t)
 
-	assistant := `tool:bash_exec: ok  	github.com/kdeps/kdeps/v2/pkg/agent	0.911s
+	assistant := `tool:bash_exec: ok  	github.com/kdeps/kdeps/v3/pkg/agent	0.911s
 tool:read_file: read memory_store.go (35683 bytes)`
 
 	captured := store.ExtractTurn("run tests", assistant)

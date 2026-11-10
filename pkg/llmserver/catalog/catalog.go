@@ -28,8 +28,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 // recipesSet is the asset set holding the stock recipes.

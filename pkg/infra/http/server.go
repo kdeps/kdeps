@@ -25,9 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/fs"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/fs"
+	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 )
 
 // WorkflowExecutor executes workflows.

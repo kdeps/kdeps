@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
 func TestWorkflow_Agency_Component(t *testing.T) {

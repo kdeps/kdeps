@@ -1,4 +1,4 @@
-module github.com/kdeps/kdeps/v2
+module github.com/kdeps/kdeps/v3
 
 go 1.26.10
 

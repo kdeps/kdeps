@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 func TestDockerBuild_Validation(t *testing.T) {

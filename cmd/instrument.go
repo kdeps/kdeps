@@ -26,7 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 // newInstrumentCmd is "kdeps instrument": the sessions recorded with

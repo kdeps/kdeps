@@ -27,9 +27,9 @@ import (
 	kgsearch "github.com/kdeps/kartographer/search"
 	kgtext "github.com/kdeps/kartographer/text"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 func (e *Executor) index(ctx context.Context, db *sql.DB, collection, text string) (interface{}, error) {

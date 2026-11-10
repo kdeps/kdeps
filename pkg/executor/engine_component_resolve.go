@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func validateComponentCallConfig(resource *domain.Resource) (*domain.ComponentCallConfig, error) {

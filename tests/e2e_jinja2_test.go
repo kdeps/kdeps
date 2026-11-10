@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/templates"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
 // TestE2EInterpolationWorkflow tests a complete workflow using interpolated expressions.

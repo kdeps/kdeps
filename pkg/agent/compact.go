@@ -25,7 +25,7 @@ import (
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
 
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 const (

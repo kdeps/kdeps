@@ -38,8 +38,8 @@ import (
 	kgtext "github.com/kdeps/kartographer/text"
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 const (

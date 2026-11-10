@@ -36,7 +36,7 @@ import (
 
 	kgnotes "github.com/kdeps/kartographer/notes"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 const (

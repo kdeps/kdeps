@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/chat"
+	"github.com/kdeps/kdeps/v3/pkg/chat"
 )
 
 func TestNewChatCmd_RunE(t *testing.T) {

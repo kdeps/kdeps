@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // The knowledge tools' replies, as kdeps sent them before they moved to prompts.yaml.

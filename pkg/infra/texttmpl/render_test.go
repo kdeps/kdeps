@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
+	"github.com/kdeps/kdeps/v3/pkg/infra/texttmpl"
 )
 
 func TestRender(t *testing.T) {

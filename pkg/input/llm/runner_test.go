@@ -28,9 +28,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	llminput "github.com/kdeps/kdeps/v3/pkg/input/llm"
 )
 
 // workflowWith builds a minimal Workflow with the given LLM input config.

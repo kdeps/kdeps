@@ -23,7 +23,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/kdeps/kdeps/v2/pkg/toolbudget"
+	"github.com/kdeps/kdeps/v3/pkg/toolbudget"
 )
 
 // toolBudgets enforces the budget events: an event whose tools: list names

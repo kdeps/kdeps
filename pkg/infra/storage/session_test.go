@@ -30,7 +30,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
+	"github.com/kdeps/kdeps/v3/pkg/infra/storage"
 )
 
 func TestSessionStorage_IsExpired(t *testing.T) {

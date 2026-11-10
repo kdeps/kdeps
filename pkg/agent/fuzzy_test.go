@@ -17,7 +17,7 @@ package agent_test
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 )
 
 func TestFuzzyScore_ExactMatch(t *testing.T) {

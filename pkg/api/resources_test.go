@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func TestResources_NilAndCanceled(t *testing.T) {

@@ -24,8 +24,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // Efficiency enforcement: a kdeps-level governor that stops a model burning

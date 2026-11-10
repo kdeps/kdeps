@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // Some models emit a tool call as text instead of through the backend's

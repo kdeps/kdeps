@@ -22,11 +22,11 @@ import (
 	"archive/tar"
 	"path/filepath"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 // PackageFlags holds the flags for the package command.

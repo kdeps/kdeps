@@ -31,11 +31,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/api"
-	codegraphtools "github.com/kdeps/kdeps/v2/pkg/codegraph"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/api"
+	codegraphtools "github.com/kdeps/kdeps/v3/pkg/codegraph"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	execSearch "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 const (

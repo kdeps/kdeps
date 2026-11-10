@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/archive/targz"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func ExtractPackage(packagePath string) (string, error) {

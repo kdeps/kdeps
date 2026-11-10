@@ -23,8 +23,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 const (

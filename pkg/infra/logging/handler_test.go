@@ -28,7 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
 )
 
 func TestPrettyHandler_Enabled(t *testing.T) {

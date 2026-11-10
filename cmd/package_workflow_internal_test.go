@@ -28,8 +28,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
-	yamlparser "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+	yamlparser "github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 func TestPackageWorkflowWithFlags_NoWorkflowFile(t *testing.T) {

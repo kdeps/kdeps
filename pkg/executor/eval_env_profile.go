@@ -18,7 +18,7 @@
 
 package executor
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 // EvalEnvProfile selects which layers compose an expression evaluation environment.
 type EvalEnvProfile int

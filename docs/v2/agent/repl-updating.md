@@ -5,7 +5,7 @@
 At startup kdeps checks GitHub for a newer stable release and prints a notice under the banner. The check runs at most once every 24 hours, is cached at `~/.kdeps/update-check.json`, and times out after 3 seconds:
 
 ```
-Update available: v2.8.0 -> v2.9.0. Run /upgrade to update.
+Update available: v3.0.0 -> v3.1.0. Run /upgrade to update.
 ```
 
 Development builds skip the notice. `make build` stamps `v2.0.0-dev`, which is older than every release. `/upgrade` still checks when you run it.

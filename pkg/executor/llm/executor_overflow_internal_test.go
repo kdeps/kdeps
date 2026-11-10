@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
 )
 
 var errOverflow = errors.New("this model's maximum context length is 100 tokens")

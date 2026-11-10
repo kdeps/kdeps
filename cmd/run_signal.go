@@ -27,7 +27,7 @@ import (
 	"syscall"
 	"time"
 
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
 )
 
 // gracefulShutdownTimeout is the timeout for graceful shutdown.

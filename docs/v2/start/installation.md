@@ -52,7 +52,7 @@ irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex
 Installs `kdeps.exe` into `%USERPROFILE%\.local\bin` and adds it to your user `PATH`. To pin a version or choose a different directory:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.21.0 -BinDir C:\tools\bin
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v3.0.0 -BinDir C:\tools\bin
 ```
 
 ## Windows (wget in WSL or Git Bash)
@@ -68,7 +68,7 @@ wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 Recommended: `go install`
 
 ```bash
-go install github.com/kdeps/kdeps/v2@latest
+go install github.com/kdeps/kdeps/v3@latest
 ```
 
 Or build manually:
@@ -201,6 +201,24 @@ Then select it in `~/.kdeps/config.yaml`:
 llm:
   backend: ollama  # default is "file" (llamafile)
 ```
+
+## Upgrading from v2
+
+v3 groups the YAML keys and drops native resource kinds. A v2 file fails with an error naming each key's new place (`workflow.settings is now deploy, session and repl`), so `kdeps validate` lists every edit to make.
+
+| v2 | v3 |
+|---|---|
+| `settings:` (`apiServer`, `webServer`, `input`, TLS) | `deploy:` |
+| `settings.agentSettings` | `deploy.runtime` |
+| `settings.session` / `settings.llm` | top-level `session:` / `repl:` |
+| `tests:` | `evals:` (plus `judges`, `repeat`, `threshold`) |
+| resource `requires`, `items`, `loop`, `onError` | under `flow:` |
+| chat `model`, `prompt`, `tools`, `jsonResponse`, ... | grouped under `model`, `context`, `harness`, `tools`, `rag`, `guardrails` ([LLM resource](/workflow/resources/llm#key-groups)) |
+| `exec:`, `python:`, `httpClient:`, `sql:`, `scraper:`, ... | `component: {name: exec, with: {...}}` (`http_request`, `web_scraper`, ...) |
+| `botReply:` | the target resource's `apiResponse` |
+| `go install github.com/kdeps/kdeps/v2@...` | `go install github.com/kdeps/kdeps/v3@...` |
+
+`browser`, `email`, `telephony` and `codeIntelligence` resources are gone.
 
 ## Troubleshooting
 

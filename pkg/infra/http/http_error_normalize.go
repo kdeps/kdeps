@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 func internalErrorMessage(debugMode bool, detail string) string {

@@ -23,10 +23,10 @@ import (
 	"os"
 	"os/exec"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/clientconfig"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/image"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/catalog"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/clientconfig"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/image"
 
 	"github.com/spf13/cobra"
 )

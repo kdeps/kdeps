@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 func (m *LlamafileManager) Resolve(ctx context.Context, model string) (string, error) {

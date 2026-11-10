@@ -20,7 +20,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 )
 
 func TestMemoryStoreAdapterCRUD(t *testing.T) {

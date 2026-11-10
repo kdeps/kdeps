@@ -32,8 +32,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
 )
 
 // TestBuilder_shouldInstallOllama_RouterEnv covers the KDEPS_LLM_ROUTER
@@ -1356,7 +1356,7 @@ func TestBuilder_addDirectoryToTar(t *testing.T) {
 
 	// Create go.mod to simulate kdeps source (prevents cross-compilation)
 	goModPath := filepath.Join(tmpDir, "go.mod")
-	err = os.WriteFile(goModPath, []byte("module github.com/kdeps/kdeps/v2"), 0644)
+	err = os.WriteFile(goModPath, []byte("module github.com/kdeps/kdeps/v3"), 0644)
 	require.NoError(t, err)
 
 	// Create directory structure

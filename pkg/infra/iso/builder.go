@@ -25,12 +25,12 @@ import (
 	"os"
 	"runtime"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/afero"
 	"github.com/spf13/fileflow"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 //nolint:gochecknoglobals // afero filesystem abstraction; enables test injection

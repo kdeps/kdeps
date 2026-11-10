@@ -24,8 +24,8 @@ import (
 
 	"github.com/kdeps/kartographer/graph"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // buildActionIDIndex returns a set of all resource actionIds in the workflow.

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/instrument"
+	"github.com/kdeps/kdeps/v3/pkg/instrument"
 )
 
 func TestRecordPermissionDecision_WritesAnAuditEvent(t *testing.T) {

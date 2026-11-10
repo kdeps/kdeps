@@ -19,9 +19,9 @@
 package executor
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	pythonpkg "github.com/kdeps/kdeps/v2/pkg/infra/python"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	pythonpkg "github.com/kdeps/kdeps/v3/pkg/infra/python"
 )
 
 // pythonManagerFactory creates a Python package manager. Overridable for testing.

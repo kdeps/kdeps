@@ -27,7 +27,7 @@ import (
 
 	kgknowledge "github.com/kdeps/kartographer/knowledge"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
 const (

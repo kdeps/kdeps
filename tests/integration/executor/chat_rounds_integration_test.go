@@ -31,10 +31,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/kdeps/kdeps/v2/pkg/agent" // installs the chat-max-rounds event
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	_ "github.com/kdeps/kdeps/v3/pkg/agent" // installs the chat-max-rounds event
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // A workflow chat with no maxToolRounds runs as many tool rounds as the

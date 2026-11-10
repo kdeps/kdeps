@@ -13,7 +13,7 @@ for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set COMMIT=%%i
 
 echo Building kdeps v%VERSION%...
 
-go build -ldflags "-X github.com/kdeps/kdeps/v2/pkg/version.Version=%VERSION% -X github.com/kdeps/kdeps/v2/pkg/version.Commit=%COMMIT%" -o kdeps.exe main.go
+go build -ldflags "-X github.com/kdeps/kdeps/v3/pkg/version.Version=%VERSION% -X github.com/kdeps/kdeps/v3/pkg/version.Commit=%COMMIT%" -o kdeps.exe main.go
 if errorlevel 1 (
     echo Build failed.
     exit /b 1

@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	gh "github.com/kdeps/kdeps/v2/pkg/infra/github"
+	gh "github.com/kdeps/kdeps/v3/pkg/infra/github"
 )
 
 func TestLatestReleaseTagFromAPI(t *testing.T) {

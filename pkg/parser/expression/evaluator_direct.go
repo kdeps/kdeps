@@ -27,7 +27,7 @@ import (
 
 	"github.com/expr-lang/expr"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // evaluateDirect evaluates a direct expression like: get('q'), x != ”.

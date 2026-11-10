@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 func TestGenerateLinuxKitYAML(t *testing.T) {

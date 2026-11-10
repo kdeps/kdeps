@@ -25,9 +25,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/judge"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/judge"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // Judge panel: an independent review of the loop's final output, run after

@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kdeps/kdeps/v2/pkg/upgrade"
+	"github.com/kdeps/kdeps/v3/pkg/upgrade"
 )
 
 func stubUpdateAvailabilityNoticeFunc(t *testing.T, fn func(context.Context) (upgrade.CheckResult, error)) {

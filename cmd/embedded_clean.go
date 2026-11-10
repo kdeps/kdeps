@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"os"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // cleanBinaryPathFunc strips embedded payloads from executables (overridable in tests).

@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/templates"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
 func (p *Parser) resourceFileToLoad(resourcesDir string, entry os.FileInfo) (string, bool) {

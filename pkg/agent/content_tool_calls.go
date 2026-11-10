@@ -19,8 +19,8 @@
 package agent
 
 import (
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/toolcall"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/toolcall"
 )
 
 // salvageHandshakeToolCall recovers a tool call from raw model text WITHOUT

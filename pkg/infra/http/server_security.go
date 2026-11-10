@@ -18,7 +18,7 @@
 
 package http
 
-import "github.com/kdeps/kdeps/v2/pkg/domain"
+import "github.com/kdeps/kdeps/v3/pkg/domain"
 
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.

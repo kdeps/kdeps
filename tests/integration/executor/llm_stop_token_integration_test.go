@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // TestStreamChat_StripsLocalStopToken verifies that the chat template's stop

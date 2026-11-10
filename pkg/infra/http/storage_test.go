@@ -29,7 +29,7 @@ import (
 
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/v2/pkg/infra/http"
+	"github.com/kdeps/kdeps/v3/pkg/infra/http"
 )
 
 func TestNewTemporaryFileStore(t *testing.T) {

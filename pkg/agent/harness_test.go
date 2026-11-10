@@ -27,9 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/harness"
-	"github.com/kdeps/kdeps/v2/pkg/overflow"
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v3/pkg/harness"
+	"github.com/kdeps/kdeps/v3/pkg/overflow"
+	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // isolateHarnessHome points os.UserHomeDir at a fresh temp dir and restores

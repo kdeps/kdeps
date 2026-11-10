@@ -28,9 +28,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // parseTimeout parses the timeout: resource > KDEPS_PYTHON_TIMEOUT > DefaultPythonTimeout.

@@ -21,7 +21,7 @@ package executor
 import (
 	"os"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // configureLLMExecutor wires tool execution and offline mode into the LLM executor adapter.

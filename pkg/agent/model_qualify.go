@@ -21,7 +21,7 @@ package agent
 import (
 	"strings"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // modelQualifierSep separates a backend qualifier from the bare model name

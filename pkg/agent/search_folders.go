@@ -24,8 +24,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
-	"github.com/kdeps/kdeps/v2/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // errNoVault is returned by the search-folder commands while the knowledge

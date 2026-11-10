@@ -3,7 +3,7 @@ module github.com/kdeps/kdeps/desktop
 go 1.26.10
 
 require (
-	github.com/kdeps/kdeps/v2 v2.0.0
+	github.com/kdeps/kdeps/v3 v3.0.0
 	github.com/stretchr/testify v1.12.1
 	github.com/wailsapp/wails/v2 v2.16.0
 )
@@ -223,4 +223,4 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace github.com/kdeps/kdeps/v2 => ../
+replace github.com/kdeps/kdeps/v3 => ../

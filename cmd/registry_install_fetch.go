@@ -28,8 +28,8 @@ import (
 	stdhttp "net/http"
 	"os"
 
-	"github.com/kdeps/kdeps/v2/pkg/assets"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/assets"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 type packageInfo struct {

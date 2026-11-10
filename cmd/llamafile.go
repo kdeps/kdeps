@@ -24,8 +24,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 
 	"github.com/spf13/cobra"
 )

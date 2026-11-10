@@ -21,7 +21,7 @@ package schema
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
 // TestCollectOperationValidations_NilValidationResource covers the defensive

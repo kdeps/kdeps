@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"os"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/chat"
+	"github.com/kdeps/kdeps/v3/pkg/chat"
 )
 
 const (

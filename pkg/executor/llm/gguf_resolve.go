@@ -26,7 +26,7 @@ import (
 
 	"github.com/spf13/pathologize"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // NeedsGGUFDownload reports whether serving model would fetch bytes.

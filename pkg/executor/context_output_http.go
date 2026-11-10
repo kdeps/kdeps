@@ -21,7 +21,7 @@ package executor
 import (
 	"fmt"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
 
 // GetHTTPResponseBody retrieves HTTP response body from resource output.

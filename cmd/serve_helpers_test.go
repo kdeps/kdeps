@@ -8,7 +8,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
 func TestExtractToolNamesEmpty(t *testing.T) {

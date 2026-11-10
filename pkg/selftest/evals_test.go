@@ -27,9 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/judge"
-	"github.com/kdeps/kdeps/v2/pkg/selftest"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/judge"
+	"github.com/kdeps/kdeps/v3/pkg/selftest"
 )
 
 // flaky answers "good" on odd calls and "bad" on even ones.

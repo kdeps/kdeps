@@ -20,8 +20,8 @@ package llmserver_test
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
-	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/catalog"
+	"github.com/kdeps/kdeps/v3/pkg/llmserver/recipe"
 )
 
 func TestCatalogLoadDefaultValidateAllStock(t *testing.T) {

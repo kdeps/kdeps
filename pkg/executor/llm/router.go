@@ -24,7 +24,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 )
 
 // routerCounters stores per-router round-robin counters keyed by route fingerprint.
