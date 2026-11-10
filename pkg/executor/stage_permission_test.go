@@ -33,3 +33,17 @@ func TestCheckStagePermission_NoCheckAllowsEverything(t *testing.T) {
 	SetStagePermission(nil)
 	assert.NoError(t, checkStagePermission(&domain.Resource{ActionID: "run", Exec: &domain.ExecConfig{}}))
 }
+
+func TestToolPermission(t *testing.T) {
+	SetToolPermission(nil)
+	assert.NoError(t, ToolPermission("write_file"), "nothing installed: every tool")
+	SetToolPermission(func(name string) error {
+		if name == "write_file" {
+			return errors.New("denied")
+		}
+		return nil
+	})
+	t.Cleanup(func() { SetToolPermission(nil) })
+	assert.Error(t, ToolPermission("write_file"))
+	assert.NoError(t, ToolPermission("read_file"))
+}

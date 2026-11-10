@@ -21,6 +21,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -76,6 +77,11 @@ func TestKdepsTools_ResolvesAPITool(t *testing.T) {
 	assert.Nil(t, out[1].Execute, "a script tool stays a resource tool")
 	assert.Equal(t, "Mine.", out[2].Description, "the YAML description wins")
 	assert.Nil(t, in[0].Execute, "the workflow config is not changed")
+
+	executor.SetToolPermission(func(name string) error { return errors.New("denied " + name) })
+	t.Cleanup(func() { executor.SetToolPermission(nil) })
+	_, err = out[0].Execute(map[string]any{"text": "hi"})
+	require.EqualError(t, err, "denied kt_echo", "the permission policy gates each call")
 }
 
 func TestKdepsTools_Errors(t *testing.T) {

@@ -31,6 +31,7 @@ import (
 // are gated too.
 func InstallStagePermission() {
 	executor.SetStagePermission(stageGate)
+	executor.SetToolPermission(toolGate)
 	executor.SetReadOnlyTool(func(name string) bool {
 		return requiredPermission(name) == PermissionReadOnly
 	})
@@ -43,14 +44,25 @@ func InstallStagePermission() {
 // Each workflow stage is checked before it runs, in every run.
 func stageGate(kind string) error {
 	policy := loadPermissionPolicy()
-	required := requiredIn(policy, policy.Resources, kind)
+	return runGate("stage", kind, "stage:"+kind, requiredIn(policy, policy.Resources, kind))
+}
+
+// toolGate decides one kdeps tool a workflow chat calls by name, against the
+// policy's tools table and the run's permission mode, as the agent loop
+// decides its own calls. A workflow run has no one to ask, so an ask-tier
+// tool is refused.
+func toolGate(tool string) error {
+	return runGate("tool", tool, tool, requiredPermission(tool))
+}
+
+// runGate checks one stage or tool (label, what) recorded under name.
+func runGate(label, what, name string, required PermissionMode) error {
 	mode := resolvePermissionMode()
 	if mode == PermissionAsk {
 		mode = resolveStaticFallbackMode()
 	}
-	name := "stage:" + kind
 	if required == PermissionAsk {
-		reason := fmt.Sprintf("stage %q requires approval, and a workflow run has no one to ask", kind)
+		reason := fmt.Sprintf("%s %q requires approval, and a workflow run has no one to ask", label, what)
 		recordPermissionDecision(name, required, mode, reason, true)
 		return fmt.Errorf("%s", reason)
 	}
@@ -59,7 +71,7 @@ func stageGate(kind string) error {
 			recordPermissionDecision(name, required, mode, "capability token "+tok.ID, false)
 			return nil
 		}
-		reason := fmt.Sprintf("stage %q requires a capability token: kdeps token grant %s", kind, name)
+		reason := fmt.Sprintf("%s %q requires a capability token: kdeps token grant %s", label, what, name)
 		recordPermissionDecision(name, required, mode, reason, true)
 		return fmt.Errorf("%s", reason)
 	}
@@ -67,8 +79,8 @@ func stageGate(kind string) error {
 		recordPermissionDecision(name, required, mode, "", false)
 		return nil
 	}
-	reason := fmt.Sprintf("stage %q requires permission %q but run mode is %q (set KDEPS_PERMISSION_MODE)",
-		kind, required, mode)
+	reason := fmt.Sprintf("%s %q requires permission %q but run mode is %q (set KDEPS_PERMISSION_MODE)",
+		label, what, required, mode)
 	recordPermissionDecision(name, required, mode, reason, true)
 	return fmt.Errorf("permission denied: %s", reason)
 }
