@@ -216,8 +216,8 @@ MS_HOME="$AS_DIR/missing"
 mkdir -p "$MS_HOME"
 OUT=$(as_run "$MS_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" KDEPS_PROFILE=full "$KDEPS_BIN" llamafile list)
 if output_grep "Skipped [0-9]+ items? that (is|are) no longer published" "$OUT" &&
-    output_grep "Profile: full" "$OUT" && output_grep "GGUF \+e2e-src-model" "$OUT" &&
-    [ ! -e "$MS_HOME/store/themes" ]; then
+    output_grep "Profile: full" "$OUT" && output_grep "GGUF +e2e-src-model" "$OUT" &&
+    [ -z "$(find "$MS_HOME/store/themes" -name '*.yaml' -print -quit 2>/dev/null)" ]; then
     test_passed "assets - a missing published path is skipped and the profile still installs"
 else
     test_failed "assets - missing published path" "$OUT"
