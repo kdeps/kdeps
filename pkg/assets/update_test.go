@@ -25,6 +25,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
@@ -325,8 +327,34 @@ func TestClient_RetriesTransientFailures(t *testing.T) {
 
 	hits.Store(10)
 	_, err = c.fetch(t.Context(), srv.URL+"/missing")
-	require.ErrorContains(t, err, "404")
+	require.ErrorIs(t, err, ErrUnpublished)
 	assert.Equal(t, int32(11), hits.Load(), "a 404 is final")
+}
+
+func TestApplyAll_NotFoundIsSkipped(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	c := publishedServer(t, map[string]map[string]string{
+		"tools/ok": {"1.0.0": "version: 1.0.0\n"},
+		"components/needs-gone": {
+			"1.0.0": "version: 1.0.0\nrequires:\n  tools/gone: \"\"\n",
+		},
+	}, nil)
+	idx, err := c.Index(t.Context())
+	require.NoError(t, err)
+	idx.Items["tools/gone"] = IndexItem{Latest: "1.0.0", Versions: []IndexVersion{{Version: "1.0.0", SHA256: "dead"}}}
+	root := t.TempDir()
+	changes := []Change{
+		{ID: "components/needs-gone", To: "1.0.0", Action: ActionInstall},
+		{ID: "tools/gone", To: "1.0.0", Action: ActionInstall},
+		{ID: "tools/ok", To: "1.0.0", Action: ActionInstall},
+	}
+	applyAll(t.Context(), root, c, changes, idx)
+	got := byID(changes)
+	assert.Equal(t, ActionInstall, got["tools/ok"].Action)
+	assert.Equal(t, ActionSkip, got["tools/gone"].Action)
+	assert.Equal(t, NoteUnpublished, got["tools/gone"].Note)
+	assert.Equal(t, ActionSkip, got["components/needs-gone"].Action)
+	assert.Equal(t, NoteUnpublished, got["components/needs-gone"].Note)
 }
 
 func TestUpdate_InstallsRequiresFirst(t *testing.T) {
@@ -394,6 +422,46 @@ func TestUpdate_UnmetRequiresFail(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ActionInstall, byID(changes)["presets/slow"].Action)
 	assert.Equal(t, "1.1.0", byID(changes)["events/compact"].To)
+}
+
+func TestApplyAll_ReportsProgressForEachDownload(t *testing.T) {
+	withSource(t, fstest.MapFS{})
+	const n = 5
+	files := map[string]map[string]string{}
+	for i := range n {
+		files[fmt.Sprintf("harness/h%02d", i)] = map[string]string{
+			"1.0.0": fmt.Sprintf("version: 1.0.0\nbody: %d\n", i),
+		}
+	}
+	c := publishedServer(t, files, nil)
+	var mu sync.Mutex
+	var got []string
+	c.OnProgress = func(done, total int, id string) {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, fmt.Sprintf("%d/%d %s", done, total, id))
+	}
+	idx, err := c.Index(t.Context())
+	require.NoError(t, err)
+	root := t.TempDir()
+	changes := make([]Change, 0, len(files))
+	for id := range files {
+		changes = append(changes, Change{ID: id, Action: ActionInstall, To: "1.0.0"})
+	}
+	applyAll(t.Context(), root, c, changes, idx)
+
+	require.Len(t, got, n+1)
+	assert.Equal(t, "0/5 ", got[0])
+	seen := map[string]bool{}
+	for i, line := range got[1:] {
+		prefix := fmt.Sprintf("%d/5 ", i+1)
+		require.True(t, strings.HasPrefix(line, prefix), line)
+		seen[strings.TrimPrefix(line, prefix)] = true
+	}
+	assert.Len(t, seen, n)
+	for id := range files {
+		assert.Contains(t, seen, id)
+	}
 }
 
 func TestApplyAll_RequirementFailureFailsDependent(t *testing.T) {

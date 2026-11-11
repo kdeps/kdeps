@@ -22,10 +22,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/term"
 
 	"github.com/kdeps/kdeps/v3/pkg/assets"
 	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
@@ -122,6 +125,7 @@ func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error 
 	}
 	if len(opts.Remove) == 0 || len(opts.Items) > 0 {
 		c := assets.NewClient()
+		watchDownloads(w, c, "update")
 		up, err := assets.Update(ctx, root, c, opts.Items, opts.Check)
 		if err != nil {
 			return err
@@ -140,6 +144,44 @@ func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error 
 		}
 	}
 	return nil
+}
+
+// watchDownloads shows each file this client fetches. label is the install
+// type (for example "full profile") and stays on the line that updates.
+// A terminal keeps one line; a log prints one line per file.
+func watchDownloads(w io.Writer, c *assets.Client, label string) {
+	if c == nil {
+		return
+	}
+	c.OnProgress = downloadProgress(w, fileIsTerminal(w), label)
+}
+
+func fileIsTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(int(f.Fd()))
+}
+
+func downloadProgress(w io.Writer, tty bool, label string) assets.ProgressFunc {
+	return func(done, total int, id string) {
+		if total == 0 {
+			return
+		}
+		msg := fmt.Sprintf("downloaded %d/%d", done, total)
+		if label != "" {
+			msg = label + "  " + msg
+		}
+		if id != "" {
+			msg += " " + id
+		}
+		if !tty {
+			fmt.Fprintln(w, msg)
+			return
+		}
+		fmt.Fprintf(w, "\r\033[K%s", msg)
+		if done == total {
+			fmt.Fprintln(w)
+		}
+	}
 }
 
 func printChanges(w io.Writer, changes []assets.Change, check bool) {

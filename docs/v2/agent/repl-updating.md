@@ -165,8 +165,11 @@ A command that loads a set outside the profile installs only that set's required
 ```text
 $ KDEPS_PROFILE=minimum kdeps
 Installing the minimum profile...
+minimum profile  downloaded 7/19 providers/openai
 Installing harness/compaction-system, ..., tools/note_get, ..., commands/help, ..., themes/normal (needed by this command)...
 ```
+
+A terminal rewrites one line while files download, as in `minimum profile  downloaded 7/19 providers/openai`. The profile name stays on that line. A log prints one line per file. Items the registry no longer has are one line, `Skipped 3 items that are no longer published.` An item that fails for another reason is named. When other items installed, kdeps continues and repeats the profile (`Profile: full (every asset set)`). When nothing installed, it stops and names `kdeps profile` to run once you are online.
 
 - Sets with nothing required (`events`, `actions`, `presets`) stay empty and are recorded empty in `lock.json`, so the next start makes no network call.
 - A required item still missing when code reads it is installed once, on first use, and named on the terminal: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).

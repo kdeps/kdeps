@@ -97,8 +97,8 @@ func (tw *testWriter) WriteString(s string) (int, error) { return tw.Builder.Wri
 func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "4" (ollama), accept default host, no default model
-	input := "4\n\n\n"
+	// Input: set up now, choose "4" (ollama), accept default host, no default model
+	input := "1\n4\n\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -112,8 +112,8 @@ func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "4" (ollama), custom host, no default model
-	input := "4\nhttp://myserver:11434\n\n"
+	// Input: set up now, choose "4" (ollama), custom host, no default model
+	input := "1\n4\nhttp://myserver:11434\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -128,9 +128,9 @@ func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
 	p := primaryCloudProvider()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Menu index 3 = cloud. Sub-pick defaults to the first cloud provider,
-	// then the API key, then a blank default model.
-	input := "3\n\nsk-mykey\n\n"
+	// Set up now. Menu index 3 = cloud. Sub-pick defaults to the first cloud
+	// provider, then the API key, then a blank default model.
+	input := "1\n3\n\nsk-mykey\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -143,7 +143,7 @@ func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
 func TestBootstrapInteractive_Skip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: skip (0)
+	// Input: not now (0). The backend menu is not shown.
 	reader := bufio.NewReader(strings.NewReader("0\n"))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -153,12 +153,25 @@ func TestBootstrapInteractive_Skip(t *testing.T) {
 	// Config should still be written, all keys commented out.
 	assert.Contains(t, string(data), "llm:")
 	assert.Contains(t, string(data), "# ")
+	assert.NotContains(t, out.String(), "How should kdeps run language models?")
+	assert.Contains(t, out.String(), "left unset")
+}
+
+func TestBootstrapInteractive_EnterSkipsSetup(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	reader := bufio.NewReader(strings.NewReader("\n"))
+	var out testWriter
+	require.NoError(t, bootstrapInteractive(&out, reader, path))
+	assert.NotContains(t, out.String(), "How should kdeps run language models?")
+	_, err := os.Stat(path)
+	assert.NoError(t, err)
 }
 
 func TestBootstrapInteractive_InvalidChoice_DefaultsToFirst(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: invalid choice ("99"), then hits out-of-range → no provider chosen
+	// Input: anything other than 1 leaves language models unset.
 	reader := bufio.NewReader(strings.NewReader("99\n"))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -633,8 +646,8 @@ func TestBootstrapInteractive_CloudKeyReadError(t *testing.T) {
 		return "", errors.New("secret read failed")
 	}
 
-	// "3" = cloud, blank provider sub-pick, then the (failing) key read.
-	reader := bufio.NewReader(strings.NewReader("3\n\n"))
+	// Set up now, "3" = cloud, blank provider sub-pick, then the (failing) key read.
+	reader := bufio.NewReader(strings.NewReader("1\n3\n\n"))
 	var out testWriter
 	err := bootstrapInteractive(&out, reader, "/tmp/test-config.yaml")
 	require.Error(t, err)
