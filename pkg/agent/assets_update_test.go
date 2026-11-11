@@ -209,6 +209,25 @@ func TestEnsureSets_AsksForProfileWhenFilesAlreadyExist(t *testing.T) {
 	assert.Contains(t, out.String(), "every asset set")
 }
 
+func TestEnsureSets_DownloadsOffDoesNotAsk(t *testing.T) {
+	emptyAssetSource(t)
+	t.Setenv(ProfileEnv, "")
+	root := serveAssets(t, map[string]string{
+		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+	})
+	var discard bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"themes"}))
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	lock.Profile = ""
+	require.NoError(t, assets.WriteLock(root, lock))
+
+	t.Setenv("KDEPS_ASSETS_URL", "off")
+	var out bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"themes"}))
+	assert.Empty(t, out.String(), "downloads off: a ready checkout does not fetch the registry")
+}
+
 func TestEnsureSets_ProfileGetsOnlyRequiredItems(t *testing.T) {
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "minimum")

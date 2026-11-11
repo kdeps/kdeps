@@ -44,19 +44,22 @@ const customProfile = "custom"
 // then $KDEPS_PROFILE or just the needed sets). Once a profile is chosen it
 // is respected: a needed set only gets the items its loader requires, and a
 // set with none stays empty. Without a network it fails naming the update
-// to run. A command whose needs are met makes no network call.
+// to run. A command whose needs are met makes no network call, except the
+// first-run profile question when downloads are on and no profile is stored.
 func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) error {
 	root := assets.Root()
 	ready := len(unmet(need)) == 0 && len(profileRequired(root, need)) == 0
+	c := assets.NewClient()
 	// Ask even when a checkout already supplies the files. Otherwise the
-	// profile list never appears and the model wizard is the only first-run prompt.
-	ask := in != nil && !profileChosen(root)
+	// profile list never appears and the model wizard is the only first-run
+	// prompt. Downloads off: the picker needs the registry, so a ready
+	// checkout just runs.
+	ask := in != nil && !profileChosen(root) && !c.Disabled()
 	if ready && !ask {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout*5) //nolint:mnd // picker + download
 	defer cancel()
-	c := assets.NewClient()
 	if ask || (!assets.Initialized(root) && len(unmet(need)) > 0) {
 		if err := firstRunSelect(ctx, w, in, root, c); err != nil {
 			return err
