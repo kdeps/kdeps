@@ -45,7 +45,13 @@ const (
 )
 
 // ErrDisabled is returned when downloads are turned off (KDEPS_ASSETS_URL=off).
-var ErrDisabled = errors.New("asset downloads are disabled (KDEPS_ASSETS_URL=off)")
+var (
+	// ErrDisabled is returned when downloads are turned off.
+	ErrDisabled = errors.New("asset downloads are disabled (KDEPS_ASSETS_URL=off)")
+	// ErrUnpublished is returned when every source answers 404. The index
+	// still lists the item, but the file was removed.
+	ErrUnpublished = errors.New("not published")
+)
 
 // source is one place assets can be downloaded from.
 type source struct {
@@ -53,10 +59,18 @@ type source struct {
 	file  func(id, version string) string
 }
 
+// ProgressFunc reports download progress. done is how many of total pending
+// files have finished. id is empty before the first file starts, then the
+// file that just finished. Calls are serialized.
+type ProgressFunc func(done, total int, id string)
+
 // Client downloads the index and item files, trying each source in order.
 type Client struct {
-	HTTP    *http.Client
-	sources []source
+	HTTP *http.Client
+	// OnProgress, when set, is called once before downloads start and again
+	// after each file finishes.
+	OnProgress ProgressFunc
+	sources    []source
 }
 
 // NewClient returns a client for $KDEPS_ASSETS_URL (a base URL laid out like
@@ -163,6 +177,9 @@ func (c *Client) fetchOnce(ctx context.Context, url string) ([]byte, bool, error
 		return nil, ctx.Err() == nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, false, fmt.Errorf("%s: %w", url, ErrUnpublished)
+	}
 	if resp.StatusCode != http.StatusOK {
 		retry := resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests
 		return nil, retry, fmt.Errorf("%s: %s", url, resp.Status)
@@ -175,4 +192,30 @@ func (c *Client) fetchOnce(ctx context.Context, url string) ([]byte, bool, error
 		return nil, false, fmt.Errorf("%s: larger than %d bytes", url, maxDownload)
 	}
 	return data, false, nil
+}
+
+// unpublishedErr reports whether every wrapped error is a 404. One 404
+// beside a network error is not enough: the file may still exist.
+func unpublishedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		parts := joined.Unwrap()
+		if len(parts) == 0 {
+			return false
+		}
+		for _, part := range parts {
+			if !unpublishedErr(part) {
+				return false
+			}
+		}
+		return true
+	}
+	if inner, ok := err.(interface{ Unwrap() error }); ok {
+		if next := inner.Unwrap(); next != nil {
+			return unpublishedErr(next)
+		}
+	}
+	return errors.Is(err, ErrUnpublished)
 }

@@ -1,6 +1,6 @@
 module github.com/kdeps/kdeps/desktop
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/kdeps/kdeps/v3 v3.0.0

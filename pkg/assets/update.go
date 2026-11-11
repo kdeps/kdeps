@@ -42,6 +42,9 @@ const (
 	ActionFailed  = "failed"  // see Note
 )
 
+// NoteUnpublished is the note on a skipped item whose file is no longer published.
+const NoteUnpublished = "no longer published"
+
 // Change is what update did (or, in check mode, would do) to one item.
 type Change struct {
 	ID     string `json:"id"`
@@ -269,15 +272,47 @@ func need(req, rng, parent string, byID map[string]Change, local map[string]Item
 // item, and one at a time that takes most of a minute.
 const downloadWorkers = 8
 
+// needsDownload reports whether the change fetches a published file.
+func needsDownload(ch Change) bool {
+	return ch.Action == ActionInstall || ch.Action == ActionPin
+}
+
+// downloadReporter serializes OnProgress. An empty id is the start call and
+// does not count as a finished file. A nil callback or nothing to fetch is
+// a no-op.
+func downloadReporter(c *Client, total int) func(id string) {
+	if c == nil || c.OnProgress == nil || total == 0 {
+		return func(string) {}
+	}
+	var mu sync.Mutex
+	done := 0
+	return func(id string) {
+		mu.Lock()
+		defer mu.Unlock()
+		if id != "" {
+			done++
+		}
+		c.OnProgress(done, total, id)
+	}
+}
+
 // applyAll carries out every pending change in place: downloads run in
 // parallel, installs (which rewrite the lock) one at a time.
 func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx Index) {
 	data := make([][]byte, len(changes))
 	errs := make([]error, len(changes))
+	total := 0
+	for _, ch := range changes {
+		if needsDownload(ch) {
+			total++
+		}
+	}
+	report := downloadReporter(c, total)
+	report("")
 	sem := make(chan struct{}, downloadWorkers)
 	var wg sync.WaitGroup
 	for i, ch := range changes {
-		if ch.Action != ActionInstall && ch.Action != ActionPin {
+		if !needsDownload(ch) {
 			continue
 		}
 		wg.Go(func() {
@@ -285,9 +320,11 @@ func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx
 			defer func() { <-sem }()
 			v, _ := idx.Items[ch.ID].Find(ch.To)
 			data[i], errs[i] = c.File(ctx, ch.ID, v)
+			report(ch.ID)
 		})
 	}
 	wg.Wait()
+	markUnpublished(changes, errs, idx)
 	failed := map[string]bool{}
 	for i, ch := range changes {
 		if ch.Action == ActionFailed {
@@ -310,6 +347,55 @@ func applyAll(ctx context.Context, root string, c *Client, changes []Change, idx
 			failed[ch.ID] = true
 		}
 	}
+}
+
+// markUnpublished turns a 404, and anything that requires one, into a skip.
+// The index still names these items; the files were removed.
+func markUnpublished(changes []Change, errs []error, idx Index) {
+	gone := map[string]bool{}
+	for i := range changes {
+		if unpublishedErr(errs[i]) {
+			gone[changes[i].ID] = true
+		}
+	}
+	marked := true
+	for marked {
+		marked = markGone(changes, gone, idx)
+	}
+}
+
+// markGone records one pass of unpublished items. It reports whether the
+// pass changed anything, so a requirement chain settles.
+func markGone(changes []Change, gone map[string]bool, idx Index) bool {
+	marked := false
+	for i, ch := range changes {
+		if gone[ch.ID] {
+			if changes[i].Action != ActionSkip {
+				changes[i].Action = ActionSkip
+				changes[i].Note = NoteUnpublished
+				marked = true
+			}
+			continue
+		}
+		if !needsDownload(changes[i]) || !requiresGone(ch, gone, idx) {
+			continue
+		}
+		gone[ch.ID] = true
+		changes[i].Action = ActionSkip
+		changes[i].Note = NoteUnpublished
+		marked = true
+	}
+	return marked
+}
+
+// requiresGone reports whether ch depends on an unpublished item.
+func requiresGone(ch Change, gone map[string]bool, idx Index) bool {
+	for req := range requires(ch, idx) {
+		if gone[req] {
+			return true
+		}
+	}
+	return false
 }
 
 // apply resets or installs one change, recording an install's context tokens.

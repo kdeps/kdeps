@@ -51,6 +51,12 @@ func emptyAssetSource(t *testing.T) {
 // layout, points KDEPS_ASSETS_URL at it and gives the test its own asset root.
 func serveAssets(t *testing.T, files map[string]string) string {
 	t.Helper()
+	return servePublished(t, files, nil)
+}
+
+// servePublished is serveAssets plus index entries whose files are absent.
+func servePublished(t *testing.T, files map[string]string, missing []string) string {
+	t.Helper()
 	// Registered before the Setenv calls, so it runs after they are undone
 	// and reloads the package registries from the repo's assets/.
 	t.Cleanup(ReloadAssets)
@@ -65,6 +71,12 @@ func serveAssets(t *testing.T, files map[string]string) string {
 		it.Versions = append(it.Versions, assets.IndexVersion{Version: version, SHA256: assets.Sum([]byte(body))})
 		it.Latest = version
 		idx.Items[id] = it
+	}
+	for _, id := range missing {
+		idx.Items[id] = assets.IndexItem{
+			Latest:   "1.0.0",
+			Versions: []assets.IndexVersion{{Version: "1.0.0", SHA256: "missing"}},
+		}
 	}
 	require.NoError(t, assets.WriteIndex(dir, idx))
 	srv := httptest.NewServer(http.FileServer(http.Dir(dir)))
@@ -175,6 +187,45 @@ func TestEnsureSets_FirstRunPicker(t *testing.T) {
 	assert.Equal(t, "minimum", lock.Profile)
 	assert.Equal(t, []string{"tools"}, assets.MissingOf([]string{"tools"}), "minimum leaves tools out")
 	assert.NotContains(t, out.String(), "Installing tools")
+}
+
+func TestEnsureSets_AsksForProfileWhenFilesAlreadyExist(t *testing.T) {
+	emptyAssetSource(t)
+	t.Setenv(ProfileEnv, "")
+	root := serveAssets(t, map[string]string{
+		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+	})
+	var discard bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"themes"}))
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	lock.Profile = ""
+	require.NoError(t, assets.WriteLock(root, lock))
+
+	var out bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"themes"}))
+	assert.Contains(t, out.String(), "What will you use kdeps for?")
+	assert.Contains(t, out.String(), "5) full")
+	assert.Contains(t, out.String(), "every asset set")
+}
+
+func TestEnsureSets_DownloadsOffDoesNotAsk(t *testing.T) {
+	emptyAssetSource(t)
+	t.Setenv(ProfileEnv, "")
+	root := serveAssets(t, map[string]string{
+		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+	})
+	var discard bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"themes"}))
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	lock.Profile = ""
+	require.NoError(t, assets.WriteLock(root, lock))
+
+	t.Setenv("KDEPS_ASSETS_URL", "off")
+	var out bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"themes"}))
+	assert.Empty(t, out.String(), "downloads off: a ready checkout does not fetch the registry")
 }
 
 func TestEnsureSets_ProfileGetsOnlyRequiredItems(t *testing.T) {
@@ -305,6 +356,60 @@ func TestSelectProfile(t *testing.T) {
 	lock, err = assets.ReadLock(root)
 	require.NoError(t, err)
 	assert.Equal(t, "minimum", lock.Profile)
+}
+
+func TestDownloadProgress_TerminalRewritesOneLine(t *testing.T) {
+	var buf bytes.Buffer
+	fn := downloadProgress(&buf, true, "full profile")
+	fn(0, 2, "")
+	fn(1, 2, "tools/a")
+	fn(2, 2, "tools/b")
+	got := buf.String()
+	assert.Contains(t, got, "\r\033[Kfull profile  downloaded 0/2")
+	assert.Contains(t, got, "\r\033[Kfull profile  downloaded 1/2 tools/a")
+	assert.Contains(t, got, "\r\033[Kfull profile  downloaded 2/2 tools/b\n")
+	assert.NotContains(t, got, "\ndownloaded")
+}
+
+func TestDownloadProgress_LogPrintsALinePerFile(t *testing.T) {
+	var buf bytes.Buffer
+	fn := downloadProgress(&buf, false, "")
+	fn(0, 2, "")
+	fn(1, 2, "tools/a")
+	fn(0, 0, "skipped")
+	assert.Equal(t, "downloaded 0/2\ndownloaded 1/2 tools/a\n", buf.String())
+}
+
+func TestEnsureSets_PartialDownloadContinues(t *testing.T) {
+	emptyAssetSource(t)
+	t.Setenv(ProfileEnv, "full")
+	root := servePublished(t, map[string]string{
+		"tools/md5_file@2.1.0": newerMD5Def,
+	}, []string{"harness/gone"})
+	var out bytes.Buffer
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"tools"}))
+	assert.Contains(t, out.String(), "Installing the full profile")
+	assert.Contains(t, out.String(), "full profile  downloaded 1/2")
+	assert.Contains(t, out.String(), "downloaded 2/2")
+	assert.Contains(t, out.String(), "Skipped 1 item that is no longer published.")
+	assert.Contains(t, out.String(), "Profile: full (every asset set)")
+	assert.NotContains(t, out.String(), "warning:")
+	lock, err := assets.ReadLock(root)
+	require.NoError(t, err)
+	assert.Equal(t, "full", lock.Profile)
+	assert.Contains(t, lock.Items, "tools/md5_file")
+}
+
+func TestEnsureSets_DownloadFailureStopsWhenNothingInstalled(t *testing.T) {
+	emptyAssetSource(t)
+	t.Setenv(ProfileEnv, "full")
+	servePublished(t, nil, []string{"harness/gone"})
+	var out bytes.Buffer
+	err := EnsureSets(context.Background(), &out, nil, []string{"tools"})
+	require.ErrorContains(t, err, "tools")
+	assert.Contains(t, out.String(), "Skipped 1 item that is no longer published.")
+	assert.Contains(t, out.String(), "Profile: full (every asset set)")
+	assert.NotContains(t, out.String(), "warning:")
 }
 
 func TestInstallComponentOnDemand(t *testing.T) {

@@ -44,16 +44,23 @@ const customProfile = "custom"
 // then $KDEPS_PROFILE or just the needed sets). Once a profile is chosen it
 // is respected: a needed set only gets the items its loader requires, and a
 // set with none stays empty. Without a network it fails naming the update
-// to run. A command whose needs are met makes no network call.
+// to run. A command whose needs are met makes no network call, except the
+// first-run profile question when downloads are on and no profile is stored.
 func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) error {
 	root := assets.Root()
-	if len(unmet(need)) == 0 && len(profileRequired(root, need)) == 0 {
+	ready := len(unmet(need)) == 0 && len(profileRequired(root, need)) == 0
+	c := assets.NewClient()
+	// Ask even when a checkout already supplies the files. Otherwise the
+	// profile list never appears and the model wizard is the only first-run
+	// prompt. Downloads off: the picker needs the registry, so a ready
+	// checkout just runs.
+	ask := in != nil && !profileChosen(root) && !c.Disabled()
+	if ready && !ask {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, firstRunAssetTimeout*5) //nolint:mnd // picker + download
 	defer cancel()
-	c := assets.NewClient()
-	if !assets.Initialized(root) && len(unmet(need)) > 0 {
+	if ask || (!assets.Initialized(root) && len(unmet(need)) > 0) {
 		if err := firstRunSelect(ctx, w, in, root, c); err != nil {
 			return err
 		}
@@ -64,6 +71,7 @@ func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) e
 	}
 	if len(targets) > 0 {
 		fmt.Fprintf(w, "Installing %s (needed by this command)...\n", strings.Join(targets, ", "))
+		watchDownloads(w, c, "needed by this command")
 		if _, err = assets.Update(ctx, root, c, targets, false); err != nil {
 			return notInstalled(need, err)
 		}
@@ -77,6 +85,12 @@ func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) e
 		return notInstalled(still, nil)
 	}
 	return nil
+}
+
+// profileChosen reports whether a profile name is already stored.
+func profileChosen(root string) bool {
+	lock, err := assets.ReadLock(root)
+	return err == nil && lock.Profile != ""
 }
 
 // profileRequired is, once a profile is chosen, the required items of need
@@ -166,15 +180,63 @@ func firstRunSelect(ctx context.Context, w io.Writer, in io.Reader, root string,
 		return err
 	}
 	fmt.Fprintf(w, "Installing the %s profile...\n", name)
+	watchDownloads(w, c, name+" profile")
 	changes, err := assets.Select(ctx, root, c, name, targets)
 	if err != nil {
 		return err
 	}
+	if failErr := reportDownloadFailures(w, name, changes); failErr != nil {
+		return failErr
+	}
+	fmt.Fprintln(w, profileChoiceLine(name))
+	return nil
+}
+
+// profileChoiceLine is the chosen profile and what it installs, kept on
+// screen after the download lines.
+func profileChoiceLine(name string) string {
+	if p, err := assets.ProfileByName(name); err == nil && p.Description != "" {
+		return fmt.Sprintf("Profile: %s (%s)", p.Name, p.Description)
+	}
+	return "Profile: " + name
+}
+
+// reportDownloadFailures names items that did not download. A file the
+// registry no longer has is one summary line. When nothing installed, a
+// real failure is fatal. When some files landed, the other failures are
+// warnings and the profile stays in place.
+func reportDownloadFailures(w io.Writer, name string, changes []assets.Change) error {
+	var failed []assets.Change
+	installed, skipped := 0, 0
 	for _, ch := range changes {
-		if ch.Action == assets.ActionFailed {
-			return fmt.Errorf("could not download %s (%s); connect to the internet and run kdeps profile %s",
-				ch.ID, ch.Note, name)
+		switch ch.Action {
+		case assets.ActionFailed:
+			failed = append(failed, ch)
+		case assets.ActionInstall, assets.ActionPin:
+			installed++
+		case assets.ActionSkip:
+			if ch.Note == assets.NoteUnpublished {
+				skipped++
+			}
 		}
+	}
+	if skipped > 0 {
+		item, verb := "items", "are"
+		if skipped == 1 {
+			item, verb = "item", "is"
+		}
+		fmt.Fprintf(w, "Skipped %d %s that %s no longer published.\n", skipped, item, verb)
+	}
+	if len(failed) == 0 {
+		return nil
+	}
+	if installed == 0 {
+		ch := failed[0]
+		return fmt.Errorf("could not download %s (%s); connect to the internet and run kdeps profile %s",
+			ch.ID, ch.Note, name)
+	}
+	for _, ch := range failed {
+		fmt.Fprintf(w, "warning: could not download %s (%s)\n", ch.ID, ch.Note)
 	}
 	return nil
 }
@@ -528,6 +590,7 @@ func SelectProfile(ctx context.Context, w io.Writer, in io.Reader, name string) 
 			return err
 		}
 	}
+	watchDownloads(w, c, profile+" profile")
 	changes, err := assets.Select(ctx, root, c, profile, targets)
 	if err != nil {
 		return err
@@ -544,6 +607,7 @@ func SelectProfile(ctx context.Context, w io.Writer, in io.Reader, name string) 
 func InstallComponentOnDemand(ctx context.Context, w io.Writer) func(id string) bool {
 	return func(id string) bool {
 		root, c := assets.Root(), assets.NewClient()
+		watchDownloads(w, c, id)
 		changes, err := assets.Update(ctx, root, c, []string{id}, false)
 		if err != nil {
 			return false

@@ -156,11 +156,17 @@ kdeps update models       # newest registry (harvested nightly from HuggingFace)
 
 ## First-run setup
 
-The first time you run kdeps in a terminal with no `~/.kdeps/config.yaml`, an
-interactive wizard asks how you want to run language models and writes the
-config for you:
+The first time you run kdeps in a terminal with no `~/.kdeps/config.yaml`, it
+asks whether to set up language models. Enter skips that setup. Choosing yes
+opens the backend list and writes the config:
 
 ```text
+  Set up language models in ~/.kdeps/config.yaml?
+    [1] Yes
+    [0] Not now
+
+  Enter number [0]: 1
+
   How should kdeps run language models?
     [1] llamafile  local, self-contained, no server install (recommended)
     [2] gguf       local GGUF models via llama.cpp

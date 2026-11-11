@@ -210,16 +210,17 @@ else
     test_failed "assets - tampered installed asset" "no preset installed in $FL_HOME/store"
 fi
 
-# --- a missing published item fails the first run and is named --------------
+# --- a 404 for a published path is skipped; the rest of the profile installs -
 serve "missing=themes/"
 MS_HOME="$AS_DIR/missing"
 mkdir -p "$MS_HOME"
-if OUT=$(as_run "$MS_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" KDEPS_PROFILE=full "$KDEPS_BIN" llamafile list); then
-    test_failed "assets - first run with a missing item fails" "$OUT"
-elif output_grep "connect to the internet and run kdeps" "$OUT" && output_grep "themes/" "$OUT"; then
-    test_passed "assets - first run names the item it could not download"
+OUT=$(as_run "$MS_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" KDEPS_PROFILE=full "$KDEPS_BIN" llamafile list)
+if output_grep "Skipped [0-9]+ items? that (is|are) no longer published" "$OUT" &&
+    output_grep "Profile: full" "$OUT" && output_grep "GGUF +e2e-src-model" "$OUT" &&
+    [ -z "$(find "$MS_HOME/store/themes" -name '*.yaml' -print -quit 2>/dev/null)" ]; then
+    test_passed "assets - a missing published path is skipped and the profile still installs"
 else
-    test_failed "assets - first run missing item message" "$OUT"
+    test_failed "assets - missing published path" "$OUT"
 fi
 
 # --- installing one item installs what it requires first ---------------------
@@ -227,10 +228,12 @@ serve plain
 RQ_HOME="$AS_DIR/requires"
 mkdir -p "$RQ_HOME"
 OUT=$(as_run "$RQ_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" "$KDEPS_BIN" install components/web_search)
+# Progress lines name the same ids. The change table is what has an order.
+ORDER=$(echo "$OUT" | grep -v 'downloaded ')
 if output_grep "schemas/v1 +install .*\(required by components/web_search\)" "$OUT" &&
     output_grep "tools/web_search +install .*\(required by components/web_search\)" "$OUT" &&
     output_grep "components/web_search +install" "$OUT" &&
-    [ "$(echo "$OUT" | grep -n 'schemas/v1' | cut -d: -f1)" -lt "$(echo "$OUT" | grep -n 'components/web_search +install' -E | cut -d: -f1)" ] &&
+    [ "$(echo "$ORDER" | grep -n 'schemas/v1' | head -1 | cut -d: -f1)" -lt "$(echo "$ORDER" | grep -nE 'components/web_search +install' | head -1 | cut -d: -f1)" ] &&
     [ -f "$RQ_HOME/store/schemas/v1.yaml" ] && [ ! -e "$RQ_HOME/store/themes" ]; then
     test_passed "assets - kdeps update <item> installs its requires first, nothing else"
 else

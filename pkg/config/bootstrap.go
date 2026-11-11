@@ -102,7 +102,16 @@ func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string
 
 	w.println("")
 	w.println("  Welcome to kdeps!")
-	w.println("  No configuration found. Let's set up ~/.kdeps/config.yaml.")
+	w.println("  No configuration found.")
+	w.println("")
+	w.println("  Set up language models in ~/.kdeps/config.yaml?")
+	w.println("    [1] Yes")
+	w.println("    [0] Not now")
+	w.println("")
+	if promptLine(out, reader, "  Enter number [0]: ", "0") != "1" {
+		return finishBootstrap(w, path, Config{}, false)
+	}
+
 	w.println("")
 	w.println("  How should kdeps run language models?")
 	for i, bt := range backendChoices {
@@ -118,16 +127,27 @@ func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string
 		return err
 	}
 
+	if err := finishBootstrap(w, path, cfg, true); err != nil {
+		return err
+	}
+	applyEnv(cfg)
+	return nil
+}
+
+// finishBootstrap writes the config. setup is false when the user left
+// language models unset.
+func finishBootstrap(w *fmtWriter, path string, cfg Config, setup bool) error {
 	if writeErr := writeConfig(path, cfg); writeErr != nil {
 		return writeErr
 	}
-
 	w.println("")
 	w.printf("  ✓ Configuration written to %s\n", path)
-	w.println("  You can edit it at any time to change models or backends.")
+	if setup {
+		w.println("  You can edit it at any time to change models or backends.")
+	} else {
+		w.println("  Language models were left unset. Run kdeps llm wizard when you want to choose one.")
+	}
 	w.println("")
-
-	applyEnv(cfg)
 	return nil
 }
 
