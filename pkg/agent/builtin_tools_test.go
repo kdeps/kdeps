@@ -1059,6 +1059,31 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
 }
 
+// TestReadFile_LargeFileWindow covers a file over the file-read-limit cap: a
+// whole read is refused with a hint, and an offset/limit window still reads.
+func TestReadFile_LargeFileWindow(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	path := filepath.Join(t.TempDir(), "big.log")
+	var b strings.Builder
+	for i := 1; b.Len() <= maxFileReadBytes(); i++ {
+		fmt.Fprintf(&b, "line %d\n", i)
+	}
+	require.NoError(t, os.WriteFile(path, []byte(b.String()), 0600))
+	total := strings.Count(b.String(), "\n")
+
+	_, err := tool.Execute(map[string]any{"file_path": path})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pass offset/limit")
+
+	out, err := tool.Execute(map[string]any{"file_path": path, "offset": float64(10), "limit": float64(2)})
+	require.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf("10\tline 10$\n11\tline 11$\n[2/%d lines shown]", total), out)
+}
+
 // TestReadFile_StringOffsetAndLimit covers a fenced-tool backend, where the
 // model writes <parameter name="offset">2</parameter> and the parameter
 // arrives as a string. Both must still window the read.

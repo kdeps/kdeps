@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.0.1
 category: file
 aliases: [read, cat, view_file, open_file, read_text_file]  # other names a model may call it by; the model is shown only this tool's name
 description: 'Read a file from the local filesystem. Returns the contents with a 1-based line number on every line (`  42\tcode$`) - use those numbers for edit_file insert/view. Tabs render as ^I, other control characters as ^X, and a $ marks the true end of each line, so indentation, trailing whitespace, and stray control characters are visible instead of hidden. IMPORTANT: ^I, ^X, and the trailing $ are a display convention this tool adds - the real file does NOT contain those literal characters. When quoting text back into edit_file''s old_str, write the real tab/control character (or match a whole line via view_range/anchor instead), never the literal caret sequence - copying "^I" as text will not match a real tab byte. Plain text, source code, configuration files, and documentation are read directly. For PDF, DOCX, EPUB, RTF, and ODT documents, CSV/HTML structured parsing, or RAG chunking, use load_document. Pass match_id (from a search_local result) instead of file_path/offset to jump straight to that hit.'
@@ -38,18 +38,6 @@ python:
         sys.exit("read_file: %s is a directory" % path)
     if os.path.splitext(path)[1].lower() in (".pdf", ".docx", ".epub", ".rtf", ".odt"):
         sys.exit("read_file: %s is a document; use load_document to extract its text" % path)
-    try:
-        size = os.path.getsize(path)
-        # max_bytes comes from the file-read-limit event in an agent session.
-        cap = int(a.get("max_bytes") or 0) or 1048576
-        if size > cap:
-            sys.exit("read_file: %s is %d bytes (max %d)" % (path, size, cap))
-        with open(path, "rb") as f:
-            data = f.read()
-    except OSError as e:
-        sys.exit("read_file: %s: %s" % (path, e.strerror or e))
-    if b"\0" in data[:512]:
-        sys.exit("read_file: %s appears to be a binary file" % path)
 
     def number(v):
         try:
@@ -57,6 +45,36 @@ python:
         except (TypeError, ValueError):
             return 0
         return n if n > 0 else 0
+
+    offset, limit = number(a.get("offset")), number(a.get("limit"))
+    try:
+        size = os.path.getsize(path)
+        # max_bytes comes from the file-read-limit event in an agent session.
+        cap = int(a.get("max_bytes") or 0) or 1048576
+        if size > cap and not (offset or limit):
+            sys.exit("read_file: %s is %d bytes (max %d); pass offset/limit to read part of it" % (path, size, cap))
+        with open(path, "rb") as f:
+            head = f.read(512)
+            if b"\0" in head:
+                sys.exit("read_file: %s appears to be a binary file" % path)
+            f.seek(0)
+            if size <= cap:
+                data = f.read()
+            else:
+                # A file over the cap streams: only the offset/limit window is
+                # kept, and that window itself stays under the cap.
+                first = offset - 1 if offset else 0
+                kept, used, total = [], 0, 0
+                for raw in f:
+                    if total >= first and (not limit or len(kept) < limit):
+                        used += len(raw)
+                        if used > cap:
+                            sys.exit("read_file: lines %d-%d of %s exceed %d bytes; use a smaller limit" % (first + 1, total + 1, path, cap))
+                        kept.append(raw)
+                    total += 1
+                data = None
+    except OSError as e:
+        sys.exit("read_file: %s: %s" % (path, e.strerror or e))
 
     def visible(line):
         # cat -A: a tab is ^I, other C0 controls and DEL are caret notation.
@@ -73,16 +91,21 @@ python:
                 out.append(ch)
         return "".join(out)
 
-    lines = data.decode("utf-8", "replace").split("\n")
-    if lines and lines[-1] == "":
-        lines.pop()
-    total = len(lines)
-    start, end = 0, total
-    if number(a.get("offset")):
-        start = min(number(a.get("offset")) - 1, total)
-    if number(a.get("limit")):
-        end = min(start + number(a.get("limit")), total)
-    shown = lines[start:end]
+    if data is None:
+        shown = [r.decode("utf-8", "replace").rstrip("\n") for r in kept]
+        start = min(first, total)
+        end = start + len(shown)
+    else:
+        lines = data.decode("utf-8", "replace").split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        total = len(lines)
+        start, end = 0, total
+        if offset:
+            start = min(offset - 1, total)
+        if limit:
+            end = min(start + limit, total)
+        shown = lines[start:end]
     width = len(str(start + len(shown)))
     for i, line in enumerate(shown):
         print("%*d\t%s$" % (width, start + i + 1, visible(line)))
