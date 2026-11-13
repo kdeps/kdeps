@@ -50,6 +50,9 @@ type providerSpec struct {
 	Embeddings   bool     `yaml:"embeddings"`
 	DoctorCheck  bool     `yaml:"doctorCheck"`
 	Hosts        []string `yaml:"hosts"`
+	// KeyFallbacks are env vars whose value is used as the key when EnvVar
+	// and the config key are both unset, e.g. OPENAI_API_KEY.
+	KeyFallbacks []string `yaml:"keyFallbacks"`
 }
 
 //nolint:gochecknoinits // registers the LLM providers as a versioned asset set

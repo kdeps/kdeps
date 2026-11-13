@@ -19,6 +19,8 @@
 package cmd
 
 import (
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -232,4 +234,22 @@ func TestResolveConnections_Missing(t *testing.T) {
 	t.Setenv("KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION", "")
 	missing := resolveConnections(&config.Config{}, []connRef{{config.ConnKindSQL, "main"}})
 	assert.Equal(t, []connRef{{config.ConnKindSQL, "main"}}, missing)
+}
+
+// TestPrintMissingConnectionEnvVars_DefaultBackend checks the default-backend
+// hint names KDEPS_DEFAULT_BACKEND, the variable DefaultBackendConfigured reads.
+func TestPrintMissingConnectionEnvVars_DefaultBackend(t *testing.T) {
+	oldErr := os.Stderr
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+	printMissingConnectionEnvVars(nil, nil, true, false, []string{"openrouter"})
+	os.Stderr = oldErr
+	require.NoError(t, w.Close())
+	out, err := io.ReadAll(r)
+	require.NoError(t, err)
+
+	assert.Contains(t, string(out), "export KDEPS_DEFAULT_BACKEND=openrouter")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "openrouter")
+	assert.True(t, config.DefaultBackendConfigured(nil), "following the hint must satisfy the check")
 }

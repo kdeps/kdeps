@@ -197,7 +197,7 @@ One backend for the models OpenRouter hosts. `/model list` shows the free ones: 
 # ~/.kdeps/config.yaml
 llm:
   backend: openrouter
-  openrouter_api_key: sk-or-...   # or OPENROUTER_API_KEY
+  openrouter_api_key: sk-or-...   # or OPENROUTER_API_KEY; falls back to OPENAI_API_KEY when both are unset
 ```
 
 Ids use the `provider/model` form, for example `google/gemma-4-31b-it:free`. The live catalog is at [openrouter.ai/models](https://openrouter.ai/models).

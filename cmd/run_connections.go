@@ -270,7 +270,7 @@ func printMissingConnectionEnvVars(
 
 	if setBackend && len(modelBackends) == 1 {
 		fmt.Fprintf(os.Stderr, "# default model backend\n")
-		fmt.Fprintf(os.Stderr, "export KDEPS_MODEL_DEFAULT_BACKEND=%s\n\n", modelBackends[0])
+		fmt.Fprintf(os.Stderr, "export KDEPS_DEFAULT_BACKEND=%s\n\n", modelBackends[0])
 	}
 
 	if missingToken {

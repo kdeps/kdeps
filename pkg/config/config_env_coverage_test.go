@@ -49,3 +49,37 @@ func TestApplyLLMEnv_Aria2cFlags_AlreadySet(t *testing.T) {
 	applyLLMEnv(keys)
 	assert.Equal(t, "existing-value", os.Getenv("KDEPS_ARIA2C_FLAGS"))
 }
+
+// TestApplyLLMEnv_KeyFallback covers a provider's keyFallbacks: OpenRouter
+// takes OPENAI_API_KEY (env or llm.openai_api_key) when its own key is unset.
+func TestApplyLLMEnv_KeyFallback(t *testing.T) {
+	cases := []struct {
+		name    string
+		env     map[string]string
+		keys    map[string]string
+		wantKey string
+	}{
+		{name: "env fallback", env: map[string]string{"OPENAI_API_KEY": "sk-openai"}, wantKey: "sk-openai"},
+		{name: "config fallback", keys: map[string]string{"openai_api_key": "sk-cfg"}, wantKey: "sk-cfg"},
+		{
+			name:    "own key wins",
+			env:     map[string]string{"OPENAI_API_KEY": "sk-openai"},
+			keys:    map[string]string{"openrouter_api_key": "sk-or"},
+			wantKey: "sk-or",
+		},
+		{name: "no key", wantKey: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("OPENAI_API_KEY", "")
+			t.Setenv("OPENROUTER_API_KEY", "")
+			require.NoError(t, os.Unsetenv("OPENAI_API_KEY"))
+			require.NoError(t, os.Unsetenv("OPENROUTER_API_KEY"))
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			applyLLMEnv(LLMKeys{Keys: tc.keys})
+			assert.Equal(t, tc.wantKey, os.Getenv("OPENROUTER_API_KEY"))
+		})
+	}
+}
