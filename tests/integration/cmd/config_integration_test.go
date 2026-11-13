@@ -562,3 +562,19 @@ llm:
 	}
 	assert.True(t, found, "expected warning about invalid strategy, got: %v", warnings)
 }
+
+// TestConfigIntegration_OpenRouterKeyFallback: with only llm.openai_api_key
+// set, Load exports it as OPENROUTER_API_KEY (openrouter keyFallbacks).
+func TestConfigIntegration_OpenRouterKeyFallback(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n  openai_api_key: sk-shared\n"), 0600))
+	for _, k := range []string{"OPENAI_API_KEY", "OPENROUTER_API_KEY"} {
+		t.Setenv(k, "")
+		require.NoError(t, os.Unsetenv(k))
+	}
+
+	_, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "sk-shared", os.Getenv("OPENROUTER_API_KEY"))
+}

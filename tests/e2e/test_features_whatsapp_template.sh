@@ -77,7 +77,10 @@ sed -i.bak "s/portNum: .*/portNum: $PORT/" bot/workflow.yaml
 WHATSAPP_API_URL="http://127.0.0.1:$(cat graph.port)" WHATSAPP_PHONE_NUMBER_ID=123 WHATSAPP_ACCESS_TOKEN=tok \
 WHATSAPP_VERIFY_TOKEN=vt WHATSAPP_APP_SECRET=shh KDEPS_API_AUTH_TOKEN=e2e \
     "$KDEPS_BIN" run bot/workflow.yaml > run.log 2>&1 & WA_PIDS="$WA_PIDS $!"
-URL="http://127.0.0.1:$PORT/webhook"
+# kdeps moves to another port when $PORT was taken meanwhile; use the one it bound.
+for _ in $(seq 1 120); do grep -q "Starting HTTP server on" run.log && break; sleep 0.5; done
+BOUND=$(sed -n 's/.*Starting HTTP server on [^:]*:\([0-9]*\).*/\1/p' run.log | head -1)
+URL="http://127.0.0.1:${BOUND:-$PORT}/webhook"
 for _ in $(seq 1 120); do command curl -s -o /dev/null "$URL" && break; sleep 0.5; done
 
 GET=$(command curl -s -D get.h "$URL?hub.mode=subscribe&hub.verify_token=vt&hub.challenge=4242")

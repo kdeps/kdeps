@@ -132,8 +132,19 @@ func applyLLMEnv(keys LLMKeys) {
 	if keys.Aria2cFlags != "" {
 		setIfUnset("KDEPS_ARIA2C_FLAGS", keys.Aria2cFlags)
 	}
-	for _, p := range cloudProviderList() {
+	list := cloudProviderList()
+	for _, p := range list {
 		setIfUnset(p.envVar, p.getKey(keys))
+	}
+	// After every provider's own key is set, so a fallback like OPENAI_API_KEY
+	// also covers llm.openai_api_key.
+	for _, p := range list {
+		for _, f := range p.keyFallbacks {
+			if os.Getenv(p.envVar) != "" {
+				break
+			}
+			setIfUnset(p.envVar, os.Getenv(f))
+		}
 	}
 	applyRouterEnv(keys)
 }

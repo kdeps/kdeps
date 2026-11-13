@@ -108,6 +108,8 @@ type cloudProvider struct {
 	chatPath   string
 	embeddings bool
 	hosts      []string
+	// keyFallbacks are env vars read for the key when envVar is unset.
+	keyFallbacks []string
 }
 
 // cloudProviderList is every cloud provider, built-in and from the
@@ -120,7 +122,7 @@ func cloudProviderList() []cloudProvider {
 		list = append(list, cloudProvider{
 			name: s.Name, yamlKey: s.ConfigKey, envVar: s.EnvVar, doctorSpotCheck: s.DoctorCheck,
 			defaultModel: s.DefaultModel, order: s.Order, label: s.Label, url: s.URL,
-			chatPath: s.ChatPath, embeddings: s.Embeddings, hosts: s.Hosts,
+			chatPath: s.ChatPath, embeddings: s.Embeddings, hosts: s.Hosts, keyFallbacks: s.KeyFallbacks,
 		})
 	}
 	sort.SliceStable(list, func(i, j int) bool { return list[i].order < list[j].order })
