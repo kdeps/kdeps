@@ -230,7 +230,7 @@ LLMs can chain multiple tools together:
 description: |
   Search the product database.
   Returns: id, name, price, category.
-  Use for finding products by name or description.
+  Use to find products by name or description.
 
 # Bad - vague
 description: Search stuff

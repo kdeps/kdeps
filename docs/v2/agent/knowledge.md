@@ -229,7 +229,7 @@ commits: 3f2a91c0b7de..9c41e2d07a55  # HEAD when the thread began .. HEAD now
 On branch `feat/recall`, commits `3f2a91c0b7de..9c41e2d07a55`: `git log 3f2a91c0b7de..9c41e2d07a55` shows them.
 ```
 
-In a git repository the note points into git instead of copying history. The note has `branch`, `commits`, and a `## Git` line. `commits` goes from `HEAD` at the start of the thread to `HEAD` now. kdeps reads it with `git rev-parse` on each turn. With these lines, the model can run `git log` or `git diff`.
+In a git repository, the note points into git. It does not copy the history. The note has `branch`, `commits`, and a `## Git` line. `commits` goes from `HEAD` at the start of the thread to `HEAD` now. kdeps reads it with `git rev-parse` on each turn. With these lines, the model can run `git log` or `git diff`.
 
 A rebase or squash never leaves the vault stale. A rewritten note keeps its original start, even in a resumed session. Outside git, a note has no git lines.
 
@@ -369,7 +369,7 @@ kdeps knowledge report
 
 A surprising connection is a single link between two otherwise disconnected communities, ranked by the smaller one's size.
 
-In an agent session, kdeps rebuilds the link graph in the background at session start and after writing a note. Workflow chat calls, vault searches and skill linking refresh it before reading. Refreshes never call a model.
+In an agent session, kdeps rebuilds the link graph in the background at session start and after it writes a note. Workflow chat calls, vault searches and skill linking refresh it before they read it. Refreshes never call a model.
 
 ## Recall
 

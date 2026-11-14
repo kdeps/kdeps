@@ -39,7 +39,7 @@ apiResponse:
 
 ## Output
 
-The target agent's own `apiResponse` output, unchanged - whatever shape that agent returns is what `output('delegate')` gives you here.
+The `apiResponse` output of the target agent, with no change. `output('delegate')` gives you the same shape that the agent returns.
 
 ## Parallel calls
 

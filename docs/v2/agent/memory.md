@@ -131,7 +131,7 @@ String matching uses infix operators, not function calls. `contains(...)` is a p
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`: the tool default is 50 and the `memory-query-rows-max` event caps it at 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` runs through the kdeps API and reads the in-process agent loop. An empty query returns `memory_query: query is required`. A call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
+The result has `rows` (capped at `limit`: the tool default is 50 and the `memory-query-rows-max` event caps it at 500), `count` (total matches before the limit), and `truncated` (bool). `memory_query` runs through the kdeps API and reads the in-process agent loop. An empty query returns `memory_query: query is required`. A call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
 
 ## Memory entry types
 

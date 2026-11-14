@@ -45,7 +45,7 @@ The step retries up to 3 times. The nudge explains that kdeps has no native tool
 
 ## Grounding message
 
-The exchange carries the same tool-use guidance as every normal turn. A bare prompt plus a tool schema reads as sparse, and models then decide the tool "isn't really available". For m365, it also carries the sandbox reinforcement normal turns get.
+The exchange has the same tool-use guidance as each normal turn. A bare prompt and a tool schema look incomplete to models. The models then decide that the tool "isn't really available". For m365, the exchange also has the sandbox reinforcement of normal turns.
 
 The grounding names `session_handshake` as a registered tool in one line, not the full catalog. A full catalog per round inflated a small local model's prompt to tens of thousands of tokens.
 

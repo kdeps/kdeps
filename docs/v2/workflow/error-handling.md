@@ -57,7 +57,7 @@ flow:
       error: true
 ```
 
-When the HTTP request fails, the resource returns the fallback value instead of stopping the workflow.
+When the HTTP request fails, the resource returns the fallback value. The workflow does not stop.
 
 ### Continue without fallback
 

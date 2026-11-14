@@ -193,7 +193,7 @@ Each choice fills in the matching `llm:` fields:
   [LLM Provider Reference - M365 Copilot](/llm-server/m365).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
-fully commented template instead. Re-run the wizard any time by removing
+fully commented template instead. To run the wizard again, remove
 `~/.kdeps/config.yaml`, or edit it directly with `kdeps edit`.
 
 ## Ollama (optional)
@@ -257,7 +257,7 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ### Docker permission issues (Linux)
 
-If you get permission errors when running Docker commands:
+If you get permission errors when you run Docker commands:
 
 ```bash
 sudo usermod -aG docker $USER

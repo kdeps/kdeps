@@ -314,7 +314,7 @@ kdeps profile                         # choose the profile again, or tick sets a
 | Command | Assets |
 |---|---|
 | `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require; each line shows the item's estimated LLM context tokens, and the total is printed last |
-| `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates without installing |
+| `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates and does not install them |
 | `kdeps uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
 | `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`), shelf and estimated LLM context tokens, with the installed total |
 | `kdeps list <shelf>` | Assets on one shelf. Item ids stay `set/name` |
@@ -381,7 +381,7 @@ The free text models of OpenRouter are a separate registry, `models/openrouter`.
 
 ## `kdeps knowledge`
 
-Manages the [knowledge vault](/agent/knowledge): markdown notes the agent recalls each turn without reading them. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand. `--extract` adds the model step and is off unless set.
+Manages the [knowledge vault](/agent/knowledge): markdown notes that the agent recalls on each turn, with no full read. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand. `--extract` adds the model step and is off unless set.
 
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)

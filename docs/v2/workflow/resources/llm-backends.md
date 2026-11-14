@@ -1,6 +1,6 @@
 # LLM backends reference
 
-kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
+kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). As a result, you can switch backends with no change to your workflow.
 
 Works in workflow and agent mode.
 

@@ -8,7 +8,7 @@ Before kdeps parses the YAML, Jinja2 preprocesses each workflow and resource YAM
 
 - Conditionally include or exclude sections based on environment variables
 - Inject environment values directly into YAML at parse time
-- Strip comments before parsing
+- Remove comments before kdeps parses the file
 
 ```yaml
 # workflow.yaml

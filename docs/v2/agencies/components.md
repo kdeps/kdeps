@@ -152,10 +152,10 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 ## Use cases
 
 - Pull in a pre-built capability (web scraping, search, embeddings)
-  with one `kdeps install` instead of writing it.
+  with one `kdeps install`. You do not write it.
 - Package logic you reuse across projects - a `component.yaml` plus a
   `components/<name>/` directory - and share it through the registry.
-- Give an LLM a bounded, typed capability by exposing a component as a tool
+- Give an LLM a bounded, typed capability with a component as a tool
   through `tools.components`.
 
 ## See also

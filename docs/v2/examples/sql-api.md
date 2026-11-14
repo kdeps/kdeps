@@ -9,7 +9,7 @@ or Oracle. Parameters use `$1`, `$2`, ... placeholders - never string
 interpolation - so input cannot break out of the query. This example uses
 SQLite so it runs with no database server.
 
-**Needs:** The `sqlite3` CLI (for creating the demo database).
+**Needs:** The `sqlite3` CLI (to create the demo database).
 
 ## Step 1: create the project and database
 

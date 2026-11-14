@@ -113,7 +113,7 @@ An API where the LLM calls your own resources mid-response - a `python`
 component calculator and a mock database lookup - then answers using the results.
 
 Best for:
-- Letting a model compute or look things up instead of guessing
+- Let a model calculate or look up data, so that it does not guess
 - Learning the `tools:` / `script:` pattern
 
 [Build it step by step](/examples/function-calling)
@@ -200,7 +200,7 @@ Best for:
 ## Inline resources
 
 Attach `component:` and `chat:` actions directly to one
-resource's `before:` and `after:` blocks instead of creating a file for each.
+resource's `before:` and `after:` blocks. You do not make a file for each.
 
 Best for:
 - One-off setup and teardown a single resource needs
@@ -328,7 +328,7 @@ value with a `{COMPONENT}_{VAR}` prefix. The example also shows the `.env` file
 that kdeps makes for each component.
 
 Best for:
-- Giving each component its own API key without changing shared YAML
+- Give each component its own API key, with no change to shared YAML
 - Understanding component env resolution order
 
 [Build it step by step](/examples/component-env)

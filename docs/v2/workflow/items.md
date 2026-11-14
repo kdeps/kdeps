@@ -27,7 +27,7 @@ chat:
 
 ## Item context
 
-When processing items, special getters are available:
+When kdeps processes items, special getters are available:
 
 | Getter | Description |
 |--------|-------------|
@@ -98,7 +98,7 @@ chat:
 
 ## Accessing all item values
 
-After processing, you can access all collected values from a resource that uses items:
+After the items run, you can access all collected values from a resource that uses items:
 
 ### Using `item.values(actionID)`
 

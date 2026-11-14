@@ -102,7 +102,7 @@ What you must maintain:
 
 | Thing | Why it moves | What to do |
 |---|---|---|
-| The `workflow.yaml` schema | kdeps does not carry legacy schema shims - a newer `kdeps` binary may reject an older file. `apiVersion: kdeps.io/v1` marks the current schema, not a frozen one. | Keep the source YAML with the image; re-validate with `kdeps validate` before upgrading the runtime, or just keep running the built image. |
+| The `workflow.yaml` schema | kdeps does not carry legacy schema shims - a newer `kdeps` binary may reject an older file. `apiVersion: kdeps.io/v1` marks the current schema, not a frozen one. | Keep the source YAML with the image; re-validate with `kdeps validate` before you upgrade the runtime, or continue to run the built image. |
 | `http_request` targets | External APIs change schema, auth, endpoints | Target a versioned path (`/v2/users`, not `/users`) |
 
 The guarantee is not that your YAML runs forever on any future kdeps. It is that the appliance you ship is a self-contained unit you can freeze, archive, and redeploy without a live dependency on any vendor.
@@ -122,7 +122,7 @@ Examples: log-file analysis, automated code review, a JIRA ticket from an alert,
 
 ## The name
 
-kdeps is short for knowledge dependencies. It grew out of [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: you can orchestrate knowledge from a model, machine, or person as a graph. A kdeps workflow is that graph of resources, run in order.
+kdeps is short for knowledge dependencies. It grew out of [Kartographer](https://github.com/kdeps/kartographer), a graph library that resolves dependent nodes: you can orchestrate knowledge from a model, machine, or person as a graph. A kdeps workflow is that graph of resources, run in order.
 
 ## Built on
 
@@ -130,7 +130,7 @@ kdeps uses two small open-source projects that the team develops with it. Both a
 
 | Project | What it does | Where kdeps uses it |
 |---|---|---|
-| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library for resolving dependent nodes. | The link/topic graph for `search_local` `graphBoost` and skill-library linking when those files are outside the knowledge vault. Inside the vault, both read the vault graph. |
+| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library that resolves dependent nodes. | The link/topic graph for `search_local` `graphBoost` and skill-library linking when those files are outside the knowledge vault. Inside the vault, both read the vault graph. |
 | [kdeps/turo](https://github.com/kdeps/turo) | Reduces prose to its content words to cut LLM input tokens - "point more, token less." | The optional [prompt reducer](/agent/turo) for agent mode: when the `turo` binary is on `PATH`, kdeps pipes system preamble, input, tool results, and history through it before every model call. |
 
 ## See also

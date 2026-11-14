@@ -87,7 +87,7 @@ Full-screen prompt only:
 | Drag the feed border | Resize the feed; the main pane keeps at least 20 columns, the feed at least 30 |
 
 - kdeps keeps an edit on a recalled line, so the next `Ctrl+N` does not replace it.
-- `Ctrl+O`: saving replaces the prompt without sending it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
+- `Ctrl+O`: when you save, the text replaces the prompt. kdeps does not send it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
 - A prompt longer than the row scrolls to keep the cursor visible. A click lands on the drawn letter.
 
 `Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match. `Ctrl+S` searches forward. Enter runs the match. `Ctrl+G` or Esc cancels.
@@ -187,7 +187,7 @@ rewrite to the session. To change the setting, use `/refine on|off` (saved to
 
 ## Planning council
 
-Before a task that is worth planning, a council of members drafts an approach, revises it after reading the others, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
+Before a task that is worth planning, a council of members drafts an approach, revises it after they read the other drafts, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
 
 ## Response rendering
 

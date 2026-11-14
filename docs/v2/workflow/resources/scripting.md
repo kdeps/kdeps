@@ -1,6 +1,6 @@
 # Scripting resources
 
-Two resources for running code kdeps has no native resource for. Each has its
+Two resources that run code that kdeps has no native resource for. Each has its
 own reference page.
 
 Works in workflow and agent mode.

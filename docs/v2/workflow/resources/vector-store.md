@@ -100,7 +100,7 @@ apiResponse:
 | `redis` | Redis URI (default `redis://localhost:6379`). `collection` is the Redis index name |
 | `bedrock` | AWS Bedrock Knowledge Base - `collection` is the knowledge base ID; no `url` or `embedModel` needed, embedding happens server-side. Uses the standard AWS SDK credential chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) |
 
-Each store connects when the resource runs. An unreachable `url` fails the resource with a `vectorstore` error instead of failing later on the first call.
+Each store connects when the resource runs. An unreachable `url` fails the resource immediately with a `vectorstore` error. It does not fail later, on the first call.
 
 ## Output
 
@@ -146,6 +146,6 @@ See the [Loader component](/workflow/resources/loader#rag-pipeline-example) for 
 
 ## See also
 
-- [Loader component](/workflow/resources/loader) - load files/URLs into documents before indexing
+- [Loader component](/workflow/resources/loader) - load files/URLs into documents before you index them
 - [Embedding component](/workflow/resources/embedding) - local SQLite-backed alternative, no external service required
 - [Resources overview](/workflow/resources) - all resource types

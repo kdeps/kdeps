@@ -11,7 +11,7 @@ kdeps bundle build .      # workflow + model -> Docker image
 
 **Not this?** To deploy a shared model server instead of an agent, that is
 [kdeps LLM server](/llm-server/). To publish an agent for others to install
-rather than run it yourself, [kdeps registry](/registry/).
+and not run it yourself, [kdeps registry](/registry/).
 
 ---
 
@@ -34,13 +34,13 @@ Each step is a single `kdeps` command. No Dockerfiles, no manual YAML authoring,
 
 ## Step 1: validate
 
-Run schema and dependency validation before packaging:
+Validate the schema and dependencies before you package the workflow:
 
 ```bash
 kdeps validate workflow.yaml
 ```
 
-This catches YAML syntax errors, missing dependencies, circular references, and bad expressions before they reach production. Always run this in CI before packaging.
+This catches YAML syntax errors, missing dependencies, circular references, and bad expressions before they reach production. Always run this in CI before you package.
 
 ## Step 2: package
 

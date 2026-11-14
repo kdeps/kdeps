@@ -198,7 +198,7 @@ Validation rejects an invalid `every:` value (for example, `"not-a-duration"`).
 
 ## `at:` - specific dates and times
 
-Use `at:` to fire the loop body at a list of specific dates and/or times, in order. The engine sleeps until each scheduled time before executing the body for that iteration.
+Use `at:` to fire the loop body at a list of specific dates and/or times, in order. The engine waits until each scheduled time. Then it runs the body for that iteration.
 
 `every:` and `at:` are mutually exclusive - set only one per loop block.
 

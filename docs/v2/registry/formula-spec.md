@@ -1,10 +1,10 @@
 # Registry formula specification
 
-A formula is the submission format for publishing a package to the kdeps registry. It is a YAML document that tells `kdeps install` where to download the package and how to verify it.
+A formula is the submission format to publish a package to the kdeps registry. It is a YAML document that tells `kdeps install` where to download the package and how to verify it.
 
 Works in workflow and agent mode.
 
-**Formulas are the submission layer.** To put your package in the list, open a PR with a formula file. The registry at [kdeps.io](https://kdeps.io) runs on a database. On merge, the registry reads formulas into the database. It serves them from the database for browsing, search, and install metadata.
+**Formulas are the submission layer.** To put your package in the list, open a PR with a formula file. The registry at [kdeps.io](https://kdeps.io) runs on a database. On merge, the registry reads formulas into the database. It serves them from the database for browse, search, and install metadata.
 
 Formulas live in `github.com/kdeps/registry` under `formulas/<name>.yaml`. To publish a package, open a PR adding your formula.
 

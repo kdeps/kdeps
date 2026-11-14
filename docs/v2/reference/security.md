@@ -1,6 +1,6 @@
 # Security reference
 
-Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code. This applies to workflow mode, when you configure an `apiServer`.
+Each request goes through a chain of gates before it gets to the workflow DAG. Each gate can reject the request with a specific status code. This applies to workflow mode, when you configure an `apiServer`.
 
 ```d2
 direction: down
@@ -122,7 +122,7 @@ deploy:
 
 ## Body size limit
 
-Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads.
+Set the maximum size of request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads.
 
 ```yaml
 # workflow.yaml

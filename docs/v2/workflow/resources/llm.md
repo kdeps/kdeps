@@ -21,7 +21,7 @@ A chat's keys sit in six groups:
 
 ## Where config lives
 
-Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. This lets you change backends without touching your workflow.
+Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. As a result, you can change backends with no change to your workflow.
 
 ```yaml
 # resources/my-resource.yaml
@@ -396,7 +396,7 @@ chat:
 - Reviews per answer: the `judge-iterations` event (2). The last revision is the output when the budget runs out.
 - A judge that fails or replies without a verdict approves: judges never fail the resource.
 
-`judgePreset` uses a preset's panel instead of listing judges (not both):
+`judgePreset` uses the panel of a preset. Do not also list judges:
 
 ```yaml
 chat:

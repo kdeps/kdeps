@@ -14,7 +14,7 @@ Error: dependency cycle detected involving resource 'fetch' (code: DEPENDENCY_CY
 
 Two or more resources form a circular [`requires`](/reference/glossary#requires) chain (A requires B, B requires A). The engine detects cycles during graph construction and fails before execution. The message names one resource on the cycle.
 
-Fix: break the cycle by removing one of the `requires` edges. If both resources genuinely need each other's output, merge them into a single resource.
+Fix: remove one of the `requires` edges to break the cycle. If both resources genuinely need each other's output, merge them into a single resource.
 
 ### Resource 'x' depends on unknown resource 'y'
 
@@ -223,7 +223,7 @@ curl -X POST http://localhost:16395/api/v1/chat \
 
 `/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`, not `KDEPS_API_AUTH_TOKEN`. See [Security reference](/reference/security).
 
-If the server refuses to start, set `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` before running `kdeps run`.
+If the server refuses to start, set `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` before you run `kdeps run`.
 
 ## Debugging
 
@@ -285,7 +285,7 @@ kdeps instrument rm billing-bug
 kdeps validate workflow.yaml
 ```
 
-Checks the workflow schema, dependency graph, and expression syntax without running any actions.
+Checks the workflow schema, dependency graph, and expression syntax. It does not run actions.
 
 ## See also
 

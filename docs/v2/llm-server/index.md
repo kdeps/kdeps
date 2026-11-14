@@ -183,7 +183,7 @@ kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
 docker run --rm -p 8000:8000 myorg/llm:1
 ```
 
-Preview without building:
+Preview with no build:
 
 ```bash
 kdeps llm build --engine ollama --model llama3.2 --show-dockerfile

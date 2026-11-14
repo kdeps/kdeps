@@ -27,7 +27,7 @@ Actions are not freely swappable between events with the same trigger shape. `ha
 
 ## Enforcement: hard vs. soft
 
-No action needs the model's cooperation. Each is deterministic Go control flow: the system, not the model, decides to `compact` or `block`, usually by removing the option before the model's turn:
+No action needs the model's cooperation. Each is deterministic Go control flow: the system, not the model, decides to `compact` or `block`, usually because it removes the option before the turn of the model:
 
 - **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
 - **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. When the request schema has no tools, the model cannot call a tool. This is a structural limit, not an instruction to the model.

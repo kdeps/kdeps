@@ -212,7 +212,7 @@ component:
 | `command timed out after 30s` | `timeout` expired; the process was killed |
 | `exec stdout exceeds output limit of N bytes` | Output crossed `KDEPS_EXEC_MAX_OUTPUT_BYTES` |
 
-Handle a failing command without stopping the workflow with `onError:`:
+To handle a command that fails and not stop the workflow, use `onError:`:
 
 <div v-pre>
 

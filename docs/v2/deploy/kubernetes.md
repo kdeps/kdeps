@@ -245,7 +245,7 @@ stringData:
   management-token: "your-mgmt-secret"   # optional; omit if you do not use /_kdeps/*
 ```
 
-The generated Deployment expects `secretKeyRef.name` to be `{metadata.name}-auth` with keys `api-token` and `management-token` (management is optional). Create the Secret before applying the Deployment:
+The generated Deployment expects `secretKeyRef.name` to be `{metadata.name}-auth` with keys `api-token` and `management-token` (management is optional). Create the Secret before you apply the Deployment:
 
 ```bash
 kubectl apply -f deploy/auth-secret.yaml

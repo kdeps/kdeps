@@ -18,7 +18,7 @@ Always available. No environment variables required.
 | `write_file` | Write or overwrite a file with the exact bytes given (no newline translation), then read it back to verify |
 | `edit_file` | Replace or append on one line: `line` or `match`, then `text` or `append` |
 | `list_files` | List directory contents |
-| `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
+| `md5_file` | Compute a file's MD5 hash - a low-cost way to check if the content changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
 
 ## Line numbers

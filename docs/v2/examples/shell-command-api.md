@@ -1,7 +1,7 @@
 # Wrap a shell command in an API
 
 Build an API endpoint that runs a shell command with the `exec` component
-and returns its output as JSON. This is the pattern for exposing a script, a
+and returns its output as JSON. Use this pattern to give a script, a
 CLI tool, or a system check as an HTTP service.
 
 The `exec` component runs the command through the kdeps API's `exec` tool and

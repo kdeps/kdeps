@@ -361,7 +361,7 @@ apiResponse:
 
 ## Response transformation
 
-Transform data before returning:
+Transform data before you return it:
 
 ```yaml
 # resources/transformed-response.yaml

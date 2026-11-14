@@ -39,7 +39,7 @@ component:
 
 ## Output
 
-Whatever the component's own result resource returns - the shape depends on the component. Check the component's own documentation or `component.yaml` for its output contract.
+The output of the result resource of the component. The shape changes with the component. Check the component's own documentation or `component.yaml` for its output contract.
 
 ## See also
 

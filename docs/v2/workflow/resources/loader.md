@@ -1,6 +1,6 @@
 # loader component
 
-The `load_document` component reads a file, URL, or directory into structured `Document` objects (plain text and metadata). It can also split them into chunks. It is the ingestion step of a RAG pipeline. First load the data. Then give the output to the `vector_store` or `embedding` component for indexing.
+The `load_document` component reads a file, URL, or directory into structured `Document` objects (plain text and metadata). It can also split them into chunks. It is the ingestion step of a RAG pipeline. First load the data. Then give the output to the `vector_store` or `embedding` component, which indexes it.
 
 It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `load_document` tool of the kdeps API. This tool runs the native loader executor. kdeps rejects a workflow that uses `loader:` directly, as primary or in a `before:`/`after:` step.
 

@@ -176,7 +176,7 @@ Environment overrides:
 
 ## Privacy
 
-When using `file` (llamafile), `ollama`, or `gguf` backends:
+When you use the `file` (llamafile), `ollama`, or `gguf` backends:
 
 - kdeps sends no request to an external API
 - kdeps keeps model weights locally in `~/.kdeps/models/`

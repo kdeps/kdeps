@@ -278,7 +278,7 @@ my-component-1.0.0.komponent
 
 ## Environment variable auto-derivation
 
-When a component executes, kdeps checks for a component-scoped env var before falling back to the plain name:
+When a component executes, kdeps first looks for a component-scoped env var. If it does not find one, it uses the plain name:
 
 ```
 {COMPONENT_NAME_UPPER}_{VAR_NAME}
@@ -365,7 +365,7 @@ component:
 3. **Document inputs**: provide clear `description` fields
 4. **Set targetActionId**: point to the primary action for simple `component:` invocation
 5. **Avoid actionId collisions**: prefix with component name
-6. **Test in isolation**: package and validate before using in workflows
+6. **Test in isolation**: package and validate it before you use it in workflows
 7. **Minimize env vars**: declare all required environment dependencies. Let auto-derivation detect them
 
 ## See also

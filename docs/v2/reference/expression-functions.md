@@ -61,7 +61,7 @@ info('IP')                   # Get client IP
 
 ## Data handling functions
 
-Utilities for converting, inspecting, and safely traversing data structures.
+Utilities to convert, inspect, and safely go through data structures.
 
 ### Json(data)
 Converts data to a JSON string.
@@ -340,7 +340,7 @@ after:
 ```
 
 ### Now()
-Returns the current time as a `time.Time` value. Useful with comparison operators or passing to `date()` for parsing.
+Returns the current time as a `time.Time` value. Useful with comparison operators or as input to `date()` to parse it.
 
 ```yaml
 # resources/example.yaml
@@ -389,7 +389,7 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 
 - **Use parentheses for clarity** - `(a + b) * c` is clearer than relying on precedence
 - **Break complex expressions** into multiple statements for readability
-- **Validate before processing** - check types and null values before operations
+- **Validate first** - check types and null values before operations
 - **Keep expressions simple** - complex logic belongs in Python resources
 
 ## See also

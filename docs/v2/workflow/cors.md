@@ -45,7 +45,7 @@ deploy:
 
 By default, kdeps enables CORS for all origins, with credentials. This suits local development, where the frontend (e.g. Vite on `:5173`) runs on a different port than the API (kdeps on `:16395`).
 
-To do this, kdeps checks if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. Then the browser can accept `Access-Control-Allow-Credentials: true`.
+To do this, kdeps checks if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header. It does not send a literal `*`. Then the browser can accept `Access-Control-Allow-Credentials: true`.
 
 ```yaml
 # Default behavior (no config needed)
@@ -125,7 +125,7 @@ cors:
 ### Performance
 
 - **Set Appropriate MaxAge**: Set a reasonable `maxAge` (e.g., `"12h"` or `"24h"`) to balance performance and flexibility for preflight requests.
-- **Minimize Exposed Headers**: Only expose headers that clients actually need.
+- **Minimize Exposed Headers**: Expose only headers that clients need.
 
 ### Compatibility
 

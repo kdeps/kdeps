@@ -1,6 +1,6 @@
 # Messaging resources
 
-The bot reply for reaching a person. Each has its own reference page.
+The bot reply that sends a message to a person. Each has its own reference page.
 
 Works in workflow and agent mode.
 

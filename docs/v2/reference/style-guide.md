@@ -140,7 +140,7 @@ Replace these words with their STE alternatives:
 ## Code examples
 
 - Every example must stand alone. A developer copies it directly into a project
-  without reading the surrounding prose.
+  and does not read the surrounding prose.
 - Show the mechanics: where the data goes, what runs next, what the output is.
 - Build the kdeps binary with `make build`. The binary is `./kdeps`.
 

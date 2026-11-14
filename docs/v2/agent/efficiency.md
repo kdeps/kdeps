@@ -128,7 +128,7 @@ Failures have their own per-turn budget, `failures` (default 5), separate from `
 
 ## Multiple stops, then a forced end
 
-A turn can have several soft stops. Each stop tightens the reads budget (`tighten`, default 1 less per stop). Refusing to produce output after a stop - more than two refused reads - counts as another stop. Past `stops` (default 3), kdeps ends the turn with a forced answer instead of letting the loop continue.
+A turn can have several soft stops. Each stop tightens the reads budget (`tighten`, default 1 less per stop). Refusing to produce output after a stop - more than two refused reads - counts as another stop. Past `stops` (default 3), kdeps ends the turn with a forced answer. It does not let the loop continue.
 
 ## Exempt
 

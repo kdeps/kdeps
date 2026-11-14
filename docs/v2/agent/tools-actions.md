@@ -4,7 +4,7 @@
 
 ## Git commit attribution
 
-Commits the agent creates carry a co-author trailer naming kdeps and the model that wrote them. Switching models mid-session with `/model` is normal, so the trailer records which one was actually driving:
+Commits that the agent creates have a co-author trailer with the names of kdeps and the model that wrote them. A model switch during a session with `/model` is normal. For this reason, the trailer records the model that made the commit:
 
 ```text
 Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>
@@ -24,7 +24,7 @@ Cloud and Ollama model names start with the provider (`provider/model`). Local l
 
 With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
 
-A configured [identity](/reference/advanced-config#agent-identity) takes priority over all of the above: with `identity.name`/`identity.email` set, the trailer becomes `Co-Authored-By: Sales Bot <sales-bot@example.com>` instead of naming the model.
+A configured [identity](/reference/advanced-config#agent-identity) takes priority over all of the above: with `identity.name`/`identity.email` set, the trailer becomes `Co-Authored-By: Sales Bot <sales-bot@example.com>` and does not give the model name.
 
 ## Actions and integrations
 

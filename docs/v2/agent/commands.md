@@ -555,4 +555,4 @@ A long answer pages in an interactive terminal (Enter/Space for the next page, `
 
 ## Declared commands on the API
 
-A declared command (a `commands/` asset with `run:` or `setting:`) is also served on the commands API under its own name. The call runs the same steps as `/name` in the REPL, against the active session, and returns each model reply in order. `command:` steps run in the REPL and print their output to the terminal rather than returning it.
+A declared command (a `commands/` asset with `run:` or `setting:`) is also served on the commands API under its own name. The call runs the same steps as `/name` in the REPL, against the active session, and returns each model reply in order. `command:` steps run in the REPL and print their output to the terminal. They do not return it.

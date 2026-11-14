@@ -157,7 +157,7 @@ A non-zero exit does not return stdout: the call fails with `python execution fa
 
 ## Environment variables
 
-`env:` sets variables for that one call. Values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
+`env:` sets variables for that one call. Values are expressions. kdeps evaluates them on each run. Give secrets this way, not in `args:`. All users on the machine can read `args:` in the process list:
 
 <div v-pre>
 
@@ -209,7 +209,7 @@ debug = os.environ.get('DEBUG') == 'true'
 | `python stdout exceeds output limit of N bytes` | Output crossed `KDEPS_PYTHON_MAX_OUTPUT_BYTES` |
 | `failed to ensure venv: ...` | uv could not build the virtualenv (bad version, network, package resolution) |
 
-Handle a failing script without stopping the workflow with `onError:`:
+To handle a script that fails and not stop the workflow, use `onError:`:
 
 <div v-pre>
 

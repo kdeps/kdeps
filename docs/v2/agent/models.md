@@ -123,7 +123,7 @@ Workflow mode has the same sentinel with `model: auto-router` on a chat resource
 
 With no `--model`, no saved default and no `model:` in `~/.kdeps/config.yaml`, kdeps checks for `llmfit` (`brew install AlexsJones/llmfit/llmfit`). If you have `llmfit` and one or more local models (llamafile/GGUF/Ollama), kdeps starts with the model that has the best llmfit score. It skips the order below.
 
-Otherwise - no `llmfit`, or nothing downloaded yet - kdeps picks the first option that is actually usable, in this fixed order:
+If there is no `llmfit` or no downloaded model, kdeps selects the first option that it can use, in this fixed order:
 
 1. **llamafile** - the `llamafile` runner binary on `PATH`, or a cached `*.llamafile` in the models directory (a `.llamafile` is self-executing, so you do not need a runner).
 2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. kdeps skips files with a header that it cannot read or with a GGUFv1 container. The current llama.cpp refuses them (`GGUFv1 is no longer supported`), and the server stops immediately.

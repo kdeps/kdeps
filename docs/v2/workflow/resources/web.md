@@ -1,6 +1,6 @@
 # Web resources
 
-Three components reach the web: `http_request` for APIs, `web_scraper` for page text, and `web_search` for finding pages. Each has its own reference page.
+Three components reach the web: `http_request` for APIs, `web_scraper` for page text, and `web_search` to find pages. Each has its own reference page.
 
 Works in workflow and agent mode.
 

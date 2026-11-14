@@ -33,7 +33,7 @@ chat:
 
 ### 1. Data transformation
 
-Transform data before using it:
+Transform data before you use it:
 
 ```yaml
 # resources/example.yaml

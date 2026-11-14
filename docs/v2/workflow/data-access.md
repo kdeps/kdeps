@@ -28,7 +28,7 @@ get('user', 'session') # session only -- persists across requests
 get('API_KEY', 'env')  # environment variable
 ```
 
-Reading a resource output works the same way - `get('llm')` returns whatever the `llm` resource produced:
+To read a resource output, use the same method. `get('llm')` returns the output of the `llm` resource:
 
 ```yaml
 flow:
@@ -118,7 +118,7 @@ chat:
 
 ## The request object
 
-`request` gives direct access to the raw HTTP request when running in workflow mode.
+In workflow mode, `request` gives direct access to the raw HTTP request.
 
 | Property           | Type   | Description                    |
 |--------------------|--------|-------------------------------|

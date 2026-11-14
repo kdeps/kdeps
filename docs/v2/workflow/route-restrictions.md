@@ -24,7 +24,7 @@ component:
 ```
 
 When you set `methods:` in `validations:`:
-- Resource only executes for matching HTTP methods
+- The resource runs only for matching HTTP methods
 - Mismatched methods skip the resource silently
 - You can give more than one method
 
@@ -313,7 +313,7 @@ component:
 
 ## Best practices
 
-1. **Be Specific**: Use exact routes when possible rather than wildcards
+1. **Be Specific**: Use exact routes when possible, not wildcards
 2. **Combine with [`check`](/reference/glossary#check)**: Add preflight validation for secure endpoints
 3. **Handle All Methods**: Make sure that each expected method has a resource
 4. **Use [`skip`](/reference/glossary#skip) as Fallback**: For complex routing logic, combine with `skip` conditions

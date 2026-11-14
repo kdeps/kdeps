@@ -250,7 +250,7 @@ A removed item stays hidden until you update it by name. The model does not see 
 - the loop's control tools: `judge_verdict`, `session_handshake`, `session_ops`
 - the model registries: `models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`
 
-`/harness disable <name>` turns a harness section off without removing it.
+`/harness disable <name>` turns off a harness section. It does not remove the section.
 
 Files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and similar directories layer on top of the installed version.
 

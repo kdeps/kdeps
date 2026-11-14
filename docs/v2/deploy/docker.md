@@ -54,7 +54,7 @@ kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
 
 ### Show dockerfile
 
-View the generated Dockerfile without building:
+To see the generated Dockerfile with no build:
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
@@ -80,7 +80,7 @@ kdeps bundle build myagent-1.0.0.kdeps --gpu vulkan
 
 ### GPU runtime
 
-When running GPU-enabled images:
+When you run GPU-enabled images:
 
 ```bash
 # NVIDIA
@@ -232,7 +232,7 @@ deploy:
 
 ## Package version pinning
 
-On every `bundle build`, kdeps resolves package versions before generating the Dockerfile:
+On every `bundle build`, kdeps resolves package versions before it generates the Dockerfile:
 
 - **kdeps** - latest [GitHub release](https://github.com/kdeps/kdeps/releases). kdeps gets `install.sh` from that tag and gives the same tag to the installer (never `main` + floating latest)
 - **ollama** - latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag for `ollama/ollama` and `alpine/ollama` (never `:latest`). `--gpu rocm` uses the fixed `ollama/ollama:rocm` tag instead.
@@ -473,4 +473,4 @@ See [TLS and HTTPS (custom domains)](/deploy/tls-https). kdeps also supports sta
 - [Workflow configuration](/workflow/configuration) - agent settings
 - [Web server mode](webserver) - serve frontends
 - [LLM backends](/workflow/resources/llm-backends) - backend configuration
-- [Management API](/reference/management-api) - live workflow updates without rebuilding
+- [Management API](/reference/management-api) - live workflow updates with no rebuild
