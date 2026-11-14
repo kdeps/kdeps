@@ -150,7 +150,7 @@ func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 
 The asset publish job makes the file again, so kdeps.io matches main. `pkg/assets/setinfo.go` gives the purpose of each set. The `description:` of an item gives its purpose.
 
-`~tok` estimates what an item adds to the model's context (about 4 bytes per token). Harness sections are system-prompt text; tool definitions and components are tool schemas sent every turn. Themes, events, schemas, templates and other sets never reach the model and show no count. The estimate appears in the asset index, on kdeps.io, in `kdeps install` and `kdeps update`, and as a total in `kdeps list --assets`:
+`~tok` estimates the quantity that an item adds to the context of the model (about 4 bytes for each token). Harness sections are system-prompt text. Tool definitions and components are tool schemas that kdeps sends on each turn. Themes, events, schemas, templates, and other sets never go to the model and show no count. The estimate appears in the asset index, on kdeps.io, in `kdeps install` and `kdeps update`, and as a total in `kdeps list --assets`:
 
 ```text
 $ kdeps install tools/bash_exec
