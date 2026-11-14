@@ -4,10 +4,10 @@ Build an API with two endpoints: `POST /login` checks a
 username and password and starts a session; `GET /session` returns the session
 data but only for a logged-in caller. Session state persists in SQLite.
 
-A session is per-caller key/value storage that survives across requests. kdeps
-issues a session id automatically and tracks it with a cookie. With
-`session.type: sqlite`, session data is written to a file, so it survives a
-server restart.
+A session is key/value storage for each caller. It stays across requests.
+kdeps gives a session id automatically and tracks it with a cookie. With
+`session.type: sqlite`, kdeps writes session data to a file, so the data stays
+after a server restart.
 
 ## Step 1: create the project
 
@@ -143,8 +143,8 @@ apiResponse:
 
 </div>
 
-Only one of `loginHandler` / `sessionHandler` runs per request; the other is
-skipped by its `routes` validation.
+Only one of `loginHandler` / `sessionHandler` runs for each request. The
+`routes` validation of the other resource skips it.
 
 ## Step 6: validate and run
 

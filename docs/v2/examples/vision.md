@@ -1,11 +1,10 @@
 # Analyze an uploaded image
 
-Build an API that accepts an image upload and a question,
-sends both to a multimodal LLM, and returns a structured description of what is
-in the image.
+Build an API that accepts an image upload and a question. The API sends both to
+a multimodal LLM and returns a structured description of the image.
 
-A `chat:` resource can attach files to the prompt. For a vision model, an
-attached image is analyzed alongside the text. Vision needs the Ollama backend
+A `chat:` resource can attach files to the prompt. A vision model
+analyzes an attached image with the text. Vision needs the Ollama backend
 - the default llamafile backend is text-only - so this workflow enables Ollama
 and pulls a multimodal model.
 

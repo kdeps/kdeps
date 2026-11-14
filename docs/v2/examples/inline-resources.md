@@ -1,15 +1,13 @@
 # Run extra resources inline
 
-Attach `component:` and `chat:` actions directly to
-one resource's `before:` and `after:` blocks, instead of creating a separate
-file for each. The inline actions run as part of the main resource.
+Attach `component:` and `chat:` actions directly to the `before:` and `after:`
+blocks of one resource. You do not make a separate file for each action. The inline actions run as part of the main resource.
 
-`before:` and `after:` usually hold bare expressions. They can also hold whole
-resource actions - `chat:`, `component:` - as list
-items. Shell, Python, and HTTP steps call the `exec`, `python`, and
-`http_request` components inline. Use inline actions for
-one-off setup or teardown that only this resource needs; use a separate
-resource when other resources also depend on the result.
+`before:` and `after:` usually have bare expressions. They can also have full
+resource actions (`chat:`, `component:`) as list items. Shell, Python, and HTTP
+steps call the `exec`, `python`, and `http_request` components inline. Use
+inline actions for one-time setup or teardown that only this resource needs.
+If other resources also depend on the result, use a separate resource.
 
 ## Step 1: create the project
 
@@ -45,7 +43,7 @@ deploy:
     pythonVersion: "3.12"
 ```
 
-The `results` database is named in the resources and defined machine-locally:
+The resources give the name of the `results` database. Each machine defines it locally:
 
 ```bash
 export KDEPS_SQL_CONNECTIONS_RESULTS_CONNECTION="sqlite://./results.db"   # or sql_connections.results in ~/.kdeps/config.yaml

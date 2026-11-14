@@ -6,8 +6,8 @@ also see API-key auth and TLS options.
 
 The `http_request` component makes an outbound request and returns the parsed
 body as its output. Credentials come from a named connection in `~/.kdeps/config.yaml`
-(`connectionName:`), so the token never sits in the repo. `retry:`, `cache:` and
-`tls:` are built in - you do not write retry loops or token headers by hand.
+(`connectionName:`), so the token is never in the repository. `retry:`, `cache:`,
+and `tls:` are built in. You do not write retry loops or token headers manually.
 
 **Needs:** Network access (the example calls `httpbin.org`).
 
@@ -147,7 +147,7 @@ hitting `httpbin.org`.
 
 ## Other auth types
 
-Other auth types are set on the named connection in `~/.kdeps/config.yaml`:
+Set other auth types on the named connection in `~/.kdeps/config.yaml`:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -175,5 +175,5 @@ tls:
 
 - [HTTP client component](/workflow/resources/http-client) - all auth types, proxy, named connections
 - [HTTP client examples](/reference/http-client-examples) - pagination, file downloads
-- [Error handling (onError)](/workflow/error-handling) - fallback when retries are exhausted
+- [Error handling (onError)](/workflow/error-handling) - fallback after the last retry
 - [Global config](/reference/advanced-config) - named HTTP connections with shared credentials

@@ -2,7 +2,7 @@
 
 Complete, runnable projects. Copy the files on the page and run the command there. A local model needs no API key. Add a key only when that example calls a cloud provider.
 
-Examples are grouped by the [product](/start/) they belong to. Pick the one
+The examples are in groups, by [product](/start/). Pick the one
 closest to what you are building.
 
 ### kdeps workflow
@@ -49,8 +49,8 @@ closest to what you are building.
 ## Document summarizer
 
 A single-shot workflow that reads a document from `--file`, stdin, or an
-environment variable, sends it to a local LLM, and prints a structured JSON
-summary. Runs once and exits.
+environment variable. It sends the document to a local LLM and prints a
+structured JSON summary. It runs one time and stops.
 
 Best for:
 - Cron jobs and CI steps
@@ -61,8 +61,9 @@ Best for:
 
 ## Batch processing
 
-An API that takes a list of items in one request, fans out an HTTP call per
-item with `items:`, transforms each result, and returns an aggregated summary.
+An API that takes a list of items in one request. It makes one HTTP call for
+each item with `items:`, transforms each result, and returns an aggregated
+summary.
 
 Best for:
 - Enriching a list of records from an external API
@@ -97,8 +98,8 @@ Best for:
 
 ## Shell command API
 
-An endpoint that runs a shell command with the `exec` component and returns its output -
-the pattern for exposing a script or CLI tool as an HTTP service.
+An endpoint that runs a shell command with the `exec` component and returns its
+output. Use this pattern to give a script or CLI tool as an HTTP service.
 
 Best for:
 - Wrapping an existing script
@@ -143,7 +144,7 @@ Best for:
 
 One project that serves a chat API and the static web page that calls it. The
 API route is `public` so the browser needs no token; the LLM has a system
-prompt via `scenario:` and a friendly `onError` fallback.
+prompt from `scenario:` and a friendly `onError` fallback.
 
 Best for:
 - A complete, deployable chat UI in one repo
@@ -174,10 +175,10 @@ Best for:
 
 ## Authenticated API call
 
-An endpoint that calls a third-party API with a bearer token, retries only on
-5xx with exponential backoff, and caches the response for five minutes - all
-from the `http_request` component's `connectionName`, `retry:`, and `cache:`
-inputs.
+An endpoint that calls a third-party API with a bearer token. It tries again
+only on 5xx, with exponential backoff. It keeps the response in a cache for
+five minutes. The `connectionName`, `retry:`, and `cache:` inputs of the
+`http_request` component do all of this.
 
 Best for:
 - Wrapping a paid or rate-limited upstream API
@@ -255,7 +256,7 @@ echo "What is 2+2?" | kdeps run workflow.yaml
 
 ## Telegram bot
 
-A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` returns the answer and kdeps sends it back via the Telegram API.
+A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` returns the answer, and kdeps sends it back through the Telegram API.
 
 Best for:
 - Chatbot interfaces over existing workflow resources
@@ -268,7 +269,7 @@ TELEGRAM_BOT_TOKEN=... kdeps run workflow.yaml
 
 ## Showcase
 
-A collection of real-world agents - each a complete workflow you can POST to and get structured JSON back. Covers data extraction, classification, summarization, and more.
+A collection of real-world agents. Each agent is a complete workflow. Send a POST to it, and you get structured JSON. Covers data extraction, classification, summarization, and more.
 
 Best for:
 - Seeing how complex agents fit in ~20 lines of YAML
@@ -322,9 +323,9 @@ Best for:
 
 ## Per-component env vars
 
-Two components that read the same variable name but can each be given a
-different value via a `{COMPONENT}_{VAR}` prefix, plus the `.env` file kdeps
-scaffolds per component.
+Two components that read the same variable name. Each can have a different
+value with a `{COMPONENT}_{VAR}` prefix. The example also shows the `.env` file
+that kdeps makes for each component.
 
 Best for:
 - Giving each component its own API key without changing shared YAML

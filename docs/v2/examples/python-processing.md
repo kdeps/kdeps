@@ -5,9 +5,10 @@ convert data formats (JSON, YAML). It shows the `python` component: how it
 receives request data, and how its printed output becomes the resource result.
 
 The `python` component runs a script and returns its stdout as the resource's
-output. If the script prints a JSON object, downstream resources can read its
-fields. Expression placeholders are substituted into the script text before it
-runs, so wrap them in triple quotes to keep the script valid Python.
+output. If the script prints a JSON object, later resources can read its fields.
+Before the script runs, kdeps puts the values of expression placeholders into
+the script text. For this reason, put them in triple quotes to keep the script valid
+Python.
 
 ## Step 1: create the project
 

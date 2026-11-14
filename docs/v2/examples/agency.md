@@ -6,7 +6,7 @@ is its own `workflow.yaml`; an `agency.yaml` manifest ties them together.
 
 Each agent has its own resources, routes, and settings. The `agent:` resource runs
 another agent's entire pipeline and returns its `apiResponse`. Only the
-entry-point agent (`targetAgentId`) serves HTTP; the others are called
+entry-point agent (`targetAgentId`) serves HTTP. kdeps calls the other agents
 internally.
 
 ## Step 1: create the structure

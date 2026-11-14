@@ -20,7 +20,7 @@ Full project: [`examples/design-review`](https://github.com/kdeps/kdeps/tree/mai
 
 ## Reviewer
 
-One file per criterion. Each reads only the request, so all four run at once.
+One file per criterion. Each reads only the request, so all four run at the same time.
 
 <div v-pre>
 

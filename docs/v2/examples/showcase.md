@@ -1,6 +1,6 @@
 # Real-world workflows showcase
 
-These examples show how complex agents can be built in ~20 lines of YAML with no custom code. Each example is a complete workflow: POST a JSON body, get a structured JSON response.
+These examples show how to build complex agents in about 20 lines of YAML, with no custom code. Each example is a complete workflow: POST a JSON body, get a structured JSON response.
 
 Works in workflow and agent mode.
 

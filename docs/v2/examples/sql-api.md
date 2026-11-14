@@ -122,7 +122,7 @@ component:
 
 </div>
 
-`paramsBatch` runs the query once per element in the list, inside one
+`paramsBatch` runs the query one time for each element in the list, in one
 transaction.
 
 ## Step 5: combine the results
@@ -147,7 +147,7 @@ apiResponse:
 
 </div>
 
-Only the resource matching the request's route runs; the other is skipped.
+Only the resource that matches the route of the request runs. kdeps skips the other resource.
 
 ## Step 6: validate and run
 
