@@ -1,22 +1,24 @@
 # Planning council
 
-Before a task that is worth planning, a small council agrees on how to do the work. The turn then carries that plan. The prompt you typed is left as you typed it.
+Before a task that needs a plan, a small council agrees on how to do the work. The turn then includes that plan. kdeps does not change the prompt that you typed.
 
-**On by default.** `/plan off` skips the council and is remembered. `/plan` shows the current choice. `/plan on` turns it back on.
+**On by default.** `/plan off` skips the council. kdeps remembers this setting. `/plan` shows the current choice. `/plan on` turns it back on.
 
 ```text
 your prompt -> [refine, if on] -> [council] -> turn, with the plan as a system message
 ```
 
-The council uses the [subagent channel](/agent/subagent): the session model, unless `/subagent` points it at another one. A short or trivial prompt, a local model that is not running yet, or a council that produces no job orders leaves the turn to run on the prompt alone. A failure does the same.
+The council uses the [subagent channel](/agent/subagent): the session model, unless `/subagent` points it at another one. In some conditions, the turn runs on the prompt alone. These conditions are a short or simple prompt, a local model that does not run yet, or a council that makes no job orders. A failure has the same result.
 
 ## The board
 
 Three seats sit unless you change it: architect, implementer, and reviewer. Their names and what each one watches are the `plan-council-members` harness entry, one `name: focus` line per seat. The `plan-council-size` event is how many of those lines sit (3).
 
-The first round is a draft. Later rounds are revisions (`plan-council-rounds`, 2 in total): each member reads the others' latest answers and the board, then may append job orders the board is missing. A title already there is skipped. Nothing on the board is edited or removed. The board stops at `plan-council-max-orders` (24).
+The first round is a draft.
 
-The members then rank the board. kdeps sorts by their combined rank: a first place scores the most, and an order a member left out scores nothing from that member. A tie keeps the order the orders were added. The sorted list is the plan.
+Later rounds are revisions (`plan-council-rounds`, 2 in total): each member reads the latest answers of the other members and the board. Then the member can add job orders that are not on the board. kdeps skips a title that is already on the board. kdeps does not edit or remove items on the board. The board stops at `plan-council-max-orders` (24).
+
+The members then rank the board. kdeps sorts by their combined rank: a first place scores the most, and an order a member left out scores nothing from that member. If two orders have the same score, they keep the order in which members added them. The sorted list is the plan.
 
 ## Progress file
 
@@ -26,7 +28,7 @@ The plan is a markdown file in the project's data folder:
 ~/.kdeps/projects/<folder>-<hash>/plans/<time>.md
 ```
 
-One checkbox per job order, in priority order, then a progress log that only grows. The turn is told to call `plan_update` after each job order:
+One checkbox per job order, in priority order, then a progress log that only grows. The turn gets an instruction to call `plan_update` after each job order:
 
 - `doing`, `blocked`, or `dropped`, with the job order's id and a short note, appends a line to the log.
 - `done` ticks that checkbox and appends a line.
@@ -42,7 +44,7 @@ The path is also stored in memory under `plan-progress`. A later session that ha
 /plan off        # disable (persists across sessions)
 ```
 
-The choice is written to `~/.kdeps/agent-loop-settings.yaml` and restored on the next `kdeps` run.
+kdeps writes the choice to `~/.kdeps/agent-loop-settings.yaml` and uses it again on the next `kdeps` run.
 
 ## See also
 

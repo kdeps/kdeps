@@ -1,6 +1,8 @@
 # Reactive LLM events
 
-An event watches one number and runs one action when it crosses a line. kdeps uses events for the two automatic steps in a long conversation, compacting old history and folding recent history into a checkpoint, instead of hardcoded Go constants. Both are YAML with built-in defaults, overridable per machine without a rebuild.
+An event monitors one number. When the number crosses a limit, the event runs one action. kdeps uses events, not hardcoded Go constants, for the two automatic steps in a long conversation. The first step compacts old history. The second step puts recent history into a checkpoint.
+
+Both events are YAML with built-in defaults. You can override them on each machine without a rebuild.
 
 ```text
 measure tokens --> compare to threshold --> fire action (compact / fold)
@@ -33,7 +35,7 @@ run: compact                    # same action as auto-compact, just a tighter tr
 
 ## Overriding a built-in
 
-Drop a file with the same `name:` into `~/.kdeps/events/` and it replaces the built-in outright (not merged field-by-field -- the whole trigger, action, and `items` come from your file):
+Put a file with the same `name:` into `~/.kdeps/events/`. It fully replaces the built-in event. kdeps does not merge the fields. The trigger, the action, and `items` all come from your file:
 
 ```yaml
 # ~/.kdeps/events/auto-compact.yaml

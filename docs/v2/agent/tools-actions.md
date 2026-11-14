@@ -1,6 +1,6 @@
 # Action tools
 
-`http_request`, `search_local`, `transcribe_audio`, `transcribe_audio_offline`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when their credentials are set (the Zapier tools are [declared HTTP tools](/agent/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/agent/tools).
+`http_request`, `search_local`, `transcribe_audio`, `transcribe_audio_offline`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when you set their credentials (the Zapier tools are [declared HTTP tools](/agent/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/agent/tools).
 
 ## Git commit attribution
 
@@ -10,7 +10,7 @@ Commits the agent creates carry a co-author trailer naming kdeps and the model t
 Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>
 ```
 
-How the model is named depends on where it runs:
+The model name changes with the location where the model runs:
 
 | Model | Trailer |
 |-------|---------|
@@ -20,7 +20,7 @@ How the model is named depends on where it runs:
 | llamafile | `kdeps (hfuser/gemma4-2-9b llamafile) <noreply@kdeps.com>` |
 | GGUF | `kdeps (hfuser/gemma4-2-9b gguf) <noreply@kdeps.com>` |
 
-Cloud and Ollama models are namespaced by provider (`provider/model`). Local llamafile and GGUF names already carry their HuggingFace namespace, so the runtime is appended instead; the same repo is often published as both.
+Cloud and Ollama model names start with the provider (`provider/model`). Local llamafile and GGUF names already have their HuggingFace namespace, so kdeps adds the runtime to the end. Often the same repository has both forms.
 
 With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
 
@@ -36,7 +36,7 @@ A configured [identity](/reference/advanced-config#agent-identity) takes priorit
 | `google_cache_list` | `GOOGLE_API_KEY` | List Google AI cached content objects |
 | `google_cache_delete` | `GOOGLE_API_KEY` | Delete a Google AI cached content object |
 
-`google_cache_create`, `google_cache_delete`, and `google_cache_list` run through the [kdeps API](/reference/api). The agent registers them for the model only when `GOOGLE_API_KEY` is set. A call with the key unset returns `google_cache_create: disabled (GOOGLE_API_KEY is unset)`, and the same sentence for `google_cache_delete` and `google_cache_list`.
+`google_cache_create`, `google_cache_delete`, and `google_cache_list` run through the [kdeps API](/reference/api). The agent registers them for the model only when you set `GOOGLE_API_KEY`. A call with the key unset returns `google_cache_create: disabled (GOOGLE_API_KEY is unset)`, and the same sentence for `google_cache_delete` and `google_cache_list`.
 
 ## Resource-backed tools
 

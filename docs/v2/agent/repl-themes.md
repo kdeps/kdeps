@@ -50,7 +50,7 @@ The spinner never shows a word like "generating" or "thinking" in any theme: onl
 
 ## Context-path status line
 
-Directly above the session counter, whenever the running model's context window is known, a line shows what this turn's prompt is made of:
+If kdeps knows the context window of the current model, a line above the session counter shows the parts of the prompt for this turn:
 
 ```
 [turn 12.4k/200k | sys 8.1k | mem 1.2k | hist 2.4k | bash_exec 700]
@@ -71,7 +71,7 @@ The `session` row is cumulative and never measured against the window; only `tur
 | `this turn` | the sent/generated delta since your last message; shown once the turn spends anything |
 | `web`, `sh`, `file`, `src` | `used/limit` of a call budget, shown after its first call |
 
-- `sent` and `generated` update while a reply streams and while a tool runs.
+- `sent` and `generated` update when a reply streams and when a tool runs.
 - `/compact` and `/fold` reset both to the remaining context: `sent` is that context, `generated` the model-written part of it.
 - The two rows are one frame, rewritten in place each tick. Rows wider than the terminal are cut. Non-terminal output reprints the rows only when numbers change.
 
@@ -96,6 +96,6 @@ palette:
   # everything else alone
 ```
 
-A custom theme can reuse a built-in's name (e.g. your own `vim.yaml`) to override it. An invalid color value in one field is dropped with a warning; the rest of the file still loads.
+To override a built-in theme, give a custom theme the same name (for example, your own `vim.yaml`). If one field has an invalid color value, kdeps ignores that field and shows a warning. The remaining part of the file loads.
 
 Every `palette:` field is optional: `heading`, `link`, `code`, `codeBlock`, `text`, `thinking`, `muted`, `bullet`, `quote`, `borderHr`, `synKeyword`, `synFunc`, `synStr`, `synComment`, `synNum`, `synType`, `synOp`, `replError`, `replMeta`, `replHeading`, `replSuccess`, `replPrompt`, `replInfo`, `replDim`, `bannerText`, `bannerBorder`, `modelsReady`, `modelsNoKey`, `modelsCurrent`, and `modelName` (the model name shown in the status line).

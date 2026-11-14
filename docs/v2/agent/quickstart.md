@@ -5,7 +5,7 @@ description: Install kdeps and start an AI agent REPL on your machine. No Docker
 
 # Run locally in 30 seconds
 
-kdeps ships as a standalone binary. Install it and run it to get an interactive AI agent on your machine; with a local model it needs no Docker, config file or API key.
+kdeps is a standalone binary. Install it and run it to get an interactive AI agent on your machine. With a local model, it does not need Docker, a configuration file, or an API key.
 
 ## Install
 
@@ -39,7 +39,7 @@ kdeps --version
 kdeps
 ```
 
-kdeps opens an interactive REPL. By default it uses the local llamafile model `llama3.2:1b` (~1.1 GB). On first use you confirm the download; it is cached in `~/.kdeps/models/`. No API key needed.
+kdeps opens an interactive REPL. By default it uses the local llamafile model `llama3.2:1b` (~1.1 GB). On first use, you confirm the download. kdeps keeps the model in `~/.kdeps/models/`. You do not need an API key.
 
 ```text
 kdeps v2.x.x
@@ -84,11 +84,11 @@ export OPENAI_API_KEY=sk-...
 kdeps --model gpt-4o --backend openai
 ```
 
-The `--backend` flag tells kdeps where to route the request. The `--model` flag picks the model. Both can also be set in `~/.kdeps/config.yaml` to avoid repeating them on every invocation.
+The `--backend` flag tells kdeps where to route the request. The `--model` flag picks the model. You can also set both in `~/.kdeps/config.yaml`. Then you do not type them each time.
 
 ## Load your own workflows as tools
 
-Once you have a workflow directory, pass it as an argument to `kdeps`:
+When you have a workflow directory, give it as an argument to `kdeps`:
 
 ```bash
 kdeps ./my-workflow/

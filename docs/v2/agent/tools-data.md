@@ -1,6 +1,6 @@
 # Data tools
 
-`calculator`, the SQLite tools and the local embedding store are always on; the SQLite tools take `db_path` or fall back to `KDEPS_SQL_DB_PATH`. Wolfram, remote RAG, and the rerankers register only when their key or URL is set; they are [declared HTTP tools](/agent/tools#declared-http-tools), defined entirely in their tool asset. `sql_query` text is HTML-unescaped before it runs, same as [`bash_exec`](/agent/shell).
+`calculator`, the SQLite tools, and the local embedding store are always on. The SQLite tools use `db_path`. If `db_path` is not set, they use `KDEPS_SQL_DB_PATH`. Wolfram, remote RAG, and the rerankers register only when you set their key or URL. They are [declared HTTP tools](/agent/tools#declared-http-tools), and their tool asset fully defines them. Before `sql_query` text runs, kdeps removes its HTML escapes, as for [`bash_exec`](/agent/shell).
 
 Permission modes stay on [Built-in tools](/agent/tools).
 
@@ -13,7 +13,7 @@ Permission modes stay on [Built-in tools](/agent/tools).
 
 ## Data and SQL
 
-The three SQLite tools are `python:` blocks in their tool assets (Python's built-in `sqlite3`). Each opens the file read-only (`mode=ro`), so a query can never write it, and `db_path` is checked against `KDEPS_WORKSPACE_ROOT` first. Paths under `~/.kdeps` and `/tmp` are allowed. `sql_ops` (named connections, any driver) stays in Go.
+The three SQLite tools are `python:` blocks in their tool assets (Python's built-in `sqlite3`). Each tool opens the file read-only (`mode=ro`), so a query cannot write to it. First, the tool compares `db_path` with `KDEPS_WORKSPACE_ROOT`. Paths under `~/.kdeps` and `/tmp` are also permitted. `sql_ops` (named connections, any driver) stays in Go.
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|

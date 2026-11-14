@@ -4,7 +4,7 @@ An action is what an event runs. The check is Go control flow. The model does no
 
 ## Actions
 
-`run:` is not a free-form string -- every event's declared action is checked against a registry of known actions, the same built-in-embed + `~/.kdeps` user-override pattern as events themselves:
+`run:` is not a free-form string. kdeps compares the action of each event with a registry of known actions. The registry uses the same pattern as events: built-in embeds and user overrides in `~/.kdeps`:
 
 ```yaml
 # ~/.kdeps/actions/force_answer.yaml (built-in default -- shown for reference)
@@ -15,11 +15,11 @@ description: >-
   whatever was gathered, instead of letting the model keep spinning.
 ```
 
-Nine actions ship, one per distinct behavior: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_handshake`, `accept_last`. An event whose `run:` names anything else (a typo, a renamed or removed action) prints a startup warning to stderr naming the event and the action. A broken override is never a silent no-op.
+Nine actions ship, one per distinct behavior: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_handshake`, `accept_last`. If the `run:` of an event has a different name (a typo, or a renamed or removed action), kdeps prints a startup warning to stderr. The warning gives the event and the action. A broken override always gives a warning.
 
 ## Behavior stays Go code
 
-Each action's behavior is Go code, since it performs a real side effect: summarizing a conversation, truncating a string, refusing a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, `~/.kdeps/harness/` and `~/.kdeps/themes/` share one embed-plus-override shape and are the source of truth for what happens and when. [konfig](./konfig.md) exports and imports all of them.
+The behavior of each action is Go code, because the action has a real side effect. For example, it summarizes a conversation, truncates a string, or refuses a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, `~/.kdeps/harness/` and `~/.kdeps/themes/` share one embed-plus-override shape and are the source of truth for what happens and when. [konfig](./konfig.md) exports and imports all of them.
 
 ## Not every action is freely swappable
 
@@ -30,13 +30,13 @@ Actions are not freely swappable between events with the same trigger shape. `ha
 No action needs the model's cooperation. Each is deterministic Go control flow: the system, not the model, decides to `compact` or `block`, usually by removing the option before the model's turn:
 
 - **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
-- **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. Once tools are not in the request schema, the model is structurally unable to call one -- not persuaded not to, incapable of it.
-- **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`; Go decides whether and when this fires, with no model input.
+- **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. When the request schema has no tools, the model cannot call a tool. This is a structural limit, not an instruction to the model.
+- **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`; Go code decides if and when this action starts, with no model input.
 - **`truncate`/`drop_oldest`/`cap`** -- unconditional string/slice mutation in Go, applied every time regardless of model behavior.
 
 ## Real OS-level enforcement, not just Go control flow
 
-`ToolStallTimeout` watches a running tool's output for wall-clock silence. Past the timeout it cancels a real `context.Context`; `bash_exec` then calls `killProcessGroup(cmd)`, a `SIGKILL`-equivalent to the whole process group, so a hung command and its children die. The same cancellation ends a judge's sub-loop once `judge_verdict` settles, and backs Ctrl+C.
+`ToolStallTimeout` monitors the output of a tool that runs. If the tool gives no output for the timeout period, it cancels a real `context.Context`. Then `bash_exec` calls `killProcessGroup(cmd)`. This sends the equivalent of `SIGKILL` to the full process group, so a command that hangs and its child processes stop. The same cancellation stops the sub-loop of a judge after `judge_verdict` is final. Ctrl+C also uses it.
 
 ## The one genuinely soft layer
 

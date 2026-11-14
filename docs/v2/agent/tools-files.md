@@ -1,6 +1,10 @@
 # File tools
 
-`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)) and run on the system python. Every path argument is checked against `KDEPS_WORKSPACE_ROOT` and the root-directory guard before the tool runs. Paths under `~/.kdeps` and `/tmp` are allowed with no prompt, including when the workspace root is a different folder. On Windows the allowed temp directory is the process temp directory. A directory that only shares the name is not allowed, and `/` stays blocked. A relative path is checked, and handed to the script, as the absolute path it names in the working directory. Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
+`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)) and run on the system python. Before the tool runs, kdeps compares each path argument with `KDEPS_WORKSPACE_ROOT` and the root-directory guard.
+
+kdeps permits paths under `~/.kdeps` and `/tmp` with no prompt, also when the workspace root is a different folder. On Windows, the permitted temp directory is the process temp directory. kdeps blocks a directory that has only the same name, and it always blocks `/`. kdeps converts a relative path to the absolute path in the working directory. Then it checks that path and gives it to the script.
+
+Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
 
 Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file, `match_id`, and the colored diff stay in the agent loop.
 
@@ -35,11 +39,11 @@ run: reject
 
 ## Optional file_path
 
-`read_file` treats `file_path` as optional: omit it and it reads the file most recently read, edited, or written this session. This covers the common slip where the model means "the file I was just looking at" and calls `read_file` with only `offset`/`limit`. `write_file`, `edit_file`, `md5_file` and `tail_file` always require an explicit path.
+`read_file` treats `file_path` as optional: omit it and it reads the file most recently read, edited, or written this session. This helps when the model means "the file that I read last" and calls `read_file` with only `offset`/`limit`. `write_file`, `edit_file`, `md5_file`, and `tail_file` always need an explicit path.
 
 ## Colored diff
 
-`write_file` and `edit_file` print a colored diff under the tool call: removed lines red, added green, with a few context lines. Large diffs (e.g. a whole new file) are capped. The diff is terminal-only; the model gets a short result.
+`write_file` and `edit_file` print a colored diff under the tool call: removed lines red, added green, with a few context lines. kdeps shortens large diffs (for example, a full new file). The diff shows only in the terminal. The model gets a short result.
 
 ## Jumping from search_local to read_file with match_id
 
@@ -63,6 +67,6 @@ A `search_local` result that finds its query in a file carries `match_id`, `line
 </invoke>
 ```
 
-A `match_id` is process-local and capped in count (oldest evicted first) - it is for chaining a search into a read within the same session, not a durable reference. An unresolvable one (evicted, or from a different process) is a clear error naming it; `file_path` given explicitly always takes priority over `match_id`.
+A `match_id` is local to the process. kdeps keeps a maximum number of them and removes the oldest first. Use it to connect a search to a read in the same session. It is not a permanent reference. If kdeps cannot find a `match_id` (removed, or from a different process), it gives a clear error with the ID. An explicit `file_path` always has priority over `match_id`.
 
 Line edits with `edit_file` are on [Edit file](/agent/tools-edit).
