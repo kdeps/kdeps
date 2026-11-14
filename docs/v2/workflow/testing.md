@@ -6,7 +6,7 @@
 workflow.yaml (evals:) -> kdeps test -> in-process router -> engine -> assertions + judges
 ```
 
-The request path is the one a live client gets: the same middleware, bearer auth, route matching, executors, and `apiResponse` formatting. Only the network listener is skipped, so a case that passes here passes against `kdeps run`.
+The request path is the one a live client gets: the same middleware, bearer auth, route matching, executors, and `apiResponse` formatting. Only the network listener is not used. As a result, a case that passes here also passes against `kdeps run`.
 
 ## Declare the cases
 
@@ -106,11 +106,11 @@ A `jsonPath` entry needs exactly one of:
 | `contains` | The resolved value, as text, contains the string |
 | `exists` | A `true`/`false` expectation that the path resolves |
 
-The path subset is `$`, `.key`, and `[n]` - for example `$.data.items[0].name`. Wildcards, filters, and quoted keys are rejected by `kdeps validate`.
+The path subset is `$`, `.key`, and `[n]` - for example `$.data.items[0].name`. `kdeps validate` rejects wildcards, filters, and quoted keys.
 
 ## Score with judges
 
-A judge scores the response body. Graders run in-process; a judge with `criteria` is reviewed by `judgeModel`. `repeat` runs the case several times and `threshold` is the pass rate the runs need, for answers that vary from run to run.
+A judge scores the response body. Graders run in the process. `judgeModel` reviews a judge with `criteria`. `repeat` runs the case several times and `threshold` is the pass rate the runs need, for answers that vary from run to run.
 
 ```yaml
 evals:
@@ -143,16 +143,16 @@ The judges and graders are the ones a chat uses as runtime [guardrails](/workflo
 
 ## Auth
 
-A case that sets no `Authorization` or `X-API-Key` header is sent with `KDEPS_API_AUTH_TOKEN` as a bearer token. A case that sets its own credential keeps it. `kdeps test` applies the same security gate as `kdeps run`: a workflow with an authenticated `apiServer` refuses to run without a token.
+If a case sets no `Authorization` or `X-API-Key` header, kdeps sends it with `KDEPS_API_AUTH_TOKEN` as a bearer token. A case that sets its own credential keeps it. `kdeps test` applies the same security gate as `kdeps run`: a workflow with an authenticated `apiServer` refuses to run without a token.
 
 ## What runs before the cases
 
 The same setup as `kdeps run`:
 
-1. `.j2` templates in the project directory are rendered.
-2. The workflow is validated against the schema and the test definitions.
-3. `runtime.env` and the Python environment are prepared.
-4. A local LLM backend is started when a chat resource needs one and none is running.
+1. kdeps renders the `.j2` templates in the project directory.
+2. kdeps validates the workflow against the schema and the test definitions.
+3. kdeps prepares `runtime.env` and the Python environment.
+4. If a chat resource needs a local LLM backend and none runs, kdeps starts one.
 
 Each case then executes the full DAG through the engine, so a test exercises the real resources, not fixtures.
 

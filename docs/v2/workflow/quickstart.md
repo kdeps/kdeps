@@ -9,9 +9,9 @@ Works in workflow and agent mode.
 A **resource** is one step in its own YAML file (here: an LLM call, then a
 response). A **workflow** is a folder of resources plus a `workflow.yaml`
 manifest. Each resource names what it `requires:`, and kdeps runs the steps in
-that dependency order - a DAG. One step's output is read by the next with
-`get('<actionId>')`. That fixed order is what "workflow mode" means, and it is
-what you deploy.
+that dependency order (a DAG). The next step reads the output of a step with
+`get('<actionId>')`. This fixed order is the meaning of "workflow mode", and
+it is what you deploy.
 
 ## Overview
 
@@ -31,8 +31,8 @@ options (Windows, source, Docker), see [Installation](/start/installation).
 - kdeps installed (`kdeps --version`)
 - No LLM server: models run as local
   [llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
-  backend). The default model (`llama3.2:1b`, ~1.1 GB) is confirmed, then
-  downloaded to `~/.kdeps/models/` automatically on first run.
+  backend). On the first run, you confirm the default model (`llama3.2:1b`,
+  about 1.1 GB). Then kdeps downloads it to `~/.kdeps/models/` automatically.
 
 ## Create a project
 
@@ -118,7 +118,7 @@ apiResponse:
 
 ## Run it
 
-When `apiServer` is configured, kdeps requires an API auth token before it starts. Set one for local development (never in `workflow.yaml`):
+When you configure `apiServer`, kdeps needs an API auth token before it starts. Set one for local development (never in `workflow.yaml`):
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=dev-token

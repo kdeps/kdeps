@@ -1,6 +1,6 @@
 # CORS configuration
 
-CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If no `cors:` block is present, kdeps allows all origins with credentials enabled by default.
+CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If there is no `cors:` block, kdeps accepts all origins, with credentials enabled by default.
 
 ## Basic configuration
 
@@ -45,7 +45,7 @@ deploy:
 
 By default, kdeps enables CORS for all origins, with credentials. This suits local development, where the frontend (e.g. Vite on `:5173`) runs on a different port than the API (kdeps on `:16395`).
 
-kdeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
+To do this, kdeps checks if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. Then the browser can accept `Access-Control-Allow-Credentials: true`.
 
 ```yaml
 # Default behavior (no config needed)
@@ -56,7 +56,7 @@ cors:
 
 ### Production: specific origins
 
-For production, it is highly recommended to restrict to specific domains:
+For production, limit the origins to specific domains:
 
 ```yaml
 # workflow.yaml
@@ -104,14 +104,14 @@ cors:
 
 1. **Simple Requests**: For simple requests (GET, POST with certain content types), the browser sends the request directly with an `Origin` header.
 
-2. **Preflight Requests**: For complex requests (PUT, DELETE, custom headers), the browser first sends an OPTIONS request (preflight) to check if the actual request is allowed.
+2. **Preflight Requests**: For complex requests (PUT, DELETE, custom headers), the browser first sends an OPTIONS request (preflight). This request checks if the server accepts the real request.
 
 3. **Response Headers**: The server responds with CORS headers:
-   - `Access-Control-Allow-Origin`: Which origins are allowed
-   - `Access-Control-Allow-Methods`: Which HTTP methods are allowed
-   - `Access-Control-Allow-Headers`: Which headers can be sent
-   - `Access-Control-Expose-Headers`: Which response headers can be read
-   - `Access-Control-Allow-Credentials`: Whether credentials are allowed
+   - `Access-Control-Allow-Origin`: the origins that the server accepts
+   - `Access-Control-Allow-Methods`: the HTTP methods that the server accepts
+   - `Access-Control-Allow-Headers`: the headers that the browser can send
+   - `Access-Control-Expose-Headers`: the response headers that the browser can read
+   - `Access-Control-Allow-Credentials`: if the server accepts credentials
    - `Access-Control-Max-Age`: How long to cache preflight responses
 
 ## Best practices
@@ -119,7 +119,7 @@ cors:
 ### Security
 
 - **Restrict Origins in Production**: Use specific domains in `allowOrigins` instead of `"*"` to enhance security.
-- **Limit Methods and Headers**: Only allow the HTTP methods and headers required by your API to minimize the attack surface.
+- **Limit Methods and Headers**: Accept only the HTTP methods and headers that your API needs. This makes the attack surface smaller.
 - **Use HTTPS**: Always use HTTPS in production to protect credentials and data in transit.
 
 ### Performance
@@ -130,7 +130,7 @@ cors:
 ### Compatibility
 
 - **Disable Credentials When Possible**: Set `allowCredentials: false` if your API does not require cookies or authentication headers to simplify CORS handling.
-- **Handle Preflight Requests**: Ensure your routes support `OPTIONS` method for preflight requests.
+- **Handle Preflight Requests**: Make sure that your routes support the `OPTIONS` method for preflight requests.
 
 ## Troubleshooting
 
@@ -139,16 +139,16 @@ cors:
 If you see CORS errors in the browser console:
 
 1. **Verify Origins**: Make sure your frontend origin is in the `allowOrigins` list.
-2. **Check Methods**: Ensure the HTTP method is in `allowMethods`.
+2. **Check Methods**: Make sure that the HTTP method is in `allowMethods`.
 3. **Check Headers**: Verify custom headers are in `allowHeaders`.
-4. **Credentials Mismatch**: If using credentials, ensure `allowCredentials: true` and origins are not `"*"`.
+4. **Credentials Mismatch**: If you use credentials, make sure that `allowCredentials: true` is set and the origins are not `"*"`.
 
 ### Common error messages
 
 - **"No 'Access-Control-Allow-Origin' header"**: Origin not in `allowOrigins`.
 - **"Method not allowed"**: HTTP method not in `allowMethods`.
 - **"Header not allowed"**: Custom header not in `allowHeaders`.
-- **"Credentials not allowed"**: Using credentials with wildcard origin (`"*"`).
+- **"Credentials not allowed"**: The request uses credentials with a wildcard origin (`"*"`).
 
 ## Example: full configuration
 

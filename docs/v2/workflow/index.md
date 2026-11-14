@@ -1,8 +1,9 @@
 # kdeps workflow
 
 A kdeps workflow is a deterministic YAML pipeline. A request arrives, resources run in
-dependency order, and the result is returned: same input, same execution path,
-every time, so it is auditable, testable and safe to run unattended. Serve it as an HTTP
+dependency order, and kdeps returns the result. The same input always has the
+same execution path. For this reason, the workflow is auditable and testable, and it can
+run safely without supervision. Serve it as an HTTP
 API, a bot, or a file processor.
 
 ```bash
@@ -143,7 +144,7 @@ apiResponse:
     answer: get('llm').message.content
 ```
 
-Memory entries are automatically linked into a relationship graph showing the chain from prompt to tool calls to results.
+kdeps automatically links memory entries into a relationship graph. The graph shows the chain from the prompt to the tool calls and to the results.
 
 ## See also
 

@@ -1,6 +1,6 @@
 # Function calling
 
-Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
+With tools, an LLM can call other resources during a response. When the LLM decides that it needs a tool, kdeps runs the target resource. kdeps gives the result back to the LLM, and the LLM continues. The LLM sees only the output of the tool. It does not see the resource YAML.
 
 This page covers `tools:` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent mode](/agent/) and [Built-in tools](/agent/tools).
 
@@ -125,9 +125,9 @@ tools:
 | `transport` | string | Transport type - `stdio` (default) |
 | `env` | map | Extra environment variables injected into the subprocess |
 
-`mcp:` and `script:` are mutually exclusive. A fresh subprocess is started per tool invocation.
+`mcp:` and `script:` are mutually exclusive. kdeps starts a new subprocess for each tool call.
 
-**Example - filesystem access via npx:**
+**Example - filesystem access with npx:**
 
 <div v-pre>
 
@@ -236,8 +236,8 @@ LLM generates final response
 
 ## Use cases
 
-- Let the model do math, run code, or query a database mid-response instead of
-  guessing (`script:` pointing at a component call such as `python` or `exec`).
+- Let the model do math, run code, or query a database during a response. Then
+  it does not guess (`script:` points to a component call such as `python` or `exec`).
 - Give the model read access to a filesystem, an API, or another service
   through an external MCP server (`mcp:`).
 - Chain capabilities: the model calls `web_search`, then `web_scraper` on a

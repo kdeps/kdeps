@@ -24,7 +24,7 @@ session:
 
 ### SQLite (recommended for production)
 
-Persists to a file - survives restarts and can be shared via a mounted volume.
+Saves to a file. The data stays after a restart. You can share it with a mounted volume.
 
 ```yaml
 # workflow.yaml
@@ -209,18 +209,18 @@ A reply can end with a question (`question` plus numbered `options`) and keep wh
 
 ## Session ID
 
-Each session has a unique ID accessible via:
+Each session has a unique ID. Get it with:
 
 ```yaml
 # resources/example.yaml
 session_id: info('sessionId')
 ```
 
-The session ID is typically stored in a cookie or passed as a header.
+Usually, a cookie or a header holds the session ID.
 
 ## Cleanup
 
-Expired sessions are automatically cleaned up based on `cleanupInterval`:
+kdeps automatically removes expired sessions at the `cleanupInterval`:
 
 ```yaml
 # resources/example.yaml
@@ -270,8 +270,8 @@ For multiple containers sharing sessions:
 
 ## Security notes
 
-- Sessions are identified by a unique ID
-- Session IDs should be transmitted securely (HTTPS)
+- Each session has a unique ID
+- Send session IDs only over a secure connection (HTTPS)
 - Implement logout by clearing session data
 - Set reasonable TTL to limit exposure
 
