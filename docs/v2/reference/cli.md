@@ -14,7 +14,7 @@ All commands support these global flags:
 
 ### Structured logging
 
-kdeps uses structured JSON logging via Go's `log/slog`. Warnings and errors go to stderr in human-readable format by default.
+kdeps uses structured JSON logs through the Go package `log/slog`. Warnings and errors go to stderr in human-readable format by default.
 
 | Flag / Env | Level | Output |
 |---|---|---|

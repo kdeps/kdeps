@@ -132,7 +132,7 @@ output('llmResource')        # Get LLM output
 ```
 
 ### FileExists(path)
-Reports whether a file or directory exists on the machine running the workflow. Typical use is a `validations.skip` that avoids repeating a download.
+Tells if a file or directory exists on the machine that runs the workflow. Typical use is a `validations.skip` that avoids repeating a download.
 
 - **path**: Filesystem path (an empty path is false).
 
@@ -394,6 +394,6 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 
 ## See also
 
-- [Expressions guide](/workflow/expressions) - where expressions are used and basic syntax
+- [Expressions guide](/workflow/expressions) - where to use expressions, and basic syntax
 - [Validation & control flow](/workflow/validation) - skip, check, and error handling
 - [Inline resource blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks

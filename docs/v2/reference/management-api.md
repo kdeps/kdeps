@@ -17,7 +17,7 @@ Workflow mode only.
 
 ## Authentication
 
-All management endpoints require a bearer token separate from workflow API auth. When `apiServer` is configured, the server also requires `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
+All management endpoints require a bearer token separate from workflow API auth. When you configure `apiServer`, the server also needs `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=api-secret
@@ -25,7 +25,7 @@ export KDEPS_MANAGEMENT_TOKEN=mysecret
 kdeps run workflow.yaml
 ```
 
-Workflow routes (`/api/*`, etc.) use `KDEPS_API_AUTH_TOKEN`. Management routes (`/_kdeps/*`) use `KDEPS_MANAGEMENT_TOKEN`.
+Workflow routes (`/api/*` and the other workflow routes) use `KDEPS_API_AUTH_TOKEN`. Management routes (`/_kdeps/*`) use `KDEPS_MANAGEMENT_TOKEN`.
 
 Clients send the token in the `Authorization` header:
 
@@ -46,7 +46,7 @@ Authorization: Bearer mysecret
 | `PUT /_kdeps/workflow` | 5 MB | `413 Payload Too Large` |
 | `PUT /_kdeps/package` | 200 MB | `413 Payload Too Large` |
 
-Oversized uploads are rejected before any data is written to disk.
+kdeps rejects uploads that are too large before it writes data to disk.
 
 ## Status response
 
@@ -63,7 +63,7 @@ Oversized uploads are rejected before any data is written to disk.
 }
 ```
 
-The `workflow` field is omitted when no workflow is loaded.
+If no workflow is loaded, the response has no `workflow` field.
 
 ## Examples
 
@@ -94,17 +94,17 @@ curl -X POST \
 
 ## Restart persistence
 
-When a new workflow is pushed, kdeps writes it to the same path that was given at startup (or `/app/workflow.yaml` inside Docker). The workflow path is never changed after push - only the file contents are updated. On the next restart, kdeps reads the updated file automatically.
+When you push a new workflow, kdeps writes it to the same path that you gave at startup (or `/app/workflow.yaml` in Docker). A push never changes the workflow path. It changes only the file contents. On the next restart, kdeps reads the updated file automatically.
 
-After a YAML push, any stale `.yaml`/`.yml` files in the `resources/` sibling directory are removed. This prevents duplicate resource loading the management API inlines all resources into a single `workflow.yaml`.
+After a YAML push, kdeps removes old `.yaml`/`.yml` files from the `resources/` directory next to it. The management API puts all resources into one `workflow.yaml`, so this prevents a second load of the same resources.
 
 Package pushes extract the full archive in-place - `resources/`, `data/`, and `scripts/` are all replaced or added.
 
 ## Security
 
-- Path-traversal entries in `.kdeps` archives are rejected with `422 Unprocessable Entity`.
+- kdeps rejects path-traversal entries in `.kdeps` archives with `422 Unprocessable Entity`.
 - Per-file decompression cap of 500 MB guards against zip-bomb payloads.
-- Response bodies are capped at 1 MB.
+- The maximum size of a response body is 1 MB.
 
 ## See also
 

@@ -229,7 +229,7 @@ print(json.dumps(result))  # Only stdout is the resource output
 - Always output JSON to stdout - when it parses, the resource result is that object; otherwise it is raw text
 - Handle exceptions and output `{"success": false, "error": "..."}` rather than crashing
 - Use `venvName` to isolate dependencies per resource, and list them under `packages:`
-- Set realistic `timeout` values - the default may not be enough for ML inference
+- Set realistic `timeout` values. The default can be too short for ML inference
 - Store secrets in env vars, never inline in scripts
 
 ## See also

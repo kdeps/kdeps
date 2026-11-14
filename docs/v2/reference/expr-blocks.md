@@ -1,10 +1,10 @@
 # Inline resource blocks (before / after)
 
-`before:` and `after:` are expression lists that run around a resource's main action - `before:` prepares data before the action runs, `after:` processes output after it completes.
+`before:` and `after:` are expression lists that run around the main action of a resource. `before:` prepares data before the action runs. `after:` processes the output after the action completes.
 
 Works in workflow and agent mode.
 
-- `before:` runs before the main action (chat, component, etc.)
+- `before:` runs before the main action (chat, component, or a different action)
 - `after:` runs after the main action
 
 Both accept bare scalar expressions. Each item executes in sequence and can call `set()` to store values, perform calculations, or read from memory and session.
@@ -208,11 +208,11 @@ after:
   - set('user_context', get('user', 'session') ?? {})
 ```
 
-This resource returns `{"status": "expressions_executed"}` and can be used as a dependency for other resources.
+This resource returns `{"status": "expressions_executed"}`. Other resources can use it as a dependency.
 
 ## Accessing expr results
 
-Values set in `expr` blocks are immediately available via `get()`:
+`get()` can read values from `expr` blocks immediately:
 
 <div v-pre>
 

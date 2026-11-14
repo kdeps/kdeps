@@ -34,7 +34,7 @@ Error: target resource 'respond' not found
 
 `targetActionId:` under `metadata:` names a resource that does not exist.
 
-Fix: ensure the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
+Fix: make sure that the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
 
 ## Validation errors
 
@@ -70,7 +70,7 @@ Fix: validate the expression syntax. Common causes:
 Error: Expression evaluation failed (code: EXPRESSION_ERR)
 ```
 
-An expression in `before:`, `after:`, or [`validations`](/reference/glossary#validations) could not be evaluated.
+kdeps cannot evaluate an expression in `before:`, `after:`, or [`validations`](/reference/glossary#validations).
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)
@@ -103,12 +103,12 @@ Fix:
 
 ### llamafile will not start (exec format / run-detectors errors)
 
-Llamafiles are portable executables that re-exec themselves via `/bin/sh`.
+Llamafiles are portable executables that run themselves again through `/bin/sh`.
 On some kernels (binfmt_misc misconfiguration, WSL) the trampoline fails.
 
 Fix:
 - Run it through a shell explicitly: `sh ~/.kdeps/models/<model>.llamafile --version`
-- Ensure `$HOME` is writable (the APE loader extracts to `~/.ape`)
+- Make sure that `$HOME` is writable (the APE loader extracts to `~/.ape`)
 - Make sure the file is executable: `chmod +x ~/.kdeps/models/*.llamafile`
 
 ### Missing API key
@@ -117,12 +117,12 @@ Fix:
 Error: authentication required
 ```
 
-The LLM backend requires an API key but none was provided.
+The LLM backend needs an API key, but you did not give one.
 
 Fix: set the appropriate environment variable:
 - OpenAI: `OPENAI_API_KEY`
 - Anthropic: `ANTHROPIC_API_KEY`
-- Or pass via `KDEPS_AGENT_BASE_URL` headers
+- Or give it with `KDEPS_AGENT_BASE_URL` headers
 
 ## HTTP client errors
 
@@ -155,7 +155,7 @@ The target URL is not accepting connections.
 Fix:
 - Verify the URL is correct and the service is running
 - Check network connectivity from the kdeps host
-- If the service is behind a VPN or firewall, ensure access is allowed
+- If the service is behind a VPN or firewall, make sure that kdeps can connect to it
 
 ## Python errors
 
@@ -207,7 +207,7 @@ Fix:
 HTTP/1.1 401 Unauthorized
 ```
 
-A request to a workflow route (`/api/*`, etc.) is missing or has the wrong API auth token.
+A request to a workflow route (`/api/*` or a different workflow route) has no API auth token, or the wrong token.
 
 Fix:
 
@@ -237,7 +237,7 @@ Shows detailed execution logs including expression evaluation, dependency resolu
 
 ### Record a session for a model to debug
 
-`--instrument=<name>` records any kdeps run - an agent session or `kdeps run` - into a folder a model can read and fix from. Bare `--instrument` names it by its start time. Use `=`: with a space, the name is taken as the path argument.
+`--instrument=<name>` records any kdeps run - an agent session or `kdeps run` - into a folder a model can read and fix from. Bare `--instrument` names it by its start time. Use `=`. With a space, kdeps uses the name as the path argument.
 
 ```bash
 kdeps --instrument=billing-bug            # agent session, recorded
@@ -267,10 +267,10 @@ The terminal looks as usual (the call-chain trace goes to the file, not the scre
 {"ts":"2026-10-17T12:18:42Z","kind":"workflow","event":"resource.failed","workflowId":"chatbot","actionId":"llm","detail":"connection refused"}
 ```
 
-- A `model_request` holds everything sent to the model. The system prompt and tool list are recorded once, then as `{"unchanged_since_request": N}` until they change.
-- A workflow `chat` call, and the agent loop's internal calls (such as prompt refinement), are recorded with `"source": "workflow"`: messages and tool names, then the reply or error.
+- A `model_request` has all data that kdeps sends to the model. kdeps records the system prompt and tool list one time. Then it records `{"unchanged_since_request": N}` until they change.
+- kdeps records a workflow `chat` call, and the internal calls of the agent loop (such as prompt refinement), with `"source": "workflow"`. It records the messages and tool names, then the reply or error.
 - A judge's tool call has `"loop": "judge:<name>"`; no `loop` means the main agent loop. A judge calling a tool it was not given stops, and its review counts as approved.
-- Strings over 64 KiB are cut with a note of how much. A session of the same name is replaced.
+- Strings over 64 KiB are cut with a note of how much. A new session with the same name replaces the old session.
 
 ```bash
 kdeps instrument list                 # saved sessions, newest first
