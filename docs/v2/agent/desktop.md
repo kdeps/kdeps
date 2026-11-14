@@ -29,11 +29,11 @@ svc -> loop
 loop -> tools
 ```
 
-It is an agent-mode front end. Workflows, components and agencies still show up only as tools the model may call; the window never runs a workflow by itself.
+It is an agent-mode front end. Workflows, components, and agencies show only as tools that the model can call. The window never runs a workflow by itself.
 
 ## Install
 
-The app is standalone: the `kdeps` CLI does not need to be installed. You need a model: one this app downloads on first use, an LLM server you run, or a cloud API key.
+The app is standalone. You do not need to install the `kdeps` CLI. You need a model. This can be a model that the app downloads on first use, an LLM server that you run, or a cloud API key.
 
 ```bash
 brew install --cask kdeps/tap/kdeps-desktop   # macOS, picks Apple Silicon or Intel; clears the quarantine flag
@@ -91,11 +91,11 @@ $s.TargetPath = "$dir\kdeps-desktop.exe"; $s.Save()
 & "$dir\kdeps-desktop.exe"
 ```
 
-The WebView2 runtime ships with Windows 11; on Windows 10 install it from Microsoft first. The exe is not code-signed, so SmartScreen may warn on first launch: More info, then Run anyway.
+The WebView2 runtime ships with Windows 11; on Windows 10 install it from Microsoft first. The exe does not have a code signature. For this reason, SmartScreen can show a warning on first launch. Click More info, then Run anyway.
 
 ## Download
 
-Every tagged release attaches the desktop app next to the CLI archives. The `Release Desktop` workflow builds it on native runners when the release is published; `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches it to an existing tag:
+Every tagged release attaches the desktop app next to the CLI archives. When the release is published, the `Release Desktop` workflow builds it on native runners. `gh workflow run release-desktop.yml -f tag=vX.Y.Z` re-attaches it to an existing tag:
 
 | OS | File | Notes |
 |----|------|-------|
@@ -139,7 +139,9 @@ Run the binary. It opens on the last workspace you used, or your home folder on 
 
 ## Workspaces
 
-A workspace is a folder. Chat history and persistent memory are stored per folder. File tools stay in that folder, and `~/.kdeps` and `/tmp` are always allowed. That is the same boundary `KDEPS_WORKSPACE_ROOT` sets for the terminal agent. Use the workspace button at the bottom of the sidebar to open another folder or pick one of the ten most recent. Switching starts a fresh chat and re-scopes history and memory; it is refused while a turn is running.
+A workspace is a folder. The app keeps chat history and persistent memory for each folder. File tools stay in that folder. `~/.kdeps` and `/tmp` are always permitted. This is the same boundary that `KDEPS_WORKSPACE_ROOT` sets for the terminal agent.
+
+To open a different folder, use the workspace button at the bottom of the sidebar. You can also select one of the ten most recent folders. A switch starts a new chat and changes the scope of history and memory. You cannot switch when a turn runs.
 
 Window state lives in `kdeps-desktop/state.json` under your OS config directory (`~/Library/Application Support`, `~/.config`, `%AppData%`).
 
@@ -244,7 +246,7 @@ chat -> engine: "when the agent calls it"
 
 ### How the builder writes YAML
 
-Every engine resource type (chat, httpClient, sql, python, exec, apiResponse, ...) is offered, with fields read from the kdeps types, so new executors appear without an app update. A card shows fields that have a value; **add field** lists the rest with descriptions. Lists and objects (`tools`, `headers`, `response`) are edited as YAML text.
+The app shows all engine resource types (chat, httpClient, sql, python, exec, apiResponse, ...). It reads their fields from the kdeps types, so new executors show without an app update. A card shows the fields that have a value. **add field** lists the other fields with descriptions. You edit lists and objects (`tools`, `headers`, `response`) as YAML text.
 
 Saving a card with type `chat` and three fields writes this file:
 
@@ -296,7 +298,7 @@ CITY=Utrecht
 
 ### Servers need an API token
 
-Every kdeps API server requires a token, from the app as from the CLI. Set it once:
+Each kdeps API server needs a token, from the app and from the CLI. Set it one time:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -307,7 +309,7 @@ api_auth_token: "change-me"   # or export KDEPS_API_AUTH_TOKEN; requests send it
 curl -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" http://127.0.0.1:16395/api/v1/hello
 ```
 
-If the configured port is taken, the next free one is used and shown. A running project stops when you click Stop, delete the project, or quit the app. The app runs projects with its own binary, so the `kdeps` CLI does not need to be installed.
+If a different process uses the configured port, the app uses and shows the next free port. A project that runs stops when you click Stop, delete the project, or quit the app. The app runs projects with its own binary. You do not need to install the `kdeps` CLI.
 
 ## Offline
 

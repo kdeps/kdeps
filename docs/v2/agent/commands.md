@@ -124,18 +124,18 @@ main.go, sends  unchanged
 the turn
 ```
 
-Only text inside `"..."` or `'...'` is scanned. `can you check df -h for me` triggers nothing; `"df -h"` does.
+kdeps scans only text in `"..."` or `'...'`. `can you check df -h for me` triggers nothing; `"df -h"` does.
 
 ## Text files and read-only commands
 
-- A quoted name of an existing, readable text file (`look at "main.go"`) is offered for inlining, like `@main.go`. Images and binaries are never detected; use `@path`.
-- Only allowlisted read-only commands are offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, ...). Destructive ones (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted.
+- If you quote the name of a readable text file that exists (`look at "main.go"`), kdeps offers to put it inline, like `@main.go`. kdeps never detects images and binaries. Use `@path` for them.
+- kdeps offers only read-only commands on the allowlist (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, ...). Commands that change data (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, also in quotes.
 - One confirmation covers the whole message. Declining or pressing Enter sends your text unchanged.
 
 ## Pipes and command substitution
 
-- `"ps aux | grep -i kdeps"` runs as one pipeline when every `|` stage is read-only. One stage like `xargs rm` rejects the whole pipeline.
-- `` $(git rev-parse HEAD) `` needs no extra quoting. Its body is checked the same way. `;`, `&`, `` ` `` or a nested `$(` inside the parens rejects it.
+- `"ps aux | grep -i kdeps"` runs as one pipeline when all `|` stages are read-only. One stage like `xargs rm` rejects the whole pipeline.
+- `` $(git rev-parse HEAD) `` needs no extra quoting. kdeps checks its body in the same way. `;`, `&`, `` ` `` or a nested `$(` inside the parens rejects it.
 
 ## Auto-context on and off
 
@@ -152,8 +152,8 @@ Only text inside `"..."` or `'...'` is scanned. `can you check df -h for me` tri
 | `--system <text>` | Prepend a system prompt |
 | `--theme <name>` | REPL theme: `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl-themes#themes)) |
 
-Sessions and memory are stored under `~/.kdeps/`, partitioned by the directory
-`kdeps` runs in. See [Sessions](/agent/repl-sessions#sessions).
+kdeps stores sessions and memory under `~/.kdeps/`, separately for each
+directory where `kdeps` runs. See [Sessions](/agent/repl-sessions#sessions).
 
 ## Auto-improve
 
@@ -191,12 +191,14 @@ issue -> done
 - a 404 "No endpoints found" for tool use
 - a 403 "only available on agentic harnesses"
 
-**Tasks and evaluation.** Each task asks for one tool use. The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line) and reports loops, refused work the tools can do, wrong-tool calls and wrong tool errors, each with its event. A model guess stays a guess. Neither edits files.
+**Tasks and evaluation.** Each task asks for one tool use.
+
+The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line). It reports loops, refused work that the tools can do, calls to the wrong tool, and wrong tool errors. Each item has its event. A model guess stays a guess. Neither edits files.
 
 **Issue.** After each evaluate reply, it files one GitHub issue and prints `auto-improve: issue <url>`.
 
 - Title: the reply's first line, which states the bug. Body: the whole reply under `## Conclusion`, plus up to 40 events with an error field.
-- An open issue with the same title is reused: its URL is printed, nothing is filed.
+- If an open issue has the same title, kdeps uses it. It prints its URL and does not file a new issue.
 - Only provider refusals or rate limits: no issue, and it prints `auto-improve: no issue (provider-only failures)`. A kdeps error, tool error or clean run still files one.
 
 The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
@@ -281,7 +283,7 @@ run:
 
 <div v-pre>
 
-A tool step's `print:` is a Go template over the tool's result: the fields of a JSON object, or `.output` for any other text. It can call `join` and `trunc` (`{{trunc 80 .content}}` cuts to 80 characters plus `...`). `/clear`, `/compact` and `/history` are built this way, on the `session_ops` tool, which reads and changes the live session:
+A tool step's `print:` is a Go template over the tool's result: the fields of a JSON object, or `.output` for any other text. It can call `join` and `trunc` (`{{trunc 80 .content}}` cuts to 80 characters plus `...`). `/clear`, `/compact`, and `/history` use this method. They use the `session_ops` tool, which reads and changes the live session:
 
 ```yaml
 # commands/history.yaml (shipped)
@@ -380,10 +382,10 @@ run:
 
 </div>
 
-- `$1`, `$2`, ... and `$ARGUMENTS` in a step are replaced by the command's arguments, the same placeholders [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
+- kdeps replaces `$1`, `$2`, ... and `$ARGUMENTS` in a step with the arguments of the command. These are the same placeholders that [prompt templates](/agent/skills) use (`${1:-default}` gives a fallback).
 - A declared command cannot take a built-in's name or alias, and commands calling commands stop after 8 levels.
-- A builtin file's `api:` must be its own file name, and that name must be one the binary implements. A mismatch is skipped with a warning instead of running another command's handler.
-- Built-in command files cannot be removed. Declared ones can, with `kdeps uninstall commands/<name>`, and `kdeps update commands/<name>` restores them.
+- A builtin file's `api:` must be its own file name, and that name must be one the binary implements. If the names are different, kdeps skips the file with a warning. It does not run the handler of a different command.
+- You cannot remove built-in command files. You can remove declared command files with `kdeps uninstall commands/<name>`. `kdeps update commands/<name>` restores them.
 
 A command you write yourself goes in `~/.kdeps/commands/`. kdeps loads it at start (and after `kdeps update`), with no registry or lock entry, and serves it on the commands API like a shipped one. A file there with a shipped command's name replaces it.
 
@@ -466,13 +468,13 @@ Templates can call `join` (`{{join .builtin ", "}}`).
 
 </div>
 
-Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. A `key` kdeps does not have is skipped with a warning at load.
+Copy one to `~/.kdeps/commands/` to change its wording or narrow its values. If kdeps does not have a `key`, it skips that key with a warning at load.
 
 A numeric setting needs no `values:`. `fold-threshold` takes a token count (`3000`, `3k`) and `fold-items` a positive integer. Both accept `default`, which clears the override so the `fold` event's value applies.
 
 ## Subcommands
 
-A command file with `subcommands:` (instead of `run:` or `setting:`) dispatches on its first argument. Each entry is itself a `run:`, a `setting:` or more `subcommands:`, and gets the remaining arguments. The `""` entry runs when no argument is given; an unknown word is an error that names the choices.
+A command file with `subcommands:` (instead of `run:` or `setting:`) dispatches on its first argument. Each entry is itself a `run:`, a `setting:` or more `subcommands:`, and gets the remaining arguments. The `""` entry runs when you give no argument. An unknown word gives an error that lists the choices.
 
 ```text
 /fold                -> subcommands."" (status)

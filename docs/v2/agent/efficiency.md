@@ -2,7 +2,7 @@
 
 A model stuck "looking around" (`ls`, `read_file`, `grep`, read-only `bash`, over and over) burns tokens without output. **Efficiency enforcement** is a kdeps governor, not a prompt hint. It soft-stops that loop and forces the next action to produce output: write a file, edit, run a changing command, or call a workflow.
 
-It is like a circuit breaker on read-only exploration: it trips, tells the model why, and only lets the model continue once it has produced something.
+It is like a circuit breaker on read-only exploration. It stops the model and tells the model why. The model can continue only after it makes some output.
 
 ```d2
 direction: down
@@ -34,7 +34,7 @@ Besides consecutive reads, a turn also has per-turn caps: total tool calls (`act
 
 ## What the model sees (and you do not)
 
-When a stop trips, kdeps drops the over-budget call before it runs, removes the read tools from that model call, and attaches a short note on a model-facing channel:
+When a stop occurs, kdeps removes the call that is over budget before it runs. It also removes the read tools from that model call. Then it attaches a short note on a channel that only the model sees:
 
 ```text
 [kdeps-efficiency] Soft stop 1/3. Why: 6 read-only calls in a row. Needed: your next call
@@ -42,15 +42,15 @@ must be an OUTPUT action (write_file/edit_file/bash_exec) that changes something
 searches are unavailable until one succeeds. Do not mention this notice.
 ```
 
-After the model produces output, the next turn starts with a one-line reminder of the last stop and what was needed, so it does not repeat the mistake.
+After the model makes output, the next turn starts with a one-line reminder. The reminder gives the last stop and the necessary action, so the model does not make the same mistake again.
 
-**None of this is shown to you.** The note is never printed in the REPL or desktop app, never written to history or sessions, and `/prompt` scrubs it. What goes on that channel stays on that channel - unless you turn on `verbose`.
+**You do not see any of this.** kdeps never prints the note in the REPL or desktop app, and never writes it to history or sessions. `/prompt` removes it. Data on that channel stays on that channel, unless you turn on `verbose`.
 
 ```text
 /efficiency verbose on     # mirror the model-facing channel to the terminal, for tuning/debugging
 ```
 
-Even in verbose mode the note is only mirrored to the output; it is still never stored in history.
+In verbose mode, kdeps only copies the note to the output. It never stores the note in history.
 
 ## Repeated identical calls
 
@@ -63,11 +63,13 @@ outcome, so no progress was made. Needed: do something different - change the ar
 tool or approach, or fix the cause the result points to - then retry the task. Do not mention this notice.
 ```
 
-Like every efficiency note, the brief is never shown to you (unless `verbose` is on) and never stored. It uses the same `stops` budget; once that is spent, or when efficiency enforcement is off, the turn ends with the plain "The model repeated the same ..." notice.
+Like every efficiency note, the brief is never shown to you (unless `verbose` is on) and never stored. It uses the same `stops` budget. When that budget is empty, or when efficiency enforcement is off, the turn ends with the plain "The model repeated the same ..." notice.
 
 ## Failed tool calls and failed model calls
 
-kdeps stops a failed call itself; the model does not have to notice. When a tool call fails (an edit that did not match, a missing path, bad arguments, an unknown tool, a denied call) or the model call is rejected, kdeps soft-stops. It sends the error and the context needed to fix it on the hidden channel, and the model retries.
+kdeps stops a failed call itself. The model does not have to see the failure.
+
+A tool call can fail. Examples are an edit that did not match, a missing path, bad arguments, an unknown tool, or a denied call. A backend can also reject the model call. In these conditions, kdeps does a soft stop. It sends the error and the context to repair it on the hidden channel. Then the model tries again.
 
 ```d2
 direction: down
@@ -118,11 +120,11 @@ History keeps only the raw error in the tool result (APIs require a result per c
 
 ## Errors the model cannot fix
 
-Model-call errors the model cannot fix are never retried this way. Transient errors (rate limits, 5xx, network) retry with backoff, context overflow is compacted, and credential, billing, quota and unknown-model errors return to you at once.
+kdeps does not use this procedure for model-call errors that the model cannot repair. Temporary errors (rate limits, 5xx, network) try again with backoff. kdeps compacts the context when it overflows. Credential, billing, quota, and unknown-model errors return to you immediately.
 
 ## The failures budget
 
-Failures have their own per-turn budget, `failures` (default 5), separate from `stops`. Once spent, tool calls get the plain `[TOOL FAILED]` banner and a failing model call returns its error. This also applies when the turn runs out of rounds first, so a turn never ends silently on a swallowed error.
+Failures have their own per-turn budget, `failures` (default 5), separate from `stops`. When this budget is empty, tool calls get the plain `[TOOL FAILED]` banner, and a model call that fails returns its error. This also applies when the turn has no more rounds first. For this reason, a turn never ends silently on a hidden error.
 
 ## Multiple stops, then a forced end
 
@@ -130,11 +132,11 @@ A turn can have several soft stops. Each stop tightens the reads budget (`tighte
 
 ## Exempt
 
-Enforcement stands down when it is off, when the `audit` or `explain` agent preset is active (those are read-only by design), or when no output tool is registered.
+Enforcement stops in these conditions: it is off, the `audit` or `explain` agent preset is active (these presets are read-only by design), or no output tool is registered.
 
 ## Harness prompt
 
-`/efficiency prompt` chooses what happens to the harness after its full text has been sent once.
+`/efficiency prompt` sets what occurs to the harness after kdeps sends its full text one time.
 
 ```text
 /efficiency prompt                 # show auto, full, or summary
@@ -175,7 +177,7 @@ The first request of a session, and the first request after compaction, a fold, 
 
 ## Presets
 
-The `frugal`, `balanced` and `thorough` [harness presets](/agent/events-presets#presets) set every efficiency value (including on/off and verbose), so applying a preset overwrites everything. A single `/efficiency <setting> <n>` afterwards overwrites just that value. Everything persists.
+The `frugal`, `balanced` and `thorough` [harness presets](/agent/events-presets#presets) set every efficiency value (including on/off and verbose), so applying a preset overwrites everything. After that, one `/efficiency <setting> <n>` overwrites only that value. Everything persists.
 
 | Preset | reads | actions | stops | failures | tighten | web | bash | file | code |
 |---|---|---|---|---|---|---|---|---|---|
@@ -183,7 +185,7 @@ The `frugal`, `balanced` and `thorough` [harness presets](/agent/events-presets#
 | `balanced` | 6 | 30 | 3 | 5 | 1 | 5 | 8 | 10 | 6 |
 | `thorough` | 12 | 60 | 4 | 8 | off | 8 | 15 | 20 | 10 |
 
-Each value is a normal [event](/agent/events) (`efficiency`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-failures`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`, `efficiency-verbose`), stored as an override in `~/.kdeps/events/<name>.yaml` and round-tripped by [konfig](/agent/konfig):
+Each value is a normal [event](/agent/events). kdeps stores it as an override in `~/.kdeps/events/<name>.yaml`, and [konfig](/agent/konfig) exports and imports it. The events are `efficiency`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-failures`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`, and `efficiency-verbose`:
 
 ```yaml
 # ~/.kdeps/events/efficiency-reads.yaml
