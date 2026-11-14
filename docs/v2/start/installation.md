@@ -97,7 +97,7 @@ build.bat
 kdeps --version
 ```
 
-You should see output like:
+The output is similar to this:
 ```
 kdeps version 2.21.0
 ```
@@ -118,7 +118,11 @@ What will you use kdeps for? (change it later with kdeps profile)
 Choice [5]:
 ```
 
-A later command that needs more installs only what its loader requires, so a small profile stays small and never blocks you. Under `minimum`, the agent loop adds 23 core commands and core tools: files (`read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`), shell (`bash_exec` and its job tools), `search_local`, memory and knowledge.
+If a later command needs more, kdeps installs only the parts that its loader needs. A small profile stays small and does not stop you. With `minimum`, the agent loop adds 23 core commands and these core tools:
+
+- Files: `read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`.
+- Shell: `bash_exec` and its job tools.
+- `search_local`, memory, and knowledge.
 
 - Web and search tools: `kdeps install tools`, or one at a time (`kdeps install tools/web_search`).
 - `kdeps install <set>` adds a set; `kdeps profile <name>` switches profile and prunes the rest.
@@ -129,7 +133,7 @@ Details: [Updating assets](/agent/repl-updating#updating-assets).
 
 ## Docker (optional)
 
-Docker is only needed if you want to build container images for deployment. For local development and testing, kdeps runs natively without Docker.
+You need Docker only to build container images for deployment. For local development and tests, kdeps runs natively without Docker.
 
 ### Install Docker
 
@@ -157,8 +161,8 @@ kdeps update models       # newest registry (harvested nightly from HuggingFace)
 ## First-run setup
 
 The first time you run kdeps in a terminal with no `~/.kdeps/config.yaml`, it
-asks whether to set up language models. Enter skips that setup. Choosing yes
-opens the backend list and writes the config:
+asks if you want to set up language models. Press Enter to skip the setup. If
+you select yes, kdeps opens the backend list and writes the configuration:
 
 ```text
   Set up language models in ~/.kdeps/config.yaml?
@@ -183,8 +187,9 @@ Each choice fills in the matching `llm:` fields:
 - **cloud** - sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
 - **ollama** - sets `backend: ollama` and the host URL.
 - **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `models:` and `strategy:` under `llm:`.
-- **m365** - sets `backend: m365`. No API key: authenticates via a browser-cached
-  Microsoft 365 sign-in (or headless credentials for CI/servers). See
+- **m365** - sets `backend: m365`. It does not use an API key. It authenticates
+  with a Microsoft 365 sign-in that the browser keeps in its cache. For CI and
+  servers, it uses headless credentials. See
   [LLM Provider Reference - M365 Copilot](/llm-server/m365).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
