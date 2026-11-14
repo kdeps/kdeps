@@ -132,7 +132,7 @@ Best for:
 ## SQL-backed API
 
 A two-route API over SQLite: `GET /report` runs an analytics query and returns
-CSV; `POST /update` applies a batch of writes in a transaction.
+CSV. `POST /update` applies a batch of writes in a transaction.
 
 Best for:
 - Exposing a database read or write as an HTTP endpoint
@@ -143,7 +143,7 @@ Best for:
 ## Chat web app
 
 One project that serves a chat API and the static web page that calls it. The
-API route is `public` so the browser needs no token; the LLM has a system
+API route is `public` so the browser needs no token. The LLM has a system
 prompt from `scenario:` and a friendly `onError` fallback.
 
 Best for:
@@ -290,7 +290,7 @@ Best for:
 
 The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
 started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
-the workflow's `name:` under `metadata:`; kdeps runs the full DAG.
+the workflow's `name:` under `metadata:`. kdeps runs the full DAG.
 
 Best for:
 - Turning an API you already wrote into a REPL tool

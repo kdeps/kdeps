@@ -19,7 +19,7 @@ The context window is the token budget for one turn: system prompt, memory, hist
 /context 128k         # shorthand - equivalent to 131072
 ```
 
-Set the default at startup with the `KDEPS_GGUF_CTX_SIZE` (gguf) or `KDEPS_LLAMAFILE_CTX_SIZE` (file) environment variables. In resource YAML, `contextSize:` on a `chat:` block overrides per call; for Ollama only, `ollamaNumCtx:` is also accepted and takes precedence.
+Set the default at startup with the `KDEPS_GGUF_CTX_SIZE` (gguf) or `KDEPS_LLAMAFILE_CTX_SIZE` (file) environment variables. In resource YAML, `contextSize:` on a `chat:` block overrides per call. For Ollama only, `ollamaNumCtx:` is also accepted and takes precedence.
 
 ## Text-embedded tool calls
 
@@ -52,7 +52,7 @@ The model keeps the most recent steps in full, and a note that kdeps removed ear
 
 ## Tool definitions on demand
 
-Every tool definition is re-sent on every round, so 70+ tools cost about 12K tokens a round. kdeps sends the full definition of a core set only (`bash_exec`, the file tools, `search_local`, the memory tools, `web_search`, `web_scraper`, `load_skill`, `load_tools`, `session_handshake`, `subagent`). The project's own workflows, components and agencies are always sent. `load_tools` names every other tool; the model loads the ones it needs, and their definitions go on every later request of the session:
+Every tool definition is re-sent on every round, so 70+ tools cost about 12K tokens a round. kdeps sends the full definition of a core set only (`bash_exec`, the file tools, `search_local`, the memory tools, `web_search`, `web_scraper`, `load_skill`, `load_tools`, `session_handshake`, `subagent`). The project's own workflows, components and agencies are always sent. `load_tools` names every other tool. The model loads the ones it needs, and their definitions go on every later request of the session:
 
 ```text
 round 1: core definitions + load_tools ("Tools you can load: - git_ops: ...")

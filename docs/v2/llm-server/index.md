@@ -52,7 +52,7 @@ kdeps llm wizard
 kdeps llm
 ```
 
-Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Type to filter; Up/Down navigate; Enter selects; Esc cancels.
+Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Type to filter. Up/Down navigate. Enter selects. Esc cancels.
 
 ```bash
 # List stock + user recipes

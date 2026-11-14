@@ -178,7 +178,7 @@ sql_connections:
     connection: "sqlite://./cache.db"
 ```
 
-The [`sql` component](/workflow/resources/sql) opens one connection per call; there is no pool to configure.
+The [`sql` component](/workflow/resources/sql) opens one connection per call. There is no pool to configure.
 
 ### Using named connections
 
@@ -294,10 +294,10 @@ Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body si
 
 ## Global defaults (`defaults`, `resource_defaults`)
 
-`~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
-a workflow does not set the equivalent field itself. Edit it with
-[`kdeps edit`](/reference/cli-dev#kdeps-edit); [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
-checks it (along with Ollama/Python/installed agents) before you hit run.
+`~/.kdeps/config.yaml` can set two types of global default. kdeps applies them
+when a workflow does not set the same field. Edit the file with
+[`kdeps edit`](/reference/cli-dev#kdeps-edit). [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
+checks it (and Ollama, Python, and installed agents) before you run.
 
 ```yaml
 # ~/.kdeps/config.yaml

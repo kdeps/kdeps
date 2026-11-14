@@ -1,6 +1,6 @@
 # Design review panel
 
-Four reviewer resources check a design document in parallel. A rejection ends the reply with a question; the next request answers it, and the session carries the findings across.
+Four reviewer resources check a design document in parallel. A rejection ends the reply with a question. The next request answers it, and the session carries the findings across.
 
 ```d2
 direction: right

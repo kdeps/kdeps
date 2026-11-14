@@ -1,7 +1,7 @@
 # Build a SQL-backed API
 
 Build an API with two endpoints over a SQLite database:
-`GET /report` runs an analytics query and returns CSV; `POST /update` applies a
+`GET /report` runs an analytics query and returns CSV. `POST /update` applies a
 batch of updates in a transaction.
 
 The [`sql` component](/workflow/resources/sql) runs queries against PostgreSQL, MySQL, SQLite, SQL Server,

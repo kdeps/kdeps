@@ -16,7 +16,7 @@ When a tool stalls, the default is auto-increase. kdeps adds the increment (defa
 
 To get an interactive prompt, turn off auto-increase in the configuration. Then, when a tool stalls, the REPL shows `(i)ncrease` / `(k)ill`.
 
-Tools marked "cached" in Web and search memoize successful results for the agent process's lifetime; a repeat query or URL returns instantly. Failed and empty lookups are not cached. `wolfram_alpha` caches the same way ([Data tools](/agent/tools-data)).
+Tools marked "cached" in Web and search memoize successful results for the agent process's lifetime. A repeat query or URL returns instantly. Failed and empty lookups are not cached. `wolfram_alpha` caches the same way ([Data tools](/agent/tools-data)).
 
 ## See also
 

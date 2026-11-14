@@ -234,7 +234,7 @@ deploy:
 
 On every `bundle build`, kdeps resolves package versions before generating the Dockerfile:
 
-- **kdeps** - latest [GitHub release](https://github.com/kdeps/kdeps/releases); kdeps gets `install.sh` from that tag and gives the same tag to the installer (never `main` + floating latest)
+- **kdeps** - latest [GitHub release](https://github.com/kdeps/kdeps/releases). kdeps gets `install.sh` from that tag and gives the same tag to the installer (never `main` + floating latest)
 - **ollama** - latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag for `ollama/ollama` and `alpine/ollama` (never `:latest`). `--gpu rocm` uses the fixed `ollama/ollama:rocm` tag instead.
 - **uv** - latest [astral-sh/uv](https://github.com/astral-sh/uv/releases) release as the `ghcr.io/astral-sh/uv` tag
 

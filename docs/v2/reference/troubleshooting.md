@@ -269,7 +269,7 @@ The terminal looks as usual (the call-chain trace goes to the file, not the scre
 
 - A `model_request` has all data that kdeps sends to the model. kdeps records the system prompt and tool list one time. Then it records `{"unchanged_since_request": N}` until they change.
 - kdeps records a workflow `chat` call, and the internal calls of the agent loop (such as prompt refinement), with `"source": "workflow"`. It records the messages and tool names, then the reply or error.
-- A judge's tool call has `"loop": "judge:<name>"`; no `loop` means the main agent loop. A judge calling a tool it was not given stops, and its review counts as approved.
+- A judge's tool call has `"loop": "judge:<name>"`. No `loop` means the main agent loop. A judge calling a tool it was not given stops, and its review counts as approved.
 - Strings over 64 KiB are cut with a note of how much. A new session with the same name replaces the old session.
 
 ```bash

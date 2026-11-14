@@ -2,10 +2,10 @@
 
 Build a single kdeps project that serves both a chat API
 and the static web page that talks to it. The browser posts messages to
-`/api/v1/chat`; kdeps runs an LLM and returns the reply.
+`/api/v1/chat`. kdeps runs an LLM and returns the reply.
 
 kdeps runs an `apiServer:` and a `webServer:` at the same time. The API server
-handles JSON routes; the web server serves files from a directory. A browser
+handles JSON routes. The web server serves files from a directory. A browser
 frontend has no safe place for an auth token. For this reason, its API route has
 `public: true`, and CORS protects it.
 
@@ -151,7 +151,7 @@ curl -X POST http://localhost:16395/api/v1/chat \
 {"success": true, "data": {"reply": "Hi."}}
 ```
 
-The reply text comes from the model and varies; `success: true` with a `reply` string means the chat resource ran.
+The reply text comes from the model and varies. `success: true` with a `reply` string means the chat resource ran.
 
 ## Next steps
 

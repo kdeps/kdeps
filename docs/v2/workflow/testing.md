@@ -158,7 +158,7 @@ Each case then executes the full DAG through the engine, so a test exercises the
 
 ## Scope
 
-`kdeps test` runs workflow `evals:`. Agencies and components do not define `evals:`; test the entry-point agent's workflow directly.
+`kdeps test` runs workflow `evals:`. Agencies and components do not define `evals:`. Test the entry-point agent's workflow directly.
 
 ## See also
 

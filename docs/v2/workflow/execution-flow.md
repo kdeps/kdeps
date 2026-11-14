@@ -233,7 +233,7 @@ In agent mode (`kdeps [path]`), the execution model differs:
 3. kdeps also registers the components from each loaded workflow as separate tools
 4. The LLM receives the user prompt and selects the tool to call
 5. A workflow tool call runs the full DAG. All `requires:` dependencies run in order. kdeps returns `apiResponse.response` to the LLM
-6. Agency tool calls run the agency's entry-point pipeline; internal `agent:` resources resolve against the agency's agent map
+6. Agency tool calls run the agency's entry-point pipeline. Internal `agent:` resources resolve against the agency's agent map
 7. Component tool calls run the component in isolation with inputs mapped to its interface fields
 8. The LLM can call more tools or give a final answer
 

@@ -50,7 +50,7 @@ The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
 
 - **Review** an agent change the way you review code - a diff of resources,
   validations, and prompts in a pull request.
-- **Version** with a git tag. A tag is a release; `kdeps validate` and
+- **Version** with a git tag. A tag is a release. `kdeps validate` and
   `kdeps bundle build` run against any checkout or tag.
 - **Build reproducibly** in CI: `kdeps validate` -> `kdeps bundle build` ->
   `docker push`, triggered on tag. The same commit yields the same appliance,

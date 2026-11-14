@@ -2,7 +2,7 @@
 
 A workflow gets input from an HTTP server (`apiServer:` under `settings:`), a chat bot, or one file. You set the bot and file sources under `settings:` `input:`.
 
-This sets how a workflow that runs gets its input. Agent mode does not use these sources; the prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
+This sets how a workflow that runs gets its input. Agent mode does not use these sources. The prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
 
 ## Overview
 

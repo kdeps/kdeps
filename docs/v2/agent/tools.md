@@ -21,7 +21,7 @@ Permission modes and lean mode stay on this page. The calling rules are their ow
 
 ## Asking the user
 
-`ask_question` puts a choice to you and ends the turn. The question, with its options numbered, is the reply; what you type next is the answer. Skill packs with interactive steps call it by name. A subagent never gets it.
+`ask_question` puts a choice to you and ends the turn. The question, with its options numbered, is the reply. What you type next is the answer. Skill packs with interactive steps call it by name. A subagent never gets it.
 
 ```json
 {"question": "Which review mode?", "options": ["Interactive", "Consolidated report"]}
@@ -74,7 +74,7 @@ python:
 ```
 
 Copy one of these files to `~/.kdeps/tools/` and edit it to change what the
-tool does; see [Your own tools](#your-own-tools).
+tool does. See [Your own tools](#your-own-tools).
 
 Optional fields:
 
@@ -139,7 +139,7 @@ http:
   url: "https://api.wolframalpha.com/v1/result?i={{urlquery .args.query}}&appid={{urlquery .env.APP_ID}}"
 ```
 
-`wolfram_alpha` is on the `web-call-budget` event's `tools:` list: a repeat call with the same arguments reuses the turn's answer, and each distinct call counts against the budget. Add a declared tool to a budget's list for the same behavior; see [call-budget events](/agent/events-guards#call-budget-events).
+`wolfram_alpha` is on the `web-call-budget` event's `tools:` list: a repeat call with the same arguments reuses the turn's answer, and each distinct call counts against the budget. Add a declared tool to a budget's list for the same behavior. See [call-budget events](/agent/events-guards#call-budget-events).
 
 ```yaml
 # tools/cohere_rerank.yaml (shipped, abridged): JSON body and a templated result
@@ -305,7 +305,7 @@ curl -s -X POST -H "Authorization: Bearer $KDEPS_API_TOKEN" -H "Content-Type: ap
 
 ## The call runs in the kdeps API
 
-The kdeps API serves a declared `http:` or `exec:` tool, as it serves all other tools. The tool asset declares the call; the handler runs it. The agent loop and a workflow component both reach it the same way.
+The kdeps API serves a declared `http:` or `exec:` tool, as it serves all other tools. The tool asset declares the call. The handler runs it. The agent loop and a workflow component both reach it the same way.
 
 ```text
 workflow YAML -> component YAML -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/{name}/call -> handler -> http: or exec: block
@@ -322,7 +322,7 @@ component:
     file: /tmp/scan.png
 ```
 
-A required `env` entry that is unset keeps the tool out of the agent's catalog; a direct API call returns `<tool>: required environment variables are not set`.
+A required `env` entry that is unset keeps the tool out of the agent's catalog. A direct API call returns `<tool>: required environment variables are not set`.
 
 ## Parameter-name synonyms
 

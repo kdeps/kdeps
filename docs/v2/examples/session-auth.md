@@ -1,7 +1,7 @@
 # Add login and sessions to an API
 
 Build an API with two endpoints: `POST /login` checks a
-username and password and starts a session; `GET /session` returns the session
+username and password and starts a session. `GET /session` returns the session
 data but only for a logged-in caller. Session state persists in SQLite.
 
 A session is key/value storage for each caller. It stays across requests.

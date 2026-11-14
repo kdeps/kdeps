@@ -74,7 +74,7 @@ run: block
 
 If you remove a tool from a list, the tool runs with no budget and does not use earlier answers again. If you add a tool to a list, kdeps counts it by its arguments. These four events must keep a `tools:` list. kdeps rejects an override file without this list when it loads. The shipped event then stays active.
 
-`/model tool set web-limit <n>` (and `bash-limit`, `file-limit`, `code-limit`) overrides an event's default for the session, as `/fold threshold` does for `fold`. `0` removes the cap (`/model tool set web-limit 0`): the budget never blocks, and the system prompt states the enforced limit or that there is none. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget; tools without a budget use the `identical-tool-calls` threshold.
+`/model tool set web-limit <n>` (and `bash-limit`, `file-limit`, `code-limit`) overrides an event's default for the session, as `/fold threshold` does for `fold`. `0` removes the cap (`/model tool set web-limit 0`): the budget never blocks, and the system prompt states the enforced limit or that there is none. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget. Tools without a budget use the `identical-tool-calls` threshold.
 
 Workflow chats read the same events: each chat call counts its own distinct calls, and a repeated call reuses its first result (see [tool loop behavior](/workflow/resources/llm#tool-loop-behavior)).
 

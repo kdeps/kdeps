@@ -118,7 +118,7 @@ deploy:
 When `letsEncrypt` is active (and no static PEM):
 
 - **HTTPS** on the configured API/web listen address (`ListenAndServeTLS` with autocert `GetCertificate`)
-- **HTTP on `httpChallengeAddr`** (default `:80`) serving `/.well-known/acme-challenge/...`; other paths return a short plain-text hint (no open redirect)
+- **HTTP on `httpChallengeAddr`** (default `:80`) serving `/.well-known/acme-challenge/...`. Other paths return a short plain-text hint (no open redirect)
 
 Certificates renew automatically when the process runs and the cache directory stays.
 
@@ -141,7 +141,7 @@ Browsers show a warning, because they do not trust the staging CA. When the test
 
 ## Docker
 
-Publish 80 and 443; mount a volume for the LE cache:
+Publish 80 and 443. Mount a volume for the LE cache:
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest

@@ -62,7 +62,7 @@ Credentials and named connections (HTTP auth, search API keys, bot tokens) belon
 
 ## Metadata and config profiles
 
-The workflow's `name:` under `metadata:` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
+The workflow's `name:` under `metadata:` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override. Everything else inherits.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -150,7 +150,7 @@ deploy:
     portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
-DNS must point at this host; open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). If you set both, static `certFile`/`keyFile` have priority.
+DNS must point at this host. Open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). If you set both, static `certFile`/`keyFile` have priority.
 
 ## Web server
 

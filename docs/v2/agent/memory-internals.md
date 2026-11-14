@@ -40,7 +40,7 @@ prompt -> purpose -> progress -> tool_result -> result -> status
                                action, error, file, decision, fact, note
 ```
 
-The graph is inline in the `<memory>` block. Parents come before their children, and each entry shows its parent as `<- parent`. Each entry is one line; newlines in a value become ` / `.
+The graph is inline in the `<memory>` block. Parents come before their children, and each entry shows its parent as `<- parent`. Each entry is one line. Newlines in a value become ` / `.
 
 ## Prompt injection
 
@@ -79,7 +79,7 @@ The map line gives the newest `error` that is not resolved. As a result, a model
 
 ## Duplicate facts
 
-If a later entry repeats an earlier fact (case and whitespace are ignored), kdeps marks it `(same as <key>)`. It does not count as new evidence. The model also gets a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool; the graph is the context.
+If a later entry repeats an earlier fact (case and whitespace are ignored), kdeps marks it `(same as <key>)`. It does not count as new evidence. The model also gets a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool. The graph is the context.
 
 ## Compaction integration
 
@@ -96,7 +96,7 @@ First, kdeps archives the previous checkpoint as `checkpoint:archive:<timestamp>
 
 ## Leaf-node limits
 
-Each entry's `references` field points at its parent keys. A **leaf** is an entry nothing references. Most `fact:` and `tool_result:` entries are leaves; `purpose:`/`progress:` entries with children are not.
+Each entry's `references` field points at its parent keys. A **leaf** is an entry nothing references. Most `fact:` and `tool_result:` entries are leaves. `purpose:`/`progress:` entries with children are not.
 
 Two settings cap leaves, independent of the checkpoint cap:
 

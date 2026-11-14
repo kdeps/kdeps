@@ -2,7 +2,7 @@
 
 Build an agency: two agents in one project, where the
 entry-point agent calls the other and returns the combined result. Each agent
-is its own `workflow.yaml`; an `agency.yaml` manifest ties them together.
+is its own `workflow.yaml`. An `agency.yaml` manifest ties them together.
 
 Each agent has its own resources, routes, and settings. The `agent:` resource runs
 another agent's entire pipeline and returns its `apiResponse`. Only the

@@ -4,7 +4,7 @@ kdeps separates two concerns: which model to call (set in the resource file) and
 
 Works in workflow and agent mode.
 
-kdeps calls each backend through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1`; kdeps appends `/chat/completions`. Without `/v1`, requests go to the wrong path and fail.
+kdeps calls each backend through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1`. kdeps appends `/chat/completions`. Without `/v1`, requests go to the wrong path and fail.
 
 | Backend | Default `baseUrl` | Set it to |
 |---|---|---|
@@ -239,7 +239,7 @@ kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and OpenAI-com
 
 ## Vertex AI (google cloud)
 
-Target Google's Vertex AI endpoint instead of the standard AI Studio endpoint by setting `googleCloudProject` and `googleCloudLocation` on the `chat:` resource. The backend in `config.yaml` stays `google`; the two resource-level fields route the call to the regional Vertex endpoint.
+Target Google's Vertex AI endpoint instead of the standard AI Studio endpoint by setting `googleCloudProject` and `googleCloudLocation` on the `chat:` resource. The backend in `config.yaml` stays `google`. The two resource-level fields route the call to the regional Vertex endpoint.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -292,7 +292,7 @@ chat:
 
 ## OpenAI: web search
 
-`openAIWebSearch: true` attaches langchaingo's `llms.WithWebSearch` to each request, so OpenAI runs its server-side web search. Use it with a search-capable model such as `gpt-4o-search-preview`; other models ignore the option. Only the `openai` backend applies it.
+`openAIWebSearch: true` attaches langchaingo's `llms.WithWebSearch` to each request, so OpenAI runs its server-side web search. Use it with a search-capable model such as `gpt-4o-search-preview`. Other models ignore the option. Only the `openai` backend applies it.
 
 ```yaml
 # resources/example.yaml
@@ -373,7 +373,7 @@ chat:
     prompt: "{{ get('q') }}"
 ```
 
-`ollamaKeepAlive` accepts Go duration strings: `"0"` unloads immediately; `"-1"` keeps the model loaded indefinitely; `"5m"`, `"1h"`, and other durations set a timed expiry.
+`ollamaKeepAlive` accepts Go duration strings: `"0"` unloads immediately. `"-1"` keeps the model loaded indefinitely. `"5m"`, `"1h"`, and other durations set a timed expiry.
 
 ## Streaming (Ollama)
 

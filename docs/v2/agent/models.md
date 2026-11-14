@@ -25,7 +25,7 @@ kdeps keeps a record of refusals the loop caught from each model: an invented li
 /model record clear    # wipe the current model's record
 ```
 
-The record keeps the newest 20 distinct refusals (the `model-record-limit` event); repeats only raise the count.
+The record keeps the newest 20 distinct refusals (the `model-record-limit` event). Repeats only raise the count.
 
 ## Cloud model catalog
 
@@ -191,7 +191,7 @@ kdeps saves favorites to `~/.kdeps/agent-loop-settings.yaml`. When you type no t
 /model Qwen2.5-VL-7B-Instruct-Q4_K_M
 ```
 
-`/model hff download` needs both the repo and the file; `/model hff info <repo>` lists the files. Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
+`/model hff download` needs both the repo and the file. `/model hff info <repo>` lists the files. Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
 
 `search` and `info` are the `hf_search` and `hf_repo_files` tools: `python:` blocks in their tool assets, which the model can also call. `KDEPS_HF_API_URL` points them at another HuggingFace API base.
 

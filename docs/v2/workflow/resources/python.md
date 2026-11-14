@@ -124,7 +124,7 @@ component:
 
 ## Output
 
-The script's stdout is the resource output. When stdout parses as a JSON object, the resource output is that object; otherwise it is the raw text.
+The script's stdout is the resource output. When stdout parses as a JSON object, the resource output is that object. Otherwise it is the raw text.
 
 <div v-pre>
 
@@ -157,7 +157,7 @@ A non-zero exit does not return stdout: the call fails with `python execution fa
 
 ## Environment variables
 
-`env:` sets variables for that one call; values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
+`env:` sets variables for that one call. Values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
 
 <div v-pre>
 

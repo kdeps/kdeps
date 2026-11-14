@@ -31,7 +31,7 @@ items: 5                       # how many recent checkpoints stay in the memory-
 run: compact                    # same action as auto-compact, just a tighter trigger cadence
 ```
 
-`auto-compact` is the safety net: near a full context window, kdeps summarizes everything except the last few turns. `fold` runs the same `compact` action more often, each time a couple thousand tokens of new conversation accumulate. They share an action; separate events keep the triggers independently tunable.
+`auto-compact` is the safety net: near a full context window, kdeps summarizes everything except the last few turns. `fold` runs the same `compact` action more often, each time a couple thousand tokens of new conversation accumulate. They share an action. Separate events keep the triggers independently tunable.
 
 ## Overriding a built-in
 

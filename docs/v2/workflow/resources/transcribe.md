@@ -1,6 +1,6 @@
 # Transcribe components
 
-Two kdeps components turn audio into text. `transcribe_audio` calls a Whisper API (OpenAI, Groq, or a self-hosted OpenAI-compatible server). `transcribe_audio_offline` runs a local `whisper-cli` binary, with no API key or network. Both come from the `components` asset set; call them with a `component:` resource, no install step. Each is a thin client over the kdeps API tool of the same name.
+Two kdeps components turn audio into text. `transcribe_audio` calls a Whisper API (OpenAI, Groq, or a self-hosted OpenAI-compatible server). `transcribe_audio_offline` runs a local `whisper-cli` binary, with no API key or network. Both come from the `components` asset set. Call them with a `component:` resource, no install step. Each is a thin client over the kdeps API tool of the same name.
 
 ## Where it runs
 
@@ -20,7 +20,7 @@ pick -> api: "openai | groq | local"
 offlineCall -> cli
 ```
 
-Each component is one resource that posts to its tool route. The API tool picks the endpoint from `backend`; the offline tool runs `whisper-cli`.
+Each component is one resource that posts to its tool route. The API tool picks the endpoint from `backend`. The offline tool runs `whisper-cli`.
 
 ## Whisper API
 
@@ -46,7 +46,7 @@ apiResponse:
     text: "{{ output('transcribe') }}"   # the transcript
 ```
 
-The API key comes from `OPENAI_API_KEY` (openai) or `GROQ_API_KEY` (groq); `local` sends `OPENAI_API_KEY` if you set it, because some self-hosted servers check it. Otherwise, it sends no key. A non-2xx answer fails the resource with the status and body.
+The API key comes from `OPENAI_API_KEY` (openai) or `GROQ_API_KEY` (groq). `local` sends `OPENAI_API_KEY` if you set it, because some self-hosted servers check it. Otherwise, it sends no key. A non-2xx answer fails the resource with the status and body.
 
 | Input | Default | Description |
 |---|---|---|
@@ -70,7 +70,7 @@ component:
     # modelPath: /models/ggml-small.en.bin   # default: <models dir>/ggml-base.en.bin
 ```
 
-`whisper-cli` must be on `PATH` (`brew install whisper-cpp`, or build whisper.cpp); when it is missing, kdeps installs `whisper-cpp` from the tool asset's `exec.install`. The model must already be at `modelPath`, or at `ggml-base.en.bin` in the models directory (`$KDEPS_MODELS_DIR`, default `~/.kdeps/models`). Download it one time from [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp).
+`whisper-cli` must be on `PATH` (`brew install whisper-cpp`, or build whisper.cpp). When it is missing, kdeps installs `whisper-cpp` from the tool asset's `exec.install`. The model must already be at `modelPath`, or at `ggml-base.en.bin` in the models directory (`$KDEPS_MODELS_DIR`, default `~/.kdeps/models`). Download it one time from [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp).
 
 | Input | Default | Description |
 |---|---|---|

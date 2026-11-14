@@ -187,7 +187,7 @@ component:
 
 ## File upload, download and failing on errors
 
-`files:` sends a `multipart/form-data` body: each key is a form field, each value the path of the file to upload; `data:` holds the text fields of the same form. `saveTo:` streams a 2xx response into a file instead of memory. `failOnError: true` turns a non-2xx response into a resource error instead of a result to inspect.
+`files:` sends a `multipart/form-data` body: each key is a form field, each value the path of the file to upload. `data:` holds the text fields of the same form. `saveTo:` streams a 2xx response into a file instead of memory. `failOnError: true` turns a non-2xx response into a resource error instead of a result to inspect.
 
 <div v-pre>
 

@@ -194,7 +194,7 @@ apiResponse:
 
 ## Dynamic items
 
-Items can come from expressions or previous resources. The `items:` field is always a YAML list; kdeps expands one expression that returns an array into many iterations:
+Items can come from expressions or previous resources. The `items:` field is always a YAML list. kdeps expands one expression that returns an array into many iterations:
 
 ```yaml
 # From expression - evaluates to array, each element becomes one iteration

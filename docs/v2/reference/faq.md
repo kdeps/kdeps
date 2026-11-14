@@ -56,7 +56,7 @@ kdeps has no code dependency - install the binary, write a YAML file, and run.
 
 ## Can I call one workflow from another?
 
-Yes, with [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent's full pipeline. The caller passes `params:`; the callee reads them with `get('key')` and returns its `apiResponse.response`.
+Yes, with [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent's full pipeline. The caller passes `params:`. The callee reads them with `get('key')` and returns its `apiResponse.response`.
 
 ## Can I deploy kdeps as an API server?
 

@@ -1,6 +1,6 @@
 # Agent loop REPL features
 
-Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is agent mode only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/); for the slash commands, see [REPL slash commands](/agent/commands).
+Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is agent mode only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/). For the slash commands, see [REPL slash commands](/agent/commands).
 
 ## Pasting
 
@@ -90,7 +90,7 @@ Full-screen prompt only:
 - `Ctrl+O`: saving replaces the prompt without sending it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
 - A prompt longer than the row scrolls to keep the cursor visible. A click lands on the drawn letter.
 
-`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match; `Ctrl+S` searches forward. Enter runs the match; `Ctrl+G` or Esc cancels.
+`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match. `Ctrl+S` searches forward. Enter runs the match. `Ctrl+G` or Esc cancels.
 
 Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `stty -ixon` in your shell config frees it.
 
@@ -197,7 +197,7 @@ With `/thinking` on, streamed reasoning renders as live markdown in muted gray u
 
 ## Custom harness
 
-The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction, judge and prompt-refinement system prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)); add your own as `~/.kdeps/harness/<name>.yaml`:
+The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction, judge and prompt-refinement system prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)). Add your own as `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml

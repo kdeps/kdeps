@@ -27,7 +27,7 @@ after:
   - set('total', get('price') * get('quantity'))
 ```
 
-**validations.skip / validations.check / onError.when** - a list of boolean expressions; any one true is enough:
+**validations.skip / validations.check / onError.when** - a list of boolean expressions. Any one true is enough:
 
 ```yaml
 # resources/example.yaml

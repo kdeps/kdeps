@@ -1,6 +1,6 @@
 # Git component
 
-The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results: file lists, commit objects, branch lists. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step. The operations are the kdeps API's `git_ops` tool; the component only POSTs the arguments.
+The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results: file lists, commit objects, branch lists. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step. The operations are the kdeps API's `git_ops` tool. The component only POSTs the arguments.
 
 ## Where it runs
 
@@ -57,7 +57,7 @@ Component inputs are strings. For this reason, spaces separate the items in `pat
 
 ## Output
 
-Every result has `success: true` plus the operation's fields; a failing git command fails the resource with git's error.
+Every result has `success: true` plus the operation's fields. A failing git command fails the resource with git's error.
 
 ```json
 {"success": true, "branch": "main", "staged": ["file1.go"], "unstaged": ["file2.go"], "untracked": ["new.txt"], "conflicts": []}

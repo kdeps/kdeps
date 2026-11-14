@@ -2,7 +2,7 @@
 
 Persistent memory stores and recalls facts across agent sessions for one project. [Session storage](/workflow/sessions) is different: it persists across HTTP requests from one caller.
 
-Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts; the long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
+Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts. The long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
 
 ## How it works
 
@@ -114,7 +114,7 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 | Join | `join(left, right, leftField, rightField)` | `join(tool_calls, memory, "name", "key")` |
 | Union | `union(a, b)` | `union(filter(memory, .type == "error"), filter(memory, .type == "decision"))` |
 
-String matching uses infix operators, not function calls. `contains(...)` is a parse error; put the field on the left:
+String matching uses infix operators, not function calls. `contains(...)` is a parse error. Put the field on the left:
 
 | Match | Operator | Example |
 |---|---|---|
@@ -125,7 +125,7 @@ String matching uses infix operators, not function calls. `contains(...)` is a p
 | Case-insensitive substring | `lower()` + `contains` | `filter(memory, lower(.value) contains "latency")` |
 | Membership | `in` | `filter(memory, .type in ["error", "decision"])` |
 
-`join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide; no inequality/range-join or multi-field-key support today.
+`join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide. No inequality/range-join or multi-field-key support today.
 
 ```json
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}

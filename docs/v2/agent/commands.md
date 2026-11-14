@@ -2,7 +2,7 @@
 
 Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 
-Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names the kdeps API operation that runs it. The REPL dispatches through that binding. The same operation is on the [kdeps API](/reference/api#run-a-slash-command) at `POST /apis/commands.kdeps.io/v1/commands/{name}/call`; `/apis/commands.kdeps.io/v1/commands` lists each operation with its display name and usage.
+Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names the kdeps API operation that runs it. The REPL dispatches through that binding. The same operation is on the [kdeps API](/reference/api#run-a-slash-command) at `POST /apis/commands.kdeps.io/v1/commands/{name}/call`. `/apis/commands.kdeps.io/v1/commands` lists each operation with its display name and usage.
 
 | Command | Description |
 |---------|-------------|
@@ -124,7 +124,7 @@ main.go, sends  unchanged
 the turn
 ```
 
-kdeps scans only text in `"..."` or `'...'`. `can you check df -h for me` triggers nothing; `"df -h"` does.
+kdeps scans only text in `"..."` or `'...'`. `can you check df -h for me` triggers nothing. `"df -h"` does.
 
 ## Text files and read-only commands
 
@@ -182,7 +182,7 @@ more -> issue: "no"
 issue -> done
 ```
 
-**Where it runs.** The working directory must be this module or a folder inside it; another module stops the walk. With no session recording, it starts one named `auto-improve`; an existing session keeps recording and stays open afterwards.
+**Where it runs.** The working directory must be this module or a folder inside it. Another module stops the walk. With no session recording, it starts one named `auto-improve`. An existing session keeps recording and stays open afterwards.
 
 **Model.** On an OpenRouter backend, or an OpenRouter free model, each task and evaluate turn prints `auto-improve: model <id>` and switches to a random free id. A local backend keeps its model. A random free id also replaces one that fails with:
 
@@ -209,7 +209,7 @@ A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs one task per
 
 - It passes `--backend openrouter`, `--instrument=bug-hunt-N`, and a model id from `assets/models/openrouter.yaml`.
 - `scripts/bug-hunt.sh run` tries the largest parameter count first (the `550b` in `nvidia/nemotron-3-ultra-550b-a55b:free`). `scripts/bug-hunt.sh models` keeps catalog order.
-- Each process is hunt N of 3 (task, then evaluate); its instrument log holds only that hunt.
+- Each process is hunt N of 3 (task, then evaluate). Its instrument log holds only that hunt.
 - Free-model requests wait to stay under the account cap (`openrouter-free-per-minute`: 20 calls per minute across all free ids). An account 429 waits out the minute and retries the same id.
 - Without `auto-improve: done`, it tries another id, up to four.
 - With no `auto-improve: issue http` and no `auto-improve: no issue` line in the log, the job files the issue itself.
@@ -266,7 +266,7 @@ run:                      # steps run in order; the first failing step stops the
       Review the uncommitted changes. Extra focus, if given: $ARGUMENTS
 ```
 
-A step can also call a kdeps API tool directly. The tool's output is the step's output; the arguments go in `args:`, and their string values take the same placeholders.
+A step can also call a kdeps API tool directly. The tool's output is the step's output. The arguments go in `args:`, and their string values take the same placeholders.
 
 ```yaml
 # ~/.kdeps/commands/calc.yaml - /calc 6*7 prints 42
@@ -411,7 +411,7 @@ run:
 
 ## Setting commands
 
-A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps holds the live value and persists it; the file holds the accepted values and every printed line. The block goes through the `session_ops` tool's `get` and `set`, so any kdeps API caller can do the same. `set` accepts only the listed values.
+A command file with a `setting:` block (instead of `run:`) shows or sets one session setting. kdeps holds the live value and persists it. The file holds the accepted values and every printed line. The block goes through the `session_ops` tool's `get` and `set`, so any kdeps API caller can do the same. `set` accepts only the listed values.
 
 ```text
 /refine        -> prints show:     (current value)

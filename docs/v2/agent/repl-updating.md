@@ -179,7 +179,7 @@ kdeps gives the name of an item that fails for a different reason. If other item
 
 - Sets with no necessary items (`events`, `actions`, `presets`) stay empty. kdeps records them as empty in `lock.json`, so the next start makes no network call.
 - If a necessary item is not installed when code reads it, kdeps installs it one time, on first use. The terminal shows its name: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).
-- A Go built-in command (`builtin: true`) runs without its file; the file only adds it to `/help`.
+- A Go built-in command (`builtin: true`) runs without its file. The file only adds it to `/help`.
 - A YAML command (`run:`, `setting:` or `subcommands:`, such as `/refine` or `/review`) exists only when installed: `kdeps install commands/refine` adds `/refine`, `kdeps install commands` adds all.
 - You cannot uninstall a necessary item.
 
@@ -280,7 +280,7 @@ A [shelf](/reference/glossary#shelf) is the engineering category of an asset. Th
 | workflow | `schemas/`, `templates/`, `components/`, `defaults/` |
 | deploy | `docker/`, `k8s/` |
 
-`events/` and `actions/` stay their own sets; each file takes the shelf of the behavior it serves.
+`events/` and `actions/` stay their own sets. Each file takes the shelf of the behavior it serves.
 
 Tokens, structured output, embeddings, session, trace, and fine-tune are not shelves.
 

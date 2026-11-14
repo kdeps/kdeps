@@ -27,7 +27,7 @@ Always available. No environment variables required.
 
 ## Size cap
 
-`read_file` refuses a file, and `write_file` refuses content, larger than the `file-read-limit` event (1 MiB by default). The agent loop passes the event's value to the script; a workflow component that calls the tool gets the 1 MiB default.
+`read_file` refuses a file, and `write_file` refuses content, larger than the `file-read-limit` event (1 MiB by default). The agent loop passes the event's value to the script. A workflow component that calls the tool gets the 1 MiB default.
 
 ```yaml
 # ~/.kdeps/events/file-read-limit.yaml

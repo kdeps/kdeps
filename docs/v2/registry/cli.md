@@ -4,7 +4,7 @@ Search, install, and publish packages from the kdeps registry. Install, update, 
 
 ## Commands
 
-Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`) points it at another registry.
+Each is a top-level `kdeps` command. `--registry <url>` (or `KDEPS_REGISTRY_URL`) points it at another registry.
 
 | Command | Description |
 |---|---|
@@ -56,7 +56,7 @@ kdeps profile agent                # install the agent profile
 
 ## Publishing a package
 
-The kdeps registry is GitHub-hosted. Packages live in the author's own GitHub repo; the registry indexes a formula file per package.
+The kdeps registry is GitHub-hosted. Packages live in the author's own GitHub repo. The registry indexes a formula file per package.
 
 ```bash
 # 1. Tag a release in your repo

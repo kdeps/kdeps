@@ -2,7 +2,7 @@
 
 The handshake checks that the model makes a real tool call after the context changes. Permission modes are on [Built-in tools](/agent/tools).
 
-It is off by default. `/handshake on` enables it and verifies the current model before your next prompt. `/handshake` alone reports the state; the setting persists across sessions.
+It is off by default. `/handshake on` enables it and verifies the current model before your next prompt. `/handshake` alone reports the state. The setting persists across sessions.
 
 After a model switch, a resumed session, or a compaction/fold that rewrites the context, kdeps does not know if the model can call tools. The model can write "I called X, it returned Y" as plain text, and not make a call. The handshake finds this problem:
 
@@ -23,7 +23,7 @@ kdeps sends the challenge as a user-turn message. It does not use a system promp
 
 ## The block to copy
 
-The directive says kdeps parses a matched `<invoke>` block out of the message at runtime; it is not the model's code interpreter. It shows the syntax with the code filled in:
+The directive says kdeps parses a matched `<invoke>` block out of the message at runtime. It is not the model's code interpreter. It shows the syntax with the code filled in:
 
 ```
 <invoke name="session_handshake">
@@ -41,7 +41,7 @@ Before the challenge, kdeps asks two unchecked warm-up questions: "how do you in
 
 After the warm-up, kdeps asks the model to call `bash_exec` with `pwd` (skipped if `bash_exec` is not registered). A real result moves a model that believes it is in a sandbox better than more text does. On success, kdeps adds "that came from a real shell, not a sandbox".
 
-The step retries up to 3 times. The nudge explains that kdeps has no native tool channel, so the `<invoke>` block must be the literal text. Then it gives up quietly; the challenge is the real gate.
+The step retries up to 3 times. The nudge explains that kdeps has no native tool channel, so the `<invoke>` block must be the literal text. Then it gives up quietly. The challenge is the real gate.
 
 ## Grounding message
 

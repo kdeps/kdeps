@@ -357,7 +357,7 @@ Output:
 
 ## Judges
 
-`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel; if any rejects, the chat runs again with their feedback, and the panel reviews the revision. Agent mode's [judge panel](/agent/judges) runs on the same engine.
+`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel. If any rejects, the chat runs again with their feedback, and the panel reviews the revision. Agent mode's [judge panel](/agent/judges) runs on the same engine.
 
 ```text
 chat -> judges (parallel) -> all approve? -> output
@@ -392,7 +392,7 @@ chat:
 
 </div>
 
-- Each judge uses the chat's model and replies with a JSON verdict; it sees the rendered prompt and the answer, not the conversation.
+- Each judge uses the chat's model and replies with a JSON verdict. It sees the rendered prompt and the answer, not the conversation.
 - Reviews per answer: the `judge-iterations` event (2). The last revision is the output when the budget runs out.
 - A judge that fails or replies without a verdict approves: judges never fail the resource.
 
@@ -423,7 +423,7 @@ chat:
     sections: [accuracy, honesty, output]   # assets/harness/<name>.yaml, kind: preamble-section
 ```
 
-Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing; an unknown name fails the resource.
+Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing. An unknown name fails the resource.
 
 ## Prompt refine
 
@@ -540,7 +540,7 @@ Each nudge occurs a maximum of `maxOccurrences` times (from its harness entry). 
 
 First, kdeps checks each model call against the [request body limit](/reference/security#request-body-size-preflight) of the backend. A request above the limit fails with a clear error. It never goes to the model.
 
-A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call; later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.
+A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call. Later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.
 
 If a call is larger than the context of the model, kdeps compacts it and tries again one time, as in agent mode. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
 
@@ -580,7 +580,7 @@ chat:
       - name: write_file   # not read-only: only this chat may use it
 ```
 
-Its prompt is the `subagent-system` harness; its tool rounds are the `subagent-max-rounds` event, as in agent mode.
+Its prompt is the `subagent-system` harness. Its tool rounds are the `subagent-max-rounds` event, as in agent mode.
 
 ### Component tools (opt-in allowlist)
 
@@ -642,7 +642,7 @@ Some `chat:` fields apply to one backend only: Anthropic prompt caching and beta
 
 ## Sampling: candidate count
 
-`candidateCount` (or its alias `n`) requests N independent completions from the model. The response contains all candidates; kdeps merges them into the output object. Not all providers support multiple candidates.
+`candidateCount` (or its alias `n`) requests N independent completions from the model. The response contains all candidates. kdeps merges them into the output object. Not all providers support multiple candidates.
 
 ```yaml
 # resources/example.yaml

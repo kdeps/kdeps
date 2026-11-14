@@ -97,7 +97,7 @@ interface:
 
 </div>
 
-`kdeps build` installs the `osPackages` listed under `setup:` into the image; at run time the machine's package manager (apk, apt-get, brew) installs them. List the programs they provide under `provides:`. When all are already on `PATH`, no package manager runs.
+`kdeps build` installs the `osPackages` listed under `setup:` into the image. At run time the machine's package manager (apk, apt-get, brew) installs them. List the programs they provide under `provides:`. When all are already on `PATH`, no package manager runs.
 
 ```yaml
 # components/my-tool/component.yaml

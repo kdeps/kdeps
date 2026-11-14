@@ -1,6 +1,6 @@
 # File component
 
-The `file` component runs one filesystem operation (read, write, patch, list, delete, exists, mkdir, copy, move, append) and returns a structured result: content and lines, entry lists, flags. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step. The operations are the kdeps API's `file_ops` tool; the component only POSTs the arguments.
+The `file` component runs one filesystem operation (read, write, patch, list, delete, exists, mkdir, copy, move, append) and returns a structured result: content and lines, entry lists, flags. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step. The operations are the kdeps API's `file_ops` tool. The component only POSTs the arguments.
 
 ## Where it runs
 
@@ -150,7 +150,7 @@ Listing a file (not a directory) returns one entry for it.
 component: file -> POST /apis/tools.kdeps.io/v1/tools/file_ops/call -> {success, ...operation fields}
 ```
 
-One `httpClient` POST carrying all twelve inputs to the `file_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool does each operation with the Python standard library (`os`, `shutil`) and returns the same fields. Copy `components/file/` into your project to change an input default; copy `tools/file_ops.yaml` to `~/.kdeps/tools/` to change the operations themselves.
+One `httpClient` POST carrying all twelve inputs to the `file_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool does each operation with the Python standard library (`os`, `shutil`) and returns the same fields. Copy `components/file/` into your project to change an input default. Copy `tools/file_ops.yaml` to `~/.kdeps/tools/` to change the operations themselves.
 
 ## See also
 

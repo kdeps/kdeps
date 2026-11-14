@@ -59,7 +59,7 @@ The [Glossary](/reference/glossary) gives the definition of each kdeps term.
 
 ## The smallest working example
 
-No YAML needed; run the binary:
+No YAML needed. Run the binary:
 
 ```bash
 kdeps            # opens an AI chat REPL against a local model, no API key

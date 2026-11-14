@@ -128,7 +128,7 @@ The layout is the same for a code repository, a document folder, a workflow, a b
 
 ## Set up
 
-The vault is on by default, in `~/.kdeps/notes`. The first session creates it; every session rebuilds its graph in the background.
+The vault is on by default, in `~/.kdeps/notes`. The first session creates it. Every session rebuilds its graph in the background.
 
 | Turn it | How |
 |---|---|
@@ -150,7 +150,7 @@ knowledge:
 
 ## Cards
 
-A card points; it never tells the story. kdeps writes this one on the first run in `~/code/my-app`:
+A card points. It never tells the story. kdeps writes this one on the first run in `~/code/my-app`:
 
 ```markdown
 ---
@@ -267,7 +267,7 @@ The structural graph refreshes automatically at these times:
 
 - **Nodes:** each note, each tag, and each Go package of every card's `repo` row.
 - **Edges:** wikilinks (`references`), frontmatter links (`relates_to`), tags (`tagged`) and Go imports (`depends_on`).
-- **Provenance:** each edge records how kdeps found it. Link and import edges are `extracted`; code goes through the Go parser, never a model. A local model can add `inferred` edges (see [Model extraction](#model-extraction)).
+- **Provenance:** each edge records how kdeps found it. Link and import edges are `extracted`. Code goes through the Go parser, never a model. A local model can add `inferred` edges (see [Model extraction](#model-extraction)).
 
 ```text
 $ kdeps knowledge build
@@ -302,7 +302,7 @@ changed -> first -> rest -> cache -> build
 | `auto` | also at session end (after the session note, up to `per_session` notes) and before a background build; keeps running after the prompt returns |
 | `off` | never |
 
-Recall waits for the link graph, not for the model. The call uses the [subagent channel](/agent/subagent): the session model unless `/subagent` or `llm.subagent` names another; `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only when the channel is `current`. kdeps skips a local model that is not available.
+Recall waits for the link graph, not for the model. The call uses the [subagent channel](/agent/subagent): the session model unless `/subagent` or `llm.subagent` names another. `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only when the channel is `current`. kdeps skips a local model that is not available.
 
 **From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.subagent`, then `knowledge.extract.model`, then the current model.
 
@@ -347,7 +347,7 @@ Run `/knowledge extract` afterwards to pull facts from the new notes.
 One graph covers the whole vault: every project, `shared/`, and the Go packages of each card's `repo` row.
 
 - Each build groups it with the knowledge policy's `community_method`: `louvain` (default) or `leiden` (always-connected communities). Both are deterministic.
-- Each node gets a `community` number in `graph.json`; 0 is the largest.
+- Each node gets a `community` number in `graph.json`. 0 is the largest.
 - The build writes `GRAPH_REPORT.md` and `graph.html` next to the graph. The page draws each community as a colored cluster with a legend (click to focus), plus search, zoom and hover summaries. Its template (`templates/knowledge`) installs on first need.
 - `kdeps knowledge build` prints the paths. `kdeps knowledge explain "<query>"` lists matching edges with the file and line each came from.
 
@@ -460,7 +460,7 @@ The model uses `knowledge_card_update` with `add_search_folder` or `remove_searc
 
 kdeps refuses: your home folder, a filesystem root, the vault, the project's own folder, a folder inside one already searched, and a non-folder path.
 
-Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned, in any folder. The lists are in the set's `search.yaml` (`secret_names`, `secret_prefixes`, `secret_extensions`, `secret_dirs`); without that file, kdeps indexes nothing. A deleted search folder shows up in `kdeps knowledge check`.
+Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned, in any folder. The lists are in the set's `search.yaml` (`secret_names`, `secret_prefixes`, `secret_extensions`, `secret_dirs`). Without that file, kdeps indexes nothing. A deleted search folder shows up in `kdeps knowledge check`.
 
 ## Check
 

@@ -26,7 +26,7 @@ Set `KDEPS_ALLOW_BASH=false` to disable all three `bash_*` tools.
 
 ## Token savings with rtk (optional)
 
-[rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses command output before it reaches the LLM. `git status` costs ~300 tokens; `rtk git status` costs ~60 for the same information. If you install rtk, `bash_exec` uses it automatically. You do not configure it.
+[rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses command output before it reaches the LLM. `git status` costs ~300 tokens. `rtk git status` costs ~60 for the same information. If you install rtk, `bash_exec` uses it automatically. You do not configure it.
 
 ```text
 LLM calls bash_exec("go test ./...")
@@ -46,7 +46,7 @@ Install it with `brew install rtk`, or skip it - kdeps runs your commands unchan
 
 What this does not change:
 
-- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. The same applies when rtk's rewrite does not invoke `rtk`; kdeps runs only a rewrite it can identify as an rtk command. rtk can never block execution.
+- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. The same applies when rtk's rewrite does not invoke `rtk`. kdeps runs only a rewrite it can identify as an rtk command. rtk can never block execution.
 - **Permissions do not change.** kdeps controls shell commands itself. Here, rtk is only a compressor. kdeps ignores the permission decisions of rtk, so you do not get two permission checks.
 - **A workflow `exec` resource keeps raw output,** because pipelines parse it downstream. `bash_exec` and the shipped `bash_exec` component both use rtk.
 

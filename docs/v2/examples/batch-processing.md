@@ -97,7 +97,7 @@ component:
 </div>
 
 `safe(item, 'data.stargazers_count')` reads a nested field without erroring if
-it is missing; `default(..., 0)` supplies a fallback.
+it is missing. `default(..., 0)` supplies a fallback.
 
 ## Step 5: aggregate and respond
 

@@ -198,7 +198,7 @@ Response:
 }
 ```
 
-The translator saw `TRANSLATOR_API_KEY`; the summarizer fell back to `API_KEY`.
+The translator saw `TRANSLATOR_API_KEY`. The summarizer fell back to `API_KEY`.
 
 ## Step 6: inspect the scaffolded files
 

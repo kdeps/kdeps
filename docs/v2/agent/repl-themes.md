@@ -6,7 +6,7 @@ The REPL look is `normal` or a disguise. It changes rendering only. Prompts, res
 
 `/theme <name>` (or `--theme <name>`, or `KDEPS_THEME=<name>`) changes the whole look immediately: banner, prompt, typed text, model name, responses, thinking blocks, tool summaries. `normal` is the bright default. Every other theme is a disguise that does not read as "an AI session on model X" to someone glancing at your screen.
 
-The `/model`, `/settings` and startup resume pickers are separate full-screen views but use the same theme colors (accent, success, warning, dim, bold). `vim` gives them yellow/green/red accents; `black` makes them flat gray.
+The `/model`, `/settings` and startup resume pickers are separate full-screen views but use the same theme colors (accent, success, warning, dim, bold). `vim` gives them yellow/green/red accents. `black` makes them flat gray.
 
 ```bash
 kdeps --theme black             # start disguised
@@ -61,7 +61,7 @@ If kdeps knows the context window of the current model, a line above the session
 
 ## The session row
 
-The `session` row is cumulative and never measured against the window; only `turn` is.
+The `session` row is cumulative and never measured against the window. Only `turn` is.
 
 | Field | Meaning |
 |---|---|
@@ -77,7 +77,7 @@ The `session` row is cumulative and never measured against the window; only `tur
 
 ## The turn figure
 
-`turn` is the prompt size of the latest call: the provider's count when the backend reports one, else the size of the messages sent. The parts (`sys`, `mem`, `hist`, tools) are pre-call estimates scaled to that total; the rest (your message, tool schemas, framing) shows as `other`. Before a turn's first call, parts are plain estimates. The modeline `used/limit` shows the same figure in the same format (`20.7k/128.0k`).
+`turn` is the prompt size of the latest call: the provider's count when the backend reports one, else the size of the messages sent. The parts (`sys`, `mem`, `hist`, tools) are pre-call estimates scaled to that total. The rest (your message, tool schemas, framing) shows as `other`. Before a turn's first call, parts are plain estimates. The modeline `used/limit` shows the same figure in the same format (`20.7k/128.0k`).
 
 ## Custom themes
 

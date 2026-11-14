@@ -35,7 +35,7 @@ sudo pacman -U kdeps_<version>_linux_amd64.pkg.tar.zst        # Arch
 sudo apk add --allow-untrusted ./kdeps_<version>_linux_amd64.apk   # Alpine
 ```
 
-Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you; see [Desktop app](../agent/desktop#install).
+Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you. See [Desktop app](../agent/desktop#install).
 
 ## Linux, macOS, and Windows (curl)
 
@@ -104,7 +104,7 @@ kdeps version 2.21.0
 
 ## First run: pick a profile
 
-The binary ships no prompts, schemas, templates or tool definitions; the first command downloads them from kdeps.io (about 1.5 MB for everything). It asks how much:
+The binary ships no prompts, schemas, templates or tool definitions. The first command downloads them from kdeps.io (about 1.5 MB for everything). It asks how much:
 
 ```text
 What will you use kdeps for? (change it later with kdeps profile)
@@ -125,9 +125,9 @@ If a later command needs more, kdeps installs only the parts that its loader nee
 - `search_local`, memory, and knowledge.
 
 - Web and search tools: `kdeps install tools`, or one at a time (`kdeps install tools/web_search`).
-- `kdeps install <set>` adds a set; `kdeps profile <name>` switches profile and prunes the rest.
+- `kdeps install <set>` adds a set. `kdeps profile <name>` switches profile and prunes the rest.
 - CI or Docker: no prompt. Set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads.
-- A [shelf](/reference/glossary#shelf) files the same items by category: `kdeps list rag` shows one; the id stays `set/name`.
+- A [shelf](/reference/glossary#shelf) files the same items by category: `kdeps list rag` shows one. The id stays `set/name`.
 
 Details: [Updating assets](/agent/repl-updating#updating-assets).
 

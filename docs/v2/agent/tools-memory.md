@@ -23,5 +23,5 @@ The `memory_*` tools are how the *model* reads and writes memory during a turn. 
 
 ## Identity tool
 
-Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/reference/advanced-config#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
+Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/reference/advanced-config#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured. A model that can read a password can leak it in its own output.
 

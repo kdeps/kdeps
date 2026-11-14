@@ -92,7 +92,7 @@ When you configure only `webServer` (no `apiServer`), kdeps does not enforce bea
 
 ## Rate limiting
 
-Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate; `burst` is the number of requests that a client can send above that rate in one burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
+Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate. `burst` is the number of requests that a client can send above that rate in one burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
 
 ```yaml
 # workflow.yaml
@@ -150,7 +150,7 @@ deploy:
 
 ### Let's encrypt (custom domain)
 
-Automatic ACME certificates for a custom domain (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host; prefer listen :443.
+Automatic ACME certificates for a custom domain (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host. Prefer listen :443.
 
 ```yaml
 # workflow.yaml
@@ -173,7 +173,7 @@ deploy:
 
 If you set `certFile`/`keyFile` and `letsEncrypt`, static PEM has priority. The same settings apply to webServer when it is enabled.
 
-Docker/K8s: publish 80 and 443; keep `cacheDir` on a writable volume.
+Docker/K8s: publish 80 and 443. Keep `cacheDir` on a writable volume.
 
 Full guide: [TLS and HTTPS (Custom Domains)](/deploy/tls-https).
 
@@ -226,7 +226,7 @@ env:
 
 Both modes check the request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests, so the preflight returns an actionable error before the call. A workflow `chat:` checks its first call and each tool-round follow-up.
 
-Each limit is a `provider-body-limit-<backend>` event; override it in `~/.kdeps/events/`, or turn it off for no limit.
+Each limit is a `provider-body-limit-<backend>` event. Override it in `~/.kdeps/events/`, or turn it off for no limit.
 
 | Backend | Limit |
 |---------|-------|

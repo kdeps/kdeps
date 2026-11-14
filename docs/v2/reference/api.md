@@ -72,7 +72,7 @@ loop -> cmdasset: "config data, not served"
 
 Chains by asset set:
 
-- **Tools**: the declared runner serves `tools/` assets with `http:`, `exec:`, `sql:`, or `python:`. Go-backed tools have a `ToolSpec`. `session_ops` reads and changes the active agent session. Its `tool` operation runs the session-only tools (`judge_verdict`, `knowledge_*`, `load_skill`, `load_tools`, `identity_get`, `session_handshake`), which have no route of their own. The tool list marks `session_ops` `"agentOnly": true`; in workflow mode, with no agent session, a call fails.
+- **Tools**: the declared runner serves `tools/` assets with `http:`, `exec:`, `sql:`, or `python:`. Go-backed tools have a `ToolSpec`. `session_ops` reads and changes the active agent session. Its `tool` operation runs the session-only tools (`judge_verdict`, `knowledge_*`, `load_skill`, `load_tools`, `identity_get`, `session_handshake`), which have no route of their own. The tool list marks `session_ops` `"agentOnly": true`. In workflow mode, with no agent session, a call fails.
 - **Components**: each `components/` asset declares `requires:` and calls `kdeps.api`. The component invariant tests enforce this for workflow tools.
 - **Commands**: builtin commands name their operation in `api:`. kdeps publishes declared prompt commands under their own name.
 - **Loop data**: configuration only, see [Loop data sets](#loop-data-sets).
@@ -175,7 +175,7 @@ An unknown tool name is `404` with message `tool not found`. A body without `fil
 
 ## Run a slash command
 
-Every builtin slash command is a `commands/<op>.yaml` asset. Its `api:` field names the operation that runs it, and the REPL publishes each operation on this API. The file stem, `api:`, and the call-route `name` are all the same string; kdeps skips a command at load if its asset does not match.
+Every builtin slash command is a `commands/<op>.yaml` asset. Its `api:` field names the operation that runs it, and the REPL publishes each operation on this API. The file stem, `api:`, and the call-route `name` are all the same string. kdeps skips a command at load if its asset does not match.
 
 ```text
 /clear -> commands/clear.yaml (api: clear) -> POST /apis/commands.kdeps.io/v1/commands/clear/call -> handler
@@ -216,14 +216,14 @@ The agent loop (`kdeps`, the desktop app) publishes the routes. A `kdeps run` pr
 
 ## Other calls
 
-These tools use the same call route: `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `session_ops`, `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the asset-declared tools. `session_ops` also runs the agent-session tools `identity_get`, `judge_verdict`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `knowledge_recall`, `load_skill`, `load_tools` and `session_handshake`. The handler is the implementation; the agent tool and the shipped component only POST the arguments.
+These tools use the same call route: `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `session_ops`, `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the asset-declared tools. `session_ops` also runs the agent-session tools `identity_get`, `judge_verdict`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `knowledge_recall`, `load_skill`, `load_tools` and `session_handshake`. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
 
 The code-graph tools are the agent's `code_` tools: `code_find_symbol`, `code_callers`, `code_callees`, `code_impact`, `code_impact_and_risk` (files a symbol change touches, with the tests that reach it), `code_impact_of_diff` (symbols a unified diff touches and their dependents), `code_tests_for`, `code_rank_files`, `code_query`, `code_file_neighbors`, `code_node`, `code_trace`, `code_shortest_path`, `code_expand`, `code_find_seeds`, `code_search`, `code_render_subgraph`, `code_references`, `code_imports_exports` and `code_stats`. They run on the working directory and build the index on the first call. The `codegraph` asset set (`tools.yaml`) lists them. Each is the Kartographer tool with the same name and a `code_` prefix.
 
 Asset-declared tools keep their `http:`, `exec:` or `python:` block in the tool asset, and the handler runs it: `calculator`, `clipboard_copy`, `cohere_rerank`, `edit_file`, `exa_search`, `file_ops`, `git_ops`, `google_cache_create`, `google_cache_delete`, `google_cache_list`, `hf_repo_files`, `hf_search`, `jina_rerank`, `list_files`, `md5_file`, `ocr_image`, `retrieve_context`, `sql_describe_table`, `sql_list_tables`, `sql_query`, `tail_file`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `web_scraper`, `web_search`, `wikipedia`, `wolfram_alpha`, `zapier_list_actions`, `zapier_run_action`.
 
-- A tool stays listed when its API key is unset; a call returns `<tool>: required environment variables are not set`. The agent offers it to the model only when the environment resolves.
-- `ocr_image` (`file`, `language`) and `transcribe_audio_offline` (`file`, `language`, `modelPath`) run local programs; a missing `tesseract` or `whisper-cli` is a `400`.
+- A tool stays listed when its API key is unset. A call returns `<tool>: required environment variables are not set`. The agent offers it to the model only when the environment resolves.
+- `ocr_image` (`file`, `language`) and `transcribe_audio_offline` (`file`, `language`, `modelPath`) run local programs. A missing `tesseract` or `whisper-cli` is a `400`.
 
 ```text
 component -> POST /apis/tools.kdeps.io/v1/tools/calculator/call -> handler

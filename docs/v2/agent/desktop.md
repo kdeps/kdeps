@@ -91,7 +91,7 @@ $s.TargetPath = "$dir\kdeps-desktop.exe"; $s.Save()
 & "$dir\kdeps-desktop.exe"
 ```
 
-The WebView2 runtime ships with Windows 11; on Windows 10 install it from Microsoft first. The exe does not have a code signature. For this reason, SmartScreen can show a warning on first launch. Click More info, then Run anyway.
+The WebView2 runtime ships with Windows 11. On Windows 10 install it from Microsoft first. The exe does not have a code signature. For this reason, SmartScreen can show a warning on first launch. Click More info, then Run anyway.
 
 ## Download
 

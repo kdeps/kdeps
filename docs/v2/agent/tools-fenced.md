@@ -10,7 +10,7 @@ Every capability the model has is a kdeps tool, including `bash_exec` and the fi
 
 - After the first turn, kdeps gives the rule again in one line on each turn.
 - Every turn carries facts kdeps measured in the real environment: date and time, OS/arch, file and directory counts in the working directory, the git branch. A model suspecting a sandbox can check a `list_files` result against them.
-- M365 Copilot gets a stronger version on top; its habit is the most persistent.
+- M365 Copilot gets a stronger version on top. Its habit is the most persistent.
 
 ## Claimed actions need a tool result
 
@@ -59,7 +59,7 @@ Later turns have a one-line reminder, not the list. A native model can write `<i
 
 ## Simulated sandbox sessions are caught
 
-A round with no tool call whose text reads like a failed code-interpreter session is a hallucination; kdeps never emits these strings:
+A round with no tool call whose text reads like a failed code-interpreter session is a hallucination. kdeps never emits these strings:
 
 - `NO CONTENT AVAILABLE`, `/mnt/data`
 - an "expired" or "reset" session, "cannot access the filesystem"
@@ -106,7 +106,7 @@ A `[GOOD]` line lands in the tool result message, so it stays in history:
 
 - a failed call that succeeds on retry (the counterpart to `[TOOL FAILED]`)
 - a real call right after a fake sandbox session, noting it reached the real filesystem
-- each of the first 3 successful calls in a session; after that, routine successes get none
+- each of the first 3 successful calls in a session. After that, routine successes get none
 
 The handshake's tool result carries the same line on a correct call.
 

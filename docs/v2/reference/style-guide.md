@@ -84,7 +84,7 @@ Replace these words with their STE alternatives:
 
 ## Writing rules
 - Sentence case for all titles, headings, list items, and table headers.
-- Spell out an acronym on first use per page; established acronyms (URL, HTTP,
+- Spell out an acronym on first use per page. Established acronyms (URL, HTTP,
   JSON, YAML, API, CLI, SQL) are exempt.
 - Short sentences (see [ASD-STE100 rules](#asd-ste100-rules)). Remove words
   that do not give information.
@@ -113,7 +113,7 @@ Replace these words with their STE alternatives:
   (` ```d2 ` block) for 4+ nodes or branching, ASCII (` ```text ` block) for
   linear flows of 3 nodes or fewer. Do not mix both on one page.
 - Write for a working developer. Do not explain programming basics (imports,
-  variables, functions, YAML, `curl`) or use analogies to them; state what the
+  variables, functions, YAML, `curl`) or use analogies to them. State what the
   thing does.
 - No audience lines ("this page is for..."), learning objectives, "you will be
   able to", or end-of-page summaries of what the reader did.
@@ -128,7 +128,7 @@ Replace these words with their STE alternatives:
 ## Procedures
 
 - End each procedure with the result that the reader sees: the real response, the
-  changed row, or the file that now exists. Run it to get that output; mark text
+  changed row, or the file that now exists. Run it to get that output. Mark text
   produced by a model as varying.
 
 - One sentence per step, starting with a verb.
@@ -142,7 +142,7 @@ Replace these words with their STE alternatives:
 - Every example must stand alone. A developer copies it directly into a project
   without reading the surrounding prose.
 - Show the mechanics: where the data goes, what runs next, what the output is.
-- Build the kdeps binary with `make build`; the binary is `./kdeps`.
+- Build the kdeps binary with `make build`. The binary is `./kdeps`.
 
 ## Checklist before merging
 

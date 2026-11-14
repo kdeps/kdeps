@@ -23,7 +23,7 @@ The behavior of each action is Go code, because the action has a real side effec
 
 ## Not every action is freely swappable
 
-Actions are not freely swappable between events with the same trigger shape. `handshake-timeout`, `judge-max-rounds` and `subagent-max-rounds` (all `force_answer`) set a sub-loop's round budget and rely on the loop's round-exhaustion behavior. Changing their `run:` validates (the name exists) but changes nothing; the call site implements only its named action.
+Actions are not freely swappable between events with the same trigger shape. `handshake-timeout`, `judge-max-rounds` and `subagent-max-rounds` (all `force_answer`) set a sub-loop's round budget and rely on the loop's round-exhaustion behavior. Changing their `run:` validates (the name exists) but changes nothing. The call site implements only its named action.
 
 ## Enforcement: hard vs. soft
 
@@ -31,7 +31,7 @@ No action needs the model's cooperation. Each is deterministic Go control flow: 
 
 - **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
 - **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. When the request schema has no tools, the model cannot call a tool. This is a structural limit, not an instruction to the model.
-- **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`; Go code decides if and when this action starts, with no model input.
+- **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`. Go code decides if and when this action starts, with no model input.
 - **`truncate`/`drop_oldest`/`cap`** -- unconditional string/slice mutation in Go, applied every time regardless of model behavior.
 
 ## Real OS-level enforcement, not just Go control flow
@@ -40,4 +40,4 @@ No action needs the model's cooperation. Each is deterministic Go control flow: 
 
 ## The one genuinely soft layer
 
-The only soft layer is the harness (`~/.kdeps/harness/*.yaml`: tool-use, memory, honesty, scope and accuracy rules): prompt text with no code checking compliance. That is the line for anything new. If it must hold regardless of the model, it is an event or action; if it is guidance, it is harness text.
+The only soft layer is the harness (`~/.kdeps/harness/*.yaml`: tool-use, memory, honesty, scope and accuracy rules): prompt text with no code checking compliance. That is the line for anything new. If it must hold regardless of the model, it is an event or action. If it is guidance, it is harness text.

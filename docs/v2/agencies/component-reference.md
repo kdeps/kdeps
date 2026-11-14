@@ -310,7 +310,7 @@ OPENAI_API_KEY=sk-my-key
 WEB_SCRAPER_TIMEOUT=30
 ```
 
-kdeps only reads a component's `.env`; it never creates or writes files in a component folder. The file holds keys, so keep it out of git (`echo '.env' >> .gitignore`).
+kdeps only reads a component's `.env`. It never creates or writes files in a component folder. The file holds keys, so keep it out of git (`echo '.env' >> .gitignore`).
 
 ## Example: greeter component
 
@@ -366,7 +366,7 @@ component:
 4. **Set targetActionId**: point to the primary action for simple `component:` invocation
 5. **Avoid actionId collisions**: prefix with component name
 6. **Test in isolation**: package and validate before using in workflows
-7. **Minimize env vars**: declare all required environment dependencies; let auto-derivation detect them
+7. **Minimize env vars**: declare all required environment dependencies. Let auto-derivation detect them
 
 ## See also
 
