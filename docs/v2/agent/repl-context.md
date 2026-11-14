@@ -99,9 +99,9 @@ of the compact budget and of the auto-compaction threshold is 3/4 of the known
 context window of the model. It is not a fixed token count. A session on a
 small local model and one on a
 200K-token cloud model each get a good default. You do not have to set
-`/model tool set compact-budget <n>` yourself. Switching models with `/model`
-recomputes both immediately for the new model; an unrecognized model keeps a
-conservative flat default.
+`/model tool set compact-budget <n>` yourself. When you switch models with
+`/model`, kdeps calculates both values again immediately for the new model. An
+unknown model keeps a safe fixed default.
 
 kdeps never evaluates the conversation text that it summarizes as a kdeps
 expression or template. This is also true if the text has double-curly-brace
