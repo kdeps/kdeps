@@ -12,7 +12,7 @@ The loop extracts facts from every turn without a `memory_save` call. Four mecha
 [MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v3
 ```
 
-The marker is saved, then removed from the reply before it is shown or written to the transcript. Echoed `GOAL:` / `ACTIVE TASK` fragments are removed too.
+kdeps saves the marker. Then it removes the marker from the reply before it shows the reply or writes it to the transcript. kdeps also removes repeated `GOAL:` / `ACTIVE TASK` fragments.
 
 **2. Action sentences.** The first action sentence of the reply becomes `last_action`:
 
@@ -28,7 +28,7 @@ The marker is saved, then removed from the reply before it is shown or written t
 -> last_files = "src/api/handler.go, src/api/middleware.go"
 ```
 
-**4. Tool results.** Each captured tool result is saved under a key from the tool name and output, so the model can search past results. Caps are in [Tool result filtering](#tool-result-filtering).
+**4. Tool results.** kdeps saves each captured tool result under a key from the tool name and output. Then the model can search past results. Caps are in [Tool result filtering](#tool-result-filtering).
 
 ## Memory graph
 
@@ -40,7 +40,7 @@ prompt -> purpose -> progress -> tool_result -> result -> status
                                action, error, file, decision, fact, note
 ```
 
-The graph is inlined in the `<memory>` block. Parents come before their children, and each entry shows its parent as `<- parent`. Each entry is one line; newlines in a value become ` / `.
+The graph is inline in the `<memory>` block. Parents come before their children, and each entry shows its parent as `<- parent`. Each entry is one line; newlines in a value become ` / `.
 
 ## Prompt injection
 
@@ -61,7 +61,7 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 </memory>
 ```
 
-The age (`just now`, `Nm`, `Nh`, `Nd ago`) tells a model taking over after a switch whether to re-verify before continuing.
+After a switch, the new model uses the age (`just now`, `Nm`, `Nh`, `Nd ago`). The age tells it if it must verify again before it continues.
 
 ## What the budget keeps
 
@@ -71,15 +71,15 @@ The block is cut to a token budget, but not oldest-first. Always kept:
 - entries matching significant prompt words (whole-word match)
 - the newest unresolved error
 
-Unrelated older entries drop first. Edges to dropped entries are omitted, so no arrow dangles.
+Unrelated older entries drop first. kdeps also removes edges to removed entries. As a result, each arrow has an entry at its end.
 
 ## Unresolved errors
 
-The map line names the newest unresolved `error`, so a resuming model sees a known failure first. An error that reads as handled (`resolved`, `fixed`, `closed`, ...) is skipped. A re-opened one (`reopened`, `not fixed`, `still failing`, ...) is shown, even next to "fixed".
+The map line gives the newest `error` that is not resolved. As a result, a model that resumes sees a known failure first. kdeps skips an error with a resolved status (`resolved`, `fixed`, `closed`, ...). It shows an error that opened again (`reopened`, `not fixed`, `still failing`, ...), also next to "fixed".
 
 ## Duplicate facts
 
-A later entry repeating an earlier fact (case- and whitespace-insensitive) is marked `(same as <key>)` instead of counting as new evidence. The model also gets a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool; the graph is the context.
+If a later entry repeats an earlier fact (case and whitespace are ignored), kdeps marks it `(same as <key>)`. It does not count as new evidence. The model also gets a standing rule: "Check memory first. Before taking ANY action, use `memory_search` to see what is already known about the task." There is no `memory_list` tool; the graph is the context.
 
 ## Compaction integration
 
@@ -92,7 +92,7 @@ On `/compact` (summarize and clear history), `AutoCapture` saves two summary sec
 
 Every compaction or [fold](/agent/repl-context#fold) saves a `checkpoint:summary` entry with the Goal, Progress, Key Decisions and Critical Context sections. It persists across sessions.
 
-The previous checkpoint is archived first as `checkpoint:archive:<timestamp>`, never discarded. Only the newest `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) enter the memory block. Older ones stay retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
+First, kdeps archives the previous checkpoint as `checkpoint:archive:<timestamp>`. It never discards it. Only the newest `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) enter the memory block. Older ones stay retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
 
 ## Leaf-node limits
 
@@ -109,19 +109,19 @@ Both exempt the active task chain (the resume node, its ancestors, and entries m
 
 ## Session persistence
 
-The LLM config (model, backend, base URL) is saved to `session:config` at startup and after each `/model` switch, and restored on the next run. The working directory is saved on start (`session:started`) and resume (`session:resumed`).
+kdeps saves the LLM configuration (model, backend, base URL) to `session:config` at startup and after each `/model` switch. It restores it on the next run. kdeps saves the working directory on start (`session:started`) and on resume (`session:resumed`).
 
 ## Tool result filtering
 
 - Only tools in the rules' `capture_tools` list create entries. Shipped: `write_file`, `edit_file`, `bash_exec`, `read_file`, `search_local`, `sql_query`, `http_request`, `web_search`, `web_scraper`, `wikipedia`.
-- Each tool keeps its newest 20 captures (the `memory-tool-results-limit` event); older ones are deleted.
+- Each tool keeps its newest 20 captures (the `memory-tool-results-limit` event). kdeps deletes older captures.
 - A result over its store limit is cut and ends with `...`, on a character boundary so no multibyte character splits.
-- Low-signal entries (the rules' `low_signal` types, shipped `note` and `fact`) are capped at 50 combined (the `memory-low-signal-limit` event). The oldest are pruned on write.
+- Low-signal entries (the rules' `low_signal` types, shipped `note` and `fact`) have a combined maximum of 50 (the `memory-low-signal-limit` event). kdeps prunes the oldest entries on write.
 - Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by that cap, so the chain and resume point survive.
 
 ## Memory rules
 
-The `memory/rules` asset defines how entries are typed and linked, which tool results are captured, where a resumed session continues, and what reads as done or resolved. Install a newer `memory/rules` to change them (see [Updating assets](/agent/repl-updating)). A file the loader rejects is not installed.
+The `memory/rules` asset sets the type and links of entries, and the tool results that kdeps captures. It also sets where a resumed session continues, and which text means done or resolved. Install a newer `memory/rules` to change them (see [Updating assets](/agent/repl-updating)). kdeps does not install a file that the loader rejects.
 
 ```yaml
 version: 1.0.0

@@ -98,7 +98,7 @@ The compact budget sets how much recent conversation stays exactly. The default
 of the compact budget and of the auto-compaction threshold is 3/4 of the known
 context window of the model. It is not a fixed token count. A session on a
 small local model and one on a
-200K-token cloud model each get a sensible default without you having to set
+200K-token cloud model each get a good default. You do not have to set
 `/model tool set compact-budget <n>` yourself. Switching models with `/model`
 recomputes both immediately for the new model; an unrecognized model keeps a
 conservative flat default.
