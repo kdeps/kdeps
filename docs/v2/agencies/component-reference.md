@@ -66,9 +66,9 @@ setup:
 ```
 
 **Behaviour:**
-- `setup` runs once per component per engine lifetime (cached - subsequent calls are no-ops).
-- `pythonPackages` are installed via `uv pip install`. Already-present packages are skipped.
-- `osPackages` are installed via the detected system package manager (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). If no supported package manager is found, a warning is logged and execution continues.
+- `setup` runs one time for each component during the life of the engine. kdeps keeps the result in a cache, and later calls do nothing.
+- kdeps installs `pythonPackages` with `uv pip install`. It skips packages that are already installed.
+- kdeps installs `osPackages` with the system package manager that it finds (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). If kdeps finds no supported package manager, it logs a warning and continues.
 - `commands` run in order after package installs. A non-zero exit terminates setup with an error.
 
 ### `teardown` block
@@ -82,11 +82,11 @@ teardown:
 
 **Behaviour:**
 - `teardown.commands` run after every invocation of the component (not cached).
-- Errors in teardown commands are logged as warnings but do not propagate - teardown is best-effort.
+- kdeps logs errors in teardown commands as warnings. They do not stop the run. Teardown is best-effort.
 
 ### Deprecated: top-level `pythonPackages`
 
-The top-level `pythonPackages:` field on `Component` is deprecated. Prefer `setup.pythonPackages:` for new components.
+Do not use the top-level `pythonPackages:` field on `Component`. It is deprecated. For new components, use `setup.pythonPackages:`.
 
 ## Interface and inputs
 
@@ -105,7 +105,7 @@ interface:
       default: 0.7
 ```
 
-`type` is one of `string`, `integer`, `number`, `boolean`, `array`, `object`. A scalar `with:` value is converted to its declared type before the component runs: `limit: 3` arrives as the number `3` and `dry_run: true` as the boolean `true`, not strings. A value that does not parse is passed as-is for the component or tool to reject.
+`type` is one of `string`, `integer`, `number`, `boolean`, `array`, `object`. Before the component runs, kdeps converts a scalar `with:` value to its declared type. `limit: 3` arrives as the number `3`, and `dry_run: true` as the boolean `true`, not as strings. If kdeps cannot parse a value, it gives the value with no change. The component or tool then rejects it.
 
 Inside component resources, reference inputs with `input()`:
 
@@ -131,7 +131,7 @@ When a resource calls a component, kdeps validates `with:` against the interface
 
 ## Input scoping
 
-Inputs from `with:` are injected under two scoped keys, so the same component can be called twice with different inputs:
+kdeps puts inputs from `with:` under two scoped keys. As a result, you can call the same component two times with different inputs:
 
 | Key pattern | Example |
 |---|---|
@@ -140,7 +140,7 @@ Inputs from `with:` are injected under two scoped keys, so the same component ca
 
 ## Accessing component output
 
-After `component:` executes, results are stored under the caller resource's `actionId`:
+After `component:` runs, kdeps stores the results under the `actionId` of the caller resource:
 
 <div v-pre>
 
@@ -169,7 +169,7 @@ chat:
 
 ## Calling the same component twice
 
-Inputs are scoped to the caller's `actionId`, so the same component works with different configurations:
+The scope of inputs is the `actionId` of the caller. As a result, the same component operates with different configurations:
 
 <div v-pre>
 
@@ -199,13 +199,13 @@ component:
 
 ## Resources
 
-Component resources can be defined inline in `component.yaml` or in a `resources/` subdirectory. The `actionId` must be unique across the entire workflow. Components cannot contain `settings`.
+You can define component resources inline in `component.yaml` or in a `resources/` subdirectory. The `actionId` must be unique in the full workflow. Components cannot contain `settings`.
 
 ## Auto-discovery
 
-At parse time, kdeps scans for `components/<name>/component.yaml` files in the same directory as the workflow. All component resources are prepended to the workflow's resource list.
+At parse time, kdeps scans for `components/<name>/component.yaml` files in the same directory as the workflow. kdeps adds all component resources to the start of the resource list of the workflow.
 
-- No explicit declaration in `workflow.yaml` is needed
+- You do not declare them in `workflow.yaml`
 - Local workflow resources override component resources on `actionId` collision
 - Component loading is recursive (components can declare sub-components)
 
@@ -225,7 +225,7 @@ kdeps install ./my-component-1.0.0.komponent
 # ... and more
 ```
 
-Installed components are placed in `components/` and auto-discovered.
+kdeps puts installed components in `components/` and finds them automatically.
 
 ```bash
 kdeps list                       # List installed components
@@ -234,7 +234,7 @@ kdeps uninstall scraper-native   # Uninstall a component
 
 ## Components as LLM tools
 
-Installed components can be exposed as LLM tools via `tools.components` on `chat:` resources:
+To give installed components to the LLM as tools, use `tools.components` on `chat:` resources:
 
 ```yaml
 # resources/example.yaml
@@ -248,10 +248,10 @@ chat:
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. Rules:
-- `tools.components` absent or empty - no components are registered (default).
-- Names not installed are silently ignored.
+- If `tools.components` is not set or is empty, kdeps registers no components (default).
+- kdeps silently ignores names that are not installed.
 - Explicit `tools.list` entries take precedence over `tools.components` entries.
-- An input with a declared `default` is not marked required in the schema - the model may omit it, and the runtime applies the default.
+- The schema does not mark an input with a declared `default` as required. The model can omit it, and the runtime applies the default.
 
 | Priority | Source |
 |---|---|
