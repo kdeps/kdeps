@@ -1,6 +1,6 @@
 # SQL component
 
-The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step.
+The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step.
 
 ## Where it runs
 
@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-The SQL drivers are compiled into kdeps: no Python, no uv, no first-call driver install. SQLite needs nothing else; the other databases need only a reachable server. Each call opens its own connection - there is no pool between calls.
+The SQL drivers are part of kdeps. You do not need Python, uv, or a driver install on the first call. SQLite needs nothing more. The other databases need only a server that kdeps can connect to. Each call opens its own connection. There is no pool between calls.
 
 ## Basic usage
 
@@ -35,7 +35,7 @@ component:
 
 ## Connections
 
-Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. The component names the connection and the kdeps API reads its string from `config.yaml` in-process, so the password never crosses the request or a command line.
+Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. The component gives the name of the connection. The kdeps API reads its string from `config.yaml` in the process. As a result, the password is never in the request or on a command line.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -54,11 +54,11 @@ sql_connections:
 | SQL Server | `sqlserver://user:pass@host:1433?database=db` |
 | Oracle | `oracle://user:pass@host:1521/service` |
 
-A connection missing from `config.yaml` is prompted for by `kdeps run` (interactive terminals only), or supplied with `KDEPS_SQL_CONNECTIONS_<NAME>_CONNECTION`. See Interactive setup on first run.
+If a connection is not in `config.yaml`, `kdeps run` asks for it (only in interactive terminals). You can also give it with `KDEPS_SQL_CONNECTIONS_<NAME>_CONNECTION`. See Interactive setup on first run.
 
 ## Placeholders
 
-Write placeholders the way you know them - `$1`, `?`, `@p1` or `:1` - and pass the values in `params`, in order. The component rewrites them into the driver's own style, skipping text inside quotes and comments and Postgres `::` casts. `$N`, `@pN` and `:N` refer to the Nth param; each bare `?` takes the next one.
+Write placeholders the way you know them - `$1`, `?`, `@p1` or `:1` - and pass the values in `params`, in order. The component rewrites them into the driver's own style, skipping text inside quotes and comments and Postgres `::` casts. `$N`, `@pN` and `:N` refer to the Nth param. Each bare `?` takes the next one.
 
 ## Results
 
@@ -71,7 +71,7 @@ Write placeholders the way you know them - `$1`, `?`, `@p1` or `:1` - and pass t
 | `INSERT` / `UPDATE` / `DELETE` | `{rowsAffected, lastInsertID, success: true}` |
 | `transaction: true` | A list: each statement's rows, or its `{rowsAffected, lastInsertID}` |
 
-Dates come back as ISO 8601 strings and decimals as strings. A connection that cannot be opened returns `{error: "failed to get database connection: ..."}`; a failing statement fails the call with `sql: query execution failed: ...` and rolls back.
+Dates come back as ISO 8601 strings and decimals as strings. If kdeps cannot open a connection, it returns `{error: "failed to get database connection: ..."}`. If a statement fails, the call fails with `sql: query execution failed: ...` and kdeps rolls back.
 
 ## Transactions and batches
 
@@ -135,7 +135,7 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"   # bad: SQL inject
 component: sql -> POST /apis/tools.kdeps.io/v1/tools/sql_ops/call -> rows or change summary
 ```
 
-One `httpClient` POST carrying the eight inputs to the `sql_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named connection from `config.yaml` and runs the statements with `database/sql`; the PostgreSQL, MySQL, SQLite, SQL Server and Oracle drivers are compiled in. Placeholder rewriting, result shapes, transactions and the error texts live in the tool. Copy `components/sql/` into your project to change an input default; the SQL itself runs in the kdeps API.
+One `httpClient` POST carrying the eight inputs to the `sql_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named connection from `config.yaml` and runs the statements with `database/sql`. The PostgreSQL, MySQL, SQLite, SQL Server, and Oracle drivers are part of the binary. Placeholder rewriting, result shapes, transactions and the error texts live in the tool. Copy `components/sql/` into your project to change an input default. The SQL itself runs in the kdeps API.
 
 ## See also
 

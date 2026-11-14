@@ -1,10 +1,12 @@
 # Web scraper component
 
-The `web_scraper` component fetches one URL and returns its readable text: title, headers, body and links, without navigation and script noise. It comes from the `components` asset set; call it with a `component:` resource, no install step. The fetch is the `web_scraper` tool, a standard-library `python:` block in `tools/web_scraper.yaml` served by the kdeps API. It fetches the page once and keeps the title, meta description, headings, paragraphs and links.
+The `web_scraper` component fetches one URL and returns its readable text: title, headers, body and links, without navigation and script noise.
+
+It comes from the `components` asset set. Call it with a `component:` resource. You do not install it. The `web_scraper` tool gets the page. This tool is a standard-library `python:` block in `tools/web_scraper.yaml`, and the kdeps API serves it. It gets the page one time and keeps the title, meta description, headings, paragraphs and links.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode the same tool is the `web_scraper` built-in, with the aliases `fetch`, `web_fetch`, `fetch_url`, and `read_url`; the component and the agent call the same route.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the same tool is the `web_scraper` built-in, with the aliases `fetch`, `web_fetch`, `fetch_url`, and `read_url`. The component and the agent call the same route.
 
 ## Basic usage
 

@@ -1,6 +1,6 @@
 # Security reference
 
-Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code. This applies to workflow mode, wherever an `apiServer` is configured.
+Each request goes through a chain of gates before it gets to the workflow DAG. Each gate can reject the request with a specific status code. This applies to workflow mode, when you configure an `apiServer`.
 
 ```d2
 direction: down
@@ -17,13 +17,13 @@ A -> B -> C -> D -> E -> F
 
 ## Authentication
 
-When `apiServer` is configured, authentication is required. Every request must include the token via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead (see [Management API](./management-api.md)). kdeps refuses to start the API server without a token. The [kdeps API](/reference/glossary#kdeps-api) is a separate loopback listener (`KDEPS_API_TOKEN`) and is not this workflow gate.
+When you configure `apiServer`, authentication is necessary. Each request must include the token in `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint never needs a token. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead (see [Management API](./management-api.md)). kdeps refuses to start the API server without a token. The [kdeps API](/reference/glossary#kdeps-api) is a separate loopback listener (`KDEPS_API_TOKEN`) and is not this workflow gate.
 
 ### Public routes
 
-Routes serving a browser frontend can opt out of bearer auth with
-`public: true` - a static page cannot hold a secret, so anything shipped in
-JS would be public anyway:
+Routes that serve a browser frontend can disable bearer auth with
+`public: true`. A static page cannot keep a secret. All data in the JS is
+public:
 
 ```yaml
 # workflow.yaml
@@ -37,11 +37,11 @@ deploy:
         methods: [POST]  # token still required here
 ```
 
-Credential-less requests pass; a presented token is still validated, so a
-wrong `Authorization` header always gets 401. In merged API+Web mode the
-`webServer` routes themselves are always public (a browser navigation cannot
-send a header), but paths claimed by an API route stay authenticated unless
-marked `public: true`.
+Requests with no credentials pass. kdeps validates a token if the request has
+one, so a wrong `Authorization` header always gets 401. In merged API+Web mode,
+the `webServer` routes are always public, because browser navigation cannot
+send a header. But paths of an API route always need authentication, unless
+you mark them `public: true`.
 
 Set the token in `~/.kdeps/config.yaml` (machine-local, never committed):
 
@@ -50,7 +50,7 @@ Set the token in `~/.kdeps/config.yaml` (machine-local, never committed):
 api_auth_token: "your-secret-token"
 ```
 
-Or via environment variable:
+Or with an environment variable:
 
 ```bash
 export KDEPS_API_AUTH_TOKEN="your-secret-token"
@@ -60,7 +60,7 @@ No `auth:` block in `workflow.yaml`. The token is never stored in the workflow f
 
 ## Trusted proxies
 
-`X-Forwarded-For` and `X-Real-IP` are ignored unless the direct TCP peer matches an entry in `trustedProxies`. This prevents clients from spoofing their IP for rate limiting and request context. Configure CIDRs or exact IPs for your load balancer or ingress.
+kdeps ignores `X-Forwarded-For` and `X-Real-IP` unless the direct TCP peer matches an entry in `trustedProxies`. This prevents clients from spoofing their IP for rate limiting and request context. Configure CIDRs or exact IPs for your load balancer or ingress.
 
 ```yaml
 # workflow.yaml
@@ -72,7 +72,7 @@ deploy:
       - "192.168.0.0/16"
 ```
 
-Without `trustedProxies`, kdeps uses `RemoteAddr` only. When both `apiServer` and `webServer` are configured, entries from both blocks are merged for rate limiting and request IP context.
+Without `trustedProxies`, kdeps uses `RemoteAddr` only. When you configure `apiServer` and `webServer`, kdeps merges the entries from both blocks for rate limiting and request IP context.
 
 ## Security headers
 
@@ -88,11 +88,11 @@ Both `apiServer` and `webServer` responses include defensive HTTP headers on eve
 
 ### webServer-only mode
 
-When only `webServer` is configured (no `apiServer`), kdeps does not enforce bearer auth. Static files and app proxies are world-readable if bound to `0.0.0.0` unless you add an ingress with auth. You can still set `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` to throttle abuse.
+When you configure only `webServer` (no `apiServer`), kdeps does not enforce bearer auth. If static files and app proxies bind to `0.0.0.0`, all clients can read them. To prevent this, add an ingress with auth. You can still set `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` to throttle abuse.
 
 ## Rate limiting
 
-Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate; `burst` is the number of requests allowed above that rate in a single burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
+Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate. `burst` is the number of requests that a client can send above that rate in one burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
 
 ```yaml
 # workflow.yaml
@@ -122,7 +122,7 @@ deploy:
 
 ## Body size limit
 
-Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads.
+Set the maximum size of request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads.
 
 ```yaml
 # workflow.yaml
@@ -150,7 +150,7 @@ deploy:
 
 ### Let's encrypt (custom domain)
 
-Automatic ACME certificates for a custom domain (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host; prefer listen :443.
+Automatic ACME certificates for a custom domain (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host. Prefer listen :443.
 
 ```yaml
 # workflow.yaml
@@ -171,16 +171,16 @@ deploy:
         methods: [POST]
 ```
 
-If both `certFile`/`keyFile` and `letsEncrypt` are set, static PEM wins. The same settings apply to webServer when enabled.
+If you set `certFile`/`keyFile` and `letsEncrypt`, static PEM has priority. The same settings apply to webServer when it is enabled.
 
-Docker/K8s: publish 80 and 443; keep `cacheDir` on a writable volume.
+Docker/K8s: publish 80 and 443. Keep `cacheDir` on a writable volume.
 
 Full guide: [TLS and HTTPS (Custom Domains)](/deploy/tls-https).
 
 
 ## Concurrent request limit
 
-Cap the number of simultaneous in-flight requests. When the limit is reached, new requests receive `503 Service Unavailable` immediately rather than queuing. Omit or set to `0` to disable.
+Set the maximum number of requests that run at the same time. At the limit, new requests receive `503 Service Unavailable` immediately. They do not wait in a queue. Omit or set to `0` to disable.
 
 ```yaml
 # workflow.yaml
@@ -191,7 +191,7 @@ deploy:
 
 ## Build-time env (Docker and Kubernetes export)
 
-`runtime.env` is embedded into generated Dockerfiles and Kubernetes manifests. Plain keys become `ENV` / `value:` entries. kdeps rejects auth tokens at Docker build time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`) and any secret-like key (`_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.) in both Docker and Kubernetes export.
+kdeps puts `runtime.env` into generated Dockerfiles and Kubernetes manifests. Plain keys become `ENV` / `value:` entries. kdeps rejects auth tokens at Docker build time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`) and any secret-like key (`_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, and similar) in both Docker and Kubernetes export.
 
 Set those at runtime instead:
 
@@ -199,7 +199,7 @@ Set those at runtime instead:
 docker run -e KDEPS_API_AUTH_TOKEN=api-secret -e KDEPS_MANAGEMENT_TOKEN=mgmt-secret -e OPENAI_API_KEY=sk-...
 ```
 
-Kubernetes export maps auth tokens to `{metadata.name}-auth` and secret-like `runtime.env` keys to `{metadata.name}-env` via `secretKeyRef` (values are never written into the manifest):
+Kubernetes export maps auth tokens to `{metadata.name}-auth` and secret-like `runtime.env` keys to `{metadata.name}-env` with `secretKeyRef`. kdeps never writes the values into the manifest:
 
 ```yaml
 # deploy/env-secret.yaml
@@ -226,7 +226,7 @@ env:
 
 Both modes check the request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests, so the preflight returns an actionable error before the call. A workflow `chat:` checks its first call and each tool-round follow-up.
 
-Each limit is a `provider-body-limit-<backend>` event; override it in `~/.kdeps/events/`, or turn it off for no limit.
+Each limit is a `provider-body-limit-<backend>` event. Override it in `~/.kdeps/events/`, or turn it off for no limit.
 
 | Backend | Limit |
 |---------|-------|
@@ -235,7 +235,7 @@ Each limit is a `provider-body-limit-<backend>` event; override it in `~/.kdeps/
 | `openai` | 100 MB |
 | (all others) | No known limit |
 
-If the estimated size exceeds the provider's limit, the call is blocked with a clear error:
+If the estimated size is more than the limit of the provider, kdeps blocks the call with a clear error:
 
 ```
 request body size ~5.5 MB exceeds dashscope limit of 6.0 MB

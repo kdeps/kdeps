@@ -1,6 +1,6 @@
 # Prompt reduction (turo)
 
-`turo` is an optional token reducer for [agent mode](/agent/). When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history. Code, file paths, and identifiers are preserved verbatim. If a reduction is not smaller than the input, the original passes through unchanged.
+`turo` is an optional token reducer for [agent mode](/agent/). When the `turo` binary is on `PATH`, kdeps sends all LLM input through `turo` first. This input is the system preamble, your input, tool results, and conversation history. `turo` keeps code, file paths, and identifiers exactly as they are. If a reduction is not smaller than the input, the original passes through unchanged.
 
 ```text
 system preamble + input + tool results + history  ->  turo  ->  LLM
@@ -9,18 +9,18 @@ system preamble + input + tool results + history  ->  turo  ->  LLM
 turo runs a five-stage pipeline, all on by default, repeating until the output stops shrinking:
 
 1. **Filler deletion** - strips pleasantries, hedges, leaders, and articles (`please`, `I think`, `of course`).
-2. **Defmatch** - collapses a definition-like phrase into the word it defines (`the state of disorder and lawlessness` -> `anarchy`). Strictly gated: it fires only when every keyword of a headword's definition is present and the headword is cheaper in tokens, so on technical text it makes zero replacements. It earns its keep on natural prose.
+2. **Defmatch** - collapses a definition-like phrase into the word it defines (`the state of disorder and lawlessness` -> `anarchy`). This stage has strict conditions. It operates only when all keywords of the definition of a headword are present and the headword uses fewer tokens. On technical text, it usually makes no replacements. It is useful on natural prose.
 3. **Gloss swap** - replaces words with the shortest defining word from their dictionary definition (`approach` -> `come`). The lossiest stage.
-4. **Synonym swap** - replaces words with a fewer-token WordNet synonym (`utilize` -> `use`).
+4. **Synonym swap** - replaces words with a WordNet synonym that uses fewer tokens (`utilize` -> `use`).
 5. **Reduction** - keeps content words by part of speech, deduplicates, and (ultra) collapses inflections by lemma.
 
-Phrase-level stages run before word-level ones: a phrase matcher has to see the whole phrase, so a single earlier swap inside it is enough to lose the match. Headwords defmatch produces are held back from the later swaps, which would otherwise walk the match straight back.
+Phrase stages run before word stages. A phrase matcher must see the full phrase. One earlier swap in the phrase can stop the match. The later swaps do not change the headwords that defmatch makes. Otherwise, they can change the match back.
 
 One more stage runs before the rest, also on by default:
 
 - **Arrows** - replaces multi-word causal connectives (`leads to`, `results in`, `gives rise to`) with `->` (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves a token. Disable with `/turo arrows off` or `TURO_ARROWS=off`.
 
-Stages 2-5 and arrows are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
+Stages 2-5 and arrows are lossy. They change words, and do not only remove filler words. For this reason, the context that the model gets is compressed. It is not the original prose. To disable one stage, use the `TURO_*` environment variables below. You can also turn off turo fully.
 
 Turo is entirely optional: if the binary is not installed, kdeps sends everything unreduced and the `/turo` command reports that it is unavailable.
 
@@ -38,7 +38,7 @@ Control it at runtime with `/turo`:
 /turo arrows off     # disable the arrow stage (connective phrases -> "->")
 ```
 
-Install-time controls via environment variables:
+Environment variables that control the installation:
 
 ```yaml
 TURO_LEVEL: ultra    # default compression level (lite, full, ultra)

@@ -3,7 +3,7 @@
 Serve the kdeps API server and web server over HTTPS for a custom domain. Two modes:
 
 1. **Static certificates** - you supply PEM `certFile` / `keyFile`
-2. **Let's Encrypt** - kdeps obtains and renews certificates with ACME for your domain
+2. **Let's Encrypt** - kdeps gets and renews certificates with ACME for your domain
 
 Works in workflow mode (HTTP API / web) and for any agent package that enables `apiServer` / `webServer`. Agent mode REPL does not listen for HTTPS itself.
 
@@ -36,7 +36,7 @@ E -> H
 | Let's Encrypt | Public custom domain, automatic renew, no PEM files to manage |
 | Reverse proxy (Caddy/Traefik/Nginx) | Multi-service mesh, K8s Ingress - kdeps stays HTTP internally |
 
-**Priority:** if both static PEM and `letsEncrypt` are set, static PEM wins.
+**Priority:** if you set static PEM and `letsEncrypt`, static PEM has priority.
 
 ## Static certificates
 
@@ -111,16 +111,16 @@ deploy:
 1. Create A/AAAA records for every hostname in `domain` / `domains` pointing at this machine (or load balancer that forwards 80/443).
 2. Open TCP 80 (HTTP-01 challenge) and TCP 443 (HTTPS app + TLS-ALPN-01).
 3. Prefer listening on port 443 for production HTTPS.
-4. Ensure the process can write `cacheDir` (persist this volume in Docker/K8s so renewals keep working).
+4. Make sure that the process can write to `cacheDir`. In Docker/K8s, keep this volume, so that renewals continue to operate.
 
 ## What kdeps starts
 
 When `letsEncrypt` is active (and no static PEM):
 
 - **HTTPS** on the configured API/web listen address (`ListenAndServeTLS` with autocert `GetCertificate`)
-- **HTTP on `httpChallengeAddr`** (default `:80`) serving `/.well-known/acme-challenge/...`; other paths return a short plain-text hint (no open redirect)
+- **HTTP on `httpChallengeAddr`** (default `:80`) serving `/.well-known/acme-challenge/...`. Other paths return a short plain-text hint (no open redirect)
 
-Certificates renew automatically while the process is running and the cache directory is preserved.
+Certificates renew automatically when the process runs and the cache directory stays.
 
 ## Staging checklist
 
@@ -137,11 +137,11 @@ deploy:
     portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
-Browsers will warn (staging CA is untrusted). When green, set `staging: false` and clear or use a separate `cacheDir` so production does not reuse staging material.
+Browsers show a warning, because they do not trust the staging CA. When the test is successful, set `staging: false`. Then clear `cacheDir` or use a separate `cacheDir`, so that production does not use staging material.
 
 ## Docker
 
-Publish 80 and 443; mount a volume for the LE cache:
+Publish 80 and 443. Mount a volume for the LE cache:
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest

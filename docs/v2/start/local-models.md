@@ -5,11 +5,11 @@ description: Run kdeps entirely offline with local models. Your code and prompts
 
 # Local models (llamafile & Ollama)
 
-kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine. For the full self-hosted picture (your own LLM server, air-gapped bundles), see [Data sovereignty](/start/data-sovereignty).
+kdeps can run fully offline. With a local model backend, kdeps sends no data to external APIs. Your prompts, code, and responses stay on your machine. For the full self-hosted picture (your own LLM server, air-gapped bundles), see [Data sovereignty](/start/data-sovereignty).
 
 Works in workflow and agent mode.
 
-Two local backends are supported: llamafile (the default, zero-install) and Ollama (model manager with a broader catalog).
+kdeps supports two local backends: llamafile (the default, with no installation) and Ollama (a model manager with a larger catalog).
 
 ---
 
@@ -158,7 +158,7 @@ chat:
 
 ## GGUF backend (llama.cpp)
 
-The `gguf` backend is a third option: it serves GGUF model files via `llama-server` (llama.cpp). This requires `llama-server` installed separately but gives you fine-grained control over quantization and context size.
+The `gguf` backend is a third option. It serves GGUF model files through `llama-server` (llama.cpp). You must install `llama-server` separately. In return, you get fine control of quantization and context size.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -176,10 +176,10 @@ Environment overrides:
 
 ## Privacy
 
-When using `file` (llamafile), `ollama`, or `gguf` backends:
+When you use the `file` (llamafile), `ollama`, or `gguf` backends:
 
-- No request is made to any external API
-- Model weights are stored locally in `~/.kdeps/models/`
+- kdeps sends no request to an external API
+- kdeps keeps model weights locally in `~/.kdeps/models/`
 - All inference happens in your process or a local server process
 
 This makes kdeps suitable for working with sensitive codebases, proprietary documents, or any environment where data must not leave the machine.

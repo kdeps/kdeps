@@ -23,10 +23,10 @@ component:
           - "{{ get('email') }}"
 ```
 
-When `methods:` is set inside `validations:`:
-- Resource only executes for matching HTTP methods
+When you set `methods:` in `validations:`:
+- The resource runs only for matching HTTP methods
 - Mismatched methods skip the resource silently
-- Multiple methods can be specified
+- You can give more than one method
 
 ### Common patterns
 
@@ -313,9 +313,9 @@ component:
 
 ## Best practices
 
-1. **Be Specific**: Use exact routes when possible rather than wildcards
+1. **Be Specific**: Use exact routes when possible, not wildcards
 2. **Combine with [`check`](/reference/glossary#check)**: Add preflight validation for secure endpoints
-3. **Handle All Methods**: Ensure all expected methods have corresponding resources
+3. **Handle All Methods**: Make sure that each expected method has a resource
 4. **Use [`skip`](/reference/glossary#skip) as Fallback**: For complex routing logic, combine with `skip` conditions
 
 ## See also

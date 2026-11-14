@@ -230,7 +230,7 @@ LLMs can chain multiple tools together:
 description: |
   Search the product database.
   Returns: id, name, price, category.
-  Use for finding products by name or description.
+  Use to find products by name or description.
 
 # Bad - vague
 description: Search stuff
@@ -267,7 +267,7 @@ except Exception as e:
 
 ### Keep tools focused
 
-Each tool should do one thing well. Create multiple simple tools rather than one complex tool.
+Give each tool one task. Make many simple tools, not one complex tool.
 
 ### Use appropriate models
 
@@ -305,11 +305,11 @@ component:
 
 ## Built-in agent tools
 
-These tools are registered automatically in [agent mode](/agent/) when the relevant API key is configured. They are available to the LLM without any `tools:` block in your YAML.
+In [agent mode](/agent/), kdeps registers these tools automatically when you configure the related API key. They are available to the LLM without any `tools:` block in your YAML.
 
 ### Google AI cache tools
 
-Available when `google_api_key` is set in `~/.kdeps/config.yaml`. They manage Google AI CachedContent: pre-caching large context (documents, long system prompts) cuts latency and cost on repeated calls.
+Available when you set `google_api_key` in `~/.kdeps/config.yaml`. They manage Google AI CachedContent. If you put large context (documents, long system prompts) in the cache first, repeated calls are faster and cost less.
 
 | Tool | Description |
 |------|-------------|
@@ -346,7 +346,7 @@ These tools read or change the state of the active agent session. The tools rout
 - `identity_get`, `load_skill`, `load_tools` - agent identity, skill loading, and loading tool definitions on demand ([details](/agent/repl-context#tool-definitions-on-demand))
 - `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
 - `session_handshake` - session-integrity challenge
-- `session_ops` - read, clear or compact the live session, get or set session settings, and run the tools that live only in the session (`tool` operation); behind `/clear`, `/compact`, `/history`, `/copy` and every setting command (kdeps API only; not offered to the model)
+- `session_ops` - read, clear, or compact the live session. Get or set session settings. Run the tools that exist only in the session (`tool` operation). `/clear`, `/compact`, `/history`, `/copy`, and all setting commands use it (kdeps API only; the model cannot call it)
 
 A call with no agent session running returns `<tool>: no active agent session (agent-mode tool)`. They have no workflow component, so they are not in `components/`.
 

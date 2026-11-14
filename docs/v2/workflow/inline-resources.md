@@ -56,7 +56,7 @@ Each inline resource can be any supported execution block, including `chat`, `ag
 | document loading | `load_document` |
 | vector store | `vector_store` |
 
-When `apiResponse` is the only primary block and the resource has `before:` or `after:` steps, the response is evaluated once, after all `before:` steps, so API clients get a single response object.
+If `apiResponse` is the only primary block and the resource has `before:` or `after:` steps, kdeps evaluates the response one time. It does this after all `before:` steps. As a result, API clients get one response object.
 
 ## Execution order
 
@@ -76,7 +76,7 @@ A -> B -> C -> D -> E
 
 ### 1. Data enrichment
 
-Fetch additional data before processing:
+Get more data before the main step:
 
 ```yaml
 # resources/example.yaml
@@ -251,8 +251,8 @@ This is useful for orchestration tasks where you need to coordinate multiple ope
 
 If an inline resource fails:
 - Execution stops immediately
-- The error is propagated to the resource level
-- Subsequent inline resources are not executed
+- The error goes up to the resource level
+- The inline resources after it do not run
 - The main resource is not executed (if the failure occurred in `before`)
 
 You can use the resource's `onError` configuration to handle errors:
@@ -373,13 +373,13 @@ Each inline resource supports the same configuration options as the standalone r
 
 ## Best practices
 
-1. **Keep inline resources focused**: Each should perform a single, well-defined task
+1. **Keep inline resources focused**: Give each one a single, clear task
 2. **Use descriptive configurations**: Make it clear what each inline resource does
 3. **Handle errors appropriately**: Consider using `onError` for critical workflows
 4. **Set appropriate timeouts**: Prevent hanging on slow operations
 5. **Order matters**: Inline resources execute sequentially in the order defined
 6. **Use expressions**: Access context data with <span v-pre>`{{get('variable')}}`</span>
-7. **Consider alternatives**: For complex workflows, separate resources may be clearer
+7. **Consider alternatives**: For complex workflows, separate resources can be clearer
 
 ## Comparison with separate resources
 

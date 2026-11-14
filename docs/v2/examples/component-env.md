@@ -1,18 +1,18 @@
 # Scope environment variables per component
 
-Build two components that both read the same environment
-variable name but can be given different values - one per component - without
-touching the global variable. You will also see the `.env` file kdeps
-scaffolds for each component on first run.
+Build two components that read the same environment variable name. Each
+component can have a different value, and the global variable does not change.
+You also see the `.env` file that kdeps makes for each component on the first
+run.
 
-When a component runs, `env('API_KEY')` is resolved in this order:
+When a component runs, kdeps resolves `env('API_KEY')` in this order:
 
 1. `{COMPONENT_NAME_UPPER}_API_KEY` in the process environment (scoped override)
 2. Plain `API_KEY` in the process environment
 3. `API_KEY` in the component's own `.env` file (lowest priority)
 
-So a `translator` component and a `summarizer` component can each get their own
-key while sharing one variable name in the YAML.
+As a result, a `translator` component and a `summarizer` component can each get their
+own key, with one variable name in the YAML.
 
 ## Step 1: create the structure
 
@@ -198,7 +198,7 @@ Response:
 }
 ```
 
-The translator saw `TRANSLATOR_API_KEY`; the summarizer fell back to `API_KEY`.
+The translator saw `TRANSLATOR_API_KEY`. The summarizer fell back to `API_KEY`.
 
 ## Step 6: inspect the scaffolded files
 
@@ -209,8 +209,8 @@ cat components/translator/.env        # template listing every env() var, blank
 cat components/translator/README.md   # generated from component.yaml metadata
 ```
 
-Fill in `.env` to provide a lowest-priority fallback value when no process
-environment variable is set.
+Fill in `.env` to give a fallback value with the lowest priority. kdeps uses it
+when no process environment variable is set.
 
 ## Next steps
 

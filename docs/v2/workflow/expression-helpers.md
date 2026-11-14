@@ -78,7 +78,7 @@ after:
 
 ## Safe()
 
-Safely accesses nested properties without throwing errors. Returns `nil` if any part of the path is missing.
+Safely accesses nested properties with no errors. Returns `nil` if any part of the path is missing.
 
 ### Syntax
 
@@ -173,7 +173,7 @@ after:
     }))
 ```
 
-**Include in API response for debugging:**
+**Include in API response to debug:**
 <div v-pre>
 
 ```yaml
@@ -258,7 +258,7 @@ toJSON(data)
 
 ## Urlencode()
 
-URL-encodes a string. Useful for building query parameters or form-encoded values.
+URL-encodes a string. Use it to build query parameters or form-encoded values.
 
 ### Syntax
 

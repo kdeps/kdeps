@@ -1,6 +1,6 @@
 # Design review panel
 
-Four reviewer resources check a design document in parallel. A rejection ends the reply with a question; the next request answers it, and the session carries the findings across.
+Four reviewer resources check a design document in parallel. A rejection ends the reply with a question. The next request answers it, and the session carries the findings across.
 
 ```d2
 direction: right
@@ -20,7 +20,7 @@ Full project: [`examples/design-review`](https://github.com/kdeps/kdeps/tree/mai
 
 ## Reviewer
 
-One file per criterion. Each reads only the request, so all four run at once.
+One file per criterion. Each reads only the request, so all four run at the same time.
 
 <div v-pre>
 

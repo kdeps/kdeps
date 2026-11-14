@@ -2,7 +2,7 @@
 
 Persistent memory stores and recalls facts across agent sessions for one project. [Session storage](/workflow/sessions) is different: it persists across HTTP requests from one caller.
 
-Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts; the long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
+Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts. The long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
 
 ## How it works
 
@@ -20,7 +20,7 @@ links: ["[[fact-vault]]"]          # the same, as links the knowledge graph foll
 Louvain first, Leiden later.
 ```
 
-Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Memory written before this layout (in `~/.kdeps/memory/`) is moved into the vault the first time each folder's memory loads; the old database is renamed `memory.bolt.moved`.
+Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Older memory is in `~/.kdeps/memory/`. The first time that the memory of a folder loads, kdeps moves the older memory into the vault. It renames the old database to `memory.bolt.moved`.
 
 Memory lives in the [knowledge vault](/agent/knowledge) as one markdown note per entry, in `<vault>/projects/<project>/memory/`. The project is the one whose card covers the folder, else one kdeps creates, named after the git repository root or folder. Thinking and tool-result captures go in a hidden `memory/.auto/` folder, outside the link graph. A note you write there by hand is an entry too, keyed by its title. Each entry has a key, value, type, timestamps and optional references to other entries.
 
@@ -30,7 +30,7 @@ Every turn gets one graph-ordered `<memory>` block, rebuilt and focused on that 
 
 ## Built-in memory tools
 
-The agent has three memory tools; there is no `memory_list`, since the graph and recent keys are already in context. Look a fact up with `memory_query` (preferred) or `memory_search` (fuzzy text). The prompt tells the model to look memory up when the task refers to earlier work, a fact is missing from the prompt, or on its first turn after a model switch, resume or compaction. Not before every action.
+The agent has three memory tools. There is no `memory_list`, because the graph and recent keys are already in context. To find a fact, use `memory_query` (preferred) or `memory_search` (fuzzy text). The prompt tells the model to look in memory in these conditions: the task refers to earlier work, the prompt does not have a fact, or it is the first turn after a model switch, resume, or compaction. The model does not look in memory before each action.
 
 | Tool | Description |
 |------|-------------|
@@ -42,7 +42,7 @@ Another tool, `memory_query`, runs relational queries (select/project/join/union
 
 ## memory_save
 
-Creates or updates a memory entry. The entry is persisted immediately to disk.
+Creates or updates a memory entry. kdeps writes the entry to disk immediately.
 
 ```json
 {
@@ -67,7 +67,7 @@ Finds entries where a query word appears in the key or value (case-insensitive).
 }
 ```
 
-Returns matching entries as formatted text. At most 20 matches are printed, best match first, and each value is cut at 500 characters (a cut value ends in `...`). When more matches exist, the header says how many were found and how many are shown, and the last line says how many were left out:
+Returns the entries that match, as formatted text. It prints a maximum of 20 matches, with the best match first. It cuts each value at 500 characters (a cut value ends in `...`). If there are more matches, the header gives the number found and the number shown. The last line gives the number that it did not show:
 
 ```
 Found 2 memory entries:
@@ -98,14 +98,14 @@ Removes a single entry by key.
 
 ## Relational query (memory_query)
 
-For filtering by field, combining facts across sources, or correlating past tool calls, `memory_query` runs a relational query - select/project/join/union - over two relations built from agent state:
+`memory_query` runs a relational query (select, project, join, union) on two relations that kdeps makes from the agent state. Use it to filter by field, combine facts from different sources, or find relations between past tool calls:
 
 | Relation | Fields | Source |
 |---|---|---|
 | `memory` | `key`, `value`, `namespace`, `type`, `references`, `createdAt`, `updatedAt` | Persistent memory entries |
 | `tool_calls` | `name`, `args` (an object when the arguments are JSON, so `.args.command` works), `args_json` (the raw text), `result`, `timestamp` | Recent tool-call history (this session, most recent 200) |
 
-The query language is [expr-lang](https://expr-lang.org/), the same engine `before:`/`after:` expressions use. `filter()`/`map()` are its own built-ins (select/project); `join()`/`union()` are added by `memory_query`:
+The query language is [expr-lang](https://expr-lang.org/), the same engine `before:`/`after:` expressions use. `filter()`/`map()` are its own built-ins (select/project). `memory_query` adds `join()`/`union()`:
 
 | Operation | Function | Example |
 |---|---|---|
@@ -114,7 +114,7 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 | Join | `join(left, right, leftField, rightField)` | `join(tool_calls, memory, "name", "key")` |
 | Union | `union(a, b)` | `union(filter(memory, .type == "error"), filter(memory, .type == "decision"))` |
 
-String matching uses infix operators, not function calls. `contains(...)` is a parse error; put the field on the left:
+String matching uses infix operators, not function calls. `contains(...)` is a parse error. Put the field on the left:
 
 | Match | Operator | Example |
 |---|---|---|
@@ -125,17 +125,17 @@ String matching uses infix operators, not function calls. `contains(...)` is a p
 | Case-insensitive substring | `lower()` + `contains` | `filter(memory, lower(.value) contains "latency")` |
 | Membership | `in` | `filter(memory, .type in ["error", "decision"])` |
 
-`join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide; no inequality/range-join or multi-field-key support today.
+`join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide. No inequality/range-join or multi-field-key support today.
 
 ```json
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`: the tool default is 50 and the `memory-query-rows-max` event caps it at 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` runs through the kdeps API and reads the in-process agent loop. An empty query returns `memory_query: query is required`. A call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
+The result has `rows` (capped at `limit`: the tool default is 50 and the `memory-query-rows-max` event caps it at 500), `count` (total matches before the limit), and `truncated` (bool). `memory_query` runs through the kdeps API and reads the in-process agent loop. An empty query returns `memory_query: query is required`. A call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
 
 ## Memory entry types
 
-Entries are auto-classified by key pattern, by the rules in the `memory/rules` asset (see [Memory rules](/agent/memory-internals#memory-rules)). The type controls where the entry sits in the [memory graph](/agent/memory-internals#memory-graph) and whether it can be pruned. The table lists the shipped rules.
+kdeps classifies entries automatically by key pattern, with the rules in the `memory/rules` asset (see [Memory rules](/agent/memory-internals#memory-rules)). The type sets the position of the entry in the [memory graph](/agent/memory-internals#memory-graph). It also sets if kdeps can prune the entry. The table lists the shipped rules.
 
 | Type | Key patterns | Description |
 |------|-------------|-------------|
@@ -157,11 +157,13 @@ Entries are auto-classified by key pattern, by the rules in the `memory/rules` a
 
 ## Workflow mode
 
-Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. Workflow resources can still call `memory_list()` to enumerate keys. The agent loop does not register that as a tool. `memory_query` uses that same call route and still needs the agent loop's live state. A workflow call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
+Memory tools operate in agent mode and in workflow mode. In workflow mode, `GetOrCreateMemoryStore()` initializes the store on first use. You do not need a Loop. Memory is available to all resources and tools.
+
+Workflow resources can call `memory_list()` to list the keys. The agent loop does not register that as a tool. `memory_query` uses that same call route and still needs the agent loop's live state. A workflow call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
 
 ## Configuration
 
-Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store lives in `<vault>/projects/<project>/memory/` (default vault: `~/.kdeps/notes`).
+Memory is on by default when the agent loop starts. You do not need YAML configuration. The store lives in `<vault>/projects/<project>/memory/` (default vault: `~/.kdeps/notes`).
 
 ## See also
 

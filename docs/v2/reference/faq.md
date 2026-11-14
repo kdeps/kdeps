@@ -10,13 +10,13 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/workflow/) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/agent/) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder - folder mode exposes every workflow and agency found recursively, plus all their components.
+[Agent mode](/agent/) (`kdeps [path]`) registers full workflows and components as tools. An LLM then selects the tools to call for user prompts. Workflow tools run as a complete pipeline, so all `requires:` dependencies resolve. Component tools run one reusable component in isolation. Give one file or a folder. In folder mode, kdeps finds all workflows and agencies recursively and gives them and their components as tools.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
 ## Do I need to know go to use kdeps?
 
-No. Workflows are written in YAML. The only code is optional inline Python or shell in `python`/`exec` resources.
+No. You write workflows in YAML. The only code is optional inline Python or shell in `python`/`exec` resources.
 
 ## What LLM providers are supported?
 
@@ -28,7 +28,7 @@ Any provider compatible with the OpenAI API format. This includes:
 - Groq
 - Any custom endpoint that speaks the OpenAI chat completions protocol
 
-Set the backend, base URL, and model via flags or environment variables.
+Set the backend, base URL, and model with flags or environment variables.
 
 ## Can I run kdeps without an LLM?
 
@@ -43,7 +43,7 @@ kdeps separates orchestration (the DAG, dependencies, error handling) from imple
 - Session and memory management
 - Input validation
 
-You would have to write all of that yourself in a script. kdeps gives it to you from a YAML file.
+Without kdeps, you must write all of that yourself in a script. kdeps gives it to you from a YAML file.
 
 ## How is this different from LangChain?
 
@@ -56,7 +56,7 @@ kdeps has no code dependency - install the binary, write a YAML file, and run.
 
 ## Can I call one workflow from another?
 
-Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent's full pipeline. The caller passes `params:`; the callee reads them with `get('key')` and returns its `apiResponse.response`.
+Yes, with [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent's full pipeline. The caller passes `params:`. The callee reads them with `get('key')` and returns its `apiResponse.response`.
 
 ## Can I deploy kdeps as an API server?
 
@@ -86,11 +86,11 @@ Never hardcode secrets in workflow YAML files.
 
 ## What is the maximum workflow size?
 
-There is no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
+There is no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources use more memory, but they operate correctly. The practical limit is readability of the YAML.
 
 ## Can I use kdeps in CI/CD pipelines?
 
-Yes. The `kdeps run` command is designed for one-shot execution. Pipe input via stdin, pass data via environment variables, and capture stdout. See the [Stateless bot](/examples/stateless-bot/) example.
+Yes. The `kdeps run` command is for one-shot runs. Send input through stdin, give data with environment variables, and capture stdout. See the [Stateless bot](/examples/stateless-bot/) example.
 
 ## Does kdeps support streaming?
 

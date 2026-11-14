@@ -1,14 +1,14 @@
 # Use an MCP server as a tool
 
-Give an LLM tools that are backed by an external
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server instead
-of your own resources. kdeps starts the server as a subprocess, performs the
+Give an LLM tools from an external
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server, not
+from your own resources. kdeps starts the server as a subprocess, performs the
 handshake, calls the tool, and shuts it down.
 
 A workflow-mode tool normally runs one of your resources (`script:`). An `mcp:`
 tool runs a tool exposed by an MCP server. `mcp:` and `script:` are mutually
-exclusive. A fresh subprocess is started for each tool invocation and only
-`stdio` transport is supported.
+exclusive. kdeps starts a new subprocess for each tool call. It supports only the
+`stdio` transport.
 
 **Needs:** Node.js with `npx` on `PATH` (for the filesystem MCP server).
 
@@ -125,11 +125,11 @@ text. With `llama3.2:1b` the reply was:
 ```
 
 The wording comes from the model and varies. Small local models such as
-`llama3.2:1b` often write the tool call as text (JSON or tags) instead of a
-structured call; kdeps recovers it, runs the tool, and stops a model that keeps
-re-issuing the same call by asking once more, without tools, for a plain
-answer. A 1B model's answer can be thin, as above; use a larger model
-for dependable tool use.
+`llama3.2:1b` often write the tool call as text (JSON or tags), not as a
+structured call. kdeps recovers the call and runs the tool. If a model sends
+the same call again and again, kdeps stops it. It asks the model one more
+time, without tools, for a plain answer. The answer of a 1B model can be
+short, as above. For reliable tool use, use a larger model.
 
 ## Next steps
 

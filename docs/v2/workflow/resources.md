@@ -4,7 +4,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 ## Where it runs
 
-All resource types work in both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools - the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
+All resource types work in both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, kdeps registers full workflows as tools. The LLM calls a workflow as a unit, and all resource dependencies in it resolve correctly.
 
 ## The shape of a resource
 
@@ -65,7 +65,7 @@ component:           # call a shipped or installed component:
     url: https://api.example.com/data
 ```
 
-The tables under [Resource types](#resource-types) are the allowlist. An action listed as `component:` runs only that way. Using its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, `loader:`, `vectorStore:`, ...) as a primary action or in a `before:`/`after:` step is rejected at parse time, and the error names the component. Actions listed as a plain YAML key have no bundled component and run natively.
+The tables under [Resource types](#resource-types) are the allowlist. An action listed as `component:` runs only that way. Its native key (`exec:`, `python:`, `embedding:`, `searchLocal:`, `httpClient:`, `loader:`, `vectorStore:`, ...) is not valid as a primary action or in a `before:`/`after:` step. The parser rejects it, and the error gives the component. Actions listed as a plain YAML key have no bundled component and run natively.
 
 ## actionId and requires
 
@@ -86,7 +86,7 @@ apiResponse:
 
 ## Resource types
 
-All executors are compiled into the `kdeps` binary and require no installation. They are grouped here by function; each links to its own reference page.
+All executors are part of the `kdeps` binary. You do not install them. This page shows them in groups by function. Each executor has a link to its reference page.
 
 ## AI & language
 
@@ -135,7 +135,7 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 ## Registry components (installable via `kdeps install`)
 
-Some install names (`embedding`) also exist as kdeps components; the registry component is a separate package, and installing it takes the place of the shipped component. 
+Some install names (`embedding`) are also kdeps components. The registry component is a separate package. When you install it, it replaces the shipped component.
 
 | Install name | Description |
 |-------------|-------------|
@@ -184,7 +184,7 @@ A -> B -> C -> loop -> E -> F
 
 - [Validation and control flow](/workflow/validation) - the `validations:` block
 - [Expressions](/workflow/expressions) - `before:`/`after:`, `get()`, `set()`
-- [Items iteration](/workflow/items) and [While-loop](/workflow/loop)
+- [Items iteration](/workflow/items) and [Loop](/workflow/loop)
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback
 - [Agencies](/agencies/) - multi-agent orchestration
 - [Components](/agencies/components) - installable capability extensions

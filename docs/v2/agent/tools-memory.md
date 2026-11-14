@@ -4,7 +4,11 @@
 
 ## Memory tools
 
-Always available. No environment variables required. `memory_save`, `memory_search`, and `memory_delete` run through the [kdeps API](/reference/api). A call with no memory store returns `memory_save: memory store is not configured`, and the same sentence for `memory_search` and `memory_delete`. The agent attaches its store before the call. `memory_query` runs through the [kdeps API](/reference/api). An empty query returns `memory_query: query is required`. A call with no agent loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`. The agent installs the loop before the call.
+Always available. You do not need environment variables.
+
+`memory_save`, `memory_search`, and `memory_delete` run through the [kdeps API](/reference/api). A call with no memory store returns `memory_save: memory store is not configured`, and the same sentence for `memory_search` and `memory_delete`. The agent attaches its store before the call.
+
+`memory_query` runs through the [kdeps API](/reference/api). An empty query returns `memory_query: query is required`. A call with no agent loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`. The agent installs the loop before the call.
 
 | Tool | Description |
 |------|-------------|
@@ -13,11 +17,11 @@ Always available. No environment variables required. `memory_save`, `memory_sear
 | `memory_delete` | Remove a memory entry by key. |
 | `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries) and `tool_calls` (recent tool call history). Supports `filter()`, `map()`, `join()`, `union()`. String matching is infix: `.value contains "x"`, `.key startsWith "x"`, `.value matches "regex"`; `contains(...)` is a parse error. |
 
-Memory is stored per-project as markdown notes in the knowledge vault, `<vault>/projects/<project>/memory/` (see [Persistent memory](/agent/memory)). Facts persist across sessions and are auto-extracted from every turn. A `[MEMORY: key] value` line saves a fact without calling `memory_save`.
+kdeps keeps memory for each project as markdown notes in the knowledge vault, `<vault>/projects/<project>/memory/` (see [Persistent memory](/agent/memory)). Facts stay across sessions. kdeps extracts facts from each turn automatically. A `[MEMORY: key] value` line saves a fact with no call to `memory_save`.
 
 The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` - see [REPL slash commands](/agent/commands).
 
 ## Identity tool
 
-Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/reference/advanced-config#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
+Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/reference/advanced-config#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured. A model that can read a password can leak it in its own output.
 

@@ -2,11 +2,11 @@
 
 The judge panel is the eval. Workflow chats take the same panel as a [`judges:` block](/workflow/resources/llm#judges). It reviews a turn's answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
 
-Goal enforcement checks that the loop keeps moving; it says nothing about whether
-the final answer is right. The panel is an independent review of
-that answer, run after the turn produces it - one or more reviewer personas, each
-with real tool access, check the output and can send it back for revision before
-it reaches you.
+Goal enforcement checks that the loop continues to move. It does not check if
+the final answer is correct. The panel is an independent review of that answer,
+after the turn makes it. One or more reviewer personas, each with real tool
+access, check the output. They can send it back for revision before it gets to
+you.
 
 ```text
 answer -> [judge 1] -> [judge 2] -> [judge 3] -> all approved? -> answer
@@ -16,26 +16,30 @@ answer -> [judge 1] -> [judge 2] -> [judge 3] -> all approved? -> answer
                     any rejected -> revise -> re-judge
 ```
 
-**A judge is a full agent, not a rubber stamp.** Each judge runs its own
-ephemeral tool-calling loop (the same round loop the main turn uses), so it can
-read a file, run a test, or search the web to verify a claim before ruling, not re-read the answer and guess. A judge settles its review by calling
-`judge_verdict{approved, feedback}` exactly once; there is no way to approve or
-reject by prose alone.
+**A judge is a full agent, not an automatic approval.** Each judge runs its own
+temporary tool-calling loop (the same round loop as the main turn). Then the
+judge can read a file, run a test, or search the web to verify a claim before
+its decision. It does not only read the answer again and guess. A judge
+completes its review with one call to `judge_verdict{approved, feedback}`. A
+judge cannot approve or reject with only prose.
 
-**The panel, not one judge.** Every judge in the roster reviews the *same*
-output, concurrently. If any judge rejects it, the rejecting judges' feedback
-is combined into a revision directive, the loop produces a new answer, and the
-whole panel reviews it again - up to `JudgeMaxIterations` times (default 2).
-Once the budget is spent the last attempted answer is returned regardless - a
-judge panel that never approves must not be able to block the turn forever. A
-revision that comes back empty (or with the "model produced nothing" notice) is
-discarded and the previous answer is kept, so a failed revision never replaces a
-real answer with a blank or a canned message.
+**The panel, not one judge.** All judges in the roster review the *same* output
+at the same time. If a judge rejects it, kdeps combines the feedback of the
+judges that reject it into a revision directive. The loop makes a new answer,
+and the full panel reviews it again. This occurs a maximum of
+`JudgeMaxIterations` times (default 2).
 
-**The roster is generated beside the turn.** Auto-judges make one subagent call
-(the same synthetic JSON call the loop uses for compaction). It starts with the
-turn, on the prompt as typed, and runs while prompt refinement, the planning council and the turn do. The
-REPL prints the panel when the answer is ready, just before the judges review it:
+When the budget is empty, kdeps returns the last answer. A judge panel that
+never approves must not stop the turn permanently. If a revision is empty (or
+has the "model produced nothing" notice), kdeps ignores it and keeps the
+previous answer. For this reason, a failed revision never replaces a real answer with a
+blank or a standard message.
+
+**kdeps makes the roster at the same time as the turn.** Auto-judges make one
+subagent call (the same synthetic JSON call that the loop uses for compaction).
+It starts with the turn, on the prompt as you typed it. It runs at the same
+time as prompt refinement, the planning council, and the turn. The REPL prints
+the panel when the answer is ready, immediately before the judges review it:
 
 ```
 [judges] panel generated - 2 reviewer(s)
@@ -43,8 +47,9 @@ REPL prints the panel when the answer is ready, just before the judges review it
   - security: no secrets, credentials, or unsafe shell input
 ```
 
-If the roster call comes back empty - the model is unavailable, or its reply
-would not parse - the REPL says so rather than silently skipping review:
+The roster call can return nothing, because the model is not available or kdeps
+cannot parse its reply. In this condition, the REPL tells you. It does not skip
+the review silently:
 
 ```
 [judges] no panel this turn - roster generation returned nothing
@@ -54,9 +59,9 @@ would not parse - the REPL says so rather than silently skipping review:
 explicit roster from `/judges add` still wins at review time and is not
 re-printed every turn.
 
-**You can see the review happening.** Because a judge is a full tool-calling loop, a
-review can take as long as a real turn - the REPL prints `[judge]` status
-lines so you are never left staring at a silent prompt:
+**You can see the review as it occurs.** A judge is a full tool-calling loop.
+For this reason, a review can take as long as a real turn. The REPL prints `[judge]` status
+lines, so the prompt is never silent:
 
 ```
 [judge] reviewing output - correctness, security
@@ -87,22 +92,27 @@ cfg := agent.Config{
 }
 ```
 
-A judge's `allowedTools:` list scopes which registered tools it may call.
-An empty list means `judge_verdict` only: the judge reads the candidate text
-and rules once. Name tools when the judge should check claims against the
-workspace. With `AutoJudges`, the
-roster is generated by one LLM call per turn - the same synthetic-workflow
-JSON-mode pattern compaction uses - and skipped for trivial chat the same way
-compaction skips it. Any failure anywhere in the panel (a judge
-that errors, times out, or never calls `judge_verdict`) degrades to approval
-rather than blocking the turn.
+The `allowedTools:` list of a judge sets the registered tools that it can call.
+An empty list means only `judge_verdict`. The judge reads the candidate text
+and gives one decision. If the judge must check claims in the workspace, give
+the tools.
 
-**On unless turned off.** The REPL and the desktop agent loop start with the panel on. A settings file that never set `auto_judges` stays on. `/judges off` (or `/judges clear`) drops the roster and writes `auto_judges: false`. `/judges auto on` turns it back on. A hand-configured roster (`/judges add` / `remove`) is session-only and wins over the generated one. Library callers get no panel unless they set `Config.Judges` or `Config.AutoJudges`. When the agent calls a workflow or an agency as a tool, the panel reviews that turn's final answer. An agency started as its own agent loop gets the same default. `kdeps run` does not.
+With `AutoJudges`, one LLM call for each turn makes the roster. This call uses
+the same synthetic-workflow JSON-mode pattern as compaction. kdeps skips it
+for simple chat, as compaction does. A failure in the panel becomes an
+approval, so it does not stop the turn. Examples of failures are a judge
+that gives an error, has a timeout, or never calls `judge_verdict`.
 
-**Graders** sit on a judge and run on the answer first, in process, with no model call. A failed grader rejects the answer and that judge does not open an LLM review. Graders that pass, on a judge that also has criteria, still use `judge_verdict`. A judge with graders and no criteria never calls the model. The auto-generated roster stays criteria-only. Kinds: `exact`, `contains`, `not_contains`, `regex`, `json` (valid JSON, or equal to a JSON pattern), `expr` (`output` and `answer` are the candidate text). `/judges` prints them under that judge. `/judges off` drops them with the roster.
+**On until you turn it off.** The REPL and the desktop agent loop start with the panel on. If a settings file does not set `auto_judges`, the panel stays on. `/judges off` (or `/judges clear`) removes the roster and writes `auto_judges: false`. `/judges auto on` turns it on again. A roster that you configure (`/judges add` / `remove`) is only for the session and has priority over the generated roster.
 
-**From the REPL**, the same roster is managed with `/judges` - no restart
-needed:
+Library callers get no panel unless they set `Config.Judges` or `Config.AutoJudges`. When the agent calls a workflow or an agency as a tool, the panel reviews that turn's final answer. An agency started as its own agent loop gets the same default. `kdeps run` does not.
+
+**Graders** are part of a judge. They run on the answer first, in the process, with no model call. If a grader fails, it rejects the answer, and that judge does not start an LLM review. If the graders pass and the judge also has criteria, the judge uses `judge_verdict`. A judge with graders and no criteria never calls the model.
+
+The auto-generated roster stays criteria-only. Kinds: `exact`, `contains`, `not_contains`, `regex`, `json` (valid JSON, or equal to a JSON pattern), `expr` (`output` and `answer` are the candidate text). `/judges` prints them under that judge. `/judges off` drops them with the roster.
+
+**From the REPL**, use `/judges` to manage the same roster. You do not need a
+restart:
 
 ```
 /judges                                        # show the current roster / auto-judges state

@@ -1,6 +1,6 @@
 # Subagents
 
-A subagent is a fresh agent loop: it starts without the conversation and sees only the task it was given. Judges, knowledge-graph extraction, prompt refinement and the planning council run as subagents, and the model can start one itself with the `subagent` tool. All of them use the subagent channel's model. The turn itself, compaction, the handshake, and branch summaries stay on the session model.
+A subagent is a fresh agent loop: it starts without the conversation and sees only its task. Judges, knowledge-graph extraction, prompt refinement and the planning council run as subagents, and the model can start one itself with the `subagent` tool. All of them use the subagent channel's model. The turn itself, compaction, the handshake, and branch summaries stay on the session model.
 
 ```text
 turn -> subagent {task, instructions, tools}
@@ -24,7 +24,7 @@ Each runs beside the turn where it can:
 | Prompt refinement | before the turn, beside roster generation: the turn runs on its rewrite |
 | Planning council | before the turn, after refinement: members draft, revise, and rank job orders |
 
-Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at once).
+Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at the same time).
 
 ## The subagent tool
 
@@ -40,8 +40,8 @@ The model calls `subagent` when a task needs a second opinion with no shared ass
 
 - `task` is the whole job: the subagent knows nothing else, so it names files by path.
 - `instructions` becomes the subagent's system prompt, for example a reviewer persona.
-- `tools` lists read-only tools (tier `T0` in `policy/permission.yaml`). The default is every read-only tool of the session. A write tool or `bash_exec` is refused before the subagent starts.
-- A subagent cannot start another subagent. Its tool rounds are capped by the `subagent-max-rounds` event (20).
+- `tools` lists read-only tools (tier `T0` in `policy/permission.yaml`). The default is every read-only tool of the session. kdeps refuses a write tool or `bash_exec` before the subagent starts.
+- A subagent cannot start another subagent. The `subagent-max-rounds` event (20) sets the maximum number of tool rounds.
 
 ## The subagent channel
 
@@ -53,7 +53,7 @@ The model calls `subagent` when a task needs a second opinion with no shared ass
 /subagent gpt-4o                        # any model, not only OpenRouter
 ```
 
-`free` picks from the larger half of the OpenRouter free catalog (`models/openrouter`), one id per call. Any other id is a pin. A catalog id uses that provider. A slash id that is not in the catalog goes to OpenRouter. Any other name uses the session backend. The choice persists in `~/.kdeps/agent-loop-settings.yaml` and wins over the config file once you have set it.
+`free` picks from the larger half of the OpenRouter free catalog (`models/openrouter`), one id per call. Any other id is a pin. A catalog id uses that provider. A slash id that is not in the catalog goes to OpenRouter. Any other name uses the session backend. The choice persists in `~/.kdeps/agent-loop-settings.yaml` and has priority over the configuration file after you set it.
 
 ```yaml
 # ~/.kdeps/config.yaml

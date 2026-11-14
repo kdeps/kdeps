@@ -1,6 +1,6 @@
 # Concepts overview
 
-This page covers how a workflow is shaped, how data moves between steps, and which pieces apply to each mode. Start with [What is kdeps?](/start/) if you have not run kdeps.
+This page shows the structure of a workflow, how data moves between steps, and which parts apply to each mode. Start with [What is kdeps?](/start/) if you have not run kdeps.
 
 ## How a workflow is shaped
 

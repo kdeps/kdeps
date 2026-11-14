@@ -4,7 +4,7 @@ Per-provider configuration for all backends supported by kdeps. Backend and API 
 
 Works in workflow and agent mode.
 
-The OpenAI-compatible providers here (OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie) are YAML files in the `providers` asset set, not code. `kdeps update providers` refreshes their endpoints; a new provider is a new file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
+These OpenAI-compatible providers are YAML files in the `providers` asset set, not code: OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie. `kdeps update providers` refreshes their endpoints. To add a provider, add a file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
 
 Every model here is probabilistic: the same prompt can return different text each call. Determinism comes from [workflow mode](/workflow/) wrapping the model, not the model. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 
@@ -210,7 +210,7 @@ llm:
   backend: bedrock
 ```
 
-Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key - set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `meta.llama3-1-70b-instruct-v1:0` (Anthropic models on Bedrock use the `anthropic.` prefix).
+Authenticates with the standard AWS SDK credential chain, not with a `config.yaml` API key. Set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, for example `meta.llama3-1-70b-instruct-v1:0` (Anthropic models on Bedrock use the `anthropic.` prefix).
 
 ## IBM WatsonX
 
@@ -225,7 +225,7 @@ Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` 
 
 ## M365 Copilot
 
-The `m365` backend talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it. No API key: authentication is a signed-in Microsoft 365 account, via browser sign-in (interactive) or a scripted `secrets.json` (headless/CI).
+The `m365` backend connects to the chat service of Microsoft 365 Copilot. It uses a local OpenAI-compatible server that kdeps runs in front of the service. It uses no API key. Authentication is a signed-in Microsoft 365 account. You sign in with a browser (interactive) or a scripted `secrets.json` (headless/CI).
 
 See [M365 Copilot](/llm-server/m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
 
@@ -242,7 +242,7 @@ llm:
 
 ## Custom base URL
 
-Override the default API URL via `base_url`:
+To override the default API URL, use `base_url`:
 
 ```yaml
 # Azure OpenAI

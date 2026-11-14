@@ -66,12 +66,13 @@ kdeps bundle prepackage <package.kdeps|package.kagency> [flags]
 | `--kdeps-version` | Runtime version to embed | running binary's version |
 | `--include-models` | Pre-bake the chat models' llamafiles into the executable | off |
 
-**`--include-models`** makes the binary fully offline: every literal
-A `chat:` resource's `model:` in the package's workflows is resolved through the llamafile
-registry (downloaded into your local cache if missing) and embedded under a
-reserved `.kdeps-models/` directory. At run time the embedded models become
-the llamafile cache, so aliases like `llama3.2:1b` resolve without network.
-Expect roughly +1.1 GB per model in the output binary.
+**`--include-models`** makes the binary fully offline. kdeps resolves each
+literal `model:` of a `chat:` resource in the workflows of the package through
+the llamafile registry. If the model is not in your local cache, kdeps downloads
+it. Then kdeps embeds it under a reserved `.kdeps-models/` directory. At run
+time, the embedded models are the llamafile cache, so aliases like
+`llama3.2:1b` resolve without a network. Each model adds about 1.1 GB to the
+output binary.
 
 ```text
 prepackage --include-models          run the binary
@@ -167,7 +168,7 @@ kdeps export k8s examples/chatbot \
 kdeps export k8s examples/chatbot --replicas 5 # Override replicas
 ```
 
-Manifests are driven by `runtime` in `workflow.yaml`:
+`runtime` in `workflow.yaml` controls the manifests:
 - `replicas` - number of pod replicas
 - `resources` - CPU/memory limits and requests
 - `env` - container environment variables

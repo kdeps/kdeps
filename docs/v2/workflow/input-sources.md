@@ -1,8 +1,8 @@
 # Input sources
 
-A workflow is fed by an HTTP server (`apiServer:` under `settings:`), a chat bot, or one file. The bot and file feeds are named under `settings:` `input:`.
+A workflow gets input from an HTTP server (`apiServer:` under `settings:`), a chat bot, or one file. You set the bot and file sources under `settings:` `input:`.
 
-This controls how a running workflow is fed. Agent mode does not use these sources; the prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
+This sets how a workflow that runs gets its input. Agent mode does not use these sources. The prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
 
 ## Overview
 
@@ -12,7 +12,7 @@ This controls how a running workflow is fed. Agent mode does not use these sourc
 | `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 
-An HTTP server starts only when `apiServer:` is set under `settings:`. Leave `portNum` out and it listens on port 16395. Omitting `input:` does not start that server. With no `apiServer`, no `webServer`, no bot source, and no file source, `kdeps run` executes the workflow once and exits.
+An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, and no file source, `kdeps run` runs the workflow one time and stops.
 
 ## API source
 
@@ -61,11 +61,11 @@ deploy:
 Execution types:
 
 - `polling` (default): Long-running persistent connection. Blocks until SIGINT/SIGTERM.
-- `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the result (the reply) to stdout, then exits.
+- `stateless`: Reads one message from stdin as JSON, runs the workflow one time, writes the result (the reply) to stdout, then stops.
 
 ## File source
 
-The `file` source reads file content from stdin, the `KDEPS_FILE_PATH` environment variable, or a configured path. The workflow executes once and exits.
+The `file` source reads file content from stdin, the `KDEPS_FILE_PATH` environment variable, or a configured path. The workflow runs one time and stops.
 
 ```yaml
 # workflow.yaml
@@ -82,7 +82,7 @@ Override the path at runtime:
 kdeps run workflow.yaml --file /path/to/document.txt
 ```
 
-The workflow runs once and prints its result (the target resource's output) as JSON on stdout, after the progress lines:
+The workflow runs one time and prints its result (the target resource's output) as JSON on stdout, after the progress lines:
 
 ```text
 ✓ Running workflow with file input...
@@ -94,25 +94,32 @@ The workflow runs once and prints its result (the target resource's output) as J
 }
 ```
 
-**Size limit.** The whole file is read into memory as `fileContent` - fine for
-documents, but a workflow that ingests bulk data (a large CSV, say) can spike
-memory well past the raw file size once a resource copies that content again
-(e.g. interpolating it into a `python` component script or `exec` component argument, or a script that
-builds an in-memory row list). Past a certain size that risks an OOM kill from
-the OS - which, being a `SIGKILL`, leaves no error and no core dump, just a
-vanished process. `--file`/stdin input is capped at 256 MiB by default;
-`kdeps run` fails fast with a clear error instead of reading a file over that.
-Raise or lower it with `KDEPS_FILE_INPUT_MAX_BYTES` (bytes; `0` disables the
-check):
+**Size limit.** kdeps reads the full file into memory as `fileContent`. This is
+correct for documents.
+
+But a workflow can read a large quantity of data, for
+example a large CSV. When a resource copies that content again, memory use can
+become much larger than the file size. For example, the resource can put the
+content into a `python` component script or an `exec` component argument. Or
+a script can make a list of rows in memory.
+
+Above a certain size, the OS can stop the process because it has no more
+memory (OOM). This is a `SIGKILL`. It gives no error and no core dump. The
+process only stops.
+
+By default, the maximum `--file`/stdin input is 256 MiB.
+For a larger file, `kdeps run` stops immediately with a clear error and does
+not read the file. To change the limit, set `KDEPS_FILE_INPUT_MAX_BYTES`
+(bytes; `0` disables the check):
 
 ```bash
 KDEPS_FILE_INPUT_MAX_BYTES=1073741824 kdeps run workflow.yaml --file big-export.csv  # 1 GiB
 ```
 
-If you hit this limit often, prefer having the workflow process the file in
-batches (e.g. a `python` component or `exec` component step that streams rows) over one step that
-holds the whole dataset in memory - the limit is a safety net, not a size to
-build up to.
+If your files are often above this limit, process the file in batches. For
+example, use a `python` component or `exec` component step that streams rows.
+Do not use one step that keeps the full dataset in memory. The limit is a
+safety limit, not a target size.
 
 ## Interactive REPL
 

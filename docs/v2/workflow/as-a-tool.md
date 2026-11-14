@@ -1,6 +1,6 @@
 # Load a workflow as a tool
 
-Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/agent/). You type a prompt; the model decides when to call the workflow; kdeps runs the full DAG and returns the result.
+Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/agent/). You type a prompt. The model decides when to call the workflow. kdeps runs the full DAG and returns the result.
 
 **Needs:** a workflow directory with `workflow.yaml` and a `name:` under `metadata:` (the quickstart project `my-agent` works).
 

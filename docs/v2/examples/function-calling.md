@@ -1,14 +1,18 @@
 # Give an LLM tools to call
 
-Build an API where the LLM can call your own resources
-mid-response. When the model needs a calculation or a database lookup, it calls
-a tool, kdeps runs the target resource, feeds the result back, and the model
-continues.
+Build an API where the LLM can call your own resources during a response. When
+the model needs a calculation or a database lookup, it calls a tool. kdeps runs
+the target resource and gives the result back. Then the model continues.
 
-A tool is a function the LLM can call. In workflow mode you declare tools in
-`tools:` on a `chat:` resource: each has a name, a description the model uses to decide when to
-call it, a `script:` naming the resource that runs it, and a parameter schema.
-The tool resource is not in the dependency graph - it runs only when the model
+A tool is a function that the LLM can call. In workflow mode, you declare tools
+in `tools:` on a `chat:` resource. Each tool has these parts:
+
+- A name.
+- A description. The model uses it to decide when to call the tool.
+- A `script:` with the name of the resource that runs it.
+- A parameter schema.
+
+The tool resource is not in the dependency graph. It runs only when the model
 calls it.
 
 ## Step 1: create the project
@@ -173,8 +177,8 @@ kdeps validate .
 ```
 
 Validation prints a warning: `calcTool: resource is unreachable from
-targetActionId`. That is expected - tool resources are only reached when the
-LLM calls them, not through `requires:`.
+targetActionId`. This is correct. Tool resources run only when the LLM calls them, not through
+`requires:`.
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=dev-token

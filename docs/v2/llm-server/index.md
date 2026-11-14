@@ -1,8 +1,8 @@
 # kdeps LLM server
 
 kdeps LLM server builds a standalone OpenAI-compatible inference appliance, with no
-kdeps agent or workflow. Build it once (Docker, ISO, or Kubernetes); every kdeps host on your
-network points at it over `/v1`.
+kdeps agent or workflow. Build it one time (Docker, ISO, or Kubernetes). Each kdeps host on your
+network connects to it over `/v1`.
 
 ```bash
 kdeps llm wizard          # pick engine + model, then build/run/export
@@ -52,7 +52,7 @@ kdeps llm wizard
 kdeps llm
 ```
 
-Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Type to filter; Up/Down navigate; Enter selects; Esc cancels.
+Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Type to filter. Up/Down navigate. Enter selects. Esc cancels.
 
 ```bash
 # List stock + user recipes
@@ -113,7 +113,7 @@ Generate the same snippet with `kdeps llm client-config`.
 
 Chat resources in workflow mode and agent mode keep their `model:` field. Only the backend URL changes.
 
-To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. Unlike `KDEPS_LLM_BASE_URL`, this wins over a resource's own `backend:` and the session's `--backend`, needs no API key, and no llamafile or ollama is started:
+To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. This is different from `KDEPS_LLM_BASE_URL`. It has priority over the `backend:` of a resource and the `--backend` of the session. It needs no API key, and kdeps starts no llamafile or ollama:
 
 ```bash
 export KDEPS_LLM_OVERRIDE_URL=http://127.0.0.1:8099   # POST /v1/chat/completions; the resource's model name is sent as is
@@ -183,7 +183,7 @@ kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
 docker run --rm -p 8000:8000 myorg/llm:1
 ```
 
-Preview without building:
+Preview with no build:
 
 ```bash
 kdeps llm build --engine ollama --model llama3.2 --show-dockerfile

@@ -1,8 +1,10 @@
 # While-loop iteration
 
-The [`loop`](/reference/glossary#loop) block enables conditional, unbounded iteration - making kdeps workflows Turing complete.
+The [`loop`](/reference/glossary#loop) block gives conditional iteration with no fixed limit. This makes kdeps workflows Turing complete.
 
-Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool. `items` iterates over a fixed list; `loop` repeats a resource body while an expression is true, or a fixed count without `while:`, with full `set()`/`get()` state. Add `every:` to pause a fixed duration between iterations, making it a scheduled task.
+Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool.
+
+`items` iterates over a fixed list. `loop` repeats a resource body when an expression is true. Without `while:`, it repeats a fixed number of times. It has full `set()`/`get()` state. To pause for a fixed duration between iterations, add `every:`. This makes the loop a scheduled task.
 
 ## Basic usage
 
@@ -61,7 +63,7 @@ after:
 
 ## Loop-scoped storage
 
-Use `'loop'` as a storage type hint to scope variables to the loop context, mirroring the `'item'` type for items iteration:
+To keep variables in the loop context, use `'loop'` as a storage type hint. This is the same as the `'item'` type for items iteration:
 
 <div v-pre>
 
@@ -93,7 +95,7 @@ after:
 
 </div>
 
-The loop runs until 3 results have been collected, regardless of how many iterations that takes - a key pattern for mu-recursion and unbounded search.
+The loop runs until it has 3 results, with no limit on the number of iterations. This is an important pattern for mu-recursion and unbounded search.
 
 ## Streaming response
 
@@ -123,11 +125,11 @@ No iterations -> empty slice.
 
 ## `maxIterations` safety cap
 
-`maxIterations` is a configurable upper bound on the number of iterations. It prevents accidental infinite loops in production while preserving Turing completeness - users can set it to any positive integer.
+`maxIterations` is a configurable upper bound on the number of iterations. It prevents accidental infinite loops in production. The loop stays Turing complete, because you can set the limit to any positive integer.
 
 - Default: `1000`
 - Set to any positive integer for tighter or looser control
-- Turing completeness is preserved because the cap is configurable, not fixed
+- The loop stays Turing complete because you can configure the limit. It is not fixed
 
 ```yaml
 # resources/example.yaml
@@ -138,7 +140,7 @@ loop:
 
 ## `every:` - repeated scheduled tasks
 
-Add `every:` to pause the loop for a fixed duration between iterations, turning it into a repeated scheduled task (ticker pattern). Supported units: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours).
+To pause the loop for a fixed duration between iterations, add `every:`. This makes the loop a repeated scheduled task (ticker pattern). Supported units: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours).
 
 <div v-pre>
 
@@ -160,7 +162,7 @@ apiResponse:
 
 </div>
 
-The sleep is skipped after the last iteration - the caller receives results without an unnecessary trailing delay.
+kdeps skips the sleep after the last iteration. As a result, the caller receives results with no unnecessary delay at the end.
 
 ### Combining `while: "true"` with `every:` for infinite polling
 
@@ -192,11 +194,11 @@ after:
 | `"2m"` | 2 minutes |
 | `"1h"` | 1 hour |
 
-An invalid `every:` value (e.g. `"not-a-duration"`) is rejected at validation time.
+Validation rejects an invalid `every:` value (for example, `"not-a-duration"`).
 
 ## `at:` - specific dates and times
 
-Use `at:` to fire the loop body at a list of specific dates and/or times, in order. The engine sleeps until each scheduled time before executing the body for that iteration.
+Use `at:` to fire the loop body at a list of specific dates and/or times, in order. The engine waits until each scheduled time. Then it runs the body for that iteration.
 
 `every:` and `at:` are mutually exclusive - set only one per loop block.
 
@@ -257,9 +259,9 @@ An invalid entry (e.g. `"not-a-date"`) causes an error before any iterations run
 
 ## Condition syntax
 
-The `while:` field is optional. When omitted, the loop runs until `maxIterations` (default 1000) or until all `at:` entries are consumed.
+The `while:` field is optional. If you do not set it, the loop runs until `maxIterations` (default 1000), or until it uses all `at:` entries.
 
-When provided, the expression is evaluated using expr-lang - any boolean expression is valid:
+If you set it, kdeps evaluates the expression with expr-lang. All boolean expressions are valid:
 
 ```yaml
 # Counter

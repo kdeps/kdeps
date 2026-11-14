@@ -1,6 +1,8 @@
 # python component
 
-The `python` component runs a Python script in a managed virtualenv and returns its stdout, parsed as JSON when possible and as raw text otherwise. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `python` tool, which runs the native Python executor. A workflow that uses `python:` directly - primary or in a `before:`/`after:` step - is rejected.
+The `python` component runs a Python script in a managed virtualenv and returns its stdout, parsed as JSON when possible and as raw text otherwise.
+
+It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `python` tool of the kdeps API. This tool runs the native Python executor. kdeps rejects a workflow that uses `python:` directly, as primary or in a `before:`/`after:` step.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
@@ -98,7 +100,7 @@ component:
 
 </div>
 
-The venv is built once and reused. Without `venvName`, the name is derived from the package list, so two resources with the same packages share one venv. Give a `venvName` to isolate a resource from everything else:
+kdeps builds the venv one time and uses it again. Without `venvName`, kdeps makes the name from the package list. As a result, two resources with the same packages use one venv. Give a `venvName` to isolate a resource from everything else:
 
 <div v-pre>
 
@@ -122,7 +124,7 @@ component:
 
 ## Output
 
-The script's stdout is the resource output. When stdout parses as a JSON object, the resource output is that object; otherwise it is the raw text.
+The script's stdout is the resource output. When stdout parses as a JSON object, the resource output is that object. Otherwise it is the raw text.
 
 <div v-pre>
 
@@ -155,7 +157,7 @@ A non-zero exit does not return stdout: the call fails with `python execution fa
 
 ## Environment variables
 
-`env:` sets variables for that one call; values are expressions, evaluated per run. Pass secrets this way rather than in `args:`, which any user on the machine can read in the process list:
+`env:` sets variables for that one call. Values are expressions. kdeps evaluates them on each run. Give secrets this way, not in `args:`. All users on the machine can read `args:` in the process list:
 
 <div v-pre>
 
@@ -174,7 +176,7 @@ component:
 
 </div>
 
-Workflow-wide values from `runtime.env` are inherited by the script:
+The script gets the workflow values from `runtime.env`:
 
 ```yaml
 # In workflow.yaml
@@ -207,7 +209,7 @@ debug = os.environ.get('DEBUG') == 'true'
 | `python stdout exceeds output limit of N bytes` | Output crossed `KDEPS_PYTHON_MAX_OUTPUT_BYTES` |
 | `failed to ensure venv: ...` | uv could not build the virtualenv (bad version, network, package resolution) |
 
-Handle a failing script without stopping the workflow with `onError:`:
+To handle a script that fails and not stop the workflow, use `onError:`:
 
 <div v-pre>
 

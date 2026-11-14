@@ -1,6 +1,6 @@
 # Approval tokens
 
-When the [permission mode](/agent/tools#permission-modes) denies a tool call, the agent can request a one-time exception with an approval token. A token grants one tool+action override without relaxing the permission mode. Only you grant it: the agent can request, list and revoke tokens, never grant one.
+When the [permission mode](/agent/tools#permission-modes) denies a tool call, the agent can request a one-time exception with an approval token. A token grants one tool+action override. The permission mode does not change. Only you grant it: the agent can request, list and revoke tokens, never grant one.
 
 ## How it works in practice
 
@@ -14,7 +14,7 @@ When the [permission mode](/agent/tools#permission-modes) denies a tool call, th
      apt-1: tool=bash_exec action="rm -rf /tmp/cache" status=pending
    ```
 6. You run `/approve apt-1`
-7. The agent retries the tool call - `BeforeToolCall` finds the granted token via `FindMatchingGranted`, consumes it (one-time use), and lets the call proceed
+7. The agent tries the tool call again. `BeforeToolCall` finds the granted token with `FindMatchingGranted`, uses it (one time only), and lets the call continue
 
 ## CLI tools
 
@@ -27,13 +27,13 @@ When the [permission mode](/agent/tools#permission-modes) denies a tool call, th
 
 ## Lifecycle
 
-- **Pending** - created by the agent when a tool call is denied, waiting for your approval
+- **Pending** - the agent creates it when kdeps denies a tool call. It waits for your approval
 - **Granted** - you approved the exception with `/approve`
-- **Consumed** - the token was used for one tool call and is now spent
-- **Expired** - TTL elapsed without being consumed (default 5 minutes)
-- **Revoked** - manually revoked via `approval_revoke`
+- **Consumed** - one tool call used the token. You cannot use it again
+- **Expired** - the TTL ended before a tool call used the token (default 5 minutes)
+- **Revoked** - you revoked it with `approval_revoke`
 
-Scope matching supports wildcards: an empty `Action` matches any action. `FindMatchingGranted(toolName, action, now)` is called automatically in the `BeforeToolCall` hook - you never call it directly.
+Scope matching supports wildcards: an empty `Action` matches any action. The `BeforeToolCall` hook calls `FindMatchingGranted(toolName, action, now)` automatically. You do not call it directly.
 
 ## See also
 

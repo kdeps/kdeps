@@ -73,11 +73,11 @@ networks:
 
 ## Security hardening
 
-Generated images run as the unprivileged `kdeps` user, including Ollama-backed images. Ollama models are stored under `/app/.ollama/models`.
+Generated images run as the unprivileged `kdeps` user, including Ollama-backed images. kdeps stores Ollama models under `/app/.ollama/models`.
 
 Do not put `KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`, or other secret-like keys in `runtime.env` - Docker build fails if you try. Pass auth tokens at container runtime with `-e` or secrets mounts.
 
-Before exposing a container externally, add these fields to `workflow.yaml`:
+Before you expose a container externally, add these fields to `workflow.yaml`:
 
 ```yaml
 # workflow.yaml
@@ -177,4 +177,4 @@ For custom domains without mounting PEM secrets, set `domain:` under `settings:`
 
 - [Docker deployment](/deploy/docker) - core packaging and build workflow
 - [Kubernetes deployment](/deploy/kubernetes) - cluster deployment
-- [Management API](/reference/management-api) - live workflow updates without rebuilding
+- [Management API](/reference/management-api) - live workflow updates with no rebuild

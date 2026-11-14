@@ -5,7 +5,7 @@ description: Run your own LLM and coding agent on servers you control, in the re
 
 # Data sovereignty
 
-kdeps lets you run the whole AI stack - the model, the coding agent, the API in front of it - on servers you control, in the region you choose. Your prompts, source code, and customer data never have to leave that boundary or reach a third-party AI provider.
+With kdeps, you run the full AI stack on servers that you control, in the region that you select. The stack includes the model, the coding agent, and the API in front of them. Your prompts, source code, and customer data stay in that boundary. They do not go to a third-party AI provider.
 
 Works in workflow mode, agent mode and agencies.
 
@@ -101,7 +101,7 @@ Leave `base_url` unset and the desktop keeps its local model. Engines, GPU, and 
 
 ### 1. Coding agent on your own machine
 
-Run `kdeps` and you get an autonomous coding agent REPL - file edits, shell, search, memory - against a local model. Nothing is sent to an external API. The [desktop app](/desktop/) is the same agent in a window, with the same local default.
+Run `kdeps` to start an autonomous coding agent REPL that uses a local model. The agent has file edits, shell, search, and memory. kdeps sends no data to an external API. The [desktop app](/desktop/) is the same agent in a window, with the same local default.
 
 ```bash
 kdeps                      # agent REPL, default local llamafile model

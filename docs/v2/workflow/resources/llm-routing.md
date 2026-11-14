@@ -32,7 +32,7 @@ llm:
       min_tokens: 501         # long prompts use this
 ```
 
-Token counts are estimated using tiktoken.
+kdeps estimates token counts with tiktoken.
 
 ## Strategy: `fallback`
 
@@ -55,7 +55,7 @@ llm:
       default: true
 ```
 
-Lower priority values are tried first. `default: true` marks the catch-all route.
+kdeps tries lower priority values first. `default: true` marks the catch-all route.
 
 ## Strategy: `cost_optimized`
 
@@ -75,7 +75,7 @@ llm:
       default: true
 ```
 
-Nil cost is treated as zero. Falls to `default: true` on tie.
+kdeps uses zero for a nil cost. If two routes have the same cost, kdeps uses `default: true`.
 
 ## Strategy: `round_robin`
 
@@ -92,7 +92,7 @@ llm:
       backend: anthropic
 ```
 
-Counters are keyed by a fingerprint of the model list, so different route configs maintain independent counters.
+The key of each counter is a fingerprint of the model list. As a result, different route configurations keep independent counters.
 
 ## Strategy: `auto`
 
@@ -112,9 +112,9 @@ llm:
       default: true          # only ever used as the fallback -- see below
 ```
 
-Only entries on a local backend (`file`, `gguf`, `ollama`) are scored, since `llmfit` measures hardware fit. A cloud entry is reached only through `default: true` when no local entry scores. Without `llmfit` installed, routing falls back the same way. The `llmfit` index is computed once per process and cached.
+kdeps gives a score only to entries on a local backend (`file`, `gguf`, `ollama`), because `llmfit` measures hardware fit. kdeps uses a cloud entry only through `default: true`, when no local entry gets a score. If `llmfit` is not installed, routing uses the fallback in the same way. kdeps calculates the `llmfit` index one time for each process and keeps it in a cache.
 
-Agent mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local model management](/agent/models#how-a-model-is-picked-when-none-is-configured).
+Agent mode has the same strategy with `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local model management](/agent/models#how-a-model-is-picked-when-none-is-configured).
 
 ## `auto-router`: zero-config, fully automatic
 
@@ -132,11 +132,11 @@ chat:
 
 Resolution order, with no config required:
 
-1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag is scored via `llmfit`, same as `auto`'s local tier. Requires `llmfit` on `PATH`; skipped entirely (no cost) when it is not installed.
-2. **Cloud fallback** - the first provider with an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...). Providers with no single default model (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) are excluded. OpenRouter's free models are still listed, from `models/openrouter`.
-3. **Built-in default** - if neither of the above finds anything, kdeps falls back to the same zero-config built-in llamafile (`llama3.2:1b`) used when `model:` is omitted entirely.
+1. **Best-fit installed local model** - `llmfit` gives a score to each cached llamafile, loadable GGUF, and pulled Ollama tag, as in the local tier of `auto`. This step needs `llmfit` on `PATH`. If `llmfit` is not installed, kdeps skips this step (no cost).
+2. **Cloud fallback** - the first provider that has an API key env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...). kdeps does not use providers with no single default model (OpenRouter, Hugging Face, Bedrock, Watsonx, ...). The list includes the free models of OpenRouter, from `models/openrouter`.
+3. **Built-in default** - if the two steps above find nothing, kdeps uses the zero-config built-in llamafile (`llama3.2:1b`). This is the same model that kdeps uses when you do not set `model:`.
 
-Agent mode has the same sentinel via `--model auto-router` - see [Local model management](/agent/models#-model-auto-router-zero-config-fully-automatic).
+Agent mode has the same sentinel with `--model auto-router` - see [Local model management](/agent/models#-model-auto-router-zero-config-fully-automatic).
 
 ## See also
 

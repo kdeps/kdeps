@@ -1,6 +1,6 @@
 # Bot replies
 
-A bot workflow replies by returning a result: kdeps sends the workflow's result back to the chat that delivered the message - Discord, Slack, Telegram, or stdout in stateless mode. There is no separate reply resource; end the workflow with an `apiResponse:` (or any resource whose output is text) and set it as `targetActionId`.
+A bot workflow replies with its result: kdeps sends the workflow's result back to the chat that delivered the message - Discord, Slack, Telegram, or stdout in stateless mode. There is no separate reply resource. End the workflow with an `apiResponse:` (or any resource whose output is text) and set it as `targetActionId`.
 
 This is workflow mode with `bot` in `sources:` under `settings:` `input:` - see [Input sources](/workflow/input-sources).
 
@@ -58,7 +58,7 @@ apiResponse:
 | A plain string | The string |
 | Anything else | The result as JSON |
 
-An empty result sends nothing. A failed workflow sends nothing and is logged; send a fallback with the resource's `onError:` if users should get one.
+An empty result sends nothing. A failed workflow sends nothing, and kdeps logs it. If users must get a reply, send a fallback with the `onError:` of the resource.
 
 ## Stateless mode
 

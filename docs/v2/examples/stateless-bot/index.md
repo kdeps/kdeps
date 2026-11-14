@@ -63,14 +63,14 @@ apiResponse:                 # in bot mode the workflow result is the reply
 
 ## Running
 
-**Via JSON on stdin:**
+**With JSON on stdin:**
 
 ```bash
 echo '{"message":"What is 2+2?","chatId":"42","userId":"u1","platform":"custom"}' \
   | kdeps run workflow.yaml
 ```
 
-**Via environment variables:**
+**With environment variables:**
 
 ```bash
 export KDEPS_BOT_MESSAGE="What is the capital of France?"
@@ -78,7 +78,7 @@ export KDEPS_BOT_PLATFORM="cli"
 kdeps run workflow.yaml
 ```
 
-Output is written to stdout:
+kdeps writes the output to stdout:
 
 ```
 Paris

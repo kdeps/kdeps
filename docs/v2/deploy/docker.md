@@ -54,7 +54,7 @@ kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
 
 ### Show dockerfile
 
-View the generated Dockerfile without building:
+To see the generated Dockerfile with no build:
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
@@ -80,7 +80,7 @@ kdeps bundle build myagent-1.0.0.kdeps --gpu vulkan
 
 ### GPU runtime
 
-When running GPU-enabled images:
+When you run GPU-enabled images:
 
 ```bash
 # NVIDIA
@@ -97,7 +97,7 @@ kdeps automatically selects the base OS based on GPU requirements:
 - **No `--gpu` flag** -> Alpine (CPU-only, smallest images ~300MB)
 - **`--gpu` specified** -> Ubuntu (GPU support, glibc-based)
 
-The OS is automatically chosen to ensure compatibility:
+kdeps selects the OS automatically, for compatibility:
 
 ```bash
 # CPU-only: Uses Alpine (smallest)
@@ -133,11 +133,11 @@ deploy:
 
 ## LLM backend in images
 
-By default no LLM server is installed: chat resources run on the `file`
-backend, and the llamafile model for each chat resource is downloaded into the
-image at build time (`/app/.kdeps/models/`). The container is a vanilla
-`alpine:latest` or `ubuntu:latest` base plus kdeps and the baked models -
-the llamafile self-serves inside the container, no extra process to manage.
+By default, kdeps installs no LLM server. Chat resources run on the `file`
+backend. At build time, kdeps downloads the llamafile model for each chat
+resource into the image (`/app/.kdeps/models/`). The container is a standard
+`alpine:latest` or `ubuntu:latest` base with kdeps and the models. The
+llamafile serves itself in the container. You do not manage an extra process.
 
 ```text
 default (file backend)     -> FROM alpine:latest or ubuntu:latest
@@ -147,7 +147,7 @@ no chat resources          -> FROM alpine:latest or ubuntu:latest (vanilla)
 
 ## Ollama Docker images (opt-in)
 
-Ollama is bundled only when `installOllama: true`, `KDEPS_DEFAULT_BACKEND=ollama` is set with chat resources, or `KDEPS_LLM_ROUTER` routes to Ollama.
+kdeps adds Ollama only in these conditions: `installOllama: true`, `KDEPS_DEFAULT_BACKEND=ollama` with chat resources, or `KDEPS_LLM_ROUTER` routes to Ollama.
 
 ```text
 needs Ollama + alpine CPU  -> FROM alpine/ollama:<tag>   (~70MB third-party CPU image)
@@ -232,9 +232,9 @@ deploy:
 
 ## Package version pinning
 
-On every `bundle build`, kdeps resolves package versions before generating the Dockerfile:
+On every `bundle build`, kdeps resolves package versions before it generates the Dockerfile:
 
-- **kdeps** - latest [GitHub release](https://github.com/kdeps/kdeps/releases); `install.sh` is fetched from that tag and the same tag is passed to the installer (never `main` + floating latest)
+- **kdeps** - latest [GitHub release](https://github.com/kdeps/kdeps/releases). kdeps gets `install.sh` from that tag and gives the same tag to the installer (never `main` + floating latest)
 - **ollama** - latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag for `ollama/ollama` and `alpine/ollama` (never `:latest`). `--gpu rocm` uses the fixed `ollama/ollama:rocm` tag instead.
 - **uv** - latest [astral-sh/uv](https://github.com/astral-sh/uv/releases) release as the `ghcr.io/astral-sh/uv` tag
 
@@ -256,7 +256,7 @@ Preview resolved pins:
 kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
 ```
 
-When no Ollama base image is selected, kdeps uses `alpine:latest` or `ubuntu:latest`. Python defaults to `3.12` when `pythonVersion` is omitted.
+If you do not select an Ollama base image, kdeps uses `alpine:latest` or `ubuntu:latest`. If you do not set `pythonVersion`, Python is `3.12`.
 
 ## Environment variables
 
@@ -332,9 +332,9 @@ docker-compose up -d
 
 ## Optimized build process
 
-kdeps uses a streamlined build process that leverages the official installation script. This ensures the smallest possible image size and maximum compatibility.
+kdeps uses a simple build process with the official installation script. This gives the smallest possible image and the best compatibility.
 
-The Dockerfile, entrypoint and supervisord config are rendered from the `docker/image` asset (`kdeps update docker` refreshes them; `kdeps build --show-dockerfile` prints the result). `kdeps export k8s` renders the `k8s/manifests` asset the same way.
+kdeps renders the Dockerfile, entrypoint, and supervisord configuration from the `docker/image` asset (`kdeps update docker` refreshes them; `kdeps build --show-dockerfile` prints the result). `kdeps export k8s` renders the `k8s/manifests` asset the same way.
 
 ```dockerfile
 # Example of generated Dockerfile logic
@@ -465,7 +465,7 @@ deploy:
     portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
-See [TLS and HTTPS (custom domains)](/deploy/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.
+See [TLS and HTTPS (custom domains)](/deploy/tls-https). kdeps also supports static PEM mounts with `certFile`/`keyFile`.
 
 ## See also
 
@@ -473,4 +473,4 @@ See [TLS and HTTPS (custom domains)](/deploy/tls-https). Static PEM mounts via `
 - [Workflow configuration](/workflow/configuration) - agent settings
 - [Web server mode](webserver) - serve frontends
 - [LLM backends](/workflow/resources/llm-backends) - backend configuration
-- [Management API](/reference/management-api) - live workflow updates without rebuilding
+- [Management API](/reference/management-api) - live workflow updates with no rebuild

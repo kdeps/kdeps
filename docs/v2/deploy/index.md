@@ -1,8 +1,9 @@
 # kdeps deploy
 
-kdeps deploy ships the workflow you tested locally, unchanged. It packages the workflow, builds an image
-with no Dockerfile, and runs it as a Docker container, Kubernetes deployment,
-bootable ISO, or single self-contained binary from the same `workflow.yaml`.
+kdeps deploy ships the workflow that you tested locally, with no change. It
+packages the workflow and builds an image with no Dockerfile. It runs the
+image as a Docker container, a Kubernetes deployment, a bootable ISO, or one
+self-contained binary. All of these use the same `workflow.yaml`.
 
 ```bash
 kdeps bundle build .      # workflow + model -> Docker image
@@ -10,7 +11,7 @@ kdeps bundle build .      # workflow + model -> Docker image
 
 **Not this?** To deploy a shared model server instead of an agent, that is
 [kdeps LLM server](/llm-server/). To publish an agent for others to install
-rather than run it yourself, [kdeps registry](/registry/).
+and not run it yourself, [kdeps registry](/registry/).
 
 ---
 
@@ -33,13 +34,13 @@ Each step is a single `kdeps` command. No Dockerfiles, no manual YAML authoring,
 
 ## Step 1: validate
 
-Run schema and dependency validation before packaging:
+Validate the schema and dependencies before you package the workflow:
 
 ```bash
 kdeps validate workflow.yaml
 ```
 
-This catches YAML syntax errors, missing dependencies, circular references, and bad expressions before they reach production. Always run this in CI before packaging.
+This catches YAML syntax errors, missing dependencies, circular references, and bad expressions before they reach production. Always run this in CI before you package.
 
 ## Step 2: package
 
@@ -158,7 +159,7 @@ For edge deployments that cannot run containers, use the prepackage flow:
 kdeps bundle package . --output dist/
 ```
 
-The `.kdeps` archive can be deployed directly on any machine with kdeps installed:
+You can deploy the `.kdeps` archive directly on a machine that has kdeps:
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=api-secret

@@ -1,6 +1,6 @@
 # Data access (get, set, input, request)
 
-`get()` and `set()` are the two functions you use for almost everything in kdeps. `input` and `request` are property-style shorthands for the incoming HTTP request. All of them work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `guardrails.check` conditions. `get()`/`set()` are available in both modes; `input`/`request` are workflow mode only (they read the HTTP request).
+`get()` and `set()` are the two functions you use for almost everything in kdeps. `input` and `request` are property-style shorthands for the incoming HTTP request. All of them work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `guardrails.check` conditions. `get()`/`set()` are available in both modes. `input`/`request` are workflow mode only (they read the HTTP request).
 
 ## get() - read any value
 
@@ -28,7 +28,7 @@ get('user', 'session') # session only -- persists across requests
 get('API_KEY', 'env')  # environment variable
 ```
 
-Reading a resource output works the same way - `get('llm')` returns whatever the `llm` resource produced:
+To read a resource output, use the same method. `get('llm')` returns the output of the `llm` resource:
 
 ```yaml
 flow:
@@ -118,7 +118,7 @@ chat:
 
 ## The request object
 
-`request` gives direct access to the raw HTTP request when running in workflow mode.
+In workflow mode, `request` gives direct access to the raw HTTP request.
 
 | Property           | Type   | Description                    |
 |--------------------|--------|-------------------------------|

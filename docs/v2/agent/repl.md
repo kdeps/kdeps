@@ -1,15 +1,17 @@
 # Agent loop REPL features
 
-Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is agent mode only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/); for the slash commands, see [REPL slash commands](/agent/commands).
+Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is agent mode only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/). For the slash commands, see [REPL slash commands](/agent/commands).
 
 ## Pasting
 
-Paste a block of text and the REPL treats it as one prompt, not one turn per
-line - it uses the terminal's bracketed-paste mode, which the REPL re-enables
-before every prompt so a child process (an editor opened with `!`, a pager) or a
-terminal that resets it cannot leave a later paste splitting into per-line
-submissions. Works in any modern terminal, tmux, and screen. What happens next
-depends on the size:
+When you paste a block of text, the REPL uses it as one prompt, not as one turn
+for each line.
+
+The REPL uses the bracketed-paste mode of the terminal. It
+enables this mode again before each prompt. A child process (an editor that
+you open with `!`, or a pager) or a terminal reset can disable it. With the
+mode enabled again, a later paste does not split into one submission for each
+line. This operates in all modern terminals, tmux, and screen. The next step depends on the size:
 
 ```d2
 direction: right
@@ -25,14 +27,17 @@ inline -> model
 stage -> model: "@paste:<id> expands\nback to the text"
 ```
 
-A **small** single-line paste is inserted as ordinary editable text on the input line.
+The REPL inserts a **small** single-line paste as usual editable text on the input line.
 
-Any other paste is saved to memory under an id like `paste:3f9a1c2e` (in the
-folder's memory, a note in the project's `memory/` folder in the knowledge vault). A multi-line paste of up to 4 lines,
-20 words and 240 characters is shown verbatim on the edit line; a larger one is
-shown as `@paste:3f9a1c2e` so the prompt and your scrollback stay readable.
-Press Enter once to submit: the reference expands back to the pasted text, so
-the model always gets the whole paste.
+The REPL saves all other pastes to memory with an id like `paste:3f9a1c2e`. The
+memory is the folder memory: a note in the `memory/` folder of the project in
+the knowledge vault. A multi-line paste with a maximum of 4 lines, 20 words, and
+240 characters shows exactly on the edit line.
+
+A larger paste shows as
+`@paste:3f9a1c2e`, so that the prompt and your scrollback stay easy to read.
+Press Enter one time to submit. The reference expands to the pasted text, so
+the model always gets the full paste.
 
 ```text
 you> why does this fail: @paste:3f9a1c2e      <- what the line and history keep
@@ -45,14 +50,14 @@ REPL history (Up arrow, `Ctrl+R`) stores the `@paste:<id>` reference, not the
 text. Recalling it in a later session still works, because the paste lives in
 the folder's memory.
 
-The paste is a single character on the edit line, so you can **edit around
-it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E`) to move before or after it
-and type there - for example paste a stack trace and type
-`why does this happen: ` in front of it, then submit.
+The paste is one character on the edit line, so you can **edit around it**. To
+move before or after it, use the arrow keys (or `Ctrl+A` / `Ctrl+E`). Then type
+there. For example, paste a stack trace, type `why does this happen: ` in front
+of it, and submit.
 
 ## Line editing and history search
 
-The prompt supports readline editing. History is stored in `~/.kdeps/repl_history`; the full-screen prompt shares it.
+The prompt supports readline editing. kdeps stores history in `~/.kdeps/repl_history`. The full-screen prompt uses the same history.
 
 | Key | Action |
 |---|---|
@@ -81,17 +86,19 @@ Full-screen prompt only:
 | Double / triple click | Select the word / line |
 | Drag the feed border | Resize the feed; the main pane keeps at least 20 columns, the feed at least 30 |
 
-- An edit on a recalled line is kept, so the next `Ctrl+N` does not replace it.
-- `Ctrl+O`: saving replaces the prompt without sending it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
+- kdeps keeps an edit on a recalled line, so the next `Ctrl+N` does not replace it.
+- `Ctrl+O`: when you save, the text replaces the prompt. kdeps does not send it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
 - A prompt longer than the row scrolls to keep the cursor visible. A click lands on the drawn letter.
 
-`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match; `Ctrl+S` searches forward. Enter runs the match; `Ctrl+G` or Esc cancels.
+`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match. `Ctrl+S` searches forward. Enter runs the match. `Ctrl+G` or Esc cancels.
 
 Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `stty -ixon` in your shell config frees it.
 
 ## Full-screen scrolling
 
-In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL; `KDEPS_TUI=1` forces full-screen. The view stays live during a turn: a prompt sent before the turn ends waits and runs next, in order. `/model` opens its picker at once; the model picked takes over after the turn.
+In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL. `KDEPS_TUI=1` forces full-screen.
+
+The view stays live during a turn. If you send a prompt before the turn ends, the prompt waits and runs next, in order. `/model` opens its picker immediately. The model that you select starts after the turn.
 
 | Key | Action |
 |---|---|
@@ -109,13 +116,13 @@ In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on 
 
 - Scrolling stops at either end, so one PgDown from the top moves forward.
 - On an older row the status row says `not following`, and new output does not move the view. End, scrolling to the newest row, or sending a prompt follows again.
-- A pane with more rows than it shows draws a scroll bar on its right edge while scrolling. It fades shortly after.
+- If a pane has more rows than it can show, it draws a scroll bar on its right edge when you scroll. The scroll bar fades a short time after.
 - One-line outputs do not fold. An empty clipboard leaves the prompt unchanged.
 - Plain `Space`, `z`, `v`, `g` and `t` still type.
 
 ## Multimodal input
 
-Attach images and other binary files to your prompt using `@`. In the full-screen prompt, Ctrl+V pastes a clipboard image as `@path`. A clipboard path to an image file is pasted the same way. Text and an empty clipboard leave the prompt. `v` still types.
+Attach images and other binary files to your prompt using `@`. In the full-screen prompt, Ctrl+V pastes a clipboard image as `@path`. Ctrl+V pastes a clipboard path to an image file in the same way. Text and an empty clipboard do not change the prompt. `v` types as usual.
 
 ```bash
 # Attach a local image
@@ -131,16 +138,18 @@ analyze @https://example.com/chart.png what trend does this show?
 review @notes.txt and summarize the key points
 ```
 
-- Image/binary refs (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.tiff`, `.pdf`, `.mp3`, `.mp4`, `.wav`) are sent as multimodal content to the LLM.
-- Text file refs are expanded inline in the prompt.
-- Unresolvable refs (file not found, access denied) are left unchanged in the text.
+- kdeps sends image and binary refs (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.tiff`, `.pdf`, `.mp3`, `.mp4`, `.wav`) as multimodal content to the LLM.
+- kdeps expands text file refs inline in the prompt.
+- kdeps does not change refs that it cannot resolve (file not found, access denied).
 
 ## Memory references
 
 `@<memory-id>` expands to that memory entry's value, the same way `@notes.txt`
 expands to the file's contents. Any memory id works: pastes (`paste:<id>`),
-entries the model saved with `memory_save`, or ids listed by `/memory`. Tab
-completes memory ids after `@` alongside file paths. The full-screen prompt
+entries that the model saved with `memory_save`, or ids that `/memory` lists.
+After `@`, Tab completes memory ids and file paths.
+
+The full-screen prompt
 does the same: Tab on an `@` token fills one match, extends a shared prefix,
 or lists the matches. Text before the `@` stays.
 
@@ -161,32 +170,34 @@ compare
 with the output of the last run
 ```
 
-An existing file takes priority over a memory id with the same name. An unknown
-id is left unchanged in the text.
+A file that exists has priority over a memory id with the same name. kdeps does
+not change an unknown id in the text.
 
 ## Prompt refinement
 
-Before each turn, kdeps runs one cheap LLM call that rewrites a terse or
-under-specified prompt into a clearer, self-contained version and runs the turn
-on the rewrite. It is off by default; `/refine on` turns it on and persists.
-A session that already stored refine-on stays on. When the prompt is changed the REPL
-prints `[refine] -> <rewritten prompt>` before any work starts, and the rewrite
-is what gets saved to the session. Toggle with `/refine on|off` (persists to
-`~/.kdeps/agent-loop-settings.yaml`). Full details: [Prompt refinement](/agent/refine).
+Before each turn, kdeps can run one low-cost LLM call. This call rewrites a
+short or incomplete prompt into a clearer, self-contained version. The turn
+then runs on the rewrite. It is off by default. `/refine on` turns it on and
+saves the setting. A session that already stored refine-on stays on.
+
+When refinement changes the prompt, the REPL prints
+`[refine] -> <rewritten prompt>` before the work starts. kdeps saves the
+rewrite to the session. To change the setting, use `/refine on|off` (saved to
+`~/.kdeps/agent-loop-settings.yaml`). For more data, see [Prompt refinement](/agent/refine).
 
 ## Planning council
 
-Before a task that is worth planning, a council of members drafts an approach, revises it after reading the others, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
+Before a task that is worth planning, a council of members drafts an approach, revises it after they read the other drafts, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
 
 ## Response rendering
 
-The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It auto-detects the terminal's color depth (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.
+The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It finds the color depth of the terminal automatically (truecolor, 256-color, or none) and reduces the palette to match. As a result, colors show correctly on terminals without 24-bit color (for example, macOS Terminal.app), and do not become gray. Output that goes to a file has no color.
 
 With `/thinking` on, streamed reasoning renders as live markdown in muted gray under a `* thinking` header, behind a dim `|` gutter. Inline code renders by color, not literal backticks, in reasoning and response.
 
 ## Custom harness
 
-The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction, judge and prompt-refinement system prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)); add your own as `~/.kdeps/harness/<name>.yaml`:
+The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction, judge and prompt-refinement system prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)). Add your own as `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml
@@ -198,7 +209,9 @@ body: |-
   Always answer in one paragraph, then a bulleted "next steps" list.
 ```
 
-A `preamble-section` entry is part of the system prompt. The first request of a session sends every section's `body` in full, and so does the first request after compaction, a fold, or a model switch. Later requests send one `summary` line per section, plus a line telling the model to call the `instruct` tool with that section's name for the full text. `help` is an alias of that tool. `/instruct` stays a slash command. A section with no `summary` falls back to the first sentence of its body. Shipped sections always declare `summary`.
+A `preamble-section` entry is part of the system prompt. The first request of a session sends the full `body` of each section. The first request after compaction, a fold, or a model switch also sends the full body. Later requests send one `summary` line for each section. They also send a line that tells the model how to get the full text: call the `instruct` tool with the name of the section.
+
+`help` is an alias of that tool. `/instruct` stays a slash command. A section with no `summary` falls back to the first sentence of its body. Shipped sections always declare `summary`.
 
 `/efficiency prompt` chooses that later-request behavior and persists it in `~/.kdeps/agent-loop-settings.yaml`:
 
@@ -208,22 +221,22 @@ A `preamble-section` entry is part of the system prompt. The first request of a 
 /efficiency prompt summary   # summary after the first send, including Anthropic and OpenAI
 ```
 
-`auto` keeps the full text on Anthropic and OpenAI. Those backends cache a stable system prefix, so a shorter prompt on the next request saves almost nothing and drops the cache. Ollama, llamafile, GGUF, M365, and every other backend are billed for the prompt on every request, so `auto` sends the summaries there.
+`auto` keeps the full text on Anthropic and OpenAI. Those backends cache a stable system prefix, so a shorter prompt on the next request saves almost nothing and drops the cache. Ollama, llamafile, GGUF, M365, and all other backends charge for the prompt on each request, so `auto` sends the summaries there.
 
 A file with a built-in's name (e.g. your own `safety.yaml`) replaces that section, including the safety, accuracy and honesty rules.
 
 Built-in `preamble-section` names: `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, `edit-workflow`.
 
-Built-in `standalone` names: `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)). Standalone entries are looked up by name, so a new standalone name has no effect.
+Built-in `standalone` names: `m365-sandbox`, `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)). kdeps finds standalone entries by name, so a new standalone name has no effect.
 
 `/harness list` shows every section. `/harness enable` and `/harness disable` toggle one and persist it, and the next request sends the full sections again.
 
 ## Turn-complete alert
 
-When a turn takes a while, the REPL rings the terminal and posts a desktop notification when the response is ready:
+When a turn takes a long time, the REPL rings the terminal and shows a desktop notification when the response is ready:
 
 - The terminal bell marks the tab/window as having activity in most terminals, tmux, and screen.
-- An **OSC 9** desktop notification (`kdeps: response ready`) appears in terminals that support it (iTerm2, WezTerm, kitty); it is silently ignored elsewhere.
+- An **OSC 9** desktop notification (`kdeps: response ready`) shows in terminals that support it (iTerm2, WezTerm, kitty). Other terminals ignore it silently.
 
 Only turns longer than a threshold alert, so quick replies stay quiet.
 
@@ -234,11 +247,11 @@ Only turns longer than a threshold alert, so quick replies stay quiet.
 
 ## Auto-retry
 
-Transient LLM errors (HTTP 429, 5xx, network timeouts) are automatically retried up to 3 times with exponential backoff (2s, 4s, 8s). Context-overflow and authentication errors are not retried.
+kdeps automatically tries temporary LLM errors (HTTP 429, 5xx, network timeouts) again, a maximum of 3 times, with exponential backoff (2s, 4s, 8s). It does not try context-overflow and authentication errors again.
 
 ## Tool budget and stall timeout
 
-The agent loop tracks a tool budget (`MaxToolRounds`) that limits how many tool calls the agent can make per turn. When the budget is nearly exhausted, the REPL presents interactive options: `(i)ncrease` the budget (adds 100 rounds), `(c)hange` to a specific number (`0` = unlimited), or `(i)gnore` to continue. When `AutoToolAllocation` is enabled in config, the budget increases automatically without prompting.
+The agent loop tracks a tool budget (`MaxToolRounds`) that limits how many tool calls the agent can make per turn. When the budget is almost empty, the REPL shows interactive options: `(i)ncrease` the budget (adds 100 rounds), `(c)hange` to a specific number (`0` = unlimited), or `(i)gnore` to continue. When you enable `AutoToolAllocation` in the configuration, the budget increases automatically without a prompt.
 
 When a tool stalls (no output for the stall-timeout duration), the default is to auto-increase the timeout by the increment (default 5m) and announce it. Tune both with `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`. `AutoToolAllocation` (budget) and `AutoStallAllocation` (stall time) are independent and both on by default.
 

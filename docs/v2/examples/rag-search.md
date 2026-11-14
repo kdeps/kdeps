@@ -124,9 +124,9 @@ apiResponse:
 
 </div>
 
-Only one of `indexDoc` / `searchDocs` runs per request - the other is skipped
-by its `routes` validation. `output('searchDocs')` is empty on an `/index`
-call, which is fine.
+Only one of `indexDoc` / `searchDocs` runs for each request. The `routes`
+validation of the other resource skips it. `output('searchDocs')` is empty on
+an `/index` call. This is correct.
 
 ## Step 6: validate and run
 

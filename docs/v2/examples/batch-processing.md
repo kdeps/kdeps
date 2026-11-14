@@ -1,14 +1,13 @@
 # Process a batch of items in one request
 
-Build an HTTP API that takes a list of items in one
-request, fetches data for each item, transforms each result, and returns an
-aggregated summary. It uses `items:` iteration - a resource runs once per
-element in a list.
+Build an HTTP API that takes a list of items in one request. The API gets data
+for each item, transforms each result, and returns an aggregated summary. It
+uses `items:` iteration: a resource runs one time for each element in a list.
 
-Without `items:`, a resource runs once. With `items:` set to a list, the
-resource runs once per element, and each run produces its own output. The
-collected outputs become the resource's result - a list the next resource can
-iterate over in turn.
+Without `items:`, a resource runs one time. With `items:` set to a list, the
+resource runs one time for each element, and each run makes its own output.
+The collected outputs are the result of the resource. This result is a list
+that the next resource can iterate over.
 
 **Needs:** Network access (the example calls the public GitHub API).
 
@@ -70,8 +69,8 @@ component:
 </div>
 
 Inside an iterating resource, `item` is the current element, so `item.org` and
-`item.repo` are its fields. The resource makes one HTTP request per item; the
-responses are collected into a list.
+`item.repo` are its fields. The resource makes one HTTP request for each item.
+kdeps collects the responses into a list.
 
 ## Step 4: transform each result
 
@@ -98,7 +97,7 @@ component:
 </div>
 
 `safe(item, 'data.stargazers_count')` reads a nested field without erroring if
-it is missing; `default(..., 0)` supplies a fallback.
+it is missing. `default(..., 0)` supplies a fallback.
 
 ## Step 5: aggregate and respond
 
@@ -167,6 +166,6 @@ Response:
 ## Next steps
 
 - [Items iteration](/workflow/items) - `item.prev()`, `item.next()`, skipping
-- [While-loop iteration](/workflow/loop) - unbounded iteration when the count is not known
+- [While-loop iteration](/workflow/loop) - iteration with no fixed limit, when you do not know the count
 - [HTTP client](/workflow/resources/http-client) - retries, auth, named connections
 - [Expression helpers](/workflow/expression-helpers) - `safe()`, `default()`, `json()`

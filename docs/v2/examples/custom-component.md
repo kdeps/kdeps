@@ -4,10 +4,10 @@ Build a custom component - a bundle of resources with a
 typed input interface - and call it from a workflow. Components are how you
 package reusable logic and share it across projects.
 
-A component is a `component.yaml` plus its resources. Drop it in a
-`components/<name>/` directory and kdeps loads it automatically - no change to
-`workflow.yaml`. A resource invokes it with `component:`, passing inputs under
-`with:`; those are validated against `interface.inputs`.
+A component is a `component.yaml` and its resources. Put it in a
+`components/<name>/` directory, and kdeps loads it automatically. You do not
+change `workflow.yaml`. A resource calls it with `component:` and gives inputs
+under `with:`. kdeps validates the inputs against `interface.inputs`.
 
 ## Step 1: create the structure
 

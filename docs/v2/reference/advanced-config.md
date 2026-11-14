@@ -134,7 +134,7 @@ deploy:
 | `pyprojectFile` | Path to pyproject.toml (for uv) |
 | `lockFile` | Path to uv.lock file |
 
-A script run through the [`python` component](/workflow/resources/python) installs its own packages from the call's `packages:` input at run time; `pythonPackages` above provisions the workflow's image for native tooling.
+A script that runs through the [`python` component](/workflow/resources/python) installs its own packages at run time. It gets them from the `packages:` input of the call. `pythonPackages` above prepares the image of the workflow for native tools.
 
 #### System packages
 
@@ -151,7 +151,7 @@ A script run through the [`python` component](/workflow/resources/python) instal
 | `baseOS` | Base Docker image OS (`alpine`, `ubuntu`) |
 | `installOllama` | Force/suppress Ollama installation in Docker image (default: off - chat resources use the llamafile file backend) |
 
-> The LLM model is set per resource, in `model:` under `chat:`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends).
+> You set the LLM model on each resource, in `model:` under `chat:`. You configure the backend, base URL, and API keys in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends).
 
 #### Environment
 
@@ -178,7 +178,7 @@ sql_connections:
     connection: "sqlite://./cache.db"
 ```
 
-The [`sql` component](/workflow/resources/sql) opens one connection per call; there is no pool to configure.
+The [`sql` component](/workflow/resources/sql) opens one connection per call. There is no pool to configure.
 
 ### Using named connections
 
@@ -294,10 +294,10 @@ Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body si
 
 ## Global defaults (`defaults`, `resource_defaults`)
 
-`~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
-a workflow does not set the equivalent field itself. Edit it with
-[`kdeps edit`](/reference/cli-dev#kdeps-edit); [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
-checks it (along with Ollama/Python/installed agents) before you hit run.
+`~/.kdeps/config.yaml` can set two types of global default. kdeps applies them
+when a workflow does not set the same field. Edit the file with
+[`kdeps edit`](/reference/cli-dev#kdeps-edit). [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
+checks it (and Ollama, Python, and installed agents) before you run.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -333,14 +333,16 @@ resource_defaults:               # applied to every resource of that type
     retry_delay: 1s
 ```
 
-`defaults` mirrors a workflow's `runtime` (timezone, Python version);
-`resource_defaults` mirrors the fields a resource sets on itself (a `chat:`
-resource's own `timeout:`, for example) - either can still be overridden
-per-resource in `workflow.yaml`, which always wins over the global default.
+`defaults` has the same fields as the `runtime` of a workflow (timezone, Python
+version). `resource_defaults` has the same fields that a resource sets on
+itself (for example, the `timeout:` of a `chat:` resource). You can override
+both on each resource in `workflow.yaml`. `workflow.yaml` always has priority
+over the global default.
 
-Config is validated on load. Warnings go to stderr for unknown keys, missing
-API keys, invalid durations, and agent profiles under `agents:` that do not
-match any installed workflow's `name:` under `metadata:`.
+kdeps validates the configuration when it loads. It writes warnings to stderr
+for unknown keys, missing API keys, and invalid durations. It also writes a
+warning for agent profiles under `agents:` that do not match the `name:` under
+`metadata:` of an installed workflow.
 
 ## Subagent model
 
@@ -399,13 +401,13 @@ agents:
           url: https://crm.example.com
 ```
 
-Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They are used in three places:
+Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). kdeps uses them in three places:
 
 - **Git commits.** In agent mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
 - **Outbound email.** The `email` component with no `from` input defaults to `identity.email`.
-- **`identity_get` tool.** Agent mode registers this tool so the model can answer "who are you" or sign its own output - it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
+- **`identity_get` tool.** Agent mode registers this tool, so the model can answer "who are you" or sign its own output. It returns only `name`/`email`/`address`. No tool gives `accounts` (and its passwords) to the LLM. A model that can read a credential can leak it in its output.
 
-`accounts` are consumed by resources that need to authenticate as the agent. An `http_request` component call with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always takes priority when both are set.
+Resources that must authenticate as the agent use `accounts`. An `http_request` component call with `accountName: crm` and no `connectionName` gets Basic Auth from `identity.accounts.crm`. If you set both, `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always has priority.
 
 ## See also
 

@@ -58,11 +58,11 @@ session: { ... }           # per-session key-value store: set(k, v, 'session')
 repl: { ... }              # stdin chat prompt (executionType: stdin)
 ```
 
-Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set: an unknown or removed key (a typo, or the old `sqlConnections`) fails `kdeps validate` with `Additional property <key> is not allowed` instead of being ignored. See [Global Config](/reference/advanced-config) for the full reference.
+Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set. kdeps does not ignore an unknown or removed key (a typo, or the old `sqlConnections`). `kdeps validate` fails with `Additional property <key> is not allowed`. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 
-The workflow's `name:` under `metadata:` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
+The workflow's `name:` under `metadata:` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override. Everything else inherits.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -75,11 +75,13 @@ agents:
       timezone: America/New_York
 ```
 
-In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that do not match any installed workflow name (non-fatal).
+In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. If no profile matches, kdeps uses the global configuration with no change. On startup, kdeps warns about profiles that do not match any installed workflow name (non-fatal).
 
 ## Interactive stdin REPL
 
-`executionType: stdin` under `repl:` makes `kdeps run` an interactive prompt (workflow mode): each line you type runs the target resource with that line as `input('message')`, and the result prints back - a chat resource's reply as text, anything else as JSON. `--interactive` does the same for any workflow; a server or bot workflow keeps running in the background while you type.
+`executionType: stdin` under `repl:` makes `kdeps run` an interactive prompt (workflow mode). Each line that you type runs the target resource with that line as `input('message')`. Then the result prints. The reply of a chat resource prints as text. All other results print as JSON.
+
+`--interactive` does the same for all workflows. A server or bot workflow continues to run in the background when you type.
 
 ```yaml
 # workflow.yaml
@@ -148,7 +150,7 @@ deploy:
     portNum: 443                     # HTTPS + TLS-ALPN-01; also open port 80 for HTTP-01
 ```
 
-DNS must point at this host; open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
+DNS must point at this host. Open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). If you set both, static `certFile`/`keyFile` have priority.
 
 ## Web server
 

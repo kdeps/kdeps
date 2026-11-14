@@ -1,6 +1,6 @@
 # Validation and control flow
 
-The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
+The `validations:` block controls if a resource runs and what it accepts. It operates before the action: before an LLM call, an HTTP request, or a script.
 
 Set per resource. When agent mode calls this workflow as a tool, the same `validations:` rules apply inside that run.
 
@@ -31,7 +31,7 @@ Fields summary:
 
 ## Skip conditions
 
-Skip conditions allow you to conditionally skip resource execution based on runtime values.
+Use skip conditions to skip a resource, based on runtime values.
 
 ### Basic usage
 
@@ -74,7 +74,7 @@ validations:
 
 ## Preflight checks
 
-Preflight checks validate inputs before resource execution begins. If any condition fails, execution is aborted with a custom error.
+Preflight checks validate inputs before resource execution begins. If a condition fails, kdeps stops the resource with a custom error.
 
 ### Basic usage
 
@@ -165,8 +165,8 @@ chat:
 ### How it works
 
 - Resource only executes if both conditions match
-- If restrictions do not match, resource is skipped silently
-- Empty arrays mean "allow all"
+- If restrictions do not match, kdeps skips the resource silently
+- An empty array accepts all values
 
 ### Method restrictions
 
@@ -331,7 +331,7 @@ chat:
 
 ## Allowed headers and parameters
 
-Restrict which headers and query parameters are allowed in requests.
+Limit the headers and query parameters that requests can use.
 
 ### Allowed headers
 
@@ -351,7 +351,7 @@ chat:
 
 </div>
 
-Headers not in this list are inaccessible via `get()`.
+`get()` cannot read headers that are not in this list.
 
 ### Allowed parameters
 
@@ -371,7 +371,7 @@ chat:
 
 </div>
 
-Parameters not in this list are inaccessible via `get()`.
+`get()` cannot read parameters that are not in this list.
 
 ### Combined example
 

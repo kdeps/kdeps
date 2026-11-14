@@ -61,7 +61,7 @@ info('IP')                   # Get client IP
 
 ## Data handling functions
 
-Utilities for converting, inspecting, and safely traversing data structures.
+Utilities to convert, inspect, and safely go through data structures.
 
 ### Json(data)
 Converts data to a JSON string.
@@ -132,7 +132,7 @@ output('llmResource')        # Get LLM output
 ```
 
 ### FileExists(path)
-Reports whether a file or directory exists on the machine running the workflow. Typical use is a `validations.skip` that avoids repeating a download.
+Tells if a file or directory exists on the machine that runs the workflow. Typical use is a `validations.skip` that avoids repeating a download.
 
 - **path**: Filesystem path (an empty path is false).
 
@@ -167,7 +167,7 @@ map(htmlFind(output('page').body, 'a'), #.href)      # every link target
 ```
 
 ### hmacSHA256(key, data)
-Returns the hex HMAC-SHA256 of `data` keyed with `key`. Webhook providers sign the raw body this way; compare against their signature header in a `validations.check`, as the [whatsapp-bot template](/reference/cli-dev#kdeps-new) does.
+Returns the hex HMAC-SHA256 of `data` keyed with `key`. Webhook providers sign the raw body this way. Compare against their signature header in a `validations.check`, as the [whatsapp-bot template](/reference/cli-dev#kdeps-new) does.
 
 - **key**: The shared secret.
 - **data**: The signed text, usually `request.rawBody`.
@@ -340,7 +340,7 @@ after:
 ```
 
 ### Now()
-Returns the current time as a `time.Time` value. Useful with comparison operators or passing to `date()` for parsing.
+Returns the current time as a `time.Time` value. Useful with comparison operators or as input to `date()` to parse it.
 
 ```yaml
 # resources/example.yaml
@@ -389,11 +389,11 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 
 - **Use parentheses for clarity** - `(a + b) * c` is clearer than relying on precedence
 - **Break complex expressions** into multiple statements for readability
-- **Validate before processing** - check types and null values before operations
+- **Validate first** - check types and null values before operations
 - **Keep expressions simple** - complex logic belongs in Python resources
 
 ## See also
 
-- [Expressions guide](/workflow/expressions) - where expressions are used and basic syntax
+- [Expressions guide](/workflow/expressions) - where to use expressions, and basic syntax
 - [Validation & control flow](/workflow/validation) - skip, check, and error handling
 - [Inline resource blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks

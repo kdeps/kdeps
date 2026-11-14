@@ -6,7 +6,7 @@ as a plain static file server driven by `workflow.yaml`.
 
 kdeps has two server modes. The API server (`apiServer:`) routes JSON requests
 to resources. Web server mode (`webServer:`) serves static files or proxies to
-another process - useful for a frontend, a docs site, or a dashboard sitting in
+a different process. Use it for a frontend, a docs site, or a dashboard in
 front of an agent API.
 
 ## Step 1: create the project and content
@@ -68,8 +68,7 @@ Open `http://localhost:16395/` in a browser, or:
 curl http://localhost:16395/
 ```
 
-You get the contents of `public/index.html`. Any other file under `public/` is
-served at its matching path.
+You get the contents of `public/index.html`. kdeps serves each other file under `public/` at its matching path.
 
 ## Step 4: serve a built frontend (optional)
 

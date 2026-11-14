@@ -1,6 +1,6 @@
 # Git component
 
-The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results: file lists, commit objects, branch lists. It is a YAML component from the `components` asset set; call it with a `component:` resource, no install step. The operations are the kdeps API's `git_ops` tool; the component only POSTs the arguments.
+The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results: file lists, commit objects, branch lists. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step. The operations are the kdeps API's `git_ops` tool. The component only POSTs the arguments.
 
 ## Where it runs
 
@@ -8,7 +8,7 @@ Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the w
 
 ## Requirements
 
-`git` and `python3` (or `python`) on `PATH`. The operations are the `git_ops` tool, a `python:` block in `tools/git_ops.yaml` served by the kdeps API in the kdeps process; the component makes one call and returns the result.
+`git` and `python3` (or `python`) on `PATH`. The operations are the `git_ops` tool. This tool is a `python:` block in `tools/git_ops.yaml`. The kdeps API serves it in the kdeps process. The component makes one call and returns the result.
 
 ## Basic usage
 
@@ -53,11 +53,11 @@ component:
 | `maxCount` | log | Commits to list (default 10) |
 | `dryRun` | add, commit, checkout, init, clone, push, pull | Preview without modifying |
 
-Component inputs are passed as strings, so `paths` and `args` are space-separated (quote a path with spaces, shell-style: `paths: "'my file.txt' src/"`).
+Component inputs are strings. For this reason, spaces separate the items in `paths` and `args`. Put a path with spaces in quotes, as in a shell: `paths: "'my file.txt' src/"`.
 
 ## Output
 
-Every result has `success: true` plus the operation's fields; a failing git command fails the resource with git's error.
+Every result has `success: true` plus the operation's fields. A failing git command fails the resource with git's error.
 
 ```json
 {"success": true, "branch": "main", "staged": ["file1.go"], "unstaged": ["file2.go"], "untracked": ["new.txt"], "conflicts": []}
@@ -86,9 +86,9 @@ apiResponse:
 
 ## Best practices
 
-1. **Always set `workingDir`** - avoid ambiguity about which repository is being operated on
+1. **Always set `workingDir`** - then it is clear which repository the operation uses
 2. **Use `dryRun` on write operations** - verify before committing, pushing, or checking out
-3. **Use `status` before `add`** to understand what will be staged
+3. **Use `status` before `add`** to see the changes that `add` stages
 4. **Set `maxCount` on `log`** to keep output bounded
 
 ## How it is built
@@ -97,7 +97,9 @@ apiResponse:
 component: git -> POST /apis/tools.kdeps.io/v1/tools/git_ops/call -> {success, ...operation fields}
 ```
 
-One `httpClient` POST carrying the ten inputs to the `git_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool runs `git` with `GIT_PAGER=cat` and `GIT_TERMINAL_PROMPT=0` and parses the output into the same fields; a failing command returns `git <operation> failed: exit status N` with git's stderr. `workingDir` is checked against `KDEPS_WORKSPACE_ROOT` before git runs. Paths under `~/.kdeps` and `/tmp` are allowed. One call is stopped after 5 minutes. Copy `components/git/` into your project to change an input default; copy `tools/git_ops.yaml` to `~/.kdeps/tools/` to change the operations themselves.
+One `httpClient` POST carrying the ten inputs to the `git_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool runs `git` with `GIT_PAGER=cat` and `GIT_TERMINAL_PROMPT=0` and parses the output into the same fields. A command that fails returns `git <operation> failed: exit status N` with the stderr of git. Before git runs, kdeps checks `workingDir` against `KDEPS_WORKSPACE_ROOT`. kdeps permits paths under `~/.kdeps` and `/tmp`. kdeps stops one call after 5 minutes.
+
+To change an input default, copy `components/git/` into your project. To change the operations, copy `tools/git_ops.yaml` to `~/.kdeps/tools/`.
 
 ## See also
 

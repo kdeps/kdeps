@@ -1,10 +1,10 @@
 # Registry commands
 
-Search, install, and publish packages from the kdeps registry, and install, update and remove kdeps assets (harness prompts, tool definitions, commands, themes, templates, schemas, model registries). An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package.
+Search, install, and publish packages from the kdeps registry. Install, update, and remove kdeps assets (harness prompts, tool definitions, commands, themes, templates, schemas, model registries). An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
 
 ## Commands
 
-Each is a top-level `kdeps` command; `--registry <url>` (or `KDEPS_REGISTRY_URL`) points it at another registry.
+Each is a top-level `kdeps` command. `--registry <url>` (or `KDEPS_REGISTRY_URL`) points it at another registry.
 
 | Command | Description |
 |---|---|
@@ -56,7 +56,7 @@ kdeps profile agent                # install the agent profile
 
 ## Publishing a package
 
-The kdeps registry is GitHub-hosted. Packages live in the author's own GitHub repo; the registry indexes a formula file per package.
+The kdeps registry is GitHub-hosted. Packages live in the author's own GitHub repo. The registry indexes a formula file per package.
 
 ```bash
 # 1. Tag a release in your repo

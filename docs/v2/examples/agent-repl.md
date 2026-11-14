@@ -2,7 +2,7 @@
 
 `kdeps` with no arguments reads and writes files in the current directory. No workflow YAML. No API key. Install is the [30-second quickstart](/agent/quickstart). The file tools are [File tools](/agent/tools-files).
 
-On the first run, kdeps asks you to confirm the `llama3.2:1b` download (about 1.1 GB). After that the model is cached in `~/.kdeps/models/`.
+On the first run, kdeps asks you to confirm the `llama3.2:1b` download (about 1.1 GB). After that, kdeps keeps the model in `~/.kdeps/models/`.
 
 ## Step 1: make a folder
 
@@ -36,7 +36,7 @@ Paste this at the prompt:
 Read note.txt in this directory. Reply with the deadline in one sentence.
 ```
 
-You get one sentence that names Friday. `note.txt` is unchanged. The read goes through `read_file`.
+You get one sentence that names Friday. `note.txt` does not change. The read goes through `read_file`.
 
 ## Step 4: write the sentence back
 

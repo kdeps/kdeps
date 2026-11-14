@@ -1,8 +1,8 @@
 # Search local files
 
-Build an API that searches a directory on disk by
-filename pattern and content keyword, using the `search_local` component - no
-index, no external service.
+Build an API that searches a directory on disk by filename pattern and content
+keyword. It uses the `search_local` component, with no index and no external
+service.
 
 The component POSTs to the kdeps API's `search_local` tool, which walks a
 directory and returns matching files. With both a `query` and a `glob` set, a

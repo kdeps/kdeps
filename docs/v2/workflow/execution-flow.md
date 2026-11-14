@@ -9,7 +9,7 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 1. Parses the workflow and builds a dependency graph from [`requires`](/reference/glossary#requires) fields
 2. Detects cycles (fails fast if any exist)
 3. Finds the [`targetActionId`](/reference/glossary#targetactionid) resource and walks its transitive dependencies
-4. Topologically sorts resources so dependencies run before dependents. The order is the same on every run: a resource's `requires` are taken in the order it lists them
+4. Topologically sorts resources so dependencies run before dependents. The order is the same on each run. kdeps uses the `requires` of a resource in the order that the resource lists them
 5. Executes resources in that order, running independent resources in parallel (see [Independent resources](#independent-resources))
 
 ## Execution order
@@ -95,7 +95,7 @@ Execution order: `C` -> `B` -> `A`
 
 ### Independent resources
 
-Resources that don't depend on each other run in parallel, up to 4 at once. A resource still starts only after its `requires` finish:
+Resources that do not depend on each other run in parallel, a maximum of 4 at the same time. A resource starts only after its `requires` finish:
 
 <div v-pre>
 
@@ -133,7 +133,7 @@ The engine also orders resources that share a key without `requires`:
 | `set('k')` after another resource's `get('k')` or `set('k')` | keeps their order |
 | `output('id')` or `get('id')` of another resource | waits for that resource |
 
-A `component:` call runs beside others when the component is read-only in the [permission policy](/agent/tools#permission-modes) (`web_search`, `read_file`, `web_scraper`, ...) and has no `teardown:`. Each call gets its own inputs and outputs, so three `web_search` calls with different queries run at once. Other components (`write_file`, `bash_exec`, `http_request`, ...) run alone.
+A `component:` call runs beside others when the component is read-only in the [permission policy](/agent/tools#permission-modes) (`web_search`, `read_file`, `web_scraper`, ...) and has no `teardown:`. Each call gets its own inputs and outputs. As a result, three `web_search` calls with different queries run at the same time. Other components (`write_file`, `bash_exec`, `http_request`, ...) run alone.
 
 A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
 
@@ -228,14 +228,14 @@ See [Loop](/workflow/loop) for full details.
 
 In agent mode (`kdeps [path]`), the execution model differs:
 
-1. Each workflow is registered as one tool (tool name = `name:` under `metadata:`)
-2. Each agency is registered as one tool (tool name = `agency.metadata.name`); internal agents are not exposed individually
-3. Components from each loaded workflow are also registered as individual callable tools
-4. The LLM receives the user prompt and decides which tool to invoke
-5. Workflow tool calls run the full DAG - all `requires:` dependencies execute in order; `apiResponse.response` is returned to the LLM
-6. Agency tool calls run the agency's entry-point pipeline; internal `agent:` resources resolve against the agency's agent map
+1. kdeps registers each workflow as one tool (tool name = `name:` under `metadata:`)
+2. kdeps registers each agency as one tool (tool name = `agency.metadata.name`). The LLM cannot call the internal agents directly
+3. kdeps also registers the components from each loaded workflow as separate tools
+4. The LLM receives the user prompt and selects the tool to call
+5. A workflow tool call runs the full DAG. All `requires:` dependencies run in order. kdeps returns `apiResponse.response` to the LLM
+6. Agency tool calls run the agency's entry-point pipeline. Internal `agent:` resources resolve against the agency's agent map
 7. Component tool calls run the component in isolation with inputs mapped to its interface fields
-8. The LLM may call more tools or produce a final answer
+8. The LLM can call more tools or give a final answer
 
 Pointing at a single file registers one tool. Pointing at a folder registers one tool per workflow/agency found recursively (plus components). Resources are never registered as individual tools.
 
@@ -244,4 +244,4 @@ Pointing at a single file registers one tool. Pointing at a folder registers one
 - [Workflow mode](/workflow/) - deterministic DAG pipelines
 - [Agent mode](/agent/) - LLM-driven tool calling
 - [Validation & control flow](/workflow/validation) - skip, check, and error handling
-- [Loop](/workflow/loop) - while-loop iteration
+- [Loop](/workflow/loop) - a loop that repeats when a condition is true

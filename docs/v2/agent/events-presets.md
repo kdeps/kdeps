@@ -1,10 +1,10 @@
 # Event presets
 
-`/harness events` turns one event off; a preset writes a bundle of event overrides at once. The trigger list is on [Reactive LLM events](/agent/events).
+`/harness events` turns off one event. A preset writes a set of event overrides at the same time. The trigger list is on [Reactive LLM events](/agent/events).
 
 ## Enabling and disabling
 
-Any event or harness section can be turned off from the REPL. The change persists and applies immediately, with no restart:
+You can turn off each event or harness section from the REPL. kdeps saves the change and applies it immediately, with no restart:
 
 ```
 /harness events                          # list every event: trigger summary, action, enabled/disabled
@@ -13,8 +13,8 @@ Any event or harness section can be turned off from the REPL. The change persist
 ```
 
 - This writes (or removes) `disabled: true` in `~/.kdeps/events/<name>.yaml`, the file `/konfig import` writes, then reloads the registry.
-- A disabled event never fires: its threshold becomes unreachable. For `auto-compact` and `fold`, the loop skips the check, since their context-window branch would ignore an inflated threshold.
-- Harness sections use `/harness list` and `/harness enable|disable <name>`. A disabled preamble section leaves the system prompt on the next turn; a disabled standalone section (e.g. `m365-sandbox`) returns empty.
+- A disabled event never starts, because its threshold becomes too high to reach. For `auto-compact` and `fold`, the loop skips the check. Their context-window branch ignores a high threshold, so the check is necessary.
+- Harness sections use `/harness list` and `/harness enable|disable <name>`. A disabled preamble section leaves the system prompt on the next turn. A disabled standalone section (e.g. `m365-sandbox`) returns empty.
 - An unknown or corrupted event or harness name fails open (enabled). Only an explicit `disabled: true` disables a safety mechanism.
 
 ## Occurrence caps on standalone harness text
@@ -33,11 +33,11 @@ body: >-
 - The count is per turn for nudges, and per session for `tool-call-early-praise` (successful tool calls).
 - `0` (the default) means unlimited, but only for a present entry with a body. A missing, disabled or empty entry never fires.
 - `/harness list` shows a cap as `standalone, max Nx`.
-- State switches are not caps. The sticky escalation from `tools-reminder` to the full `use-kdeps-tools` guidance after a sandbox hallucination is driven by [events](/agent/events).
+- State switches are not caps. After a sandbox hallucination, `tools-reminder` changes permanently to the full `use-kdeps-tools` guidance. [Events](/agent/events) control this change.
 
 ## Presets
 
-A preset is a named bundle of event overrides for the whole token-economy cluster, like `/fold preset` for every event at once:
+A preset is a named set of event overrides for the full token-economy cluster. It is like `/fold preset`, but for all events at the same time:
 
 ```
 /harness preset                 # list built-in + user presets, with descriptions
@@ -55,7 +55,7 @@ A preset is a named bundle of event overrides for the whole token-economy cluste
 
 `frugal`, `balanced` and `thorough` tune the same events: `auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `memory-search-limit`, `memory-value-limit`, `memory-capture-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `history-window-old-result`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, and the [efficiency](./efficiency.md) events.
 
-Each preset requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps update` installs them with the preset; each calls its tool through the kdeps API. Loop-wide events (compaction, truncation, history, stop rules) need no component.
+Each preset requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps update` installs them with the preset. Each calls its tool through the kdeps API. Loop-wide events (compaction, truncation, history, stop rules) need no component.
 
 ## Applying a preset
 
@@ -63,7 +63,7 @@ A preset writes each tuned event to its `~/.kdeps/events/<name>.yaml` override (
 
 ## Authoring a preset
 
-Presets merge built-ins with `~/.kdeps/presets/` by name. `~/.kdeps/presets/frugal.yaml` overrides `frugal`; another name adds a preset. A preset is a `name:`, a `description:` and an `events:` list of full event entries, the same shape as the override files. Presets round-trip through [konfig](./konfig.md) export/import.
+Presets merge built-ins with `~/.kdeps/presets/` by name. `~/.kdeps/presets/frugal.yaml` overrides `frugal`. Another name adds a preset. A preset is a `name:`, a `description:` and an `events:` list of full event entries, the same shape as the override files. Presets round-trip through [konfig](./konfig.md) export/import.
 
 ## Status
 
@@ -72,6 +72,6 @@ Shipped events:
 - **Efficiency** (11, see [efficiency enforcement](./efficiency.md)): `efficiency`, `efficiency-verbose`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-failures`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`.
 - **Other** (41): `auto-compact`, `fold`, `identical-tool-calls`, `convergence-block`, `handshake-timeout`, `agent-max-rounds`, `chat-max-rounds`, `judge-max-rounds`, `subagent-max-rounds`, `judge-iterations`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `history-window-old-result`, `file-read-limit`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `memory-search-limit`, `memory-value-limit`, `memory-capture-limit`, `memory-tool-results-limit`, `memory-thinking-limit`, `memory-low-signal-limit`, `memory-status-limit`, `model-record-limit`, `openrouter-free-per-minute`, `side-call-max-tokens`, and six `thinking-budget-<mode>` events.
 
-Nine actions ship. `/harness events` lists and toggles every event. There is no REPL command for a trigger's numeric threshold; edit the YAML file.
+Nine actions ship. `/harness events` lists and toggles every event. There is no REPL command for a trigger's numeric threshold. Edit the YAML file.
 
-Some limits stay Go constants: values with no "measure, then fire an action" shape and no `items:` count, such as the judge panel's max size, per-turn nudge counts, log-line caps and a semaphore's buffer size.
+Some limits stay Go constants. These values do not measure and then start an action, and they have no `items:` count. Examples are the maximum size of the judge panel, the nudge count for each turn, the log-line limits, and the buffer size of a semaphore.

@@ -5,30 +5,35 @@ description: What kdeps is, the problem it solves, and the smallest mental model
 
 # What is kdeps?
 
-kdeps is a git-native AI appliance builder. You describe an agent in YAML -
-which model to call, what to validate, what shape the answer takes - and those
-files are the whole spec. Commit them, and kdeps packages the workflow, its
-tools, and the model into one self-contained unit you can run as an HTTP
-API, a terminal REPL, a Docker image, a Kubernetes deployment, a bootable ISO, or a
-single binary. Same `workflow.yaml`, no rewrites, no re-config, no framework to import.
+kdeps is a git-native AI appliance builder. You describe an agent in YAML files:
+the model to call, the data to validate, and the shape of the answer. These
+files are the full specification. When you commit them, kdeps packages the
+workflow, its tools, and the model into one self-contained unit.
 
-Change the YAML and the appliance behaves differently - your git history is the
-changelog of the agent's behavior. Because it runs open-source models by default,
-the unit has no per-token cost and no dependency on an external AI service; it
-works the same on your laptop and inside an air-gapped network. That is
-[data sovereignty](/start/data-sovereignty): run your own LLM and coding agent on
-servers you control, in the region you choose, with no prompts or data sent to a
-third-party AI provider.
+You can run this unit as an HTTP API, a terminal REPL, a Docker image, a
+Kubernetes deployment, a bootable ISO, or a single binary. All of these use the
+same `workflow.yaml`. You do not rewrite code, change the configuration, or
+import a framework.
+
+When you change the YAML, the appliance changes its behavior. Your git history
+is the changelog of the agent behavior. By default, the unit runs open-source
+models. For this reason, it has no per-token cost and does not depend on an external AI
+service. It operates the same on your laptop and in an air-gapped network.
+
+This is [data sovereignty](/start/data-sovereignty). You run your own LLM and
+coding agent on servers that you control, in the region that you select. No
+prompts or data go to a third-party AI provider.
 
 ## The problem it solves
 
-Calling an LLM takes a few lines. Shipping that call as something you can review, version,
-and run inside your own boundary is not. You end up hand-writing the same glue
-every time: input validation, retries, ordering between steps, a fixed response
-schema, a container, a way to run it offline for tests. kdeps is that glue,
-declared in YAML that lives in your repo. Cloud providers (OpenAI, Anthropic,
-Groq) still work when you want them; the backend is one line of machine-local
-config, not part of the repo.
+A call to an LLM needs only a few lines of code. But to review, version, and
+run that call in your own boundary needs much more code. Usually you write the
+same code each time. This code includes input validation, retries, step order,
+a fixed response schema, a container, and an offline mode for tests. kdeps
+gives you this code as YAML in your repository.
+
+You can also use cloud providers (OpenAI, Anthropic, Groq). The backend is one
+line of configuration on the local machine. It is not part of the repository.
 
 ## The smallest mental model
 
@@ -50,11 +55,11 @@ a folder with workflow.yaml
   (`kdeps [path]`) starts a chat REPL where an LLM decides when to call the
   workflow.
 
-Every term kdeps uses is defined in the [Glossary](/reference/glossary).
+The [Glossary](/reference/glossary) gives the definition of each kdeps term.
 
 ## The smallest working example
 
-No YAML needed; run the binary:
+No YAML needed. Run the binary:
 
 ```bash
 kdeps            # opens an AI chat REPL against a local model, no API key

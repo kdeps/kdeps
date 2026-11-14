@@ -14,7 +14,7 @@ All commands support these global flags:
 
 ### Structured logging
 
-kdeps uses structured JSON logging via Go's `log/slog`. Warnings and errors go to stderr in human-readable format by default.
+kdeps uses structured JSON logs through the Go package `log/slog`. Warnings and errors go to stderr in human-readable format by default.
 
 | Flag / Env | Level | Output |
 |---|---|---|
@@ -138,7 +138,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_EDITOR` | Editor for `kdeps edit` (overrides `VISUAL`/`EDITOR`) |
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g., `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
-| `KDEPS_LLM_OVERRIDE_URL` | An OpenAI-compatible endpoint that takes every model call - workflow chat resources and agent sessions alike - whatever backend and model they name; no local model is downloaded or started and no API key is needed. For testing workflows and agents against a stub or mock server (CI, offline) |
+| `KDEPS_LLM_OVERRIDE_URL` | An OpenAI-compatible endpoint that gets all model calls from workflow chat resources and agent sessions, for all backends and models. kdeps does not download or start a local model, and you do not need an API key. Use it to test workflows and agents against a stub or mock server (CI, offline) |
 | `KDEPS_LEAN_MODE` | Set `1`, `true`, or `yes` to restrict tool surface (no bash, no network) |
 | `KDEPS_AGENT_PRESET` | `audit`, `explain`, or `implement` - combines lean mode with permission mode |
 | `KDEPS_PERMISSION_MODE` | `read-only`, `workspace-write`, or `danger-full-access` |
@@ -154,7 +154,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_ON_ERROR_RETRY_DELAY` | Default delay between retries |
 | `KDEPS_ASSETS_URL` | Where `kdeps update` downloads from (a mirror laid out like `assets/` in kdeps/packages); `off` disables asset downloads |
 | `KDEPS_ASSETS_DIR` | Where downloaded assets and `lock.json` live (default `~/.kdeps/assets`) |
-| `KDEPS_ASSETS_SRC` | A directory laid out like `assets/` in the kdeps repo, loaded under the store; for developing assets. Set empty to turn off the automatic checkout fallback |
+| `KDEPS_ASSETS_SRC` | A directory laid out like `assets/` in the kdeps repo, loaded under the store; to develop assets. Set empty to turn off the automatic checkout fallback |
 | `KDEPS_PROFILE` | Install profile for a first run without a terminal: `minimum`, `workflows`, `agent`, `deploy`, `full`, or a comma-separated list of sets and `set/name` items; unset installs only the sets the command loads |
 
 ## Tips
@@ -162,7 +162,7 @@ kubectl rollout status deployment/my-agent
 - Use `--dev` flag for hot reload during development
 - Use `--debug` flag to troubleshoot issues
 - Validate frequently with `kdeps validate`
-- Always validate before packaging: `kdeps validate workflow.yaml`
+- Always validate before you package: `kdeps validate workflow.yaml`
 - Use `--gpu cuda` for GPU workloads
 - Tag images with version numbers: `--tag my-agent:v1.0.0`
 

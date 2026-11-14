@@ -40,13 +40,13 @@ kdeps run workflow.yaml --port 16395       # Custom port
 kdeps run workflow.yaml --interactive      # LLM REPL alongside server
 ```
 
-When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security reference](/reference/security).
+When you configure `apiServer`, kdeps does not start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security reference](/reference/security).
 
 ---
 
 ## `kdeps [path]` (agent REPL)
 
-Start agent mode - an interactive LLM loop where whole workflows and components are registered as callable tools. Pass a path to expose workflows as tools, or omit it for a bare REPL with no workflow tools.
+Start agent mode. Agent mode is an interactive LLM loop. kdeps registers full workflows and components in it as tools. To give workflows as tools, give a path. For a bare REPL with no workflow tools, do not give a path.
 
 ```bash
 kdeps [path] [flags]
@@ -121,7 +121,7 @@ Workflow validated successfully
 
 ## `kdeps test`
 
-Run the `evals:` cases declared in `workflow.yaml` against the workflow's own router, in-process. No port is bound.
+Run the `evals:` cases from `workflow.yaml` against the router of the workflow, in the process. kdeps does not bind a port.
 
 ```bash
 kdeps test [workflow.yaml | directory] [flags]
@@ -143,7 +143,7 @@ kdeps test myapp.kdeps                   # Packaged workflow
 kdeps test . --fail-fast                 # Stop at the first failure
 ```
 
-The request path is the same one a live client gets: middleware, bearer auth, route matching, executors, and `apiResponse` formatting. Cases that send no `Authorization` or `X-API-Key` header are sent with `KDEPS_API_AUTH_TOKEN` as a bearer token. Setup matches `kdeps run`: `.j2` rendering, schema validation, environment setup, and the LLM backend when a chat resource needs one.
+The request path is the same one a live client gets: middleware, bearer auth, route matching, executors, and `apiResponse` formatting. If a case sends no `Authorization` or `X-API-Key` header, kdeps sends it with `KDEPS_API_AUTH_TOKEN` as a bearer token. Setup matches `kdeps run`: `.j2` rendering, schema validation, environment setup, and the LLM backend when a chat resource needs one.
 
 **Output:**
 
@@ -266,15 +266,15 @@ events.ndjson   # one JSON object per prompt, model call, tool call and workflow
 trace.log       # every log line at debug level, and the call-chain trace
 ```
 
-Bare `--instrument` names the session by its start time. Put the name after `=`. With a space, the next argument (the workflow path) is taken as the name.
+Bare `--instrument` names the session by its start time. Put the name after `=`. With a space, kdeps uses the next argument (the workflow path) as the name.
 
-A daily workflow runs one `/auto-improve N` hunt at a time in this repository with `--backend openrouter` and a shuffled id from `assets/models/openrouter.yaml`. That process evaluates the hunt, files one GitHub issue as the report arrives, and discards any edit, then the next hunt starts in a new process. A hunt that does not finish tries another id. See [Auto-improve](/agent/commands#auto-improve).
+A daily workflow runs one `/auto-improve N` hunt at a time in this repository with `--backend openrouter` and a shuffled id from `assets/models/openrouter.yaml`. That process evaluates the hunt. It files one GitHub issue when the report arrives, and discards all edits. Then the next hunt starts in a new process. A hunt that does not finish tries another id. See [Auto-improve](/agent/commands#auto-improve).
 
 ---
 
 ## `kdeps --upgrade`
 
-Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/agent/repl-updating#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
+Check for a newer kdeps release and, for a standalone install, download/verify/install it. This is the same flow as the `/upgrade` command of the REPL. For the full behavior (what each install method does, checksum verification, and more), see [Agent loop REPL features - Updating kdeps](/agent/repl-updating#updating-kdeps).
 
 ```bash
 kdeps --upgrade
@@ -296,7 +296,7 @@ kdeps --upgrade --target-version 2.35.0
 
 ## Assets: `kdeps install`, `update`, `uninstall`, `list`, `profile`
 
-`kdeps install`, `kdeps update` and `kdeps uninstall` manage registry packages and kdeps' versioned assets (harness, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, templates, schemas, components). An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package. Same as the REPL's `/update`; versions, pins and removal: [Updating assets](/agent/repl-updating#updating-assets).
+`kdeps install`, `kdeps update`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages. This is the same as `/update` in the REPL. For versions, pins, and removal, see [Updating assets](/agent/repl-updating#updating-assets).
 
 ```bash
 kdeps update                          # the chosen profile and everything installed since, to their newest versions
@@ -314,13 +314,13 @@ kdeps profile                         # choose the profile again, or tick sets a
 | Command | Assets |
 |---|---|
 | `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require; each line shows the item's estimated LLM context tokens, and the total is printed last |
-| `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates without installing |
+| `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates and does not install them |
 | `kdeps uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
 | `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`), shelf and estimated LLM context tokens, with the installed total |
 | `kdeps list <shelf>` | Assets on one shelf. Item ids stay `set/name` |
 | `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
 
-The profiles and what each installs are listed in [Updating assets](/agent/repl-updating#updating-assets).
+[Updating assets](/agent/repl-updating#updating-assets) lists the profiles and what each profile installs.
 
 ---
 
@@ -360,22 +360,28 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 ## `kdeps llamafile`
 
-Manage the local model registry. Covers llamafile, GGUF (llama.cpp), and Ollama models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately - an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
+Manage the local model registry. Covers llamafile, GGUF (llama.cpp), and Ollama models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`. kdeps downloads models on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels a download immediately.
 
-With [llmfit](https://github.com/AlexsJones/llmfit) installed, the REPL's `/model` picker shows each local model's hardware-fit score (0-100) and level (`Perfect`, `Good`, `Marginal`, `Too Tight`) from your RAM/VRAM, before you download. Type `perfect` or `tight` in the picker to filter. Without aria2c or llmfit, the REPL prints a one-line install tip at startup.
+An interrupted aria2c download stops. It does not start again through the HTTP fallback. kdeps keeps the partial file, so the next attempt continues from it.
+
+With [llmfit](https://github.com/AlexsJones/llmfit), the `/model` picker of the REPL shows the hardware-fit score (0-100) of each local model before you download it. It also shows the level (`Perfect`, `Good`, `Marginal`, `Too Tight`) from your RAM/VRAM. Type `perfect` or `tight` in the picker to filter. Without aria2c or llmfit, the REPL prints a one-line install tip at startup.
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
 kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets: harvested nightly from HuggingFace, published as new versions, and installed with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models you register yourself (HuggingFace search or a custom URL) live in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml` and are merged on top. Ollama models are discovered from the local `ollama list` output. OpenRouter's free text models are a separate registry, `models/openrouter`, harvested daily from the public models API by `tools/openrouter-harvester/harvest.py` (`make harvest-openrouter`) and installed with `kdeps update models/openrouter`.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets. A job collects them each night from HuggingFace and publishes them as new versions. Install them with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models that you register yourself (HuggingFace search or a custom URL) are in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. kdeps adds them on top.
+
+kdeps finds Ollama models in the local `ollama list` output.
+
+The free text models of OpenRouter are a separate registry, `models/openrouter`. `tools/openrouter-harvester/harvest.py` (`make harvest-openrouter`) collects them each day from the public models API. Install them with `kdeps update models/openrouter`.
 
 ---
 
 ## `kdeps knowledge`
 
-Manages the [knowledge vault](/agent/knowledge): markdown notes the agent recalls each turn without reading them. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand; `--extract` adds the model step and is off unless set.
+Manages the [knowledge vault](/agent/knowledge): markdown notes that the agent recalls on each turn, with no full read. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand. `--extract` adds the model step and is off unless set.
 
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
@@ -389,7 +395,7 @@ kdeps knowledge explain "billing"   # matching edges, with the file and line eac
 kdeps knowledge report              # print GRAPH_REPORT.md (deterministic communities)
 ```
 
-The graph, `GRAPH_REPORT.md` and `graph.html` are written under `~/.kdeps/knowledge/<vault-id>/`. `<vault-id>` is a hash of the vault path.
+kdeps writes the graph, `GRAPH_REPORT.md`, and `graph.html` under `~/.kdeps/knowledge/<vault-id>/`. `<vault-id>` is a hash of the vault path.
 
 | Flag | Description | Default |
 |---|---|---|
@@ -412,7 +418,7 @@ kdeps konfig export              # writes ./konfig.yaml
 kdeps konfig export path/to/mine.yaml
 ```
 
-Reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml`, or built-in defaults if nothing has ever been customized - so this works even against a completely fresh `~/.kdeps`.
+Reads the settings that kdeps keeps in `~/.kdeps/agent-loop-settings.yaml`. If you did not change a setting, it reads the built-in default. As a result, this also operates with a new, empty `~/.kdeps`.
 
 ---
 

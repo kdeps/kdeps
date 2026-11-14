@@ -1,7 +1,7 @@
 # Build a SQL-backed API
 
 Build an API with two endpoints over a SQLite database:
-`GET /report` runs an analytics query and returns CSV; `POST /update` applies a
+`GET /report` runs an analytics query and returns CSV. `POST /update` applies a
 batch of updates in a transaction.
 
 The [`sql` component](/workflow/resources/sql) runs queries against PostgreSQL, MySQL, SQLite, SQL Server,
@@ -9,7 +9,7 @@ or Oracle. Parameters use `$1`, `$2`, ... placeholders - never string
 interpolation - so input cannot break out of the query. This example uses
 SQLite so it runs with no database server.
 
-**Needs:** The `sqlite3` CLI (for creating the demo database).
+**Needs:** The `sqlite3` CLI (to create the demo database).
 
 ## Step 1: create the project and database
 
@@ -122,7 +122,7 @@ component:
 
 </div>
 
-`paramsBatch` runs the query once per element in the list, inside one
+`paramsBatch` runs the query one time for each element in the list, in one
 transaction.
 
 ## Step 5: combine the results
@@ -147,7 +147,7 @@ apiResponse:
 
 </div>
 
-Only the resource matching the request's route runs; the other is skipped.
+Only the resource that matches the route of the request runs. kdeps skips the other resource.
 
 ## Step 6: validate and run
 

@@ -4,7 +4,7 @@ The `agent:` resource calls a sibling agent's entire workflow within the same [a
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/agencies/) for how agents are grouped and discover each other.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). It is valid only between agents in the same `agency.yaml`. [Agencies](/agencies/) shows how to put agents in a group and how they find each other.
 
 ## Basic usage
 
@@ -39,7 +39,7 @@ apiResponse:
 
 ## Output
 
-The target agent's own `apiResponse` output, unchanged - whatever shape that agent returns is what `output('delegate')` gives you here.
+The `apiResponse` output of the target agent, with no change. `output('delegate')` gives you the same shape that the agent returns.
 
 ## Parallel calls
 
@@ -72,10 +72,10 @@ apiResponse:
 
 </div>
 
-How many run at once, and what runs alone, is on [Execution flow](/workflow/execution-flow#independent-resources).
+[Execution flow](/workflow/execution-flow#independent-resources) tells how many run at the same time, and what runs alone.
 
 ## See also
 
-- [Agencies](/agencies/) - multi-agent orchestration, how agents are bundled and named
+- [Agencies](/agencies/) - multi-agent orchestration, and how to put agents in a bundle and name them
 - [Component resource](/agencies/component-resource) - call a reusable resource bundle instead of a full sibling agent
 - [Resources overview](/workflow/resources) - all resource types

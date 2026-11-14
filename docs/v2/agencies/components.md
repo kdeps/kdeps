@@ -2,17 +2,17 @@
 
 A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps install`, and custom components you build yourself in a `components/` directory.
 
-Components work in both modes. In workflow mode, a resource invokes a component with `component:`. In agent mode, a component is registered as an LLM tool and runs only when the model calls it.
+Components work in both modes. In workflow mode, a resource invokes a component with `component:`. In agent mode, kdeps registers a component as an LLM tool. It runs only when the model calls it.
 
 ## Overview
 
-Components encapsulate resources, configuration, and dependencies into a single package. They are callable sub-workflows: you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
+A component puts resources, configuration, and dependencies into one package. Components are sub-workflows that you can call. Call them with `component:` from a resource, and give typed inputs with `with:`. You get structured output.
 
 ## Types of components
 
 ### Registry components (installable)
 
-Pre-built capability extensions distributed as `.komponent` archives. Install once, available to any workflow:
+Pre-built extensions in `.komponent` archives. Install them one time, and all workflows can use them:
 
 ```bash
 kdeps install search      # web search
@@ -44,15 +44,15 @@ my-workflow/
 
 ## How components work
 
-1. Place a `component.yaml` in `components/<name>/` or install via `kdeps install`
+1. Put a `component.yaml` in `components/<name>/`, or install a component with `kdeps install`
 2. At parse time, kdeps scans `components/` and loads all component manifests
-3. Component resources are merged with the workflow's own resources
-4. Resources invoke components via `component:` with typed inputs in `with:`
-5. Inputs are validated against the component's `interface.inputs` declaration
-6. Component output is accessed via `output('<callerActionId>')`
+3. kdeps merges component resources with the resources of the workflow
+4. Resources call components with `component:` and typed inputs in `with:`
+5. kdeps validates inputs against the `interface.inputs` declaration of the component
+6. Get the component output with `output('<callerActionId>')`
 7. kdeps ships its own components in the `components` asset set: [ocr](/workflow/resources/ocr), [transcribe](/workflow/resources/transcribe), [git](/workflow/resources/git), [file](/workflow/resources/file), [sql](/workflow/resources/sql) (web_search and web_scraper are tools). One loads only when a workflow calls it and has no component of that name itself
 
-A component's resources run in order. A resource whose `skip:` condition (under `validations:`) is true is skipped, so a component can choose resources from its inputs. A false `check:` condition fails the call with its `error.message`:
+A component's resources run in order. kdeps skips a resource if its `skip:` condition (under `validations:`) is true. As a result, a component can select resources from its inputs. A false `check:` condition fails the call with its `error.message`:
 
 ```yaml
 # components/fetch/component.yaml (resources, abridged)
@@ -81,7 +81,7 @@ interface:
       connection: search   # with: {connectionName: brave} -> search_connections.brave must exist
 ```
 
-The component's output is the last resource that ran, unless `interface.output` shapes it. `output` is evaluated after the resources run: strings are expressions, maps and lists are walked, so the caller gets fixed field names whatever the steps returned:
+The component's output is the last resource that ran, unless `interface.output` shapes it. kdeps evaluates `output` after the resources run. Strings are expressions. kdeps goes through maps and lists. As a result, the caller always gets fixed field names, for all step results:
 
 <div v-pre>
 
@@ -97,7 +97,7 @@ interface:
 
 </div>
 
-`kdeps build` installs the `osPackages` listed under `setup:` into the image; at run time the machine's package manager (apk, apt-get, brew) installs them. List the programs they provide under `provides:`. When all are already on `PATH`, no package manager runs.
+`kdeps build` installs the `osPackages` listed under `setup:` into the image. At run time the machine's package manager (apk, apt-get, brew) installs them. List the programs they provide under `provides:`. When all are already on `PATH`, no package manager runs.
 
 ```yaml
 # components/my-tool/component.yaml
@@ -106,7 +106,7 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
-A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`), so `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
+A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`). As a result, `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
 
 ```yaml
 # components/web_search/template.yaml (as shipped)
@@ -130,11 +130,11 @@ component:
     url: "https://example.com/article"
 ```
 
-After execution, access results via `output('fetch-article')`.
+After the run, get the results with `output('fetch-article')`.
 
 ## Components as LLM tools
 
-Installed components can be exposed as LLM function-calling tools via `tools.components` on a `chat:` resource. By default, no components are registered - you opt in explicitly:
+To give installed components to the LLM as function-calling tools, use `tools.components` on a `chat:` resource. By default, kdeps registers no components. You must enable them explicitly:
 
 ```yaml
 # resources/example.yaml
@@ -152,10 +152,10 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 ## Use cases
 
 - Pull in a pre-built capability (web scraping, search, embeddings)
-  with one `kdeps install` instead of writing it.
+  with one `kdeps install`. You do not write it.
 - Package logic you reuse across projects - a `component.yaml` plus a
   `components/<name>/` directory - and share it through the registry.
-- Give an LLM a bounded, typed capability by exposing a component as a tool
+- Give an LLM a bounded, typed capability with a component as a tool
   through `tools.components`.
 
 ## See also

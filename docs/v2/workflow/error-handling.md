@@ -57,11 +57,11 @@ flow:
       error: true
 ```
 
-When the HTTP request fails, the resource returns the fallback value instead of stopping the workflow.
+When the HTTP request fails, the resource returns the fallback value. The workflow does not stop.
 
 ### Continue without fallback
 
-If no fallback is provided, the resource returns an error info object:
+If you give no fallback, the resource returns an error info object:
 
 ```yaml
 # resources/example.yaml
@@ -115,7 +115,7 @@ onError:
   action: fail
 ```
 
-This is the default behavior when no `onError` is configured.
+This is the default behavior when you do not configure `onError`.
 
 ## Advanced usage
 
@@ -158,7 +158,7 @@ The expressions have access to the `error` object:
 - `error.type` - Error type/code (e.g., "TIMEOUT", "VALIDATION_ERROR")
 - `error.code` - Error code (same as type)
 - `error.statusCode` - HTTP status code (if applicable)
-- `error.details` - Additional error details (if available)
+- `error.details` - More error details (if available)
 
 ### Dynamic fallback values
 

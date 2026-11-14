@@ -1,6 +1,6 @@
 # Items iteration
 
-`items:` runs a resource once per list entry. Each iteration is a full resource execution with its own output.
+`items:` runs a resource one time for each list entry. Each iteration is a full resource execution with its own output.
 
 In workflow mode it is a DAG step. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool.
 
@@ -27,7 +27,7 @@ chat:
 
 ## Item context
 
-When processing items, special getters are available:
+When kdeps processes items, special getters are available:
 
 | Getter | Description |
 |--------|-------------|
@@ -98,7 +98,7 @@ chat:
 
 ## Accessing all item values
 
-After processing, you can access all collected values from a resource that uses items:
+After the items run, you can access all collected values from a resource that uses items:
 
 ### Using `item.values(actionID)`
 

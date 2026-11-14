@@ -1,6 +1,6 @@
 # konfig
 
-konfig is one YAML file that is a total, self-contained, declarative description of a kdeps agent's behavior - tuning, harness, themes, events, actions, presets, and skills. Export it from the current effective state (even a completely default, never-customized setup) and hand the file to another machine to fully configure an agent there, no other setup needed.
+konfig is one YAML file that fully describes the behavior of a kdeps agent. It is self-contained and declarative. It includes tuning, harness, themes, events, actions, presets, and skills. Export it from the current effective state (also from a default setup that you did not change). Then give the file to another machine. The file fully configures an agent on that machine, with no other setup.
 
 ## Exporting
 
@@ -12,7 +12,7 @@ kdeps konfig export [path]     # default ./konfig.yaml, from a bare CLI invocati
 /konfig export [path]          # inside the REPL, exports the LIVE session's config
 ```
 
-The CLI form reads whatever is persisted in `~/.kdeps/agent-loop-settings.yaml` (or built-in defaults if nothing was ever customized). The REPL form captures the running session's exact state instead, including anything changed with `/model tool set`, `/theme`, `/efficiency verbose on`, etc. that has not necessarily been touched via a command that persists it elsewhere.
+The CLI form reads the settings that kdeps keeps in `~/.kdeps/agent-loop-settings.yaml`. If you did not change a setting, it reads the built-in default. The REPL form records the exact state of the current session. This state includes changes from `/model tool set`, `/theme`, `/efficiency verbose on`, and other commands that do not save to a file.
 
 ## Importing
 
@@ -53,7 +53,7 @@ Import writes each section to its usual place, replacing any built-in or user en
 | `skills` | Every loaded skill, with its full `SKILL.md` content inlined - skills travel with the file, not by path |
 | `registry` | Enabled workflow/agency/component/skill lists, default model, model-name display mode, favorite models, custom OpenAI-compatible endpoints |
 
-Harness and themes export as the full effective set, not a diff against built-ins, so the file alone determines behavior on any machine or kdeps version.
+kdeps exports the harness and themes as the full effective set, not as a diff from the built-ins. For this reason, the file alone sets the behavior on all machines and kdeps versions.
 
 ## Status
 

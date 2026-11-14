@@ -1,8 +1,8 @@
 # Build a document summarizer
 
-Build a single-shot workflow that reads a document from a
-file, sends it to a local LLM, and returns a structured JSON summary. It runs
-once and exits - no server, no polling.
+Build a single-shot workflow that reads a document from a file. It sends the
+document to a local LLM and returns a structured JSON summary. It runs one time
+and stops. It has no server and no polling.
 
 kdeps workflows usually run as an HTTP API. The `file` input source is the
 exception: the workflow reads one file, processes it, prints the result, and
@@ -42,7 +42,7 @@ deploy:
 ```
 
 With `sources: [file]` the workflow does not start a server. It resolves the
-file, runs the resource graph once, and prints the response.
+file, runs the resource graph one time, and prints the response.
 
 ## Step 3: expose the file content
 
@@ -69,7 +69,7 @@ apiResponse:
 </div>
 
 `input('fileContent')` is the file's text. `input('filePath')` is its path.
-Both are populated by the `file` input source before any resource runs.
+The `file` input source sets both values before a resource runs.
 
 ## Step 4: summarize with an LLM
 
@@ -146,10 +146,10 @@ cat notes.txt | kdeps run .
 KDEPS_FILE_PATH=./notes.txt kdeps run .
 ```
 
-Any of these read the whole file into memory as `fileContent`, capped at 256
-MiB by default (`KDEPS_FILE_INPUT_MAX_BYTES` to change it) - see
-[File source](/workflow/input-sources#file-source) for why that matters once
-`notes.txt` is a large bulk-data file rather than a note.
+All of these read the full file into memory as `fileContent`. The default
+maximum is 256 MiB (to change it, set `KDEPS_FILE_INPUT_MAX_BYTES`). If
+`notes.txt` is a large bulk-data file and not a note, this is important. See
+[File source](/workflow/input-sources#file-source).
 
 Output:
 

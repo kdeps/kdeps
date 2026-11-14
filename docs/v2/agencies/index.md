@@ -65,13 +65,13 @@ agents:
 
 ### Agent discovery
 
-When the `agents:` list is omitted, kdeps auto-discovers agents in two ways:
+If you do not give the `agents:` list, kdeps finds agents automatically in two ways:
 
-1. **Directory-based** - any `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, ...) is loaded.
-2. **Packed archives** - any `agents/*.kdeps` file is extracted and its `workflow.yaml` is loaded.
+1. **Directory-based** - kdeps loads each `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, ...).
+2. **Packed archives** - kdeps extracts each `agents/*.kdeps` file and loads its `workflow.yaml`.
 
-When the `agents:` list is provided, only the listed entries are loaded (directories
-or `.kdeps` archives). All listed paths are resolved relative to the agency directory.
+If you give the `agents:` list, kdeps loads only the listed entries (directories
+or `.kdeps` archives). kdeps resolves all listed paths relative to the agency directory.
 
 ## Running an agency
 
@@ -106,13 +106,13 @@ agent:
 ```
 
 - `name:` resolves to the target agent by `metadata.name` in its `workflow.yaml`.
-- `params:` are key-value pairs the target reads via `get('key')`.
-- The caller reads the result via `output('actionId')` or `get('actionId')`.
+- `params:` are key-value pairs that the target reads with `get('key')`.
+- The caller reads the result with `output('actionId')` or `get('actionId')`.
 
 ## Packaging an agency (.kagency)
 
-An entire agency - `agency.yaml` plus all `agents/` sub-trees - can be packed into a
-single portable `.kagency` archive (a gzip-compressed tar).
+You can pack a full agency (`agency.yaml` and all `agents/` sub-trees) into one
+portable `.kagency` archive (a gzip-compressed tar).
 
 ```bash
 # Pack the agency -> produces my-agency-1.0.0.kagency
@@ -122,7 +122,7 @@ kdeps bundle package my-agency/
 kdeps bundle package my-agency/ --name my-agency-1.0.0 --output dist/
 ```
 
-The resulting `.kagency` archive can then be used just like a directory:
+You can then use the `.kagency` archive as a directory:
 
 ```bash
 kdeps run     my-agency-1.0.0.kagency
@@ -158,8 +158,8 @@ containerised service.
 
 ## Creating a self-contained binary
 
-A `.kagency` archive (or a plain `.kdeps` workflow archive) can be embedded directly
-into the kdeps binary, producing a zero-dependency single binary:
+You can embed a `.kagency` archive (or a plain `.kdeps` workflow archive) directly
+into the kdeps binary. The result is one binary with no dependencies:
 
 ```bash
 kdeps bundle prepackage my-agency-1.0.0.kagency --output dist/
@@ -168,8 +168,8 @@ kdeps bundle prepackage my-agency-1.0.0.kagency --output dist/
 ./dist/my-agency-linux-amd64
 ```
 
-When executed, the binary inspects its own bytes, extracts the embedded archive to a
-temp directory, then runs it exactly as `kdeps run` would.
+When the binary runs, it reads its own bytes and extracts the embedded archive to a
+temp directory. Then it runs the archive exactly as `kdeps run` does.
 
 ## Example: two-agent greeter
 
