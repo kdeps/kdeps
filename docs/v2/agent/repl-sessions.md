@@ -1,15 +1,15 @@
 # Sessions
 
-Each directory you launch `kdeps` from has its own conversation history. Nothing is written into the project directory. The other REPL behaviors stay on [REPL features](/agent/repl).
+Each directory where you start `kdeps` has its own conversation history. kdeps writes nothing into the project directory. The other REPL behaviors stay on [REPL features](/agent/repl).
 
 ## Where sessions are stored
 
-Conversations and the agent's memory are **partitioned by the directory you
-launch `kdeps` from**: conversations in `~/.kdeps/sessions/<folder>/`, memory as
-notes in the knowledge vault's `Memory/<project>/` (see
-[Persistent memory](/agent/memory)). `cd` into a
-project and `kdeps` sees that folder's history; a different folder starts clean.
-Nothing is written into the project directory itself.
+kdeps keeps conversations and agent memory **separately for each directory where
+you start `kdeps`**. Conversations go in `~/.kdeps/sessions/<folder>/`. Memory
+goes as notes in `Memory/<project>/` of the knowledge vault (see
+[Persistent memory](/agent/memory)). When you `cd` into a project, `kdeps` sees
+the history of that folder. A different folder starts with no history. kdeps
+writes nothing into the project directory.
 
 ## The resume picker
 
@@ -41,22 +41,24 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 - The picker only appears in an interactive terminal with at least one saved
   session for this folder and no `--resume` / `--new`. Piped input starts clean.
 - The first turn after a resume tells the model when the session last ran
-  (for example "2026-11-04 07:17 CET, 30 hours ago") and to check the
-  repository, files and task status again with a tool before reporting them:
-  the old turns describe the project as it was then. The text is the
-  `session-resumed` harness entry (`assets/harness/session-resumed.yaml`).
+  (for example "2026-11-04 07:17 CET, 30 hours ago"). It also tells the model
+  to check the repository, files, and task status again with a tool before it
+  reports them. The old turns describe the project at that earlier time. The
+  text is the `session-resumed` harness entry
+  (`assets/harness/session-resumed.yaml`).
 - Resuming, continuing, then exiting updates the same session - it does not
   fork a new one. The session is also saved after every turn, so a crash or
   kill still leaves it in the picker.
 - Settings (`/refine`, `/theme`, the default model, tool tuning), the model
-  cache, and everything else under `~/.kdeps/` are unchanged.
-- `ctrl+d` on a highlighted session deletes it in place (the "Start a new
-  session" row cannot be deleted) - same as `/session delete <id>`, just
-  reachable from the picker itself.
-- Multiple `kdeps` instances can point at the same folder at once, each with
-  its own picker and its own chosen (or new) session - the underlying session
-  file is opened only for the moment of each read/write, not held open for an
-  instance's whole run, so instances do not lock each other out.
+  cache, and all other files under `~/.kdeps/` do not change.
+- `ctrl+d` on a highlighted session deletes it. You cannot delete the "Start a
+  new session" row. This is the same as `/session delete <id>`, but you do it
+  from the picker.
+- Many `kdeps` instances can use the same folder at the same time. Each
+  instance has its own picker and its own selected (or new) session. kdeps
+  opens the session file only for each read or write. It does not keep the
+  file open for the full run of an instance. For this reason, instances do not lock each
+  other out.
 
 ## Session commands
 
@@ -71,6 +73,6 @@ kdeps --resume <id>       # resume a specific session directly (no picker)
 /session import <path>         # load a JSONL session file exported from another run
 ```
 
-`/session goto` is non-destructive: the pruned tail is stashed. Use `/session branches` to see stashed entry IDs, then `/session goto <id>` again to navigate back.
+`/session goto` does not delete data. kdeps keeps the removed tail in a stash. Use `/session branches` to see stashed entry IDs, then `/session goto <id>` again to navigate back.
 
 `/session` is a YAML command (`commands/session.yaml`) with [subcommands](/agent/commands#subcommands) over the `session_ops` operations `sessions`, `save`, `load`, `delete`, `import`, `checkpoint`, `goto` and `branches`. Every printed line is in that file, and any kdeps API caller can run the same operations.

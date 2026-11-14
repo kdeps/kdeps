@@ -27,7 +27,7 @@ run: force_answer
 
 ## A sensible floor of 1
 
-Each has a built-in floor of 1. An override that omits `rounds:`, or a corrupted one, never resolves to 0, which would fire on the first round.
+Each has a built-in floor of 1. An override with no `rounds:`, or a corrupted override, never becomes 0. A value of 0 starts the event on the first round.
 
 ## Truncation events
 
@@ -72,7 +72,7 @@ run: block
 | `file-call-budget` | `read_file` windows (path plus offset/limit) and `list_files` paths | 80 |
 | `code-call-budget` | `search_local` queries | 30 |
 
-A tool removed from a list runs with no budget and no reuse of earlier answers. A tool added to a list is counted by its arguments. These four events must keep a `tools:` list: an override file without one is rejected when it loads, and the shipped event stays in force.
+If you remove a tool from a list, the tool runs with no budget and does not use earlier answers again. If you add a tool to a list, kdeps counts it by its arguments. These four events must keep a `tools:` list. kdeps rejects an override file without this list when it loads. The shipped event then stays active.
 
 `/model tool set web-limit <n>` (and `bash-limit`, `file-limit`, `code-limit`) overrides an event's default for the session, as `/fold threshold` does for `fold`. `0` removes the cap (`/model tool set web-limit 0`): the budget never blocks, and the system prompt states the enforced limit or that there is none. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget; tools without a budget use the `identical-tool-calls` threshold.
 
@@ -80,7 +80,7 @@ Workflow chats read the same events: each chat call counts its own distinct call
 
 ## Your own tool budgets
 
-An event with a `tools:` list is a budget defined only in YAML. In one turn the model may make at most `on.distinctCalls` distinct calls to those tools; a repeated call does not count again. Past the limit, a new call is blocked like the built-in budgets, and the model answers with what it has.
+An event with a `tools:` list is a budget defined only in YAML. In one turn, the model can make a maximum of `on.distinctCalls` different calls to those tools. A repeated call does not count again. After the limit, kdeps blocks a new call, as for the built-in budgets. The model then answers with the data that it has.
 
 ```yaml
 # ~/.kdeps/events/search-budget.yaml - loaded at start, no registry entry needed
@@ -91,7 +91,7 @@ on:
 run: block              # the only action a tools: event takes
 ```
 
-`/harness events disable search-budget` turns it off like any other event. A `tools:` event without `on.distinctCalls` or with any other `run:` is rejected when it loads.
+`/harness events disable search-budget` turns it off like any other event. kdeps rejects a `tools:` event without `on.distinctCalls` or with a different `run:` when it loads.
 
 ## Memory events
 
@@ -143,7 +143,7 @@ run: truncate
 
 ## Thinking budgets
 
-Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model may spend up to that many tokens reasoning before it answers; models that do not reason ignore it. A workflow chat's `thinking:` mode with no `budgetTokens` uses the same event. A missing or disabled budget event uses 10000.
+Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model can use a maximum of that number of tokens to reason before it answers. Models that do not reason ignore it. A workflow chat's `thinking:` mode with no `budgetTokens` uses the same event. A missing or disabled budget event uses 10000.
 
 | Event | `/thinking` mode | Default |
 |---|---|---|

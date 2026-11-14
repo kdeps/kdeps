@@ -15,7 +15,7 @@ description: Guidelines for reviewing Go code
 Always check for error handling. Prefer early returns over nested conditions.
 ```
 
-Skills are discovered from:
+kdeps finds skills in these locations:
 
 - `~/.kdeps/skills/` (global)
 - `~/.agents/skills/` (where `npx skills` installs)
@@ -26,14 +26,14 @@ Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra contex
 
 ### Progressive disclosure
 
-The system prompt lists only each skill's name and description - never the full body. Skill instructions are re-sent on every LLM call as part of the system prompt, so embedding full bodies for a large skill set would burn tokens every turn. Instead, the agent calls the built-in `load_skill` tool with a skill name to pull that skill's full instructions on demand, only when a task actually needs it.
+The system prompt lists only the name and description of each skill. It never has the full body. kdeps sends the system prompt again on each LLM call. With the full bodies of many skills, each turn uses many tokens. For this reason, the agent calls the built-in `load_skill` tool with a skill name. This tool gets the full instructions of that skill only when a task needs them.
 
 ### Related skills
 
-On (re)load, kdeps records which skills are related, without a model call:
+When it loads or reloads, kdeps records the related skills, without a model call:
 
 - **A skill in the [knowledge vault](/agent/knowledge):** from the vault graph, refreshed first. A `references` edge either way (markdown or wiki link) or a shared tag relates two skills.
-- **Any other skill:** from a reference/topic graph over each skill-library root, the graph `search_local` builds outside the vault. Two skills are related if one's `SKILL.md` links the other (`[other](../other/SKILL.md)`) or both declare the same `topics:` / `tags:` in frontmatter:
+- **Any other skill:** from a reference/topic graph over each skill-library root, the graph `search_local` builds outside the vault. Two skills are related if the `SKILL.md` of one skill links to the other (`[other](../other/SKILL.md)`). They are also related if both have the same `topics:` or `tags:` in frontmatter:
 
 ```markdown
 ---
@@ -45,7 +45,7 @@ topics: [go, quality]
 Always check for error handling. See [testing](../testing/SKILL.md) for coverage expectations.
 ```
 
-When `load_skill` returns a skill whose graph has related skills, it appends a hint listing their names so the model can decide whether to load them too. This is purely additive - a skill with no links or topics behaves exactly as before.
+If the graph of a skill has related skills, `load_skill` adds a hint with their names. The model can then decide if it loads them too. This only adds data. A skill with no links or topics has the same behavior as before.
 
 ## Prompt templates
 
@@ -76,9 +76,9 @@ The agent automatically discovers instruction files by walking up the directory 
 - `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `GEMINI.md` at any ancestor directory
 - every `*.md` file directly in a `.kdeps/` folder at any ancestor directory (`.kdeps/KDEPS.md` first, then the rest by name)
 
-`KDEPS.md` is kdeps' own instruction file and has the highest priority. It is discovered first and keeps its full character budget, and the agent is told it wins any conflict with `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` or the rest.
+`KDEPS.md` is kdeps' own instruction file and has the highest priority. kdeps finds it first, and it keeps its full character budget. The agent gets an instruction that `KDEPS.md` has priority over `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and the other files.
 
-Duplicate content (by hash) is deduplicated. Total injected context is capped at ~12 KB. Instructions are injected into the system prompt at startup.
+kdeps removes duplicate content (by hash). The maximum added context is about 12 KB. kdeps adds the instructions to the system prompt at startup.
 
 ## The .kdeps folder
 

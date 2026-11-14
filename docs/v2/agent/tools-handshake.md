@@ -4,7 +4,7 @@ The handshake checks that the model makes a real tool call after the context cha
 
 It is off by default. `/handshake on` enables it and verifies the current model before your next prompt. `/handshake` alone reports the state; the setting persists across sessions.
 
-After a model switch, a resumed session, or a compaction/fold that rewrites the context, the model's tool calling is unproven. It may write "I called X, it returned Y" as plain text instead of calling. The handshake catches that:
+After a model switch, a resumed session, or a compaction/fold that rewrites the context, kdeps does not know if the model can call tools. The model can write "I called X, it returned Y" as plain text, and not make a call. The handshake finds this problem:
 
 ```d2
 direction: right
@@ -19,7 +19,7 @@ ok -> prompt: yes
 ok -> challenge: "no: nudge, retry"
 ```
 
-The challenge is sent as a user-turn message, not a system prompt a backend may treat as background. kdeps checks that a real `session_handshake` call with the right code reached the tool registry, not text that looks like one.
+kdeps sends the challenge as a user-turn message. It does not use a system prompt, because a backend can treat a system prompt as background. kdeps checks that a real `session_handshake` call with the right code reached the tool registry, not text that looks like one.
 
 ## The block to copy
 
@@ -52,11 +52,11 @@ The grounding names `session_handshake` as a registered tool in one line, not th
 ## Retries
 
 - **Wrong code:** retried with a corrective nudge, with no attempt cap. Proceeding unverified is the failure the handshake prevents.
-- **No tool call at all, 5 tries in a row:** prints a `[handshake]` warning that the check is unverified and lets the turn proceed.
+- **No tool call in 5 sequential tries:** prints a `[handshake]` warning that the check did not complete, and lets the turn continue.
 
 ## The nudge
 
-Each retry reshows the `<invoke>` syntax, says how many attempts missed, and keeps the same code. After 2 misses in a row it escalates: it points at the model's earlier real `bash_exec` call as proof it can call tools, and forbids narration, code fences, and any text around the block. Small local models were seen writing "I will call..." around an empty code fence instead of the tag.
+Each retry reshows the `<invoke>` syntax, says how many attempts missed, and keeps the same code. After 2 sequential misses, it escalates. It shows the earlier real `bash_exec` call of the model as proof that the model can call tools. It also forbids narration, code fences, and all text around the block. Some small local models wrote "I will call..." around an empty code fence, and not the tag.
 
 ## Code fences
 
@@ -64,7 +64,7 @@ Every directive says the block goes outside any markdown code fence. A correct `
 
 ## What the retry keeps
 
-The handshake conversation keeps the first exchange plus the 3 most recent. Unbounded, it grew a small local model's prompt from ~3k to over 50k tokens and made answers worse. The first exchange stays because m365 fingerprints the first message to decide whether a request continues a conversation; dropping it would start a new conversation on every retry.
+The handshake conversation keeps the first exchange plus the 3 most recent. With no limit, the prompt of a small local model increased from about 3k to more than 50k tokens, and the answers became worse. The first exchange stays because m365 uses a fingerprint of the first message. With it, m365 finds if a request continues a conversation. Without the first exchange, each retry starts a new conversation.
 
 ## No session trace
 

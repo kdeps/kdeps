@@ -1,9 +1,9 @@
 # Prompt refinement
 
-A terse or under-specified prompt ("fix that", "add the flag") makes the model
-guess, which wastes the first few tool rounds. Prompt refinement runs one
-cheap LLM call before the turn starts that rewrites your prompt into a clearer,
-self-contained version, then runs the turn on the rewrite. The refine call uses the [subagent channel](/agent/subagent), which is the session model unless you point it at another model.
+A short or incomplete prompt ("fix that", "add the flag") makes the model
+guess. This uses the first tool rounds without result. Before the turn starts,
+prompt refinement runs one low-cost LLM call. This call rewrites your prompt
+into a clearer, self-contained version. Then the turn runs on the rewrite. The refine call uses the [subagent channel](/agent/subagent), which is the session model unless you point it at another model.
 
 ```text
 your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, judges)
@@ -12,38 +12,39 @@ your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, 
 **Off by default.** Turn it on with `/refine on`. The choice persists. A
 session that already stored refine-on stays on until `/refine off`.
 
-**You see the rewrite every turn.** When the prompt is changed, the REPL prints
-it before any work starts:
+**You see the rewrite on each turn.** When refinement changes the prompt, the
+REPL prints it before the work starts:
 
 ```
 [refine] -> Add a --dry-run flag to the sync command and add a unit test that exercises it.
 ```
 
-The refined text is what the model receives, what `/prompt` shows as the user
-message, and what is saved to the session and the memory bridge for that turn -
-so a later model switch sees exactly what was answered.
+The model receives the refined text. `/prompt` shows it as the user message.
+kdeps saves it to the session and the memory bridge for that turn. Then, after
+a model switch, the new model sees the exact question that the turn answered.
 
-**It sees the conversation so far.** The refine call gets the same prior-turn
-history the real turn does, so it can resolve what a reference means -
-"change that to use port 465" becomes concrete once the refiner can see the
-config you were just discussing. Only prior turns are included; the prompt
-being refined is not yet part of the history at this point.
+**It sees the conversation up to this point.** The refine call gets the same
+history of prior turns as the real turn. Then it can find the meaning of a
+reference. For example, "change that to use port 465" becomes specific when the
+refiner sees the configuration from the prior turns. The history has only prior
+turns. At this point, the prompt that the refiner rewrites is not in the history.
 
 **What it will not do.** The rewrite preserves your intent and every concrete
 detail (names, paths, numbers, constraints). It does not answer the request, add
 requirements you did not imply, or invent facts. An already-clear prompt comes
-back essentially unchanged (and no `[refine]` line is printed).
+back almost unchanged (and the REPL prints no `[refine]` line).
 
-**When it is skipped.**
+**When kdeps skips it.**
 
 - Short or trivial prompts (a one-liner, a bare question) - refining them is not
   worth a call.
-- No model is served yet (a local backend that has not been downloaded/started).
-- The refine call errors, returns nothing, or returns a runaway expansion - the
-  original prompt is used unchanged. Refinement can never block a turn.
+- No model is available yet (a local backend that you did not download or start).
+- The refine call gives an error, returns nothing, or returns a text that is
+  too long. kdeps uses the original prompt with no change. Refinement cannot
+  stop a turn.
 
-Refinement runs *before* the [judge roster](/agent/judges), so the panel
-is built from the refined prompt.
+Refinement runs *before* the [judge roster](/agent/judges). Then kdeps makes
+the panel from the refined prompt.
 
 ## From the REPL
 
@@ -53,8 +54,8 @@ is built from the refined prompt.
 /refine off        # disable (persists across sessions)
 ```
 
-The choice is written to `~/.kdeps/agent-loop-settings.yaml` and restored on the
-next `kdeps` run.
+kdeps writes the choice to `~/.kdeps/agent-loop-settings.yaml` and uses it
+again on the next `kdeps` run.
 
 ## See also
 
