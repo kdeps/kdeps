@@ -135,7 +135,7 @@ All executors are part of the `kdeps` binary. You do not install them. This page
 
 ## Registry components (installable via `kdeps install`)
 
-Some install names (`embedding`) are also kdeps components. The registry component is a separate package. When you install it, it replaces the shipped component. 
+Some install names (`embedding`) are also kdeps components. The registry component is a separate package. When you install it, it replaces the shipped component.
 
 | Install name | Description |
 |-------------|-------------|

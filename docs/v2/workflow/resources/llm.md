@@ -42,12 +42,12 @@ llm:
 ```
 
 With the default `file` backend, `name: llama3.2:1b` resolves to a local
-llamafile that is downloaded once (~1.1 GB) and served automatically - see
+llamafile. kdeps downloads it one time (about 1.1 GB) and serves it automatically. See
 [LLM backends](/workflow/resources/llm-backends#the-default-llamafile-file-backend).
 
 Set `name: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing strategies.
 
-Set `name: system` (and/or `backend: system`) to follow whatever the machine is configured to use in `~/.kdeps/config.yaml`. It resolves exactly like an omitted field, but says so on purpose.
+Set `name: system` (and/or `backend: system`) to use the configuration of the machine in `~/.kdeps/config.yaml`. It resolves exactly as a field that you do not set, but it shows that this is intentional.
 
 ```yaml
 # resources/chat.yaml
@@ -59,7 +59,7 @@ chat:
     prompt: "{{ get('q') }}"
 ```
 
-If a `chat` resource uses a cloud model (e.g. `name: deepseek-chat`) whose provider key is missing from `config.yaml`, `kdeps run` prompts for the key at startup and saves it as `<provider>_api_key` under `llm:`. With no default backend set, it also points `backend:` at that provider. Interactive only; CI and pipes skip the prompt.
+A `chat` resource can use a cloud model (for example, `name: deepseek-chat`) with no provider key in `config.yaml`. In this condition, `kdeps run` asks for the key at startup. It saves the key as `<provider>_api_key` under `llm:`. If no default backend is set, it also sets `backend:` to that provider. This occurs only in interactive mode. CI and pipes skip the prompt.
 
 ## Model resolution order
 
@@ -72,11 +72,11 @@ resource model:  ->  config router (llm.models + strategy)  ->  first llm.models
 
 - A resource with an explicit `name:` always wins - unless it is the literal `system`, which resolves down this same list.
 - Omit `name:` to inherit the machine default, first match wins:
-  1. the LLM router, when `strategy:` is set under `llm:`
+  1. the LLM router, when you set `strategy:` under `llm:`
   2. the first entry of `models:` under `llm:`
-  3. on the local file backend, the downloaded model that best fits this machine, when [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) is installed and a local model is downloaded
+  3. on the local file backend, the downloaded model that best fits this machine, when you have [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) and a downloaded local model
   4. the built-in `llama3.2:1b` on the local file backend
-- A cloud, gguf or ollama backend with no model and no `models:` list errors at run time; kdeps will not guess a model that backend cannot serve. Set `name:` on the resource or `models:` under `llm:` in `config.yaml`.
+- A cloud, gguf, or ollama backend with no model and no `models:` list gives an error at run time. kdeps does not guess a model, because the backend possibly cannot serve it. Set `name:` on the resource or `models:` under `llm:` in `config.yaml`.
 
 ## Basic usage
 
@@ -270,7 +270,9 @@ chat:
 
 ## Knowledge recall
 
-Every `chat` call adds [knowledge vault](/agent/knowledge) notes related to its prompt by default. kdeps refreshes the structural graph (links, tags, frontmatter; no model call), walks it from the prompt's words, and puts the best few note paths and summaries, within the recall token budget, in a system message after the system prompt. Nothing is added when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
+Every `chat` call adds [knowledge vault](/agent/knowledge) notes related to its prompt by default. kdeps refreshes the structural graph (links, tags, frontmatter; no model call).
+
+It follows the graph from the words of the prompt. Then it puts the best note paths and summaries in a system message after the system prompt. The recall token budget sets the limit. kdeps adds nothing when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
 
 <div v-pre>
 
@@ -322,7 +324,7 @@ chat:
 
 ## JSON response
 
-Get structured JSON output:
+To get structured JSON output:
 
 <div v-pre>
 
@@ -439,7 +441,7 @@ The chat's history is context for the rewrite. A trivial prompt, a failed refine
 
 ## Skills
 
-`tools.skills` gives the chat agent mode's skills: each listed folder of `SKILL.md` files (or one skill file) is read, the skill names and descriptions join the system prompt, and the model reads one in full with the `load_skill` tool:
+`tools.skills` gives the chat the skills of agent mode. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
 
 ```yaml
 chat:
@@ -512,28 +514,35 @@ chat:
 
 ### Tool loop behavior
 
-kdeps runs the tool loop one call at a time, regardless of backend: if a model
-returns several tool calls in one turn, only the first is executed. A batched
-call is executed on state the model only guessed at - it never saw the earlier
-calls' real results - so trimming to one call per turn forces a real
-step-by-step loop where each call reacts to the previous tool's actual output.
-Set `KDEPS_ALLOW_MULTI_TOOL=1` to restore batched execution. `tools.maxRounds` on
-the `chat:` resource still bounds how many one-at-a-time rounds the loop runs;
-without it, the `chat-max-rounds` event does (5).
+kdeps runs the tool loop one call at a time, on all backends. If a model
+returns many tool calls in one turn, kdeps runs only the first call. In a batch,
+later calls use a state that the model only guessed. The model did not see the
+real results of the earlier calls. With one call for each turn, the loop is a
+real step-by-step loop. Each call uses the real output of the previous tool.
 
-Agent mode's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new distinct calls to its tools once spent. A call the model repeats gets its first result back without running again, and the chat answers once a call repeats past `identical-tool-calls` (3). A tool result the model sees is cut to the `tool-result-truncate` event (8192 bytes, start and end kept) and a tool error to `tool-error-truncate` (500).
+To run calls in batches again, set `KDEPS_ALLOW_MULTI_TOOL=1`.
+`tools.maxRounds` on the `chat:` resource sets the maximum number of rounds.
+Without it, the `chat-max-rounds` event sets the maximum (5).
 
-A model that writes a tool call as text instead of a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call) still runs it, parsed as in [agent mode](/agent/tools-fenced). A call inside a markdown fence is an example and does not run, and a call to a tool the chat does not list is ignored.
+Agent mode's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new different calls to its tools when the budget is empty. If the model repeats a call, it gets the first result again, and the tool does not run again. If a call repeats more than `identical-tool-calls` (3) times, the chat answers. kdeps cuts a tool result to the `tool-result-truncate` event (8192 bytes, and keeps the start and the end). It cuts a tool error to `tool-error-truncate` (500).
 
-The answer of a chat with tools is cleaned as in agent mode: `[MEMORY: ...]` markers, tool-call markup, a self-written `<tool_response>` and `<File>` wrappers are stripped. A `harness.output.json` chat is left to its JSON parser.
+A model can write a tool call as text, not as a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call). kdeps parses and runs this call, as in [agent mode](/agent/tools-fenced). A call in a markdown fence is an example and does not run. kdeps ignores a call to a tool that the chat does not list.
 
-A text answer that ends the tool loop is pushed back as in agent mode: a failed call reported as done gets `nudge-unresolved-failure`, a made-up limit ("I can't access the files") gets `nudge-self-limit`, and an action claimed with no tool call gets `nudge-unbacked-claim`. Each fires up to its harness entry's `maxOccurrences`; the model then answers again.
+kdeps cleans the answer of a chat with tools, as in agent mode. It removes `[MEMORY: ...]` markers, tool-call markup, a `<tool_response>` that the model wrote, and `<File>` wrappers. For a `harness.output.json` chat, the JSON parser does this work.
 
-Each model call is checked against the backend's [request body limit](/reference/security#request-body-size-preflight) first; a request over it fails with an actionable error and never reaches the model.
+As in agent mode, kdeps does not always accept a text answer that ends the tool loop:
+
+- A failed call that the model reports as done gets `nudge-unresolved-failure`.
+- A limit that the model invents ("I can't access the files") gets `nudge-self-limit`.
+- An action that the model claims with no tool call gets `nudge-unbacked-claim`.
+
+Each nudge occurs a maximum of `maxOccurrences` times (from its harness entry). The model then answers again.
+
+First, kdeps checks each model call against the [request body limit](/reference/security#request-body-size-preflight) of the backend. A request above the limit fails with a clear error. It never goes to the model.
 
 A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call; later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.
 
-A call that overflows the model's context is compacted and retried once, as in agent mode: everything after the system messages is summarized with the `compaction-system` and `compaction-user` harness prompts, and the model resumes from that summary and the original prompt. A prompt that overflows on its own still fails.
+If a call is larger than the context of the model, kdeps compacts it and tries again one time, as in agent mode. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
 
 ### kdeps tools (by name)
 
@@ -554,9 +563,9 @@ chat:
 
 An unknown name, or a tool that needs a live agent session (`session_ops`), fails the resource.
 
-The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the run's memory store, so start the workflow with `kdeps run --memory`; without it they answer that no store is configured. `knowledge_recall` reads the [knowledge vault](/agent/knowledge) notes related to a query, as in agent mode.
+The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the memory store of the run. For this reason, start the workflow with `kdeps run --memory`. Without it, they answer that no store is configured. `knowledge_recall` reads the [knowledge vault](/agent/knowledge) notes related to a query, as in agent mode.
 
-A chat on an OpenRouter free model (`backend: openrouter`, an id ending in `:free`) moves to the next free id when the provider rate-limits or refuses the request, as agent mode does (`openrouter-provider-limit`, `openrouter-refusal` events), and stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue with agent mode.
+A chat can use an OpenRouter free model (`backend: openrouter`, an id ending in `:free`). If the provider rate-limits or refuses the request, the chat moves to the next free id, as in agent mode (`openrouter-provider-limit`, `openrouter-refusal` events). It stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue with agent mode.
 
 `subagent` hands a task to a fresh chat call on the same model. It has not seen this chat and gets only the chat's read-only tools (`read_file`, `web_search`, `calculator`, ...), never a write tool or another subagent. It returns a plain-text report as the tool result.
 
@@ -603,7 +612,7 @@ chat:
 
 ## Semantic few-shot selection
 
-When you have many examples and want semantic (embedding-based) selection instead of word-overlap, set `fewShot.embeddingModel` and `fewShot.embeddingBackend`. The K most similar examples are chosen by embedding cosine similarity.
+When you have many examples and want semantic (embedding-based) selection instead of word-overlap, set `fewShot.embeddingModel` and `fewShot.embeddingBackend`. kdeps selects the K most similar examples by embedding cosine similarity.
 
 ```yaml
 # resources/classifier.yaml
@@ -622,11 +631,11 @@ chat:
         # ... many more examples
 ```
 
-Requires `fewShot.selectK` to be set. Falls back to word-overlap if no embedding model is configured.
+You must set `fewShot.selectK`. If you do not configure an embedding model, kdeps uses word-overlap.
 
 ## Provider-specific options
 
-Some `chat:` fields apply to one backend only: Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. They are set per resource, not in `config.yaml`, and documented with their backend:
+Some `chat:` fields apply to one backend only: Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. You set them on each resource, not in `config.yaml`. The page of each backend documents them:
 
 - [LLM backends](/workflow/resources/llm-backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, `openAIWebSearch`, Ollama `streaming`
 - [LLM provider reference](/llm-server/providers) - per-provider config snippets and model names
@@ -731,7 +740,7 @@ chat:
 
 </div>
 
-Both fields can be combined: `fewShot.selectK` ranks examples by similarity first, then `fewShot.maxTokens` prunes the result to the token budget. Pairs (user + assistant) are always kept whole.
+You can use the two fields together. First, `fewShot.selectK` ranks examples by similarity. Then `fewShot.maxTokens` cuts the result to the token budget. kdeps always keeps pairs (user + assistant) complete.
 
 ## RAG context injection
 
@@ -776,7 +785,7 @@ chat:
 
 ### Token budget for retriever chunks
 
-`retriever.maxTokens` caps the total tokens of all injected chunks. Chunks are added in similarity-score order until the budget is reached:
+`retriever.maxTokens` sets the maximum total tokens of all added chunks. kdeps adds chunks in the order of their similarity score, until it gets to the budget:
 
 <div v-pre>
 
@@ -900,11 +909,12 @@ apiResponse:
     parsed: get('llmResource').answer            # if output.json: true with key "answer"
 ```
 
-A failed call fails the resource. If the backend returns an HTTP error, times
-out, or is unreachable, the resource errors with `LLM call failed: <cause>` (the
-provider's own error text when it sends one) - it never yields an empty result,
-so `get('llmResource').message.content` never resolves to `<nil>`. Use `onError:`
-to retry or substitute a fallback.
+A failed call fails the resource. The backend can return an HTTP error, have a
+timeout, or be unreachable. In these conditions, the resource gives the error
+`LLM call failed: <cause>`. The cause is the error text of the provider, if it
+sends one. The resource never gives an empty result, so
+`get('llmResource').message.content` never resolves to `<nil>`. Use `onError:`
+to try again or to use a fallback.
 
 ## See also
 
