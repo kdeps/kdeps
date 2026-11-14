@@ -1,6 +1,6 @@
 # search_local component
 
-The `search_local` component searches a local directory by content keyword and/or filename glob and returns `{results, count}`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `search_local` tool, which runs the native searchLocal executor. A workflow that uses `searchLocal:` directly - primary or in a `before:`/`after:` step - is rejected. See [Search resources](/workflow/resources/search) for how it relates to `web_search`.
+The `search_local` component searches a local directory by content keyword and/or filename glob and returns `{results, count}`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `search_local` tool, which runs the native searchLocal executor. kdeps rejects a workflow that uses `searchLocal:` directly, as primary or in a `before:`/`after:` step. See [Search resources](/workflow/resources/search) for how it relates to `web_search`.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
@@ -49,7 +49,7 @@ component:
 | `indexDBPath` | string | no | `~/.kdeps/projects/<folder>-<hash>/index.db` | Where the index is stored |
 | `graphBoost` | bool | no | `false` | Re-rank indexed results from the vault graph when the folder is inside it, otherwise from the folder's link/topic graph (requires `index: true`) |
 
-When both `query` and `glob` are set, a file must match both to be included.
+If you set `query` and `glob`, a file must match both.
 
 ## Output
 
@@ -75,7 +75,7 @@ Each result object:
 
 The walk skips directories that hold only binaries, generated output or caches, so they do not crowd real documents out of the `limit`: every dot-directory (`.git`, `.codeql-db`, `.venv`, `.cache`, ...) and `node_modules`, `bower_components`, `vendor`, `target`, `build`, `bin`, `obj`, `__pycache__`, `site-packages`, `coverage`, `dist-packages`, `tmp`.
 
-Files larger than 1 MiB are skipped too - they are neither glob-matched nor content-matched.
+kdeps also skips files larger than 1 MiB. It does not compare them with the glob or the content.
 
 The `path` you pass is always searched, even when it is a dot-directory such as `path: "/workspace/.config-app"`. Indexed mode (`index: true`) applies the same directory and size skips when it builds the index.
 
@@ -142,7 +142,7 @@ chat:
 
 ## Indexed search (ranked results)
 
-`index: true` switches the executor from a plain directory walk to a persistent TF-IDF inverted index, giving each result a relevance `score` instead of just a yes/no filename/content match. The index is built once (or incrementally reused) at `~/.kdeps/projects/<folder>-<hash>/index.db` and speeds up repeated searches of the same folder. Nothing is written into the searched folder, so a git repository stays clean.
+`index: true` changes the executor from a plain directory walk to a persistent TF-IDF inverted index. Each result then gets a relevance `score`, not only a yes/no filename or content match. kdeps builds the index one time (or updates it incrementally) at `~/.kdeps/projects/<folder>-<hash>/index.db`. The index makes repeated searches of the same folder faster. kdeps writes nothing into the folder that it searches, so a git repository stays clean.
 
 <div v-pre>
 
@@ -167,7 +167,9 @@ component:
 
 Indexed search already ranks by TF-IDF. `graphBoost` then moves a document up when one of the top 5 matches connects to it.
 
-When `path` is the knowledge vault, or a folder inside it, kdeps brings that vault's structural graph current (links, tags, and frontmatter; no model call) and reads those edges. It does not write `graph.db`. An extracted reference is boosted 25%. A weaker edge is boosted by less: an inferred edge by its confidence, an ambiguous edge by 0.3 times its confidence, and a shared tag by 0.3 of that. A folder outside the vault builds a link/topic graph of the folder (markdown links and shared `topics:` / `tags:` frontmatter) at `~/.kdeps/projects/<folder>-<hash>/graph.db`, and every connected document gets the full 25%.
+If `path` is the knowledge vault, or a folder in it, kdeps updates the structural graph of that vault (links, tags, and frontmatter; no model call). Then it reads those edges. It does not write `graph.db`. An extracted reference gets a boost of 25%. A weaker edge gets a smaller boost: an inferred edge by its confidence, an ambiguous edge by 0.3 times its confidence, and a shared tag by 0.3 of that.
+
+For a folder outside the vault, kdeps builds a link and topic graph of the folder at `~/.kdeps/projects/<folder>-<hash>/graph.db`. The graph uses markdown links and shared `topics:` / `tags:` frontmatter. Each connected document gets the full 25%.
 
 A lower-scoring connected document can outrank a higher-scoring isolated one. That matters when the top match is a short index page.
 

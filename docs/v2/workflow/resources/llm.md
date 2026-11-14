@@ -272,7 +272,7 @@ chat:
 
 Every `chat` call adds [knowledge vault](/agent/knowledge) notes related to its prompt by default. kdeps refreshes the structural graph (links, tags, frontmatter; no model call).
 
-It follows the graph from the words of the prompt. Then it puts the best note paths and summaries in a system message after the system prompt. The recall token budget sets the limit. kdeps adds nothing when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
+kdeps follows the graph from the words of the prompt. Then it puts the best note paths and summaries in a system message after the system prompt. The recall token budget sets the limit. kdeps adds nothing when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
 
 <div v-pre>
 
