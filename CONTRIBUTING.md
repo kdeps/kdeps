@@ -17,8 +17,9 @@ project's [Apache 2.0 License](LICENSE), and you agree to follow the
 - **Suggest a feature**: start a thread in
   [Discussions](https://github.com/kdeps/kdeps/discussions).
 - **Improve the docs**: edit the pages under `docs/v2/`. Follow the
-  [documentation style guide](docs/v2/STYLE-GUIDE.md) and
-  [docs contributing guide](docs/v2/CONTRIBUTING-DOCS.md).
+  [documentation style guide](docs/v2/reference/style-guide.md) (prose follows
+  ASD-STE100 Simplified Technical English) and the
+  [docs contributing guide](docs/v2/reference/contributing-docs.md).
 - **Write code**: submit a pull request for a bug fix or a feature.
 
 ## Before you start
