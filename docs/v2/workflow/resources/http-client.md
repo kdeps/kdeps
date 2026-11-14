@@ -1,6 +1,8 @@
 # http_request component
 
-The `http_request` component makes one outbound HTTP request and returns the response: status code, status line, headers, raw body, and the parsed JSON body under `data` when the response is JSON. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `http_request` tool, which runs the native HTTP executor. A workflow that uses `httpClient:` directly - primary or in a `before:`/`after:` step - is rejected.
+The `http_request` component makes one outbound HTTP request and returns the response: status code, status line, headers, raw body, and the parsed JSON body under `data` when the response is JSON.
+
+It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `http_request` tool of the kdeps API. This tool runs the native HTTP executor. kdeps rejects a workflow that uses `httpClient:` directly, as primary or in a `before:`/`after:` step.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
@@ -147,7 +149,7 @@ component:
 
 </div>
 
-`accountName` is a lighter alternative for services the agent authenticates with as itself, using a named account from the agent's [identity](/reference/advanced-config#agent-identity). It resolves as Basic Auth; when both are set, `connectionName` wins.
+`accountName` is a lighter alternative for services the agent authenticates with as itself, using a named account from the agent's [identity](/reference/advanced-config#agent-identity). It resolves as Basic Auth. If you set both, `connectionName` has priority.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -294,7 +296,7 @@ component:
 
 ## Redirects
 
-Redirects are followed by default. Set `followRedirects: false` to stop at the first 3xx and return it as the result.
+By default, kdeps follows redirects. Set `followRedirects: false` to stop at the first 3xx and return it as the result.
 
 <div v-pre>
 

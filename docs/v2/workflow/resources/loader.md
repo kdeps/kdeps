@@ -1,6 +1,8 @@
 # loader component
 
-The `load_document` component reads a file, URL, or directory into structured `Document` objects - plain text plus metadata - and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into the `vector_store` or `embedding` component for indexing. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `load_document` tool, which runs the native loader executor. A workflow that uses `loader:` directly - primary or in a `before:`/`after:` step - is rejected.
+The `load_document` component reads a file, URL, or directory into structured `Document` objects (plain text and metadata). It can also split them into chunks. It is the ingestion step of a RAG pipeline. First load the data. Then give the output to the `vector_store` or `embedding` component for indexing.
+
+It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `load_document` tool of the kdeps API. This tool runs the native loader executor. kdeps rejects a workflow that uses `loader:` directly, as primary or in a `before:`/`after:` step.
 
 It works in both modes: as a DAG step in workflow mode, and as the `load_document` built-in tool in agent mode.
 
@@ -92,7 +94,7 @@ component:
 
 ## Size limit
 
-Every loader type reads its source fully into memory. That suits a report or handbook, but bulk ingestion (a large CSV, a directory of documents) can get the process `SIGKILL`ed once the content is copied downstream (`chunkSize` splitting, `json.Marshal` of the result, a `vector_store` embedding step). Any single file over **256 MiB** is rejected with a clear error. `type: directory` and `notion` skip an oversized file and keep loading; every other type fails that load, like `--file`/stdin over its 256 MiB default (see [Input sources](/workflow/input-sources)).
+Each loader type reads its full source into memory. This is correct for a report or handbook. But a large ingestion (a large CSV, a directory of documents) can cause a `SIGKILL` of the process. This can occur when later steps copy the content (`chunkSize` splitting, `json.Marshal` of the result, a `vector_store` embedding step). kdeps rejects a single file larger than **256 MiB** with a clear error. `type: directory` and `notion` skip a file that is too large and continue to load. All other types fail that load, as for `--file`/stdin above its 256 MiB default (see [Input sources](/workflow/input-sources)).
 
 Raise or lower it with `KDEPS_LOADER_MAX_BYTES` (bytes; `0` disables the check):
 

@@ -1,6 +1,8 @@
 # embedding component
 
-The `embedding` component runs one embedding operation and returns a structured result: a SQLite keyword store for `index`, `search`, `upsert` and `delete`; an embedding backend for `vectorize` and `embed_query`; Cohere for `rerank`. It comes from the `components` asset set; call it with a `component:` resource, no install step. It calls the kdeps API's `embedding` tool, which runs the native executor. A workflow using `embedding:` directly, as primary or in a `before:`/`after:` step, is rejected.
+The `embedding` component runs one embedding operation and returns a structured result: a SQLite keyword store for `index`, `search`, `upsert` and `delete`; an embedding backend for `vectorize` and `embed_query`; Cohere for `rerank`.
+
+It comes from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `embedding` tool of the kdeps API. This tool runs the native executor. kdeps rejects a workflow that uses `embedding:` directly, as primary or in a `before:`/`after:` step.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 

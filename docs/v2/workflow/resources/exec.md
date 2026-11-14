@@ -1,6 +1,8 @@
 # exec component
 
-The `exec` component runs a shell command and returns a structured result: `{success, exitCode, stdout, stderr, command, result, timedOut}`. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. Its call is the kdeps API's `exec` tool, which runs the native exec executor. A workflow that uses `exec:` directly - primary or in a `before:`/`after:` step - is rejected.
+The `exec` component runs a shell command and returns a structured result: `{success, exitCode, stdout, stderr, command, result, timedOut}`.
+
+It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `exec` tool of the kdeps API. This tool runs the native exec executor. kdeps rejects a workflow that uses `exec:` directly, as primary or in a `before:`/`after:` step.
 
 It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
@@ -47,7 +49,7 @@ component:
 
 Without `args`, the command string runs through `sh -c` on Unix and `cmd /C` on Windows, so pipes, `&&`, globs, and redirections work.
 
-With `args`, the command is executed directly with an argv array - no shell - which avoids quoting problems and shell injection:
+With `args`, kdeps runs the command directly with an argv array and no shell. This prevents quoting problems and shell injection:
 
 <div v-pre>
 
@@ -253,7 +255,7 @@ validations:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
 
-The workflow-side `exec` tool has no agent guardrails: unlike `bash_exec` in agent mode, it does not check `KDEPS_ALLOW_BASH` or the bash command blocklist. A workflow YAML is trusted configuration; treat `command:` as code you ship.
+The `exec` tool of the workflow has no agent guardrails. It does not check `KDEPS_ALLOW_BASH` or the bash command blocklist, as `bash_exec` does in agent mode. A workflow YAML is trusted configuration. Treat `command:` as code that you ship.
 
 ## See also
 

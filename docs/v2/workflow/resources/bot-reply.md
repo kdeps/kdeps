@@ -58,7 +58,7 @@ apiResponse:
 | A plain string | The string |
 | Anything else | The result as JSON |
 
-An empty result sends nothing. A failed workflow sends nothing and is logged; send a fallback with the resource's `onError:` if users should get one.
+An empty result sends nothing. A failed workflow sends nothing, and kdeps logs it. If users must get a reply, send a fallback with the `onError:` of the resource.
 
 ## Stateless mode
 

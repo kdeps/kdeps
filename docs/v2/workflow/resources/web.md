@@ -13,7 +13,7 @@ Works in workflow and agent mode.
 ## Which one
 
 - **Data from an API** - the `http_request` component. Built-in auth, retry, and cache.
-- **Text from a page you already have a URL for** - the `web_scraper` component. No browser: the page is fetched and converted to markdown.
+- **Text from a page you already have a URL for** - the `web_scraper` component. It uses no browser. kdeps gets the page and converts it to markdown.
 - **You need to find the right URL first** - the `web_search` component, then `web_scraper` on the result.
 
 ## See also

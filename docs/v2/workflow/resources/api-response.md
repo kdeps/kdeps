@@ -145,7 +145,7 @@ apiResponse:
     backend: file
 ```
 
-**Automatic Metadata**: If an LLM resource was used in the workflow, model and backend information are automatically added to the response metadata (unless explicitly specified).
+**Automatic Metadata**: If the workflow uses an LLM resource, kdeps automatically adds the model and backend to the response metadata (unless you set them explicitly).
 
 <div v-pre>
 
@@ -384,7 +384,7 @@ apiResponse:
 1. **Always set Content-Type** - Usually `application/json`
 2. **Include request ID** - Helps with debugging
 3. **Be consistent** - Use the same structure across endpoints
-4. **Include metadata** - Model version, timing, etc.
+4. **Include metadata** - Model version, timing, and other data.
 5. **Handle errors gracefully** - Clear error messages
 
 ## See also

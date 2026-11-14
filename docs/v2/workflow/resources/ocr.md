@@ -1,10 +1,12 @@
 # OCR component
 
-The `ocr_image` component extracts text from an image using [tesseract](https://github.com/tesseract-ocr/tesseract) - fully local, no API key, no network call. It is a kdeps component from the `components` asset set: call it with a `component:` resource, no install step. The component is a thin client: the tesseract call itself is declared in the `ocr_image` tool asset and runs in the kdeps API.
+The `ocr_image` component extracts text from an image with [tesseract](https://github.com/tesseract-ocr/tesseract). It is fully local, with no API key and no network call.
+
+It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. The component is a thin client. The `ocr_image` tool asset declares the tesseract call, and the call runs in the kdeps API.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode the same tool is the `ocr_image` built-in, a [declared exec tool](/agent/tools#declared-exec-tools); the component and the agent both reach it through the kdeps API.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the same tool is the `ocr_image` built-in, a [declared exec tool](/agent/tools#declared-exec-tools). The component and the agent both use it through the kdeps API.
 
 ## Requirements
 
