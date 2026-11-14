@@ -36,7 +36,7 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.9.1
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/sijms/go-ora/v2 v2.9.0
-	github.com/slack-go/slack v0.33.0
+	github.com/slack-go/slack v0.35.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/fileflow v0.2.0
