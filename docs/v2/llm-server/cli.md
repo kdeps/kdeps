@@ -33,7 +33,7 @@ kdeps llm wizard
 kdeps llm   # same on a TTY
 ```
 
-Requires a TTY. Non-interactive environments should use the flag-based commands below.
+Needs a TTY. In non-interactive environments, use the flag-based commands below.
 
 ## kdeps llm models
 

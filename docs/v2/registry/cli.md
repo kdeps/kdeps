@@ -1,6 +1,6 @@
 # Registry commands
 
-Search, install, and publish packages from the kdeps registry, and install, update and remove kdeps assets (harness prompts, tool definitions, commands, themes, templates, schemas, model registries). An argument naming an asset set (`tools`) or item (`tools/bash_exec`) is an asset; anything else is a package.
+Search, install, and publish packages from the kdeps registry. Install, update, and remove kdeps assets (harness prompts, tool definitions, commands, themes, templates, schemas, model registries). An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
 
 ## Commands
 

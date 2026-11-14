@@ -1,8 +1,9 @@
 # kdeps deploy
 
-kdeps deploy ships the workflow you tested locally, unchanged. It packages the workflow, builds an image
-with no Dockerfile, and runs it as a Docker container, Kubernetes deployment,
-bootable ISO, or single self-contained binary from the same `workflow.yaml`.
+kdeps deploy ships the workflow that you tested locally, with no change. It
+packages the workflow and builds an image with no Dockerfile. It runs the
+image as a Docker container, a Kubernetes deployment, a bootable ISO, or one
+self-contained binary. All of these use the same `workflow.yaml`.
 
 ```bash
 kdeps bundle build .      # workflow + model -> Docker image
@@ -158,7 +159,7 @@ For edge deployments that cannot run containers, use the prepackage flow:
 kdeps bundle package . --output dist/
 ```
 
-The `.kdeps` archive can be deployed directly on any machine with kdeps installed:
+You can deploy the `.kdeps` archive directly on a machine that has kdeps:
 
 ```bash
 export KDEPS_API_AUTH_TOKEN=api-secret

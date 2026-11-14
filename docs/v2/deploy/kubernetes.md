@@ -86,7 +86,7 @@ deploy:
 
 ### Ports
 
-Ports are derived from your workflow settings:
+kdeps gets the ports from your workflow settings:
 
 | Setting | Port name in manifest | Description |
 |---------|-----------------------|-------------|
@@ -97,11 +97,11 @@ Ports are derived from your workflow settings:
 Chat resources on the default `file` backend need no backend port: the
 llamafile self-serves on localhost inside the pod.
 
-Ports, probes, and NetworkPolicy rules are all derived from this configuration - only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
+kdeps makes ports, probes, and NetworkPolicy rules from this configuration. It opens only the ports that the workflow serves. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
 
 ### Resources
 
-When `resources` is set, the manifest includes both `limits` and `requests`:
+When you set `resources`, the manifest includes `limits` and `requests`:
 
 ```yaml
 # workflow.yaml
@@ -114,7 +114,7 @@ deploy:
       memoryRequest: "128Mi"
 ```
 
-When `resources` is absent, no `resources:` block is emitted (Kubernetes defaults apply).
+If you do not set `resources`, kdeps writes no `resources:` block (Kubernetes defaults apply).
 
 ## Generated manifests
 
@@ -202,7 +202,7 @@ Probes follow what the workflow serves:
 
 ## NetworkPolicy (opt-in)
 
-Set `runtime.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat` and the `http_request`, `web_search`, and `sql` components can reach external services.
+Set `runtime.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. The policy permits ingress only on the ports that the workflow serves. It denies all other ingress. Egress has no limits, intentionally. As a result, `chat` and the `http_request`, `web_search`, and `sql` components can connect to external services.
 
 ```yaml
 # k8s.yaml (appended when networkPolicy is enabled)
@@ -227,11 +227,11 @@ spec:
 
 The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0.0.1` inside the pod, so it is only reachable from within the pod regardless. A workflow with no `apiServer` or `webServer` gets a policy with no ingress rules at all - all ingress denied.
 
-Your cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium, etc.); on clusters without one the policy is accepted but has no effect.
+Your cluster must run a CNI that enforces NetworkPolicy (for example, Calico or Cilium). On a cluster without such a CNI, the cluster accepts the policy, but the policy has no effect.
 
 ## Auth tokens
 
-When `apiServer` is configured, the Deployment references auth tokens from a Kubernetes Secret (never from `runtime.env`):
+When you configure `apiServer`, the Deployment refers to auth tokens in a Kubernetes Secret (never in `runtime.env`):
 
 ```yaml
 # deploy/auth-secret.yaml
@@ -274,7 +274,7 @@ kubectl apply -f deploy/env-secret.yaml
 
 ## Pod securityContext
 
-Pod `securityContext` defaults include `runAsNonRoot: true`, `seccompProfile.type: RuntimeDefault`, and `capabilities.drop: ["ALL"]`. The pod also sets `automountServiceAccountToken: false` since kdeps workloads never call the Kubernetes API.
+Pod `securityContext` defaults include `runAsNonRoot: true`, `seccompProfile.type: RuntimeDefault`, and `capabilities.drop: ["ALL"]`. The pod also sets `automountServiceAccountToken: false`, because kdeps workloads never call the Kubernetes API.
 
 ## Typical workflow
 

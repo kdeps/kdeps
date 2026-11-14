@@ -20,7 +20,7 @@ kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 
 ## How it works
 
-The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically - exactly like `kdeps run`. The archive also carries the packaging machine's kdeps assets (harness, tool definitions, model registries, ...) under `.kdeps-assets/`, so the binary runs offline on the assets it was packaged with.
+kdeps adds the archive to the end of the kdeps binary. A 24-byte magic trailer marks the start of the archive, so the binary can find it at startup. When you run the prepackaged binary, it finds the embedded `.kdeps` archive and runs it automatically, exactly like `kdeps run`. The archive also has the kdeps assets of the packaging machine (harness, tool definitions, model registries, ...) under `.kdeps-assets/`. As a result, the binary runs offline with these assets.
 
 ```d2
 direction: down
@@ -76,7 +76,7 @@ the base.  For all other architectures, it downloads the corresponding release
 binary from [GitHub Releases](https://github.com/kdeps/kdeps/releases).
 
 This means cross-arch builds require:
-- A published kdeps release (dev builds cannot be downloaded)
+- A published kdeps release (you cannot download dev builds)
 - Internet access during the `prepackage` step
 
 ```bash
@@ -88,16 +88,16 @@ kdeps bundle prepackage myagent.kdeps --arch linux-arm64
 ```
 
 ::: tip Dev builds
-When running a development build (version ends in `-dev`), only the host
-architecture binary is produced.  Specify `--kdeps-version <release>` to
-produce cross-arch binaries even from a dev build.
+With a development build (the version ends in `-dev`), kdeps makes only the
+binary for the host architecture. To make cross-arch binaries from a dev build,
+give `--kdeps-version <release>`.
 :::
 
 ## Re-prepackaging
 
-`prepackage` is idempotent.  If the input binary already contains an embedded
-`.kdeps` archive, the old archive is stripped before the new one is attached.
-This means you can safely re-prepackage a binary with an updated workflow:
+`prepackage` is idempotent. If the input binary already has an embedded
+`.kdeps` archive, kdeps removes the old archive before it attaches the new one.
+As a result, you can safely prepackage a binary again with an updated workflow:
 
 ```bash
 # First release
