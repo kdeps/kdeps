@@ -54,7 +54,7 @@ const categories: MenuCategory[] = [
     link: '/workflow/',
     groups: [{
       items: [
-        { title: 'Overview', desc: 'A deterministic YAML pipeline. The same input always has the same path', link: '/workflow/' },
+        { title: 'Overview', desc: 'A deterministic YAML pipeline. The same input always runs the same steps', link: '/workflow/' },
         { title: 'Quickstart', desc: 'Build your first workflow', link: '/workflow/quickstart' },
         { title: 'Resource catalog', desc: 'LLM, RAG, SQL, HTTP, Python, exec, OCR, and more', link: '/workflow/resources' },
         { title: 'Expressions', desc: 'get(), safe(), default(), and the template layer', link: '/workflow/expressions' },

@@ -84,7 +84,7 @@ curl -s -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "Explain entropy in one sentence."}'
 ```
 
-Resources run in dependency order. Independent resources run in parallel, on the same scheduler as agent mode. The words of the model can change, but the path does not change.
+Resources run in dependency order. Independent resources run in parallel, on the same scheduler as agent mode. The model can write a different answer each time. But for the same request, kdeps always runs the same steps in the same order.
 
 A chat puts its keys in these groups: `model`, `context`, `harness`, `tools`, `rag`, and `guardrails`. Guardrail judges review and revise the answer, as the judge panel of agent mode does. Harness sections, prompt refine, and skills come from agent mode. `tools.list` gives the names of agent mode tools (`web_search`, `calculator`, `subagent`, ...).
 

@@ -20,7 +20,7 @@ The [two modes](#two-modes-one-workflow-file) below apply to whichever you use.
 
 An LLM is probabilistic: the same question twice can get two answers. Workflow mode puts the LLM in a deterministic shell.
 
-The same request always goes through the same resources. `requires:` sets the order. Validations run before a model call. The output follows a fixed schema. The words can change, but the pipeline does not change.
+The same request always goes through the same resources. `requires:` sets the order. Validations run before a model call. The output follows a fixed schema. The text that the model writes can be different each time. But the steps, their order, and the shape of the output do not change.
 
 If the input is wrong, the workflow stops quickly with a clear error. It does not hallucinate a response. The structure of the output is reproducible and auditable, and the workflow can run safely without supervision. For these reasons, kdeps is applicable to production, not only to demos.
 
