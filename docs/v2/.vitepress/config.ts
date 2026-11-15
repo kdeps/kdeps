@@ -389,7 +389,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: 'Released under the Apache 2.0 License.',
+      message: 'kdeps has the Apache 2.0 License.',
       copyright: 'Copyright (c) 2024-present kdeps contributors'
     },
 

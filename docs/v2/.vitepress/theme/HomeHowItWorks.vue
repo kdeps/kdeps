@@ -14,7 +14,7 @@
           <div class="step-num">01</div>
           <div class="step-body">
             <h3>Write YAML</h3>
-            <p>Declare resources -- chat, HTTP, Python, SQL. Wire them with <code>requires:</code>. One file, both modes.</p>
+            <p>Declare resources: chat, HTTP, Python, SQL. Connect them with <code>requires:</code> under <code>flow:</code>. One file operates in both modes.</p>
           </div>
         </div>
 
@@ -24,7 +24,7 @@
           <div class="step-num">02</div>
           <div class="step-body">
             <h3>Run it</h3>
-            <p><code>kdeps run</code> serves the API. <code>kdeps .</code> loads that pipeline as a tool in the REPL.</p>
+            <p><code>kdeps run</code> serves the API. <code>kdeps .</code> loads the same pipeline as a tool in the REPL.</p>
           </div>
         </div>
 
@@ -34,7 +34,7 @@
           <div class="step-num">03</div>
           <div class="step-body">
             <h3>Ship it</h3>
-            <p>Export Docker, Kubernetes, ISO, or a binary. Same workflow.yaml, no rewrites, no re-config.</p>
+            <p>Export it as Docker, Kubernetes, ISO, or a binary. All use the same workflow.yaml. You do not rewrite or reconfigure it.</p>
           </div>
         </div>
       </div>

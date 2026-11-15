@@ -6,38 +6,38 @@
   <section class="who-needs">
     <div class="container">
       <p class="section-eyebrow">who it's for</p>
-      <h2 class="section-title">When you can't send data to an external AI service</h2>
-      <p class="section-sub">kdeps packages the model with the workflow, so the whole thing runs inside your boundary.</p>
+      <h2 class="section-title">When you cannot send data to an external AI service</h2>
+      <p class="section-sub">kdeps packages the model with the workflow. As a result, all of it runs in your boundary.</p>
 
       <div class="cards">
         <a href="/deploy/kubernetes" class="card">
           <h3>Private enterprise AI</h3>
-          <p>Deploy an internal RAG or document-processing agent entirely inside your customer's VPC. No prompts, no documents, no embeddings leave their infrastructure.</p>
+          <p>Deploy an internal RAG or document agent fully in the VPC of your customer. No prompts, documents, or embeddings go out of their infrastructure.</p>
           <span class="tag">on-prem &middot; regulated</span>
         </a>
 
         <a href="/deploy/binaries" class="card">
           <h3>Edge &amp; air-gapped AI</h3>
-          <p>Ship the model and workflow as a bootable ISO or a single binary. Runs on a disconnected edge box with no external AI dependency and no network at inference time.</p>
+          <p>Ship the model and workflow as a bootable ISO or one binary. It runs on a disconnected edge device. It needs no external AI service and no network at inference time.</p>
           <span class="tag">edge &middot; offline</span>
         </a>
 
         <a href="/workflow/quickstart" class="card">
-          <h3>AI APIs without the glue</h3>
-          <p>Turn a YAML workflow into a production HTTP API and container. No FastAPI, no LangChain wiring, no hand-written Dockerfile - validation, ordering, and response shape are declared.</p>
+          <h3>AI APIs without glue code</h3>
+          <p>Change a YAML workflow into a production HTTP API and container. You do not need FastAPI, LangChain code, or a Dockerfile that you write manually. You declare the validation, the order, and the response shape.</p>
           <span class="tag">workflow mode</span>
         </a>
       </div>
 
-      <p class="build-label">Working examples, each a runnable project:</p>
+      <p class="build-label">Working examples. Each example is a project that you can run:</p>
       <div class="chips">
         <a href="/examples/file-processor" class="chip">Document summarizer</a>
         <a href="/examples/rag-search" class="chip">RAG over your docs</a>
-        <a href="/examples/web-scraper" class="chip">Web scraper API</a>
+        <a href="/examples/function-calling" class="chip">Function calling</a>
         <a href="/examples/sql-api" class="chip">SQL-backed API</a>
-        <a href="/examples/telephony-bot" class="chip">Phone assistant (IVR)</a>
+        <a href="/examples/telegram-bot/" class="chip">Telegram bot</a>
         <a href="/examples/agency" class="chip">Multi-agent agency</a>
-        <a href="/examples/" class="chip chip-more">All examples -&gt;</a>
+        <a href="/examples/" class="chip chip-more">All examples</a>
       </div>
     </div>
   </section>

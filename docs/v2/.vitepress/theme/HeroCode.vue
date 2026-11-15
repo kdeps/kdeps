@@ -23,7 +23,7 @@ const files = [
     html: [
       `${P('$')} kdeps`,
       ``,
-      `${D('kdeps v2.x  |  agent loop')}`,
+      `${D('kdeps v3  |  agent loop')}`,
       `${D('Model: llama3.2 (llamafile, offline)  |  /help for commands')}`,
       ``,
       `${T('>')} find the failing tests in ./api and suggest a fix`,
@@ -49,7 +49,7 @@ const files = [
       `  ${K('version')}${O(': ')}${S('"1.0.0"')}`,
       `  ${K('targetActionId')}${O(': ')}${S('response')}   ${D('# its output is the HTTP response')}`,
       ``,
-      `${K('settings')}${O(':')}`,
+      `${K('deploy')}${O(':')}`,
       `  ${K('apiServer')}${O(':')}`,
       `    ${K('portNum')}${O(': ')}${N('16395')}`,
       `    ${K('routes')}${O(':')}`,
@@ -61,7 +61,7 @@ const files = [
     name: 'resources/llm.yaml',
     html: [
       `${K('actionId')}${O(': ')}${S('llm')}`,
-      `${K('name')}${O(': ')}${S('LLM Chat')}`,
+      `${K('name')}${O(': ')}${S('Ask the AI')}`,
       `${K('validations')}${O(':')}`,
       `  ${K('check')}${O(':')}`,
       `    ${O('- ')}${S('get(\'q\') != \'\'')}       ${D('# 400 if the body has no "q"')}`,
@@ -69,22 +69,25 @@ const files = [
       `    ${K('code')}${O(': ')}${N('400')}`,
       `    ${K('message')}${O(': ')}${S('"\'q\' is required"')}`,
       `${K('chat')}${O(':')}`,
-      `  ${K('model')}${O(': ')}${S('llama3.2:1b')}     ${D('# local, no API key')}`,
-      `  ${K('prompt')}${O(': ')}${S('"{{ get(\'q\') }}"')}`,
-      `  ${K('timeout')}${O(': ')}${S('60s')}`,
+      `  ${K('model')}${O(':')}`,
+      `    ${K('name')}${O(': ')}${S('llama3.2:1b')}   ${D('# local, no API key')}`,
+      `    ${K('timeout')}${O(': ')}${S('60s')}`,
+      `  ${K('context')}${O(':')}`,
+      `    ${K('prompt')}${O(': ')}${S('"{{ get(\'q\') }}"')}`,
     ].join('\n'),
   },
   {
     name: 'resources/response.yaml',
     html: [
       `${K('actionId')}${O(': ')}${S('response')}`,
-      `${K('name')}${O(': ')}${S('API Response')}`,
-      `${K('requires')}${O(': ')}${S('[llm]')}        ${D('# runs after llm')}`,
+      `${K('name')}${O(': ')}${S('Return the answer')}`,
+      `${K('flow')}${O(':')}`,
+      `  ${K('requires')}${O(': ')}${S('[llm]')}      ${D('# runs after llm')}`,
       `${K('apiResponse')}${O(':')}`,
       `  ${K('success')}${O(': ')}${S('true')}`,
       `  ${K('response')}${O(':')}`,
       `    ${K('answer')}${O(': ')}${S('get(\'llm\').message.content')}`,
-      '', '', '', '', '', '',
+      '', '', '', '', '',
     ].join('\n'),
   },
 ]
@@ -113,10 +116,11 @@ const files = [
         <div class="terminal">
           <div class="tl"><span class="p">$</span><span class="c">export KDEPS_API_AUTH_TOKEN=dev-token</span></div>
           <div class="tl"><span class="p">$</span><span class="c">kdeps run .</span></div>
-          <div class="tl dim">Listening on :16395</div>
+          <div class="tl dim">Starting HTTP server on 0.0.0.0:16395</div>
           <div class="tl">&nbsp;</div>
           <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/api/v1/chat \</span></div>
           <div class="tl"><span class="pad"></span><span class="c dim">-H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \</span></div>
+          <div class="tl"><span class="pad"></span><span class="c dim">-H "Content-Type: application/json" \</span></div>
           <div class="tl"><span class="pad"></span><span class="c dim">-d '{"q": "What is entropy, in one sentence?"}'</span></div>
           <div class="tl">&nbsp;</div>
           <div class="tl resp">{"success": true, "data": {"answer": "Entropy measures how many microscopic arrangements are consistent with a system's macroscopic state."}}</div>
@@ -195,7 +199,7 @@ const files = [
   color: #c8cce8;
   overflow-x: auto;
   white-space: pre;
-  height: 260px;
+  height: 300px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 

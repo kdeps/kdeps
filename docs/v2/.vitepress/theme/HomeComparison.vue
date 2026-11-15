@@ -5,9 +5,9 @@
 <template>
   <section class="comparison">
     <div class="container">
-      <p class="section-eyebrow">vs doing it yourself</p>
+      <p class="section-eyebrow">compared to manual code</p>
       <h2 class="section-title">YAML replaces glue code</h2>
-      <p class="section-sub">No Python scripts, no wiring, no boilerplate.</p>
+      <p class="section-sub">You do not write Python scripts, connection code, or boilerplate.</p>
 
       <div class="table-wrap">
         <table>
@@ -23,20 +23,20 @@
               <td>One <code>workflow.yaml</code> file</td>
             </tr>
             <tr>
-              <td>Manual dependency wiring</td>
-              <td><code>requires:</code> in YAML</td>
+              <td>Dependency code that you write manually</td>
+              <td><code>flow.requires:</code> in YAML</td>
             </tr>
             <tr>
-              <td>Write error handling by hand</td>
+              <td>Error handling that you write manually</td>
               <td><code>onError:</code> block (continue / retry / fail)</td>
             </tr>
             <tr>
-              <td>Write Dockerfile + CI pipeline for deployment</td>
+              <td>A Dockerfile and a CI pipeline for deployment</td>
               <td><code>kdeps bundle build --tag</code> then <code>docker push</code></td>
             </tr>
             <tr>
-              <td>Chaining agents by hand</td>
-              <td><code>agent:</code> resource — one agent calls another declaratively</td>
+              <td>Agent chains that you write manually</td>
+              <td><code>agent:</code> resource. One agent calls a different agent declaratively</td>
             </tr>
           </tbody>
         </table>
