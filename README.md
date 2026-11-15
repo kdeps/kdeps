@@ -11,11 +11,11 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-kdeps builds git-native AI appliances: your AI agent is YAML in your repository, built once and run where you need it.
+kdeps builds git-native AI appliances. Your AI agent is YAML in your repository. You build it one time and run it where you need it.
 
-1. **Workflows** - deterministic YAML pipelines served as an HTTP API, bot or file processor.
-2. **Agent** - `kdeps` opens an AI REPL with tools and memory, on a local model or an LLM server you run.
-3. **Deploy on your infrastructure** - the same YAML ships as a Docker image, Kubernetes manifests, a bootable ISO or one binary.
+1. **Workflows** - deterministic YAML pipelines. Serve them as an HTTP API, a bot, or a file processor.
+2. **Agent** - `kdeps` opens an AI REPL with tools and memory. It uses a local model or an LLM server that you run.
+3. **Deploy on your infrastructure** - ship the same YAML as a Docker image, Kubernetes manifests, a bootable ISO, or one binary.
 
 ## Install
 
@@ -28,7 +28,7 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh   
 irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex   # Windows PowerShell
 ```
 
-Other options: [installation guide](https://kdeps.com/start/installation). Coming from v2: [what changed](https://kdeps.com/start/installation#upgrading-from-v2).
+For other options, see the [installation guide](https://kdeps.com/start/installation). If you upgrade from v2, see [what changed](https://kdeps.com/start/installation#upgrading-from-v2).
 
 ## 1. Workflows
 
@@ -84,9 +84,13 @@ curl -s -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "Explain entropy in one sentence."}'
 ```
 
-Resources run in dependency order, independent ones in parallel, on the same scheduler as agent mode: the model's wording varies, the path does not. A chat groups its keys as `model`, `context`, `harness`, `tools`, `rag` and `guardrails`: guardrail judges review and revise the answer as agent mode's judge panel does, harness sections, prompt refine and skills come from agent mode, and `tools.list` names agent mode's tools (`web_search`, `calculator`, `subagent`, ...). `kdeps test .` runs a workflow's `evals:` in-process: assertions, judges, and repeated runs against a pass-rate threshold.
+Resources run in dependency order. Independent resources run in parallel, on the same scheduler as agent mode. The words of the model can change, but the path does not change.
 
-More: [workflow docs](https://kdeps.com/workflow/), [examples](https://kdeps.com/examples/), [agencies](https://kdeps.com/agencies/) (several agents as one system).
+A chat puts its keys in these groups: `model`, `context`, `harness`, `tools`, `rag`, and `guardrails`. Guardrail judges review and revise the answer, as the judge panel of agent mode does. Harness sections, prompt refine, and skills come from agent mode. `tools.list` gives the names of agent mode tools (`web_search`, `calculator`, `subagent`, ...).
+
+`kdeps test .` runs the `evals:` of a workflow in the process. It runs assertions, judges, and repeated runs against a pass-rate threshold.
+
+For more data, see the [workflow docs](https://kdeps.com/workflow/), [examples](https://kdeps.com/examples/), and [agencies](https://kdeps.com/agencies/) (many agents as one system).
 
 ## 2. Agent
 
@@ -95,9 +99,9 @@ kdeps                            # REPL with built-in tools (files, shell, searc
 kdeps ./my-agent/ --model llama3.2   # also load that project's workflows as tools
 ```
 
-The model picks which tools to call. File tools ask before touching a path outside the working directory, except `~/.kdeps` and `/tmp`.
+The model selects the tools to call. Before a file tool uses a path outside the working directory, it asks you. `~/.kdeps` and `/tmp` are exceptions.
 
-More: [agent docs](https://kdeps.com/agent/), [desktop app](https://kdeps.com/agent/desktop#install).
+For more data, see the [agent docs](https://kdeps.com/agent/) and the [desktop app](https://kdeps.com/agent/desktop#install).
 
 ## 3. Deploy on your infrastructure
 
@@ -108,7 +112,7 @@ kdeps export iso            # bootable ISO
 kdeps bundle prepackage     # standalone binary
 ```
 
-Point agents at an LLM server you host, so prompts and data stay on your network:
+Connect agents to an LLM server that you host. Then prompts and data stay on your network:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -119,8 +123,8 @@ llm:
     - llama3.2
 ```
 
-`kdeps llm wizard` builds that server. More: [deploy](https://kdeps.com/deploy/), [LLM server](https://kdeps.com/llm-server/), [security](https://kdeps.com/reference/security).
+`kdeps llm wizard` builds that server. For more data, see [deploy](https://kdeps.com/deploy/), [LLM server](https://kdeps.com/llm-server/), and [security](https://kdeps.com/reference/security).
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [Apache 2.0](LICENSE).
+Read [CONTRIBUTING.md](CONTRIBUTING.md). kdeps has the [Apache 2.0](LICENSE) license.
