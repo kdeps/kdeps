@@ -20,7 +20,7 @@ hero:
 
 features:
   - title: kdeps workflow
-    details: A deterministic YAML pipeline. Serve it as an HTTP API, a bot, or a file processor. The same input always goes through the same path.
+    details: A deterministic YAML pipeline. Serve it as an HTTP API, a bot, or a file processor. The same input always runs the same steps in the same order.
     link: /workflow/
     linkText: Build a workflow
   - title: kdeps agent

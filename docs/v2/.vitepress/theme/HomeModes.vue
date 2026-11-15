@@ -16,7 +16,7 @@
             <span class="mode-tag">workflow</span>
             <h3>Deterministic pipelines</h3>
           </div>
-          <p class="mode-desc">Resources run in the DAG order that <code>requires:</code> sets. Each request takes the same path. The result is predictable, testable, and auditable.</p>
+          <p class="mode-desc">Resources run in the DAG order that <code>requires:</code> sets. Each request runs the same steps in the same order. The result is predictable, testable, and auditable.</p>
 
           <div class="flow">
             <div class="flow-node entry">POST /summarize</div>
