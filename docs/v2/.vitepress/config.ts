@@ -30,7 +30,7 @@ const navVersion = process.env.KDEPS_DOCS_VERSION || pkg.version
 
 export default defineConfig({
   title: 'kdeps',
-  description: 'AI Appliance Builder - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.',
+  description: 'AI appliance builder. Define AI agents and workflow pipelines in YAML. Ship them as Docker, Kubernetes, ISO, or one binary.',
 
   appearance: 'force-dark',
 
@@ -43,7 +43,7 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps Documentation' }],
     ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
-    ['meta', { name: 'og:description', content: 'AI Appliance Builder - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.' }],
+    ['meta', { name: 'og:description', content: 'AI appliance builder. Define AI agents and workflow pipelines in YAML. Ship them as Docker, Kubernetes, ISO, or one binary.' }],
   ],
 
   lastUpdated: true,
