@@ -9,7 +9,7 @@ const releases = 'https://github.com/kdeps/kdeps/releases/latest'
 
 const installs = [
   { os: 'macOS', note: 'Apple Silicon and Intel, macOS 11+', cmd: 'brew install --cask kdeps/tap/kdeps-desktop', file: '.dmg' },
-  { os: 'Windows', note: 'x64, WebView2 (ships with Windows 11)', cmd: 'scoop bucket add kdeps https://github.com/kdeps/scoop-bucket\nscoop install kdeps-desktop', file: '.zip' },
+  { os: 'Windows', note: 'x64, WebView2 (part of Windows 11)', cmd: 'scoop bucket add kdeps https://github.com/kdeps/scoop-bucket\nscoop install kdeps-desktop', file: '.zip' },
   { os: 'Linux', note: 'x86_64, GTK 3 + WebKitGTK 4.1', cmd: 'sudo apt install ./kdeps-desktop_<version>_linux_amd64.deb\n# also .rpm, Arch .pkg.tar.zst and .tar.gz', file: '.deb / .rpm / .tar.gz' },
 ]
 
@@ -27,19 +27,19 @@ const cloud = [
 ]
 
 const features = [
-  { title: 'Drop a file, get an answer', body: 'Drag files or folders onto the window. The agent works out what each one is, reads it with the right tool - text, PDF, DOCX, CSV, code - and tells you what you can do with it.' },
-  { title: 'An agent, not a chat box', body: 'The same loop as the terminal: shell, file edits, web search, SQL, memory, goals and a judge panel. Your workflows and agencies show up as tools it can call.' },
-  { title: 'You approve every action', body: 'In ask mode each tool call and every path outside the workspace opens an approval: allow once, allow always, or deny.' },
-  { title: 'Workspaces with memory', body: 'A workspace is a folder. History, search and persistent memory are kept per folder, and file tools never leave it.' },
-  { title: 'Every setting, no YAML', body: 'Settings are generated from the config schema: dropdowns, sliders and suggestions for every field, plus harness sections, custom instructions and memories.' },
-  { title: 'Build and run workflows', body: 'Create workflows and components from a template, add resources with forms, run them with one button, or hand them to the chat agent as tools.' },
+  { title: 'Drop a file, get an answer', body: 'Drag files or folders onto the window. The agent finds the type of each file and reads it with the correct tool (text, PDF, DOCX, CSV, code). Then it tells you what you can do with it.' },
+  { title: 'An agent, not a chat box', body: 'The same loop as the terminal: shell, file edits, web search, SQL, memory, goals, and a judge panel. Your workflows and agencies show as tools that it can call.' },
+  { title: 'You approve every action', body: 'In ask mode, each tool call and each path outside the workspace opens an approval. Select allow once, allow always, or deny.' },
+  { title: 'Workspaces with memory', body: 'A workspace is a folder. The app keeps history, search, and persistent memory for each folder. File tools never go out of the folder.' },
+  { title: 'Every setting, no YAML', body: 'The app makes the settings from the configuration schema. Each field has a dropdown, a slider, or suggestions. Harness sections, custom instructions, and memories are also in the settings.' },
+  { title: 'Build and run workflows', body: 'Create workflows and components from a template. Add resources with forms. Run them with one button, or give them to the chat agent as tools.' },
 ]
 
 const rows = [
-  { label: 'Your prompts and files leave your boundary', hosted: 'Always', kdeps: 'Never, with a local model or your own LLM server' },
-  { label: 'Works offline / air-gapped', hosted: 'No', kdeps: 'Yes - the UI loads nothing from a CDN' },
-  { label: 'Edits files and runs commands for you', hosted: 'In a remote sandbox', kdeps: 'In your workspace, with approval' },
-  { label: 'Choice of model', hosted: "The vendor's", kdeps: '300+ local builds, Ollama, a server you run, or a cloud key' },
+  { label: 'Your prompts and files go out of your boundary', hosted: 'Always', kdeps: 'Never, with a local model or your own LLM server' },
+  { label: 'Works offline / air-gapped', hosted: 'No', kdeps: 'Yes. The UI loads nothing from a CDN' },
+  { label: 'Edits files and runs commands for you', hosted: 'In a remote sandbox', kdeps: 'In your workspace, with your approval' },
+  { label: 'Choice of model', hosted: 'Only the models of the vendor', kdeps: '300+ local builds, Ollama, a server you run, or a cloud key' },
   { label: 'Price', hosted: 'Subscription or per token', kdeps: 'Free, Apache 2.0' },
 ]
 </script>
@@ -52,10 +52,10 @@ const rows = [
         <p class="eyebrow">kdeps desktop</p>
         <h1>Your AI agent,<br>on your desk.</h1>
         <p class="lede">
-          The kdeps agent in a native window for macOS, Windows and Linux. Run a local model and nothing
-          leaves your machine, or point Settings at an <a href="/llm-server/">LLM server</a> you run.
-          Drop in files, approve its actions, keep the history.
-          The boundary is <a href="/start/data-sovereignty">data sovereignty</a>.
+          The kdeps agent in a native window for macOS, Windows, and Linux. With a local model, no
+          data goes out of your machine. Or set an <a href="/llm-server/">LLM server</a> that you run
+          in Settings. Drop in files, approve its actions, and keep the history.
+          This boundary is <a href="/start/data-sovereignty">data sovereignty</a>.
         </p>
         <div class="ctas">
           <a class="btn primary" :href="releases">Download for macOS</a>
@@ -90,7 +90,7 @@ const rows = [
                 <strong>budget.csv</strong> - 212 rows; the same two lines are 11% and 6% over.<br>
                 <span class="dim">I can draft a variance summary or add the missing Q4 forecast column.</span>
               </div>
-              <div class="composer"><span>+</span><p>Message kdeps - drop files anywhere</p><b>Send</b></div>
+              <div class="composer"><span>+</span><p>Message kdeps. Drop files anywhere</p><b>Send</b></div>
             </main>
           </div>
         </div>
@@ -101,8 +101,8 @@ const rows = [
     <section class="band">
       <div class="container">
         <p class="eyebrow">models</p>
-        <h2>Every model kdeps knows</h2>
-        <p class="sub">The picker lists what <code>/model list</code> shows. Local models download on first use, with progress in the chat.</p>
+        <h2>All models that kdeps knows</h2>
+        <p class="sub">The picker lists the same models as <code>/model list</code>. Local models download on first use. The chat shows the progress.</p>
         <div class="stats">
           <div><b>156</b><span>GGUF builds</span></div>
           <div><b>159</b><span>llamafiles</span></div>
@@ -120,7 +120,7 @@ const rows = [
       <div class="container">
         <p class="eyebrow">why kdeps desktop</p>
         <h2>More than a chat window</h2>
-        <p class="sub">It is the same agent loop the terminal runs, so tools, memory, sessions, goals and judges behave the same.</p>
+        <p class="sub">It uses the same agent loop as the terminal. As a result, tools, memory, sessions, goals, and judges have the same behavior.</p>
         <div class="grid">
           <div v-for="f in features" :key="f.title" class="card">
             <h3>{{ f.title }}</h3>
@@ -135,7 +135,7 @@ const rows = [
       <div class="container">
         <p class="eyebrow">local vs hosted</p>
         <h2>Own the agent, not a subscription</h2>
-        <p class="sub">What changes when the agent runs on your machine.</p>
+        <p class="sub">The differences when the agent runs on your machine.</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th></th><th>Hosted AI chat</th><th>kdeps desktop</th></tr></thead>
@@ -154,13 +154,13 @@ const rows = [
       <div class="container">
         <p class="eyebrow">getting started</p>
         <h2>Three steps</h2>
-        <p class="sub">No CLI, no YAML, no account.</p>
+        <p class="sub">You do not need the CLI, YAML, or an account.</p>
         <div class="steps">
-          <div class="step"><div class="num">01</div><h3>Install</h3><p>Homebrew, Scoop, a Linux package, or the file from the release page.</p></div>
+          <div class="step"><div class="num">01</div><h3>Install</h3><p>Use Homebrew, Scoop, a Linux package, or the file from the release page.</p></div>
           <div class="arrow">-></div>
-          <div class="step"><div class="num">02</div><h3>Pick a model</h3><p>Click the model name. Choose a local build to stay offline, set the base URL of an LLM server you run, or pick a cloud model and paste its key in Settings.</p></div>
+          <div class="step"><div class="num">02</div><h3>Pick a model</h3><p>Click the model name. To stay offline, select a local build. Or set the base URL of an LLM server that you run. Or select a cloud model and paste its key in Settings.</p></div>
           <div class="arrow">-></div>
-          <div class="step"><div class="num">03</div><h3>Ask or drop a file</h3><p>Type a question, or drop files on the window and the agent starts analyzing them.</p></div>
+          <div class="step"><div class="num">03</div><h3>Ask or drop a file</h3><p>Type a question. Or drop files on the window, and the agent starts to analyze them.</p></div>
         </div>
       </div>
     </section>
@@ -168,9 +168,9 @@ const rows = [
     <!-- Value strip -->
     <section class="band">
       <div class="container strip">
-        <div><b>0</b><span>requests to a CDN - the UI is embedded in the binary</span></div>
+        <div><b>0</b><span>requests to a CDN. The UI is in the binary</span></div>
         <div><b>3</b><span>operating systems, one Go codebase</span></div>
-        <div><b>No</b><span>Electron - the system WebView</span></div>
+        <div><b>No</b><span>Electron. It uses the system WebView</span></div>
         <div><b>100%</b><span>open source, Apache 2.0</span></div>
       </div>
     </section>
@@ -180,7 +180,7 @@ const rows = [
       <div class="container">
         <p class="eyebrow">download</p>
         <h2>Install kdeps desktop</h2>
-        <p class="sub">Standalone - the <code>kdeps</code> CLI is not needed. Every release attaches the files with a <code>.sha256</code> beside each.</p>
+        <p class="sub">Standalone. You do not need the <code>kdeps</code> CLI. Each release has the files, and a <code>.sha256</code> file next to each file.</p>
         <div class="grid three">
           <div v-for="i in installs" :key="i.os" class="card os">
             <h3>{{ i.os }}</h3>
@@ -188,12 +188,13 @@ const rows = [
             <button class="code" type="button" @click="copy(i.cmd)" :aria-label="'Copy install command for ' + i.os">
               <pre>{{ i.cmd }}</pre><span class="copy">{{ copied === i.cmd ? 'copied' : 'copy' }}</span>
             </button>
-            <a class="link" :href="releases">Download {{ i.file }} -></a>
+            <a class="link" :href="releases">Download {{ i.file }}</a>
           </div>
         </div>
         <p class="fine">
-          macOS builds are ad-hoc signed and Windows builds are unsigned, so the first launch needs right-click, Open
-          (macOS) or More info, Run anyway (Windows). <a href="/agent/desktop">Full install and build guide -></a>
+          macOS builds have an ad-hoc signature, and Windows builds have no signature. On the first launch,
+          right-click and select Open (macOS), or click More info, then Run anyway (Windows).
+          <a href="/agent/desktop">Full install and build guide</a>
         </p>
       </div>
     </section>
@@ -201,7 +202,7 @@ const rows = [
     <!-- Final CTA -->
     <section class="band final">
       <div class="container">
-        <h2>Stop renting your AI. Run it.</h2>
+        <h2>Do not rent your AI. Run it.</h2>
         <p class="sub">A local model or your own server. Your files. Your machine.</p>
         <div class="ctas center">
           <a class="btn primary" :href="releases">Download kdeps desktop</a>

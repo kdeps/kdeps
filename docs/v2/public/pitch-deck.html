@@ -161,7 +161,7 @@
     <div class="bg-glow gc" style="width:480px;height:480px;top:-160px;right:-80px;"></div>
     <div class="si">
         <h1 class="rv" style="font-size:clamp(3rem,8vw,7rem);letter-spacing:-.04em;line-height:1;margin:0 0 clamp(.4rem,1vw,.8rem);"><span style="color:#00E5FF;filter:drop-shadow(0 0 6px #00E5FF) drop-shadow(0 0 18px rgba(0,229,255,.6));">k</span>deps</h1>
-        <p class="rv" style="font-size:clamp(1rem,2vw,1.5rem);color:var(--t2);max-width:520px;margin-bottom:clamp(1.2rem,2.5vw,2rem);">Build AI Agents in YAML. Run locally or deploy anywhere.</p>
+        <p class="rv" style="font-size:clamp(1rem,2vw,1.5rem);color:var(--t2);max-width:520px;margin-bottom:clamp(1.2rem,2.5vw,2rem);">Build AI agents in YAML. Run them locally or deploy them anywhere.</p>
         <div class="rv" style="display:flex;gap:var(--gsm);flex-wrap:wrap;">
             <span class="badge">NVIDIA Inception</span>
             <span class="badge">Pre-Seed 2025</span>
@@ -179,27 +179,27 @@
 <section class="slide" id="s2" data-slide="2">
     <div class="si">
         <p class="eye rv">The Problem</p>
-        <h2 class="rv">Building AI agents is harder than it should be</h2>
+        <h2 class="rv">It is too difficult to build AI agents</h2>
         <div class="g3 rv" style="margin-top:var(--gap);">
             <div class="card">
                 <p style="font-family:var(--mono);font-size:clamp(1.3rem,3vw,2.5rem);font-weight:700;color:var(--acc);opacity:.3;line-height:1;margin-bottom:.5rem;">01</p>
                 <h3 style="margin-bottom:.4em;">Too Complex</h3>
-                <p>Requires deep Python expertise, complex orchestration libraries, and weeks of setup before shipping anything to production.</p>
+                <p>You need deep Python knowledge and complex orchestration libraries. The setup takes weeks before you can ship to production.</p>
             </div>
             <div class="card">
                 <p style="font-family:var(--mono);font-size:clamp(1.3rem,3vw,2.5rem);font-weight:700;color:var(--acc);opacity:.3;line-height:1;margin-bottom:.5rem;">02</p>
                 <h3 style="margin-bottom:.4em;">Cloud-Dependent</h3>
-                <p>Every inference call goes to a cloud API -- costs spiral, sensitive data leaves your infrastructure, and latency is unpredictable.</p>
+                <p>Each inference call goes to a cloud API. Costs increase quickly, sensitive data goes out of your infrastructure, and latency is not predictable.</p>
             </div>
             <div class="card">
                 <p style="font-family:var(--mono);font-size:clamp(1.3rem,3vw,2.5rem);font-weight:700;color:var(--acc);opacity:.3;line-height:1;margin-bottom:.5rem;">03</p>
                 <h3 style="margin-bottom:.4em;">Vendor-Locked</h3>
-                <p>Switch from OpenAI to Anthropic? Rewrite your agent. Frameworks are tightly coupled to specific LLM providers and APIs.</p>
+                <p>To switch from OpenAI to Anthropic, you must rewrite your agent. Frameworks are tightly connected to specific LLM providers and APIs.</p>
             </div>
         </div>
         <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
             <span class="mono" style="color:var(--acc);white-space:nowrap;">RESULT</span>
-            <p>Teams with real AI agent requirements -- privacy, cost, control -- are forced to build custom infrastructure from scratch or accept unacceptable trade-offs.</p>
+            <p>Teams with real AI agent requirements (privacy, cost, control) must build custom infrastructure from the start, or accept bad compromises.</p>
         </div>
     </div>
     <div class="sn">02 / 15</div>
@@ -212,19 +212,19 @@
         <p class="eye rv">The Solution</p>
         <h2 class="rv">AI agents in YAML.<br>Local-first. Deploy anywhere.</h2>
         <div class="div rv"></div>
-        <p class="rv" style="max-width:580px;font-size:var(--h3);color:var(--t1);font-weight:400;line-height:1.5;">kdeps is an open-source AI agent orchestration framework. Describe your pipeline in YAML. kdeps handles execution, routing, packaging, and deployment -- from laptop to cloud to edge.</p>
+        <p class="rv" style="max-width:580px;font-size:var(--h3);color:var(--t1);font-weight:400;line-height:1.5;">kdeps is an open-source AI agent orchestration framework. Describe your pipeline in YAML. kdeps does the execution, routing, packaging, and deployment, from laptop to cloud to edge.</p>
         <div class="g3 rv" style="margin-top:var(--gap);">
             <div class="card ca">
                 <p class="mono" style="color:var(--acc);margin-bottom:.4em;">YAML-first</p>
-                <p>No Python. No boilerplate. Define agents the way you define infrastructure -- readable by any engineer on the team.</p>
+                <p>No Python. No boilerplate. Define agents as you define infrastructure. All engineers on the team can read them.</p>
             </div>
             <div class="card ca">
                 <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Local-first</p>
-                <p>Full GPU-accelerated inference on your hardware. Zero cloud dependency. Data never leaves your infrastructure unless you choose.</p>
+                <p>Full GPU inference on your hardware. No cloud dependency. Data stays in your infrastructure, unless you decide differently.</p>
             </div>
             <div class="card ca">
                 <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Portable</p>
-                <p>Compile agents to single .kdeps package files. Run them anywhere -- laptop, server, Docker, cloud, edge -- no environment setup.</p>
+                <p>Compile agents to one .kdeps package file. Run them anywhere: laptop, server, Docker, cloud, edge. You do not set up an environment.</p>
             </div>
         </div>
     </div>
@@ -239,36 +239,39 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);margin-top:var(--gap);align-items:start;">
             <div class="rv">
                 <div class="cb">
-                    <pre><span class="cc"># workflow.yaml</span>
-<span class="ck">resources</span>:
-  - <span class="ck">id</span>: <span class="cs">fetch</span>
-    <span class="ck">type</span>: <span class="cs">httpClient</span>
-    <span class="ck">httpClient</span>:
-      <span class="ck">url</span>: <span class="cs">"{{ .Input.url }}"</span>
+                    <pre><span class="cc"># workflow.yaml (resources)</span>
+- <span class="ck">actionId</span>: <span class="cs">fetch</span>
+  <span class="ck">name</span>: <span class="cs">Get the page</span>
+  <span class="ck">component</span>:
+    <span class="ck">name</span>: <span class="cs">http_request</span>
+    <span class="ck">with</span>:
+      <span class="ck">url</span>: <span class="cs">"{{ get('url') }}"</span>
       <span class="ck">method</span>: <span class="cs">GET</span>
 
-  - <span class="ck">id</span>: <span class="cs">summarize</span>
-    <span class="ck">type</span>: <span class="cs">chat</span>
+- <span class="ck">actionId</span>: <span class="cs">summarize</span>
+  <span class="ck">name</span>: <span class="cs">Summarize it</span>
+  <span class="ck">flow</span>:
     <span class="ck">requires</span>: [<span class="cs">fetch</span>]
-    <span class="ck">chat</span>:
-      <span class="ck">model</span>: <span class="cs">llama3.2</span>
-      <span class="ck">prompt</span>: |
-        <span class="cs">Summarize: {{ .fetch.response.body }}</span>
+  <span class="ck">chat</span>:
+    <span class="ck">model</span>:
+      <span class="ck">name</span>: <span class="cs">llama3.2:1b</span>
+    <span class="ck">context</span>:
+      <span class="ck">prompt</span>: <span class="cs">"Summarize: {{ get('fetch').body }}"</span>
 
-<span class="cc"># runs offline. GPU-accelerated.</span>
-<span class="cc"># bundles to: summarizer-1.0.0.kdeps</span></pre>
+<span class="cc"># runs offline, on the GPU if there is one</span>
+<span class="cc"># packages to: summarizer-1.0.0.kdeps</span></pre>
                 </div>
             </div>
             <div class="rv" style="display:flex;flex-direction:column;gap:var(--gap);">
                 <div class="card">
                     <span class="mw">Workflow Mode</span>
                     <h3 style="margin-top:.4em;">Deterministic Pipelines</h3>
-                    <p style="margin-top:.4em;">DAG of typed resources -- HTTP client, chat, SQL, Python, bash, web scraper. Steps run in dependency order. Predictable, testable, auditable. Ideal for production pipelines.</p>
+                    <p style="margin-top:.4em;">A DAG of typed resources: HTTP client, chat, SQL, Python, bash, web scraper. Steps run in dependency order. The result is predictable, testable, and auditable. It is correct for production pipelines.</p>
                 </div>
                 <div class="card">
                     <span class="ma">Agent Loop Mode</span>
                     <h3 style="margin-top:.4em;">Autonomous Agents</h3>
-                    <p style="margin-top:.4em;">Full LLM agent loop with tool use, conversation memory, multi-agent orchestration (agencies), and REPL. Your YAML workflows become tools the LLM decides to invoke.</p>
+                    <p style="margin-top:.4em;">A full LLM agent loop with tool use, conversation memory, multi-agent orchestration (agencies), and a REPL. Your YAML workflows become tools that the LLM can call.</p>
                 </div>
             </div>
         </div>
@@ -280,23 +283,23 @@
 <section class="slide" id="s5" data-slide="5">
     <div class="si">
         <p class="eye rv">Why kdeps</p>
-        <h2 class="rv">Built for how teams actually ship AI</h2>
+        <h2 class="rv">Made for the way that teams ship AI</h2>
         <div style="display:flex;flex-direction:column;gap:var(--gsm);margin-top:var(--gap);">
             <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
                 <span class="mono" style="color:var(--acc);min-width:1.4rem;">01</span>
-                <div><h3>YAML-first -- not Python-first</h3><p style="margin-top:.25em;">Any developer reads and writes kdeps workflows. No ML framework expertise required. Ops, DevOps, and backend engineers can own agent pipelines.</p></div>
+                <div><h3>YAML first, not Python first</h3><p style="margin-top:.25em;">All developers can read and write kdeps workflows. You do not need ML framework knowledge. Ops, DevOps, and backend engineers can own agent pipelines.</p></div>
             </div>
             <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
                 <span class="mono" style="color:var(--acc);min-width:1.4rem;">02</span>
-                <div><h3>Local GPU inference built-in</h3><p style="margin-top:.25em;">Ollama, llama.cpp (GGUF), llamafile -- all first-class backends. Run llama3.2 on an NVIDIA GPU with a single config field. No cloud required.</p></div>
+                <div><h3>Local GPU inference built-in</h3><p style="margin-top:.25em;">Ollama, llama.cpp (GGUF), and llamafile are all first-class backends. Run llama3.2 on an NVIDIA GPU with one configuration field. You do not need a cloud.</p></div>
             </div>
             <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
                 <span class="mono" style="color:var(--acc);min-width:1.4rem;">03</span>
-                <div><h3>Portable packaging -- like Docker for AI agents</h3><p style="margin-top:.25em;">Agents compile to .kdeps files. Share, install, and run them like binaries. No environment setup for recipients. Agents are versioned artifacts.</p></div>
+                <div><h3>Portable packages, like Docker for AI agents</h3><p style="margin-top:.25em;">Agents compile to .kdeps files. Share, install, and run them as binaries. Recipients do not set up an environment. Agents are versioned artifacts.</p></div>
             </div>
             <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
                 <span class="mono" style="color:var(--acc);min-width:1.4rem;">04</span>
-                <div><h3>Vendor-agnostic by design</h3><p style="margin-top:.25em;">Switch from OpenAI to Anthropic to a local model by changing one field. The same workflow runs on any provider. No rewrite required.</p></div>
+                <div><h3>Vendor-agnostic by design</h3><p style="margin-top:.25em;">To switch from OpenAI to Anthropic or to a local model, change one field. The same workflow runs on all providers. You do not rewrite it.</p></div>
             </div>
         </div>
     </div>
@@ -326,7 +329,7 @@
         <div class="g3 rv" style="margin-top:var(--gap);">
             <div class="card" style="text-align:center;">
                 <div style="font-size:var(--h3);font-weight:700;color:var(--acc);">40%+</div>
-                <p style="margin-top:.3em;">of enterprises cite data privacy as the #1 barrier to LLM adoption</p>
+                <p style="margin-top:.3em;">of enterprises say that data privacy is the largest barrier to LLM adoption</p>
             </div>
             <div class="card" style="text-align:center;">
                 <div style="font-size:var(--h3);font-weight:700;color:var(--acc);">10x</div>
@@ -376,7 +379,7 @@
         </div>
         <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
             <span class="mono" style="color:var(--acc);white-space:nowrap;">FLYWHEEL</span>
-            <p>Open source drives developer adoption -- developers bring kdeps to their teams -- teams upgrade to kdeps.io for managed infrastructure, compliance, and private registries.</p>
+            <p>Open source increases developer adoption. Developers bring kdeps to their teams. Teams upgrade to kdeps.io for managed infrastructure, compliance, and private registries.</p>
         </div>
     </div>
     <div class="sn">07 / 15</div>
@@ -392,27 +395,27 @@
             <div class="card ca">
                 <p class="mono" style="color:var(--acc);margin-bottom:.4em;">NVIDIA Inception</p>
                 <h3>Member</h3>
-                <p style="margin-top:.35em;">Accepted into NVIDIA's startup accelerator for AI companies. Direct access to NVIDIA engineering, co-marketing opportunities, and investor network.</p>
+                <p style="margin-top:.35em;">Accepted into the NVIDIA startup accelerator for AI companies. Direct access to NVIDIA engineering, co-marketing opportunities, and the investor network.</p>
             </div>
             <div class="card">
                 <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Product</p>
                 <h3>v2.0.6 Shipping</h3>
-                <p style="margin-top:.35em;">Publicly available via Homebrew and install script. macOS and Linux. 9 months of active development from v0 to a production-grade v2.0.</p>
+                <p style="margin-top:.35em;">Publicly available through Homebrew and an install script, for macOS and Linux. 9 months of active development from v0 to a production-grade v2.0.</p>
             </div>
             <div class="card">
                 <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Book</p>
                 <h3>"AI Appliances"</h3>
-                <p style="margin-top:.35em;">Free on Leanpub: "Build &amp; Deploy Autonomous AI Agents and Agencies in YAML." Hands-on guide driving developer awareness and top-of-funnel adoption.</p>
+                <p style="margin-top:.35em;">Free on Leanpub: "Build &amp; Deploy Autonomous AI Agents and Agencies in YAML." A practical guide that increases developer awareness and top-of-funnel adoption.</p>
             </div>
         </div>
         <div class="g2 rv" style="margin-top:var(--gap);">
             <div class="card">
                 <p class="mono" style="color:var(--acc);margin-bottom:.35em;">Registry</p>
-                <p><strong style="color:var(--t1);">kdeps.io live</strong> -- public package registry for agent discovery, installation, and distribution. Foundation of the SaaS platform.</p>
+                <p><strong style="color:var(--t1);">kdeps.io live</strong> A public package registry to find, install, and distribute agents. It is the base of the SaaS platform.</p>
             </div>
             <div class="card">
                 <p class="mono" style="color:var(--acc);margin-bottom:.35em;">AI Skills</p>
-                <p><strong style="color:var(--t1);">Claude Code + Cursor skill</strong> -- developers scaffold kdeps agents directly from their coding assistant. Reduces time-to-first-workflow dramatically.</p>
+                <p><strong style="color:var(--t1);">Claude Code + Cursor skill</strong> Developers make kdeps agents directly from their coding assistant. The time to the first workflow becomes much shorter.</p>
             </div>
         </div>
     </div>
@@ -461,7 +464,7 @@
         </div>
         <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
             <span class="mono" style="color:var(--acc);white-space:nowrap;">KEY INSIGHT</span>
-            <p>Privacy requirements are the enterprise sales motion -- healthcare, financial services, and legal teams cannot send data to cloud APIs. kdeps local inference solves this with zero infrastructure negotiation.</p>
+            <p>Privacy requirements drive enterprise sales. Healthcare, financial services, and legal teams cannot send data to cloud APIs. kdeps local inference solves this problem with no infrastructure negotiation.</p>
         </div>
     </div>
     <div class="sn">09 / 15</div>
@@ -509,7 +512,7 @@
         </div>
         <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
             <span class="mono" style="color:var(--acc);white-space:nowrap;">POSITION</span>
-            <p>kdeps occupies the intersection of developer ergonomics (YAML), infrastructure requirements (local GPU, portability), and operational maturity (deterministic pipelines + autonomous agents). No existing framework covers all three.</p>
+            <p>kdeps combines developer ergonomics (YAML), infrastructure requirements (local GPU, portability), and operational maturity (deterministic pipelines and autonomous agents). No other framework covers all three.</p>
         </div>
     </div>
     <div class="sn">10 / 15</div>
@@ -528,8 +531,8 @@
                 <p class="mono" style="color:var(--acc);margin:.25em 0;">Co-founder &amp; CTO</p>
                 <div class="div" style="margin:.6em 0;"></div>
                 <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
-                    <li><p>22 years engineering across government, infrastructure, and SaaS -- Europe, Asia, and the US</p></li>
-                    <li><p>Built kdeps solo from v0 to v2.0.6 -- CLI, runtime, packaging, registry, SaaS</p></li>
+                    <li><p>22 years of engineering in government, infrastructure, and SaaS, in Europe, Asia, and the US</p></li>
+                    <li><p>Built kdeps alone from v0 to v2.0.6: CLI, runtime, packaging, registry, SaaS</p></li>
                     <li><p>Author: "AI Appliances" (Leanpub, free)</p></li>
                     <li><p>Based in the Netherlands</p></li>
                 </ul>
@@ -541,8 +544,8 @@
                 <p class="mono" style="color:var(--acc);margin:.25em 0;">Co-founder &amp; CEO</p>
                 <div class="div" style="margin:.6em 0;"></div>
                 <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
-                    <li><p>Customer operations background supporting Fortune 1000 accounts -- eBay, T-Mobile, Verizon, PayPal, JP Morgan</p></li>
-                    <li><p>International logistics and supply chain -- GXO Logistics, CEVA Freight (Schiphol)</p></li>
+                    <li><p>Customer operations for Fortune 1000 accounts: eBay, T-Mobile, Verizon, PayPal, JP Morgan</p></li>
+                    <li><p>International logistics and supply chain: GXO Logistics, CEVA Freight (Schiphol)</p></li>
                     <li><p>Owns GTM, customer success, and operations for kdeps</p></li>
                     <li><p>Based in the Netherlands</p></li>
                 </ul>
@@ -551,7 +554,7 @@
         </div>
         <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
             <span class="mono" style="color:var(--acc);white-space:nowrap;">NEXT HIRE</span>
-            <p>Senior Go/infrastructure engineer to expand the engineering team from 1 to 2 and accelerate the kdeps.io SaaS roadmap.</p>
+            <p>A senior Go and infrastructure engineer. The engineering team grows from 1 to 2, and the kdeps.io SaaS roadmap goes faster.</p>
         </div>
     </div>
     <div class="sn">11 / 15</div>
@@ -567,7 +570,7 @@
                 <div class="fp">40%</div>
                 <div style="flex:1;">
                     <h3>Engineering Hire</h3>
-                    <p>First full-time hire: senior Go engineer. Team grows from 1 to 2. Accelerates kdeps.io SaaS roadmap and open source cadence.</p>
+                    <p>The first full-time hire: a senior Go engineer. The team grows from 1 to 2. The kdeps.io SaaS roadmap and the open source releases go faster.</p>
                 </div>
                 <div class="fbw"><div class="fb" style="--pct:40%;"></div></div>
             </div>
@@ -607,7 +610,7 @@
         <p class="eye rv">The Ask</p>
         <h2 class="rv" style="font-size:var(--ts);max-width:660px;">Pre-seed round<br><span class="acc">$250K - $1M</span></h2>
         <div class="div rv" style="margin-left:auto;margin-right:auto;"></div>
-        <p class="rv" style="max-width:520px;font-size:var(--h3);color:var(--t2);font-weight:400;line-height:1.5;">Seeking a lead investor and syndicate to close our first institutional round. Presented through NVIDIA Inception Capital Connect.</p>
+        <p class="rv" style="max-width:520px;font-size:var(--h3);color:var(--t2);font-weight:400;line-height:1.5;">We look for a lead investor and syndicate to close our first institutional round. Presented through NVIDIA Inception Capital Connect.</p>
         <div class="g3 rv" style="margin-top:var(--gap);max-width:700px;text-align:left;">
             <div class="card"><p class="mono" style="color:var(--acc);margin-bottom:.35em;">Round</p><h3>Pre-Seed</h3></div>
             <div class="card"><p class="mono" style="color:var(--acc);margin-bottom:.35em;">Board Seat</p><h3>No</h3></div>
@@ -624,7 +627,7 @@
         <p class="eye rv">Vision</p>
         <h2 class="rv" style="max-width:720px;">The AI agent deployment layer<br>for every team, everywhere.</h2>
         <div class="div rv"></div>
-        <p class="rv" style="max-width:580px;font-size:var(--h3);color:var(--t2);font-weight:400;line-height:1.5;">Today: developers use kdeps to build and ship AI agents in YAML. Tomorrow: every team that deploys software deploys AI agents the same way -- packaged, versioned, auditable, GPU-accelerated.</p>
+        <p class="rv" style="max-width:580px;font-size:var(--h3);color:var(--t2);font-weight:400;line-height:1.5;">Today, developers use kdeps to build and ship AI agents in YAML. In the future, all teams that deploy software will deploy AI agents in the same way: packaged, versioned, auditable, and GPU-accelerated.</p>
         <div class="g3 rv" style="margin-top:var(--gap);">
             <div class="card">
                 <p class="mono" style="color:var(--acc);margin-bottom:.35em;">12 months</p>
@@ -636,7 +639,7 @@
             </div>
             <div class="card ca">
                 <p class="mono" style="color:var(--acc);margin-bottom:.35em;">36 months</p>
-                <p>Raise Series A. kdeps is the default way teams package and deploy AI agents -- the way Docker became the default way to ship software.</p>
+                <p>Raise Series A. kdeps is the default way that teams package and deploy AI agents, as Docker became the default way to ship software.</p>
             </div>
         </div>
     </div>
@@ -649,7 +652,7 @@
     <div class="bg-glow gc" style="width:460px;height:460px;bottom:-130px;left:-80px;"></div>
     <div class="si" style="align-items:center;text-align:center;">
         <h2 class="rv" style="font-size:var(--ts);margin-bottom:clamp(.6rem,1.3vw,1rem);"><span style="color:#00E5FF;filter:drop-shadow(0 0 6px #00E5FF) drop-shadow(0 0 18px rgba(0,229,255,.6));">k</span>deps</h2>
-        <h2 class="rv" style="font-size:var(--h2);">Let's build together.</h2>
+        <h2 class="rv" style="font-size:var(--h2);">Build with us.</h2>
         <div class="div rv" style="margin:clamp(.6rem,1.3vw,1rem) auto;"></div>
         <div class="g2 rv" style="max-width:580px;margin-top:var(--gap);text-align:left;">
             <div class="card">

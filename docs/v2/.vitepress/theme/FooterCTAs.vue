@@ -13,7 +13,7 @@ const { frontmatter } = useData()
       <a class="primary" href="/agent/quickstart">Get Started</a>
       <a class="secondary" href="https://github.com/kdeps/kdeps" target="_blank">Star on GitHub</a>
     </div>
-    <p class="footer-note">Proud member of the NVIDIA Inception program.</p>
+    <p class="footer-note">Member of the NVIDIA Inception program.</p>
   </div>
 </template>
 

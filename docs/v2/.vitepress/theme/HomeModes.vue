@@ -7,7 +7,7 @@
     <div class="container">
       <p class="section-eyebrow">architecture</p>
       <h2 class="section-title">Two modes</h2>
-      <p class="section-sub">Pick the one that fits the task. Mix them in an agency.</p>
+      <p class="section-sub">Select the mode that fits the task. Use both modes in an agency.</p>
 
       <div class="modes">
         <!-- Workflow mode -->
@@ -16,7 +16,7 @@
             <span class="mode-tag">workflow</span>
             <h3>Deterministic pipelines</h3>
           </div>
-          <p class="mode-desc">Resources run in DAG order defined by <code>requires:</code>. Every request takes the same path. Predictable, testable, auditable.</p>
+          <p class="mode-desc">Resources run in the DAG order that <code>requires:</code> sets. Each request takes the same path. The result is predictable, testable, and auditable.</p>
 
           <div class="flow">
             <div class="flow-node entry">POST /summarize</div>
@@ -43,7 +43,7 @@
             <span class="mode-tag">agent</span>
             <h3>Autonomous LLM loop</h3>
           </div>
-          <p class="mode-desc">The LLM decides which workflows to call and in what order. Each workflow runs as a complete pipeline. Multi-step reasoning, no extra wiring.</p>
+          <p class="mode-desc">The LLM selects the workflows to call and their order. Each workflow runs as a complete pipeline. The LLM does multi-step reasoning, and you write no extra code.</p>
 
           <div class="flow">
             <div class="flow-node entry">stdin prompt</div>
