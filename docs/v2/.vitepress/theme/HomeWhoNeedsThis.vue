@@ -9,20 +9,20 @@
       <h2 class="section-title">When you cannot send data to an external AI service</h2>
       <p class="section-sub">kdeps packages the model with the workflow. As a result, all of it runs in your boundary.</p>
 
-      <div class="cards">
-        <a href="/deploy/kubernetes" class="card">
+      <div class="kd-play cards">
+        <a href="/deploy/kubernetes" class="kd-stagger card" style="--i: 0">
           <h3>Private enterprise AI</h3>
           <p>Deploy an internal RAG or document agent fully in the VPC of your customer. No prompts, documents, or embeddings go out of their infrastructure.</p>
           <span class="tag">on-prem &middot; regulated</span>
         </a>
 
-        <a href="/deploy/binaries" class="card">
+        <a href="/deploy/binaries" class="kd-stagger card" style="--i: 1">
           <h3>Edge &amp; air-gapped AI</h3>
           <p>Ship the model and workflow as a bootable ISO or one binary. It runs on a disconnected edge device. It needs no external AI service and no network at inference time.</p>
           <span class="tag">edge &middot; offline</span>
         </a>
 
-        <a href="/workflow/quickstart" class="card">
+        <a href="/workflow/quickstart" class="kd-stagger card" style="--i: 2">
           <h3>AI APIs without glue code</h3>
           <p>Change a YAML workflow into a production HTTP API and container. You do not need FastAPI, LangChain code, or a Dockerfile that you write manually. You declare the validation, the order, and the response shape.</p>
           <span class="tag">workflow mode</span>
@@ -30,14 +30,14 @@
       </div>
 
       <p class="build-label">Working examples. Each example is a project that you can run:</p>
-      <div class="chips">
-        <a href="/examples/file-processor" class="chip">Document summarizer</a>
-        <a href="/examples/rag-search" class="chip">RAG over your docs</a>
-        <a href="/examples/function-calling" class="chip">Function calling</a>
-        <a href="/examples/sql-api" class="chip">SQL-backed API</a>
-        <a href="/examples/telegram-bot/" class="chip">Telegram bot</a>
-        <a href="/examples/agency" class="chip">Multi-agent agency</a>
-        <a href="/examples/" class="chip chip-more">All examples</a>
+      <div class="kd-play chips">
+        <a href="/examples/file-processor" class="kd-stagger chip" style="--i: 0">Document summarizer</a>
+        <a href="/examples/rag-search" class="kd-stagger chip" style="--i: 1">RAG over your docs</a>
+        <a href="/examples/function-calling" class="kd-stagger chip" style="--i: 2">Function calling</a>
+        <a href="/examples/sql-api" class="kd-stagger chip" style="--i: 3">SQL-backed API</a>
+        <a href="/examples/telegram-bot/" class="kd-stagger chip" style="--i: 4">Telegram bot</a>
+        <a href="/examples/agency" class="kd-stagger chip" style="--i: 5">Multi-agent agency</a>
+        <a href="/examples/" class="kd-stagger chip chip-more" style="--i: 6">All examples</a>
       </div>
     </div>
   </section>
@@ -164,4 +164,12 @@
   .who-needs { padding: 48px 16px; }
   .cards { grid-template-columns: 1fr; }
 }
+
+/* Each card's tag pops in just after its card lands. */
+html.kd-motion .kd-play:not(.kd-on) .tag { opacity: 0; }
+html.kd-motion .kd-play.kd-on .tag {
+  animation: kd-tag-pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+  animation-delay: calc(var(--i) * 90ms + 350ms);
+}
+@keyframes kd-tag-pop { from { opacity: 0; transform: scale(0.7); } }
 </style>

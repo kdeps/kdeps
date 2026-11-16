@@ -55,7 +55,16 @@ function observeReveals() {
       el.classList.add('kd-in')
       io.unobserve(el)
     }
-  }, { rootMargin: '0px 0px -10% 0px' })
+  }, { rootMargin: '0px 0px -5% 0px' })
+  // .kd-play elements get kd-on once in view; their CSS plays one-shot scenes.
+  const play = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue
+      e.target.classList.add('kd-on')
+      play.unobserve(e.target)
+    }
+  }, { rootMargin: '0px 0px -5% 0px' })
+  document.querySelectorAll<HTMLElement>('.VPHome .kd-play:not(.kd-on)').forEach((el) => play.observe(el))
   document.querySelectorAll<HTMLElement>(REVEAL).forEach((el, i) => {
     if (el.dataset.kdSeen) return
     el.dataset.kdSeen = '1'

@@ -10,7 +10,7 @@
       <p class="section-sub">You do not write Python scripts, connection code, or boilerplate.</p>
 
       <div class="table-wrap">
-        <table>
+        <table class="kd-play">
           <thead>
             <tr>
               <th>Traditional approach</th>
@@ -18,23 +18,23 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
+            <tr style="--i: 0">
               <td>Python script + Flask + OpenAI SDK + retry logic</td>
               <td>One <code>workflow.yaml</code> file</td>
             </tr>
-            <tr>
+            <tr style="--i: 1">
               <td>Dependency code that you write manually</td>
               <td><code>flow.requires:</code> in YAML</td>
             </tr>
-            <tr>
+            <tr style="--i: 2">
               <td>Error handling that you write manually</td>
               <td><code>onError:</code> block (continue / retry / fail)</td>
             </tr>
-            <tr>
+            <tr style="--i: 3">
               <td>A Dockerfile and a CI pipeline for deployment</td>
               <td><code>kdeps bundle build --tag</code> then <code>docker push</code></td>
             </tr>
-            <tr>
+            <tr style="--i: 4">
               <td>Agent chains that you write manually</td>
               <td><code>agent:</code> resource. One agent calls a different agent declaratively</td>
             </tr>
@@ -140,4 +140,28 @@ td code {
   .comparison { padding: 48px 16px; }
   td, th { padding: 10px 14px; font-size: 13px; }
 }
+
+/* Rows slide in one by one; the manual approach is crossed out, then the
+   kdeps answer lights up. */
+html.kd-motion table:not(.kd-on) tbody tr { opacity: 0; }
+html.kd-motion table.kd-on tbody tr {
+  animation: kd-row-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i) * 140ms);
+}
+html.kd-motion table.kd-on tbody td:first-child {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 107, 129, 0.55);
+  animation: kd-cross 0.5s ease backwards;
+  animation-delay: calc(var(--i) * 140ms + 450ms);
+}
+html.kd-motion table.kd-on tbody td:last-child code {
+  animation: kd-code-glow 1.2s ease backwards;
+  animation-delay: calc(var(--i) * 140ms + 700ms);
+}
+@keyframes kd-row-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes kd-cross { from { text-decoration-color: transparent; } }
+@keyframes kd-code-glow { from { box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.35); } }
 </style>
