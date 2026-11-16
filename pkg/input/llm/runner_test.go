@@ -241,6 +241,9 @@ func TestRunWithIO_DefaultPromptAndSession(t *testing.T) {
 	if msg, ok := gotReq.Body["message"]; !ok || msg != "hello" {
 		t.Errorf("expected body.message='hello', got %v", gotReq.Body)
 	}
+	if sess := gotReq.Body["session"]; sess != "llm-repl-session" {
+		t.Errorf("expected body.session='llm-repl-session' for get('session'), got %v", sess)
+	}
 	if !strings.Contains(w.String(), "> ") {
 		t.Errorf("expected default prompt '> ' in output, got: %q", w.String())
 	}

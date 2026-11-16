@@ -187,7 +187,8 @@ func TestInputSourcesIntegration_SchemaAcceptsEngineSources(t *testing.T) {
 	require.NoError(t, err)
 
 	cases := map[string]map[string]interface{}{
-		"api": {"sources": []string{"api"}},
+		"api":         {"sources": []string{"api"}},
+		"interactive": {"sources": []string{"interactive", "api"}},
 		"file": {
 			"sources": []string{"file"},
 			"file":    map[string]interface{}{"path": "/data/in.txt"},
@@ -225,4 +226,19 @@ func TestInputSourcesIntegration_SchemaRejectsWorkflowBotToken(t *testing.T) {
 	err = schemaValidator.ValidateWorkflow(data)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "botToken")
+}
+
+// TestInputSourcesIntegration_REPLBlock verifies repl: holds only the prompt's
+// look: the removed executionType is rejected, prompt and sessionId pass.
+func TestInputSourcesIntegration_REPLBlock(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	ok := workflowWithInput(map[string]interface{}{"sources": []string{"interactive"}})
+	ok["repl"] = map[string]interface{}{"prompt": "You: ", "sessionId": "s1"}
+	require.NoError(t, schemaValidator.ValidateWorkflow(ok))
+
+	removed := workflowWithInput(map[string]interface{}{"sources": []string{"interactive"}})
+	removed["repl"] = map[string]interface{}{"executionType": "stdin"}
+	require.Error(t, schemaValidator.ValidateWorkflow(removed))
 }
