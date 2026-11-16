@@ -42,7 +42,7 @@ a folder with workflow.yaml
         |
         +--  kdeps run ./my-agent/     ->  one-shot pipeline / HTTP API
         |
-        +--  kdeps ./my-agent/         ->  interactive REPL, agent calls the workflow as a tool
+        +--  kdeps --agent-loop ./my-agent/         ->  interactive REPL, agent calls the workflow as a tool
 ```
 
 - A **resource** is one step - an LLM call, a shell command, a SQL query, an HTTP
@@ -52,7 +52,7 @@ a folder with workflow.yaml
 - A **mode** is how you run the workflow. [Workflow mode](/workflow/)
   (`kdeps run`) executes the steps in a fixed order and returns a structured
   response - this is what you deploy. [Agent mode](/agent/)
-  (`kdeps [path]`) starts a chat REPL where an LLM decides when to call the
+  (`kdeps --agent-loop [path]`) starts a chat REPL where an LLM decides when to call the
   workflow.
 
 The [Glossary](/reference/glossary) gives the definition of each kdeps term.
@@ -104,7 +104,7 @@ apiResponse:
 
 ```bash
 kdeps run ./my-agent/     # run it once / serve it
-kdeps ./my-agent/         # or load it as a tool in the chat REPL
+kdeps --agent-loop ./my-agent/         # or load it as a tool in the chat REPL
 ```
 
 ## Which product do you need?

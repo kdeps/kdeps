@@ -6,7 +6,7 @@ To send prompts to an [LLM server](/llm-server/) that you run, set `base_url` un
 
 ```bash
 kdeps            # bare REPL - built-in tools only
-kdeps ./my-agent # also load that agent's workflows/components as tools
+kdeps --agent-loop ./my-agent # also load that agent's workflows/components as tools
 ```
 
 ```yaml
@@ -63,12 +63,12 @@ F -> C: yes
 F -> G: no
 ```
 
-Given a workflow whose `metadata.name` is `my-agent`, running `kdeps ./my-agent/` gives the LLM one tool named `my-agent`. When it calls that tool, kdeps runs the full workflow DAG - every resource in dependency order - and returns `apiResponse.response` to the LLM. The LLM can then call more tools or produce a final answer.
+Given a workflow whose `metadata.name` is `my-agent`, running `kdeps --agent-loop ./my-agent/` gives the LLM one tool named `my-agent`. When it calls that tool, kdeps runs the full workflow DAG - every resource in dependency order - and returns `apiResponse.response` to the LLM. The LLM can then call more tools or produce a final answer.
 
 ## Command and flags
 
 ```bash
-kdeps [path] [flags]
+kdeps --agent-loop [path] [flags]
 ```
 
 `[path]` is optional. When provided it must be a workflow or agency file or directory.
@@ -99,12 +99,12 @@ KDEPS_THEME=black                     # same as --theme
 
 ```bash
 kdeps                                            # bare REPL, built-in tools only
-kdeps ./my-agent/                                # register one workflow as a tool
-kdeps ./agents/                                  # register every workflow in the folder
-kdeps ./agents/ --model mistral --system "You are a data analyst."
-kdeps --backend gguf --model qwen3.5-4b          # local GGUF model
-KDEPS_AGENT_BACKEND=openai kdeps ./agents/ --model gpt-4o
-kdeps --resume abc123def456                      # resume a session
+kdeps --agent-loop ./my-agent/                                # register one workflow as a tool
+kdeps --agent-loop ./agents/                                  # register every workflow in the folder
+kdeps --agent-loop ./agents/ --model mistral --system "You are a data analyst."
+kdeps --agent-loop --backend gguf --model qwen3.5-4b          # local GGUF model
+KDEPS_AGENT_BACKEND=openai kdeps --agent-loop ./agents/ --model gpt-4o
+kdeps --agent-loop --resume abc123def456                      # resume a session
 ```
 
 ## More on the agent loop
@@ -128,7 +128,7 @@ kdeps --resume abc123def456                      # resume a session
 
 ## Differences from workflow mode
 
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps [path]`) |
+| | Workflow mode (`kdeps run`) | Agent mode (`kdeps --agent-loop [path]`) |
 |--|-----------------------------|---------------------------------|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |

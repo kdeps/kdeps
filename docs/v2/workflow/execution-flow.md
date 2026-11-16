@@ -226,7 +226,7 @@ See [Loop](/workflow/loop) for full details.
 
 ## Agent mode execution
 
-In agent mode (`kdeps [path]`), the execution model differs:
+In agent mode (`kdeps --agent-loop [path]`), the execution model differs:
 
 1. kdeps registers each workflow as one tool (tool name = `name:` under `metadata:`)
 2. kdeps registers each agency as one tool (tool name = `agency.metadata.name`). The LLM cannot call the internal agents directly

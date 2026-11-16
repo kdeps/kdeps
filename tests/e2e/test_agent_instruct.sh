@@ -9,7 +9,7 @@ INSTRUCT_HOME=$(mktemp -d)
 trap 'rm -rf "$INSTRUCT_HOME"' EXIT
 
 OUTPUT=$(printf '/help\n/instruct list\n/instruct tools\n/instruct bogus\n/instruct\n/quit\n' \
-    | HOME="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
     test_passed "instruct - agent loop starts"
@@ -62,7 +62,7 @@ fi
 
 # /harness reminders accepts /instruct topics, lists them, and persists them.
 REM_OUTPUT=$(printf '/harness reminders instruct:feedback on\n/harness reminders list\n/quit\n' \
-    | HOME="$INSTRUCT_HOME" USERPROFILE="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$INSTRUCT_HOME" USERPROFILE="$INSTRUCT_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 if output_grep_fixed 'Harness reminder "instruct:feedback" on' "$REM_OUTPUT" \
     && output_grep_fixed "instruct:files" "$REM_OUTPUT"; then

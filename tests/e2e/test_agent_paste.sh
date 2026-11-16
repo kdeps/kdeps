@@ -22,7 +22,7 @@ BIG=$(seq 1 300 | sed 's/^/pasted line /')
 INPUT=$(printf '\033[200~%s\033[201~\n/quit\n' "$BIG")
 
 OUTPUT=$(printf '%s' "$INPUT" \
-    | HOME="$PASTE_HOME" TMPDIR="$PASTE_TMP" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$PASTE_HOME" TMPDIR="$PASTE_TMP" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 PASTED_ECHOED=$(printf '%s\n' "$OUTPUT" | grep -c '^pasted line ' || true)
 if [ "$PASTED_ECHOED" -lt 50 ]; then

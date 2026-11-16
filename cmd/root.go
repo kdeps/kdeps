@@ -33,8 +33,10 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/assets"
 	"github.com/kdeps/kdeps/v3/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/instrument"
 	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	"github.com/kdeps/kdeps/v3/pkg/manifest"
 	kupgrade "github.com/kdeps/kdeps/v3/pkg/upgrade"
 
 	"github.com/spf13/cobra"
@@ -97,9 +99,12 @@ func createRootCommand() *cobra.Command {
 	flags := &agentLoopFlags{}
 
 	rootCmd := &cobra.Command{
-		Use:           "kdeps [path]",
-		Short:         "kdeps - AI Appliance Builder",
-		Long:          `Build AI agents with YAML configuration. Run without arguments to start the interactive agent loop.`,
+		Use:   "kdeps [path]",
+		Short: "kdeps - AI Appliance Builder",
+		Long: `Build AI agents with YAML configuration.
+
+kdeps [path] runs the workflow at path, or ./workflow.yaml (help when there is
+none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.MaximumNArgs(1),
@@ -114,18 +119,7 @@ func createRootCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if up, _ := cmd.Flags().GetBool("upgrade"); up {
-				nightly, _ := cmd.Flags().GetBool("nightly")
-				targetVersion, _ := cmd.Flags().GetString("target-version")
-				return runUpgradeCmd(cmd.OutOrStdout(), nightly, targetVersion)
-			}
-			debugMode, _ := cmd.Flags().GetBool("debug")
-			flags.Debug = debugMode
-			path := ""
-			if len(args) == 1 {
-				path = args[0]
-			}
-			return runAgentLoopCmd(processParent(cmd.Context()), path, flags)
+			return runRoot(cmd, args, flags)
 		},
 	}
 
@@ -136,6 +130,8 @@ func createRootCommand() *cobra.Command {
 			"bare --instrument picks a timestamp): every log line, model call and tool call, for a model to read")
 	rootCmd.PersistentFlags().Lookup("instrument").NoOptDefVal = instrumentAuto
 
+	rootCmd.Flags().Bool(agentLoopFlag, false,
+		"Open the agent REPL (on path's workflows and components when given) instead of running a workflow")
 	rootCmd.Flags().Bool("upgrade", false, "Check for and install the latest kdeps release, then exit")
 	rootCmd.Flags().Bool(
 		"nightly", false,
@@ -193,6 +189,64 @@ func createRootCommand() *cobra.Command {
 	addSubcommands(rootCmd)
 
 	return rootCmd
+}
+
+// runRoot is bare kdeps [path]: --upgrade, the agent REPL with
+// --agent-loop, else the workflow at path or ./workflow.yaml, else help.
+func runRoot(cmd *cobra.Command, args []string, flags *agentLoopFlags) error {
+	if up, _ := cmd.Flags().GetBool("upgrade"); up {
+		nightly, _ := cmd.Flags().GetBool("nightly")
+		targetVersion, _ := cmd.Flags().GetString("target-version")
+		return runUpgradeCmd(cmd.OutOrStdout(), nightly, targetVersion)
+	}
+	debugMode, _ := cmd.Flags().GetBool("debug")
+	flags.Debug = debugMode
+	path := ""
+	if len(args) == 1 {
+		path = args[0]
+	}
+	if loop, _ := cmd.Flags().GetBool(agentLoopFlag); loop {
+		return runAgentLoopCmd(processParent(cmd.Context()), path, flags)
+	}
+	if name := changedAgentLoopFlag(cmd); name != "" {
+		return fmt.Errorf("--%s applies to the agent REPL: use kdeps --agent-loop --%s", name, name)
+	}
+	target, ok := rootWorkflowTarget(path)
+	if !ok {
+		return cmd.Help()
+	}
+	return RunWorkflowWithFlags(cmd, []string{target}, &RunFlags{Port: domain.DefaultPort})
+}
+
+// agentLoopFlag opens the agent REPL; the flags in agentLoopOnlyFlags apply
+// only with it.
+const agentLoopFlag = "agent-loop"
+
+//nolint:gochecknoglobals // fixed list
+var agentLoopOnlyFlags = []string{
+	"model", "backend", "base-url", "system", "skill", "resume", "new", "theme", "index", "konfig",
+}
+
+// changedAgentLoopFlag names an agent-REPL flag set without --agent-loop.
+func changedAgentLoopFlag(cmd *cobra.Command) string {
+	for _, name := range agentLoopOnlyFlags {
+		if cmd.Flags().Changed(name) {
+			return name
+		}
+	}
+	return ""
+}
+
+// rootWorkflowTarget is what bare kdeps [path] runs: path, else
+// ./workflow.yaml. False means there is nothing to run.
+func rootWorkflowTarget(path string) (string, bool) {
+	if path != "" {
+		return path, true
+	}
+	if info, err := os.Stat(manifest.WorkflowYAML); err == nil && !info.IsDir() {
+		return manifest.WorkflowYAML, true
+	}
+	return "", false
 }
 
 func runRootPersistentPreRun(cmd *cobra.Command) {

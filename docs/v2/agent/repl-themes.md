@@ -9,7 +9,7 @@ The REPL look is `normal` or a disguise. It changes rendering only. Prompts, res
 The `/model`, `/settings` and startup resume pickers are separate full-screen views but use the same theme colors (accent, success, warning, dim, bold). `vim` gives them yellow/green/red accents. `black` makes them flat gray.
 
 ```bash
-kdeps --theme black             # start disguised
+kdeps --agent-loop --theme black             # start disguised
 ```
 
 ```text
@@ -28,7 +28,7 @@ kdeps --theme black             # start disguised
 
 ## Precedence
 
-`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts with it too. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `normal`.
+`/theme <name>` writes `theme: <name>` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps --agent-loop` starts with it too. Precedence: `--theme` flag, then `KDEPS_THEME`, then the persisted setting, then `normal`.
 
 ## Model name
 

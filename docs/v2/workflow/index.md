@@ -48,7 +48,7 @@ A resource runs only after everything in its `requires:` has produced output. Re
 
 ## Comparison with agent mode
 
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps [path]`) |
+| | Workflow mode (`kdeps run`) | Agent mode (`kdeps --agent-loop [path]`) |
 |---|---|---|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |

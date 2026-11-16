@@ -25,7 +25,7 @@ OUT=$(cd "$AP_DIR/work" && printf '%s\n' \
     '/approve' '/approve apt-1' '/quit' \
     | env HOME="$AP_DIR/home" USERPROFILE="$(native "$AP_DIR/home")" \
         KDEPS_CONFIG_PATH="$AP_DIR/home/.kdeps/config.yaml" NO_COLOR=1 \
-        timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake 2>&1) || true
 
 if [[ "$OUT" == *"e2e-approve-marker"* ]] && [[ "$OUT" == *"pending"* ]]; then
     test_passed "approve - /approve lists the token the agent requested"

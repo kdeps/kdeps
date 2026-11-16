@@ -3342,7 +3342,8 @@ func (r *REPL) autoSaveOnExit() {
 	}
 	r.loop.SetSessionID(id)
 	fmt.Fprintf(os.Stdout, "\n%s\n",
-		styleReplDim.Render("Session saved. It will be offered when you next run kdeps here (--resume "+id+")."))
+		styleReplDim.Render("Session saved. It will be offered when you next run kdeps --agent-loop here "+
+			"(--resume "+id+")."))
 }
 
 // writeSessionNoteOnExit writes the knowledge vault's note for the turns

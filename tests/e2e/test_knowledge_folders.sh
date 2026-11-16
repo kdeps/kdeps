@@ -74,7 +74,7 @@ kf() {
 kf_session() {
     local dir="$1" input="$2"
     shift 2
-    (cd "$dir" && printf '%b' "$input" | kf_env timeout 180 "$KDEPS_BIN" --new --backend mockllm --model fake "$@" 2>&1) || true
+    (cd "$dir" && printf '%b' "$input" | kf_env timeout 180 "$KDEPS_BIN" --agent-loop --new --backend mockllm --model fake "$@" 2>&1) || true
 }
 card() { cat "$V/projects/app/app.md" 2>/dev/null; }
 nopanic() { ! output_grep "panic:|goroutine [0-9]+ \[" "$1"; }

@@ -55,7 +55,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "config.GetDefaults"},
 	},
 	"docker": {
@@ -147,7 +147,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the call runs or is refused"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "agent.InstallStagePermission", "agent.loadPermissionPolicy"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "agent.InstallStagePermission", "agent.loadPermissionPolicy"},
 	},
 	"presets": {
 		Mode: "both",
@@ -157,7 +157,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "every later turn uses them"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "judge.PresetJudges", "agent.configureJudges", "agent.PresetByName"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "judge.PresetJudges", "agent.configureJudges", "agent.PresetByName"},
 	},
 	"providers": {
 		Mode: "both",

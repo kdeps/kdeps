@@ -9,7 +9,7 @@ REFINE_HOME=$(mktemp -d)
 trap 'rm -rf "$REFINE_HOME"' EXIT
 
 run_refine() {
-    printf '%s\n' "$1" | HOME="$REFINE_HOME" USERPROFILE="$(to_native_path "$REFINE_HOME")" timeout 60 "$KDEPS_BIN" 2>&1 || true
+    printf '%s\n' "$1" | HOME="$REFINE_HOME" USERPROFILE="$(to_native_path "$REFINE_HOME")" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true
 }
 
 STATUS=$(run_refine $'/refine\n/quit')

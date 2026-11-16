@@ -29,7 +29,7 @@ ta_call() {
     before=$(wc -c < "$E2E_MOCK_LLM_LOG")
     (cd "$TA_DIR/work" && printf 'CALL %s %s\n/quit\n' "$1" "$2" | env HOME="$TA_DIR/home" \
         USERPROFILE="$(native "$TA_DIR/home")" KDEPS_CONFIG_PATH="$TA_DIR/home/.kdeps/config.yaml" \
-        timeout 180 "$KDEPS_BIN" --new --backend openai --model fake >/dev/null 2>&1)
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake >/dev/null 2>&1)
     tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG"
 }
 

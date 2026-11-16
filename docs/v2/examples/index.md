@@ -35,8 +35,8 @@ closest to what you are building.
 
 | Example | What it demonstrates |
 |---|---|
-| [Read a file in the REPL](/examples/agent-repl) | `kdeps` with no YAML and no API key: `read_file`, then `write_file` |
-| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers the workflow as one LLM tool, named by `name:` under `metadata:` |
+| [Read a file in the REPL](/examples/agent-repl) | `kdeps --agent-loop` with no YAML and no API key: `read_file`, then `write_file` |
+| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps --agent-loop [path]` registers the workflow as one LLM tool, named by `name:` under `metadata:` |
 
 ### kdeps agencies
 
@@ -278,7 +278,7 @@ Best for:
 
 ## Read a file in the REPL
 
-A folder with one text file. `kdeps` reads it and writes the answer next to it. No workflow YAML. No API key.
+A folder with one text file. `kdeps --agent-loop` reads it and writes the answer next to it. No workflow YAML. No API key.
 
 Best for:
 - Seeing the agent REPL before you write a workflow
@@ -289,7 +289,7 @@ Best for:
 ## Load a workflow as a tool
 
 The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
-started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
+started with `kdeps --agent-loop .` instead of `kdeps run`. The LLM calls one tool named
 the workflow's `name:` under `metadata:`. kdeps runs the full DAG.
 
 Best for:

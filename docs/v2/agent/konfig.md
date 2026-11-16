@@ -18,7 +18,7 @@ The CLI form reads the settings that kdeps keeps in `~/.kdeps/agent-loop-setting
 
 ```bash
 kdeps konfig import [path]     # default ./konfig.yaml
-kdeps --konfig <path> [path]   # import, then start the agent loop
+kdeps --agent-loop --konfig <path> [path]   # import, then start the agent loop
 ```
 
 ```

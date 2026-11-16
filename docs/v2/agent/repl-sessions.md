@@ -1,11 +1,11 @@
 # Sessions
 
-Each directory where you start `kdeps` has its own conversation history. kdeps writes nothing into the project directory. The other REPL behaviors stay on [REPL features](/agent/repl).
+Each directory where you start `kdeps --agent-loop` has its own conversation history. kdeps writes nothing into the project directory. The other REPL behaviors stay on [REPL features](/agent/repl).
 
 ## Where sessions are stored
 
 kdeps keeps conversations and agent memory **separately for each directory where
-you start `kdeps`**. Conversations go in `~/.kdeps/sessions/<folder>/`. Memory
+you start `kdeps --agent-loop`**. Conversations go in `~/.kdeps/sessions/<folder>/`. Memory
 goes as notes in `Memory/<project>/` of the knowledge vault (see
 [Persistent memory](/agent/memory)). When you `cd` into a project, `kdeps` sees
 the history of that folder. A different folder starts with no history. kdeps
@@ -13,7 +13,7 @@ writes nothing into the project directory.
 
 ## The resume picker
 
-When you start `kdeps` in a folder that has saved sessions - and you did not pass
+When you start `kdeps --agent-loop` in a folder that has saved sessions - and you did not pass
 `--resume` or `--new` - a picker lists them:
 
 ```d2
@@ -32,8 +32,8 @@ picker -> fresh: "'Start a new session' / esc"
 
 ```text
 kdeps                     # in a folder with history -> resume picker
-kdeps --new               # skip the picker, start a clean session
-kdeps --resume <id>       # resume a specific session directly (no picker)
+kdeps --agent-loop --new               # skip the picker, start a clean session
+kdeps --agent-loop --resume <id>       # resume a specific session directly (no picker)
 ```
 
 ## Picker rules

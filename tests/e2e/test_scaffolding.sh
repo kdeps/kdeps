@@ -165,7 +165,7 @@ fi
 
 # --- every template generates a project that validates ---
 TPL_DIR=$(mktemp -d)
-for tpl in api-service sql-agent agency; do
+for tpl in api-service sql-agent agency assistant; do
     if ( cd "$TPL_DIR" && "$KDEPS_BIN" new "tpl-$tpl" --template "$tpl" >/dev/null 2>&1 ) \
         && "$KDEPS_BIN" validate "$TPL_DIR/tpl-$tpl" >/dev/null 2>&1; then
         test_passed "kdeps new --template $tpl - generated project validates"

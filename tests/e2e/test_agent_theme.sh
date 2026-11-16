@@ -22,7 +22,7 @@ trap 'rm -rf "$THEME_HOME"' EXIT
 # One session exercises the banner, /help, /theme list, and switching themes
 # both ways.
 OUTPUT=$(printf '/help\n/theme list\n/theme black\n/theme normal\n/theme bogus\n/quit\n' \
-    | HOME="$THEME_HOME" timeout 60 "$KDEPS_BIN" --theme black 2>&1 || true)
+    | HOME="$THEME_HOME" timeout 60 "$KDEPS_BIN" --agent-loop --theme black 2>&1 || true)
 
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
     test_passed "theme - --theme flag starts the agent loop"
@@ -55,7 +55,7 @@ else
 fi
 
 # KDEPS_THEME env starts the loop the same way.
-OUTPUT=$(printf '/quit\n' | HOME="$THEME_HOME" KDEPS_THEME=vim timeout 60 "$KDEPS_BIN" 2>&1 || true)
+OUTPUT=$(printf '/quit\n' | HOME="$THEME_HOME" KDEPS_THEME=vim timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
     test_passed "theme - KDEPS_THEME=vim starts the agent loop"
 else

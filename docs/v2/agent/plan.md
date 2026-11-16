@@ -44,7 +44,7 @@ The path is also stored in memory under `plan-progress`. A later session that ha
 /plan off        # disable (persists across sessions)
 ```
 
-kdeps writes the choice to `~/.kdeps/agent-loop-settings.yaml` and uses it again on the next `kdeps` run.
+kdeps writes the choice to `~/.kdeps/agent-loop-settings.yaml` and uses it again on the next `kdeps --agent-loop` run.
 
 ## See also
 

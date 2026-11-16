@@ -166,11 +166,11 @@ C -> D
 
 ## Try agent mode
 
-Same file, different command. `kdeps .` registers this workflow as one tool named `my-agent`. Step-by-step: [Load a workflow as a tool](/workflow/as-a-tool).
+Same file, different command. `kdeps --agent-loop .` registers this workflow as one tool named `my-agent`. Step-by-step: [Load a workflow as a tool](/workflow/as-a-tool).
 
 ```bash
-kdeps .            # current directory; tool name is metadata.name
-kdeps ./agents/    # one tool per workflow in the folder
+kdeps --agent-loop .            # current directory; tool name is metadata.name
+kdeps --agent-loop ./agents/    # one tool per workflow in the folder
 ```
 
 ## Next steps

@@ -104,7 +104,7 @@ OUTPUT=$(printf '%s\n' '/model e2e-ollama-test-model:1b' '/quit' | \
     HOME="$TMP_HOME" \
     PATH="$FAKE_BIN_DIR:$PATH" \
     OLLAMA_HOST="http://127.0.0.1:$_OLLAMA_MOCK_PORT" \
-    timeout 20 "$KDEPS_BIN" 2>&1 || true)
+    timeout 20 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 END=$(date +%s)
 ELAPSED=$((END - START))
 

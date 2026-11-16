@@ -112,7 +112,7 @@ fi
 printf '  # e2e\n  - id: "e2e-cloud-model"\n    backend: openai\n    desc: "e2e catalog entry"\n    envVar: OPENAI_API_KEY\n' \
     >> "$AS_SRC/models/cloud.yaml"
 OUT=$(printf '/model list\n/quit\n' | HOME="$DEV_HOME" KDEPS_ASSETS_SRC="$AS_SRC" KDEPS_ASSETS_DIR="$DEV_HOME/store" \
-    KDEPS_ASSETS_URL=off OPENAI_API_KEY=e2e timeout 60 "$KDEPS_BIN" --new 2>&1 || true)
+    KDEPS_ASSETS_URL=off OPENAI_API_KEY=e2e timeout 60 "$KDEPS_BIN" --agent-loop --new 2>&1 || true)
 if output_grep "e2e-cloud-model +e2e catalog entry" "$OUT"; then
     test_passed "assets - a models/cloud entry appears in /model list"
 else

@@ -8,7 +8,7 @@ echo "Testing harness prompt summaries (/efficiency prompt)..."
 PROMPT_HOME=$(mktemp -d)
 
 run_prompt() {
-    printf '%s\n/quit\n' "$1" | HOME="$PROMPT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true
+    printf '%s\n/quit\n' "$1" | HOME="$PROMPT_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true
 }
 
 OUTPUT=$(run_prompt "$(printf '/efficiency\n/efficiency prompt summary\n/efficiency prompt bogus\n/efficiency prompt full')")
