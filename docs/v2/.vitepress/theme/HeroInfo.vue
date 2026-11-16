@@ -3,8 +3,11 @@
   Licensed under the Apache License, Version 2.0
 -->
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useData } from 'vitepress'
 const { frontmatter } = useData()
+// Split the headline so each word can drop in on its own delay.
+const words = computed(() => (frontmatter.value.hero?.text ?? '').split(' '))
 </script>
 
 <template>
@@ -20,7 +23,12 @@ const { frontmatter } = useData()
       {{ frontmatter.hero.announcement }}
     </span>
     <p v-if="frontmatter.hero?.text" class="hero-text">
-      {{ frontmatter.hero.text }}
+      <span
+        v-for="(w, i) in words"
+        :key="i"
+        class="word"
+        :style="{ animationDelay: `${i * 70}ms` }"
+      >{{ w }}{{ i < words.length - 1 ? ' ' : '' }}</span>
     </p>
     <p v-if="frontmatter.hero?.tagline" class="hero-tagline">
       {{ frontmatter.hero.tagline }}
@@ -75,5 +83,24 @@ const { frontmatter } = useData()
   font-weight: 400;
   line-height: 1.6;
   color: var(--vp-c-text-2);
+}
+.word { display: inline-block; white-space: pre; }
+
+/* Headline words drop in, then the tagline and badge fade up after them. */
+html.kd-motion .word {
+  animation: kd-word-drop 0.7s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+html.kd-motion .hero-tagline,
+html.kd-motion .announcement {
+  animation: kd-fade-up 0.6s ease 0.45s both;
+}
+
+@keyframes kd-word-drop {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes kd-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 </style>
