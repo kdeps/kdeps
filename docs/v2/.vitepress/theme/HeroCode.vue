@@ -67,7 +67,7 @@ const files = [
   {
     name: 'agent REPL',
     html: [
-      `${P('$')} kdeps`,
+      `${P('$')} kdeps --agent-loop`,
       ``,
       `${D('kdeps v3  |  agent loop')}`,
       `${D('Model: llama3.2 (llamafile, offline)  |  /help for commands')}`,
