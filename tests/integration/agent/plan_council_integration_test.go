@@ -122,7 +122,7 @@ func TestPlanCouncil_AgentTurnGetsTheSortedPlan(t *testing.T) {
 	execReg.SetLLMExecutor(executorLLM.NewAdapter(t.Context(), srv.URL))
 	engine.SetRegistry(execReg)
 	loop := agent.New(t.Context(), engine, wf, reg,
-		agent.Config{Model: "fake", Backend: "openai", Streamer: s})
+		agent.Config{Model: "fake", Backend: "openai", Streamer: s, PlanCouncil: true})
 
 	var buf bytes.Buffer
 	_, err := loop.RunStreaming(t.Context(), "review the build scripts and summarize what each one does", &buf)
