@@ -836,3 +836,21 @@ html.kd-motion .kd-rv.kd-in {
   opacity: 1;
   transform: none;
 }
+
+/* Hero glow blobs drift slowly. */
+html.kd-motion .VPHome .VPHero::before { animation: kd-drift-a 18s ease-in-out infinite alternate; }
+html.kd-motion .VPHome .VPHero::after { animation: kd-drift-b 22s ease-in-out infinite alternate; }
+@keyframes kd-drift-a { to { transform: translate(160px, 80px) scale(1.2); } }
+@keyframes kd-drift-b { to { transform: translate(-140px, 60px) scale(0.85); } }
+
+/* Shared one-shot entrance for children of a .kd-play container. Uses
+   backwards fill so hover transforms work once the entrance ends. */
+html.kd-motion .kd-play:not(.kd-on) > .kd-stagger { opacity: 0; }
+html.kd-motion .kd-play.kd-on > .kd-stagger {
+  animation: kd-stagger-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+@keyframes kd-stagger-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}

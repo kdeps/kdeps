@@ -178,4 +178,10 @@
   .cover-wrap { width: 120px; }
   .section-title { font-size: 28px; }
 }
+
+/* The cover floats gently; hovering the card tilts it toward the reader. */
+html.kd-motion .cover-wrap { animation: kd-float 6s ease-in-out infinite; }
+.cover { transition: transform 0.15s ease; }
+.book-card:hover .cover { transform: rotate(-2deg) scale(1.03); }
+@keyframes kd-float { 50% { transform: translateY(-6px); } }
 </style>
