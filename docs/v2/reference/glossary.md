@@ -1,13 +1,14 @@
 # Glossary
 
 Every kdeps term defined in one place. The first mention of any term on other
-docs pages links here. This is a reference page and applies to both workflow
-mode and agent mode.
+docs pages links here. A workflow is the one way to run kdeps; the agent loop is
+a `chat` with `loop:` inside it, and `kdeps --agent-loop` opens it as a REPL.
 
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/workflow/resources) |
-| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps --agent-loop [path]`. The LLM calls the whole workflow as one tool named after its `name:` under `metadata:`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/agent/) |
+| agent | A workflow whose `chat` has a `loop:` block: the model calls tools over many rounds and keeps one conversation per session. `kdeps --agent-loop [path]` opens it as a REPL, where workflows at `path` are tools named after their `metadata.name`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent loop](/agent/) |
+| <a id="input-source"></a>input source | How requests reach a workflow: `api` (HTTP), `bot`, `file`, or `interactive` (a terminal prompt where each line is one request). Set under `deploy.input.sources`. | [Input sources](/workflow/input-sources) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/workflow/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |

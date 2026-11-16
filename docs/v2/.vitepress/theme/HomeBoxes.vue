@@ -49,7 +49,7 @@ onUnmounted(() => io?.disconnect())
             <div class="line step s3"><span class="tool">bash_exec</span> go test<span class="ok">PASS</span></div>
           </div>
           <h3>An agent with tools</h3>
-          <p>The agent loop reads, edits and runs commands through fenced kdeps tools.</p>
+          <p>A <code>chat</code> with <code>loop:</code> reads, edits and runs commands through the tools you list.</p>
         </div>
 
         <div class="box">
@@ -62,7 +62,7 @@ onUnmounted(() => io?.disconnect())
             </div>
           </div>
           <h3>Any model, any time</h3>
-          <p>Switch between local and cloud models mid-session with <code>/model</code>.</p>
+          <p>Name a model per chat or let <code>model: auto</code> pick one. Switch mid-session with <code>/model</code>.</p>
         </div>
 
         <div class="box">
@@ -78,8 +78,8 @@ onUnmounted(() => io?.disconnect())
             </div>
             <span class="chip strong approved">approved</span>
           </div>
-          <h3>Judges check the answer</h3>
-          <p>A judge panel reviews the final answer and sends it back for a revision on a reject.</p>
+          <h3>Judges, when you want them</h3>
+          <p>Opt in with <code>judges: auto</code>: a panel reviews the answer and sends it back for a revision on a reject.</p>
         </div>
 
         <div class="box">

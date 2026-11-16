@@ -25,7 +25,7 @@
         <a href="/workflow/quickstart" class="kd-stagger card" style="--i: 2">
           <h3>AI APIs without glue code</h3>
           <p>Change a YAML workflow into a production HTTP API and container. You do not need FastAPI, LangChain code, or a Dockerfile that you write manually. You declare the validation, the order, and the response shape.</p>
-          <span class="tag">workflow mode</span>
+          <span class="tag">workflow</span>
         </a>
       </div>
 

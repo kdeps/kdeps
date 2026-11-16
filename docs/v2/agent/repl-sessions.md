@@ -31,7 +31,7 @@ picker -> fresh: "'Start a new session' / esc"
 ```
 
 ```text
-kdeps                     # in a folder with history -> resume picker
+kdeps --agent-loop        # in a folder with history -> resume picker
 kdeps --agent-loop --new               # skip the picker, start a clean session
 kdeps --agent-loop --resume <id>       # resume a specific session directly (no picker)
 ```
