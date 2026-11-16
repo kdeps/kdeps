@@ -24,7 +24,7 @@ echo "Testing the agent planning council..."
 run_agent() {
     (cd "$PC_DIR/work" && printf '%s\n' "$@" '/quit' \
         | env HOME="$PC_DIR/home" USERPROFILE="$(native "$PC_DIR/home")" KDEPS_DATA_DIR="$PC_DIR/data" \
-            KDEPS_CONFIG_PATH="$PC_DIR/home/.kdeps/config.yaml" KDEPS_TUI=0 NO_COLOR=1 \
+            KDEPS_CONFIG_PATH="$PC_DIR/home/.kdeps/config.yaml" NO_COLOR=1 \
             timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
 }
 

@@ -75,7 +75,6 @@ const (
 	eventPlanCouncilRounds          = "plan-council-rounds"
 	eventPlanCouncilSize            = "plan-council-size"
 	eventPreambleTokenLimit         = "preamble-token-limit"
-	eventPromptHistoryLimit         = "prompt-history-limit"
 	eventProviderBodyLimitDashscope = "provider-body-limit-dashscope"
 	eventProviderBodyLimitOpenai    = "provider-body-limit-openai"
 	eventProviderBodyLimitXai       = "provider-body-limit-xai"
@@ -94,6 +93,5 @@ const (
 	eventToolResultTruncate         = "tool-result-truncate"
 	eventTrivialPromptMax           = "trivial-prompt-max"
 	eventTrivialPromptShort         = "trivial-prompt-short"
-	eventTuiActivityLines           = "tui-activity-lines"
 	eventWebCallBudget              = "web-call-budget"
 )

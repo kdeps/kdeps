@@ -24,7 +24,7 @@ OUT=$(cd "$AQ_DIR/work" && printf '%s\n' \
     'CALL ask_question {"question":"Pick a review mode","options":"Interactive\nConsolidated"}' \
     'Consolidated' '/quit' \
     | env HOME="$AQ_DIR/home" USERPROFILE="$(native "$AQ_DIR/home")" \
-        KDEPS_CONFIG_PATH="$AQ_DIR/home/.kdeps/config.yaml" KDEPS_TUI=0 NO_COLOR=1 \
+        KDEPS_CONFIG_PATH="$AQ_DIR/home/.kdeps/config.yaml" NO_COLOR=1 \
         timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
 SENT=$(tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG")
 

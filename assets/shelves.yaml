@@ -56,7 +56,6 @@ items:
   "events/memory-prompt-limit": context
   "events/knowledge-recall-files": rag
   "events/bug-capture-max-errors": evals
-  "events/tui-activity-lines": context
   "events/side-call-max-tokens": context
   "events/thinking-budget-auto": model
   "events/thinking-budget-high": model
@@ -133,4 +132,3 @@ items:
   "events/context-segment-cap": context
   "events/handshake-evidence-attempts": harness
   "events/handshake-history": harness
-  "events/prompt-history-limit": context

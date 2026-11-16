@@ -273,7 +273,6 @@ func (l *Loop) pauseFreeModel(ctx context.Context, model string) error {
 func (l *Loop) applyFreeModel(chatCfg *domain.ChatConfig, from, to, why string) {
 	freeModelNoticef("openrouter: %s %s, continuing with %s\n", from, why, to)
 	l.config.Model = to
-	setScreenModel(to)
 	chatCfg.Model = to
 	chatCfg.Backend = openrouterBackend
 	chatCfg.MaxTokens = l.callMaxTokens()

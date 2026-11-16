@@ -313,12 +313,10 @@ func (r *REPL) loadSession(store *SessionStore, id string) error {
 	r.loop.session.ReplaceMessages(session.RawMessages())
 	r.loop.RequireHandshake()
 	r.loop.SetSessionID(id) // continue this stored session on exit
-	r.syncScreenPills()
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil {
 		r.loop.resumeNote = resumedSessionNote(meta.UpdatedAt, time.Now())
 		if meta.Model != "" {
 			r.loop.config.Model = meta.Model
-			setScreenModel(meta.Model)
 			r.loop.InvalidateSystemPreamble()
 		}
 	}

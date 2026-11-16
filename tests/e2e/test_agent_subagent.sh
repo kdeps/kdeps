@@ -26,7 +26,7 @@ run_turn() {
     before=$(wc -c < "$E2E_MOCK_LLM_LOG")
     (cd "$SA_DIR/work" && printf '%s\n/quit\n' "$1" \
         | env HOME="$SA_DIR/home" USERPROFILE="$(native "$SA_DIR/home")" \
-            KDEPS_CONFIG_PATH="$SA_DIR/home/.kdeps/config.yaml" KDEPS_TUI=0 \
+            KDEPS_CONFIG_PATH="$SA_DIR/home/.kdeps/config.yaml" \
             timeout 180 "$KDEPS_BIN" --new --backend openai --model fake >/dev/null 2>&1) || true
     tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG"
 }
@@ -77,7 +77,7 @@ fi
 
 OUT=$(cd "$SA_DIR/work" && printf '/subagent\n/quit\n' \
     | env HOME="$SA_DIR/home" USERPROFILE="$(native "$SA_DIR/home")" \
-        KDEPS_CONFIG_PATH="$SA_DIR/home/.kdeps/config.yaml" KDEPS_TUI=0 NO_COLOR=1 \
+        KDEPS_CONFIG_PATH="$SA_DIR/home/.kdeps/config.yaml" NO_COLOR=1 \
         timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
 if [[ "$OUT" == *"subagent calls use the session model"* ]]; then
     test_passed "subagent - /subagent shows the channel's model"

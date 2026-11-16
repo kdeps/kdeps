@@ -1590,10 +1590,6 @@ func (r *REPL) Run() error {
 	defer r.autoSaveOnExit()
 	defer resetTerminal()
 
-	if tuiEnabled() {
-		return r.runFullScreen()
-	}
-
 	hpath := historyPath()
 
 	// Wire up tool call display: write directly to stdout so each call is visible
@@ -2843,7 +2839,6 @@ func stripModelIndicators(name string) string {
 // applyModelSwitch applies a model selection and prints a confirmation.
 // A Ctrl+C during the model download/start reverts to the previous model.
 func (r *REPL) applyModelSwitch(model string) {
-	defer r.syncScreenPills()
 	// A backend-qualified name (e.g. "gguf:qwen3:30b", selected to disambiguate
 	// two registries that both use the same bare alias) carries its backend
 	// explicitly, bypassing the customEndpoints/BackendForModel/modelTypes
@@ -2866,7 +2861,6 @@ func (r *REPL) applyModelSwitch(model string) {
 	r.loop.Session().SetTokenBudget(newLimit, bareModel)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = bareModel
-	setScreenModel(bareModel)
 	if isQualified {
 		r.loop.config.Backend = qualBackend
 		r.loop.config.BaseURL = ""
@@ -2898,7 +2892,6 @@ func (r *REPL) applyModelSwitch(model string) {
 	if err := r.startLocalModelServer(bareModel); err != nil {
 		// Canceled: the new model never became usable — restore the old one.
 		r.loop.config.Model = prevModel
-		setScreenModel(prevModel)
 		r.loop.config.Backend = prevBackend
 		r.loop.config.BaseURL = prevBaseURL
 		r.loop.config.CompactTokenBudget = prevBudget
@@ -3465,15 +3458,8 @@ func (r *REPL) CloudModelBackends() map[string]string { return r.cloudModelBacke
 // ProviderStatus returns the provider API key status.
 func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
 
-// CurrentModel returns the active model name. While the full-screen view runs
-// it reads the view's copy, which is locked, so the model picker can open
-// during a turn that may switch models.
+// CurrentModel returns the active model name.
 func (r *REPL) CurrentModel() string {
-	if screenRunning() {
-		if name := screenModelLabel(); name != "" {
-			return name
-		}
-	}
 	return r.loop.config.Model
 }
 
