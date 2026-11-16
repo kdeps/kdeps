@@ -95,6 +95,22 @@ KDEPS_AGENT_BASE_URL=http://localhost:11434/v1
 KDEPS_THEME=black                     # same as --theme
 ```
 
+### Settings from the workflow
+
+When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session, in the terminal and the [desktop app](/agent/desktop) alike:
+
+```yaml
+# resources/assistant.yaml
+chat:
+  model:
+    name: qwen2.5:7b                 # the session's model; --model / --backend still win
+  loop:
+    tools: [read_file, edit_file]    # the only built-in tools offered; project tools stay
+    maxRounds: 25                    # tool rounds per turn
+```
+
+A workflow that does not parse, or names an unknown tool, is reported and the session keeps its own settings.
+
 ## Examples
 
 ```bash

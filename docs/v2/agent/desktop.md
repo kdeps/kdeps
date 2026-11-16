@@ -141,6 +141,8 @@ Run the binary. It opens on the last workspace you used, or your home folder on 
 
 A workspace is a folder. The app keeps chat history and persistent memory for each folder. File tools stay in that folder. `~/.kdeps` and `/tmp` are always permitted. This is the same boundary that `KDEPS_WORKSPACE_ROOT` sets for the terminal agent.
 
+When the folder's `workflow.yaml` targets a `chat` with `loop:`, that chat sets the model, the offered tools and the round cap of every chat in the workspace. See [Settings from the workflow](/agent/#settings-from-the-workflow).
+
 To open a different folder, use the workspace button at the bottom of the sidebar. You can also select one of the ten most recent folders. A switch starts a new chat and changes the scope of history and memory. You cannot switch when a turn runs.
 
 Window state lives in `kdeps-desktop/state.json` under your OS config directory (`~/Library/Application Support`, `~/.config`, `%AppData%`).

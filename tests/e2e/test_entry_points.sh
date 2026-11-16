@@ -51,6 +51,33 @@ else
     test_skipped "entry points - bare kdeps runs the assistant (needs the mock LLM)"
 fi
 
+# --- kdeps --agent-loop in the project: the workflow's loop.tools are the tools --
+if [ -n "${E2E_MOCK_LLM_LOG:-}" ] && [ -f "$EP_DIR/asst/workflow.yaml" ]; then
+    (cd "$EP_DIR/asst" && printf 'ENTRYLOOPTOOLS hi\n/quit\n' \
+        | timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake > /dev/null 2>&1) || true
+    if python3 - "$E2E_MOCK_LLM_LOG" <<'PY'
+import json, sys
+for line in open(sys.argv[1], encoding="utf-8"):
+    try:
+        body = json.loads(line)
+    except ValueError:
+        continue
+    msgs = body.get("messages", [])
+    last = msgs[-1].get("content") if msgs else ""
+    if not isinstance(last, str) or "ENTRYLOOPTOOLS" not in last:
+        continue
+    names = {t.get("function", {}).get("name") for t in body.get("tools", [])}
+    ok = {"read_file", "bash_exec"} <= names and not names & {"web_search", "load_tools"}
+    sys.exit(0 if ok else 1)
+sys.exit(1)
+PY
+    then
+        test_passed "entry points - kdeps --agent-loop offers the workflow's loop.tools"
+    else
+        test_failed "entry points - kdeps --agent-loop offers the workflow's loop.tools" "no request with the allowlisted tools"
+    fi
+fi
+
 # --- no workflow.yaml: help, naming --agent-loop ------------------------------
 mkdir -p "$EP_DIR/empty"
 OUT=$(cd "$EP_DIR/empty" && "$KDEPS_BIN" < /dev/null 2>&1)

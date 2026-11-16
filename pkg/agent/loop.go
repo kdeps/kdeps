@@ -243,6 +243,10 @@ type Config struct {
 	// Off by default in the REPL; /refine on enables it. Persisted via
 	// ToolTuning. A saved session that already stored refine-on stays on.
 	PromptRefine bool
+	// AllowedTools, when set, is the only built-in tools the model is offered
+	// (a workflow chat's loop.tools). Project, component and MCP tools stay;
+	// load_tools is not offered, so nothing outside the list can be loaded.
+	AllowedTools []string
 	// PlanCouncilOff skips the planning council that runs before a task
 	// (after refine); on by default, /plan off turns it off.
 	PlanCouncilOff bool

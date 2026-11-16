@@ -245,6 +245,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		Kind:       "Workflow",
 		Metadata:   domain.WorkflowMetadata{Name: "agent", Version: "0.0.0"},
 	}
+	s.applyWorkspaceLoop(&cfg)
 	loop := agent.New(s.ctx, s.opts.Engine, wf, s.registry, cfg)
 	rt := agent.NewRuntime(s.ctx, loop, agent.RuntimeOptions{
 		Headless: true,
@@ -263,6 +264,27 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 	if old != nil {
 		old.Close()
 	}
+}
+
+// applyWorkspaceLoop lets the workspace's workflow define the chat: when its
+// target is a chat with loop:, its model, round cap and tools apply. A
+// workflow that does not parse, or names unknown tools, is reported and the
+// app's own settings stay.
+func (s *Service) applyWorkspaceLoop(cfg *agent.Config) {
+	chat, err := agent.LoadLoopChat(".")
+	if errors.Is(err, agent.ErrNoWorkflow) {
+		return
+	}
+	if err != nil {
+		s.opts.Emit(Event{Kind: KindError, Text: "workflow.yaml: " + err.Error()})
+		return
+	}
+	if unknown := agent.UnknownLoopTools(s.registry, chat); len(unknown) > 0 {
+		s.opts.Emit(Event{Kind: KindError, Text: "workflow.yaml loop.tools names unknown tool(s): " +
+			strings.Join(unknown, ", ")})
+		return
+	}
+	agent.ApplyLoopChat(cfg, chat, false)
 }
 
 // SessionID is the active chat's stored id ("" until its first turn finishes).
