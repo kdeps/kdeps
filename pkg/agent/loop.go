@@ -1398,22 +1398,12 @@ func (l *Loop) reconnectLocalModel(ctx context.Context, chatCfg *domain.ChatConf
 	}
 }
 
-// transientErrRe matches error strings from transient API failures: overloaded,
-// rate-limit, 5xx, network/connection errors. Matches pi's _isRetryableError regex.
-var transientErrRe = regexp.MustCompile(
-	`(?i)overloaded|provider.?returned.?error|rate.?limit|too many requests` +
-		`|429|500|502|503|504|service.?unavailable|server.?error|internal.?error` +
-		`|network.?error|connection.?error|connection.?refused|connection.?lost` +
-		`|connection.?reset|broken.?pipe|unexpected.?eof|error reading streaming` +
-		`|fetch failed|upstream.?connect|socket hang up|timed?.?out|timeout|terminated`,
-)
-
 // isTransientError reports whether err is a transient API error worth retrying.
 func isTransientError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return transientErrRe.MatchString(err.Error())
+	return executorLLM.IsTransientError(err)
 }
 
 // compactAndRetry compacts session history and retries the streaming call once.

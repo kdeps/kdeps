@@ -55,9 +55,10 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 			// narration have no terminal to land on.
 			ToolOutputWriter: io.Discard,
 			StreamFinalOnly:  true,
-			// The planning council costs a round of side calls on every
-			// request; a workflow resource answers one request at a time.
-			PlanCouncilOff: true,
+			// Agent REPL defaults; loop.plan / loop.judges: false turn them off.
+			PlanCouncilOff: !req.Plan,
+			AutoJudges:     req.Judges,
+			Thinking:       req.Thinking,
 		}
 		key := ""
 		if req.Session != "" {

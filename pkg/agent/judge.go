@@ -58,6 +58,7 @@ func configureJudges() {
 			p, ok := PresetByName(name)
 			return p.Judges, ok
 		},
+		RosterPrompt: func() string { return harnessText("judge-roster-system") },
 	})
 }
 

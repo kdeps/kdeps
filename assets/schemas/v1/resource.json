@@ -407,6 +407,19 @@
             "contextSize": {
               "type": "integer",
               "minimum": 0
+            },
+            "retries": {
+              "description": "Retries after a transient failure (rate limit, 5xx, dropped connection). auto (or omitted) uses the chat-retries event; 0 turns retrying off.",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "string",
+                  "const": "auto"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -416,15 +429,24 @@
           "description": "What the model sees: prompt, history, files, examples.",
           "properties": {
             "contextLength": {
-              "type": "integer",
-              "enum": [
-                4096,
-                8192,
-                16384,
-                32768,
-                65536,
-                131072,
-                262144
+              "description": "auto (or omitted) sizes it for the backend.",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    4096,
+                    8192,
+                    16384,
+                    32768,
+                    65536,
+                    131072,
+                    262144
+                  ]
+                },
+                {
+                  "type": "string",
+                  "const": "auto"
+                }
               ]
             },
             "role": {
@@ -572,7 +594,16 @@
           "description": "Tools the model may call.",
           "properties": {
             "list": {
-              "type": "array"
+              "description": "auto offers every built-in kdeps tool a workflow chat can call.",
+              "oneOf": [
+                {
+                  "type": "array"
+                },
+                {
+                  "type": "string",
+                  "const": "auto"
+                }
+              ]
             },
             "components": {
               "type": "array",
@@ -584,8 +615,17 @@
               "type": "string"
             },
             "maxRounds": {
-              "type": "integer",
-              "minimum": 0
+              "description": "auto (or omitted) uses the chat-max-rounds event.",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "string",
+                  "const": "auto"
+                }
+              ]
             },
             "skills": {
               "type": "array",
@@ -655,58 +695,67 @@
           "description": "Judges that review the answer before it is returned.",
           "properties": {
             "judges": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": [
-                  "name"
-                ],
-                "additionalProperties": false,
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "criteria": {
-                    "type": "string"
-                  },
-                  "allowedTools": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "maxRounds": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  "graders": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "kind"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "enum": [
-                            "exact",
-                            "contains",
-                            "not_contains",
-                            "regex",
-                            "json",
-                            "expr"
-                          ]
-                        },
-                        "pattern": {
+              "description": "auto picks up to three judges per request.",
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "criteria": {
+                        "type": "string"
+                      },
+                      "allowedTools": {
+                        "type": "array",
+                        "items": {
                           "type": "string"
+                        }
+                      },
+                      "maxRounds": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "graders": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "kind"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "exact",
+                                "contains",
+                                "not_contains",
+                                "regex",
+                                "json",
+                                "expr"
+                              ]
+                            },
+                            "pattern": {
+                              "type": "string"
+                            }
+                          }
                         }
                       }
                     }
                   }
+                },
+                {
+                  "type": "string",
+                  "const": "auto"
                 }
-              }
+              ]
             },
             "judgePreset": {
               "type": "string",
@@ -735,6 +784,14 @@
             "session": {
               "type": "string",
               "description": "Conversation id, usually an expression such as {{ get('session') }}. Requests with the same id continue one stored conversation."
+            },
+            "plan": {
+              "type": "boolean",
+              "description": "Run the planning council before a task (default true)."
+            },
+            "judges": {
+              "type": "boolean",
+              "description": "Review each answer with an automatic judge roster (default true unless guardrails.judges are set)."
             }
           }
         }

@@ -515,7 +515,8 @@ func TestMaxRoundsEvents(t *testing.T) {
 	initEvents()
 	assert.Equal(t, 200, applyConfigDefaults(Config{}).MaxToolRounds)
 	assert.Equal(t, 9, applyConfigDefaults(Config{MaxToolRounds: 9}).MaxToolRounds, "a set value wins")
-	assert.Equal(t, 5, executorLLM.ChatToolRounds())
+	assert.Equal(t, 25, executorLLM.ChatToolRounds())
+	assert.Equal(t, 3, executorLLM.ChatRetries())
 }
 
 // TestThinkingBudgetEvents: a workflow chat's thinking mode with no

@@ -41,6 +41,12 @@ type LoopRequest struct {
 	Tools     []string
 	MaxRounds int
 	Session   string
+	// Plan runs the planning council; Judges reviews with an automatic
+	// roster. Both default on, as in the agent REPL.
+	Plan   bool
+	Judges bool
+	// Thinking is the chat's thinking setting, after its default.
+	Thinking *domain.ThinkingConfig
 }
 
 // LoopRunner runs a LoopRequest through the agent loop and returns its reply.
@@ -95,6 +101,7 @@ func (e *Executor) executeLoop(
 			return nil, chatRun{}, fmt.Errorf("chat loop: session: %w", err)
 		}
 	}
+	applyThinkingDefault(resolved, model)
 	reply, err := run(LoopRequest{
 		Ctx:       ctx.Ctx,
 		Workflow:  ctx.Workflow,
@@ -105,6 +112,11 @@ func (e *Executor) executeLoop(
 		Tools:     resolved.Loop.Tools,
 		MaxRounds: resolved.Loop.MaxRounds,
 		Session:   session,
+		Plan:      resolved.Loop.Plan == nil || *resolved.Loop.Plan,
+		// Judges listed under guardrails review the reply already.
+		Judges: (resolved.Loop.Judges == nil || *resolved.Loop.Judges) &&
+			len(resolved.Judges) == 0 && resolved.JudgePreset == "",
+		Thinking: resolved.Thinking,
 	})
 	if err != nil {
 		return nil, chatRun{}, fmt.Errorf("chat loop: %w", err)

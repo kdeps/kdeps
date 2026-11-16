@@ -96,3 +96,45 @@ chat:
 `)
 	require.Error(t, err)
 }
+
+func TestChatAuto_ValidatesAndParses(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	p := yaml.NewParser(schemaValidator, expression.NewParser())
+	path := filepath.Join(t.TempDir(), "ask.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`actionId: ask
+name: Ask
+chat:
+  model:
+    name: auto
+    retries: auto
+  context:
+    prompt: "{{ get('q') }}"
+    contextLength: auto
+  tools:
+    list: auto
+    maxRounds: auto
+  guardrails:
+    judges: auto
+`), 0o644))
+	res, err := p.ParseResource(path)
+	require.NoError(t, err)
+	require.NotNil(t, res.Chat)
+	assert.True(t, res.Chat.ToolsAuto)
+	assert.True(t, res.Chat.JudgesAuto)
+	assert.Equal(t, "auto", res.Chat.Model)
+}
+
+func TestChatAuto_RejectsAnUnknownWord(t *testing.T) {
+	err := parseChatResource(t, `actionId: ask
+name: Ask
+chat:
+  model:
+    name: m
+  context:
+    prompt: hi
+  tools:
+    maxRounds: lots
+`)
+	require.Error(t, err)
+}

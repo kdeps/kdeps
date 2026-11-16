@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: chat-retries
+# Retries of a workflow chat's model call after a transient failure (rate
+# limit, 5xx, dropped connection), with doubling backoff. A chat's
+# model.retries overrides it; model.retries: 0 turns retrying off.
+items: 3
+run: cap
