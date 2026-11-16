@@ -17,7 +17,7 @@ MODELNAME_HOME=$(mktemp -d)
 trap 'rm -rf "$MODELNAME_HOME"' EXIT
 
 OUTPUT=$(printf '/help\n/model name show\n/model name hide\n/model name abbreviate\n/model name auto\n/quit\n' \
-    | HOME="$MODELNAME_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$MODELNAME_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
     test_passed "model-name - agent loop starts"

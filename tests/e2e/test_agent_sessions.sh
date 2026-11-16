@@ -12,7 +12,7 @@ trap 'rm -rf "$SESS_HOME" "$SESS_PROJ"' EXIT
 # /session save writes a session regardless of whether an LLM turn happened;
 # /session list must then show it.
 OUTPUT=$(cd "$SESS_PROJ" && printf '/session save probe\n/session list\n/quit\n' \
-    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 if output_grep_fixed "kdeps agent" "$OUTPUT"; then
     test_passed "sessions - agent loop starts"
@@ -34,7 +34,7 @@ fi
 
 # /session is a YAML command: each subcommand prints from commands/session.yaml.
 OUTPUT3=$(cd "$SESS_PROJ" && printf '/session checkpoint\n/session branches\n/session goto nope\n/session bogus\n/quit\n' \
-    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --new 2>&1 || true)
+    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --agent-loop --new 2>&1 || true)
 if output_grep_fixed "No messages in session." "$OUTPUT3" \
     && output_grep_fixed "No stashed branches." "$OUTPUT3" \
     && output_grep_fixed 'goto needs an entry id, got "nope"' "$OUTPUT3" \
@@ -46,7 +46,7 @@ fi
 
 # --new must start without hanging on the picker even though a session exists.
 OUTPUT2=$(cd "$SESS_PROJ" && printf '/quit\n' \
-    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --new 2>&1 || true)
+    | HOME="$SESS_HOME" USERPROFILE="$SESS_HOME" timeout 60 "$KDEPS_BIN" --agent-loop --new 2>&1 || true)
 if output_grep_fixed "kdeps agent" "$OUTPUT2"; then
     test_passed "sessions - --new starts without hanging on the picker"
 else

@@ -100,7 +100,7 @@ llm:
 ```
 
 ```bash
-kdeps --model auto
+kdeps --agent-loop --model auto
 ```
 
 With nothing configured, or nothing scoring, `auto` falls through to the installed-model pick and fixed tiers below, so it is never worse than omitting `--model`.
@@ -110,7 +110,7 @@ With nothing configured, or nothing scoring, `auto` falls through to the install
 `--model auto` scores *your* `models:` list under `llm:`. `--model auto-router` (or `KDEPS_AGENT_MODEL=auto-router`) skips that list entirely, every time, and always goes straight to discovery:
 
 ```bash
-kdeps --model auto-router
+kdeps --agent-loop --model auto-router
 ```
 
 1. **Best-fit installed local model** - `llmfit` gives a score to each cached llamafile, loadable GGUF, and pulled Ollama tag. This step needs `llmfit` on `PATH`. If `llmfit` is not installed, kdeps skips this step (no cost).

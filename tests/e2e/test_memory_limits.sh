@@ -129,7 +129,7 @@ run: truncate
 EOF
 OUT=$(cd "$ML_DIR/work" && printf '/refine off\n/turo off\n/judges auto off\nsave three facts about e2eterm, then search memory for e2eterm\n/exit\n' \
     | HOME="$ML_HOME" USERPROFILE="$(to_native_path "$ML_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
-        timeout 180 "$KDEPS_BIN" --new --backend openai \
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$ML_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$ML_DIR/server.log" 2>/dev/null)
 
@@ -158,7 +158,7 @@ run: cap
 EOF
 OUT=$(cd "$ML_DIR/work2" && printf '/refine off\n/turo off\n/judges auto off\nrun three echo commands, then search memory for e2ecap\n/exit\n' \
     | HOME="$ML_HOME2" USERPROFILE="$(to_native_path "$ML_HOME2")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
-        timeout 180 "$KDEPS_BIN" --new --backend openai \
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$ML_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$ML_DIR/server.log" 2>/dev/null)
 if output_grep_fixed "MEMORY_DONE" "$OUT" && output_grep_fixed "tool:bash_exec:e2ecap2" "$LOG" && ! output_grep_fixed "tool:bash_exec:e2ecap0" "$LOG"; then

@@ -14,7 +14,7 @@
 kdeps builds git-native AI appliances. Your AI agent is YAML in your repository. You build it one time and run it where you need it.
 
 1. **Workflows** - deterministic YAML pipelines. Serve them as an HTTP API, a bot, or a file processor.
-2. **Agent** - `kdeps` opens an AI REPL with tools and memory. It uses a local model or an LLM server that you run.
+2. **Agent** - `kdeps --agent-loop` opens an AI REPL with tools and memory. It uses a local model or an LLM server that you run.
 3. **Deploy on your infrastructure** - ship the same YAML as a Docker image, Kubernetes manifests, a bootable ISO, or one binary.
 
 ## Install
@@ -96,7 +96,7 @@ For more data, see the [workflow docs](https://kdeps.com/workflow/), [examples](
 
 ```bash
 kdeps                            # REPL with built-in tools (files, shell, search, memory)
-kdeps ./my-agent/ --model llama3.2   # also load that project's workflows as tools
+kdeps --agent-loop ./my-agent/ --model llama3.2   # also load that project's workflows as tools
 ```
 
 The model selects the tools to call. Before a file tool uses a path outside the working directory, it asks you. `~/.kdeps` and `/tmp` are exceptions.

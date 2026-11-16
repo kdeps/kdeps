@@ -22,15 +22,15 @@ kdeps uses llamafile by default. The first time you run a `chat:` resource with 
 **Start kdeps with the default llamafile model:**
 
 ```bash
-kdeps
+kdeps --agent-loop
 # confirms download of llama3.2:1b (~1.1 GB) on first message, then serves it
 ```
 
 **Pick a different model by alias:**
 
 ```bash
-kdeps --model llama3.1:8b    # 5.2 GB, better quality
-kdeps --model llama3.2:3b    # 2.2 GB, good balance
+kdeps --agent-loop --model llama3.1:8b    # 5.2 GB, better quality
+kdeps --agent-loop --model llama3.2:3b    # 2.2 GB, good balance
 ```
 
 **See all available aliases:**
@@ -113,7 +113,7 @@ ollama pull qwen2.5:7b      # Qwen 2.5 7B
 
 ```bash
 # CLI flag
-kdeps --model llama3.2 --backend ollama
+kdeps --agent-loop --model llama3.2 --backend ollama
 
 # or set it once in config and skip the flags
 ```

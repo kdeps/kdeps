@@ -76,7 +76,7 @@ store -> loader
 The binary contains none of these files. kdeps loads them only from `~/.kdeps/assets/`. The first run asks for a profile and installs it:
 
 ```text
-$ kdeps
+$ kdeps --agent-loop
 What will you use kdeps for? (change it later with kdeps profile)
   1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
   2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, ...)
@@ -164,7 +164,7 @@ CI, Docker and scripts get no question. `KDEPS_PROFILE` names the profile (`KDEP
 
 ### What a profile installs later
 
-A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps` (the agent loop) adds the `normal` theme, the loop's required tools and harness, and 23 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `judges`, `harness`, `efficiency`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
+A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the `normal` theme, the loop's required tools and harness, and 23 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `judges`, `harness`, `efficiency`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
 
 ```text
 $ KDEPS_PROFILE=minimum kdeps
@@ -284,4 +284,4 @@ A [shelf](/reference/glossary#shelf) is the engineering category of an asset. Th
 
 Tokens, structured output, embeddings, session, trace, and fine-tune are not shelves.
 
-Tokens are counts. Structured output is `harness.output.json`. Embeddings are the rag items. Session resume and `kdeps --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) are a separate axis.
+Tokens are counts. Structured output is `harness.output.json`. Embeddings are the rag items. Session resume and `kdeps --agent-loop --instrument` are code. Fine-tune is not in kdeps. Install profiles (`minimum`, `workflows`, `agent`, `deploy`) are a separate axis.

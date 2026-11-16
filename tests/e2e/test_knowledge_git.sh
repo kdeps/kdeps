@@ -33,7 +33,7 @@ START=$(git -C "$P" rev-parse --short=12 HEAD)
 kg_session() {
     (cd "$P" && printf '%b' "$1" | env HOME="$KG_HOME" USERPROFILE="$(native "$KG_HOME")" \
         KDEPS_CONFIG_PATH="$KG_HOME/.kdeps/config.yaml" KDEPS_ASSETS_DIR="$KG_HOME/store" \
-        timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake 2>&1) || true
 }
 # ranged_note is the session note whose range spans start..end (the commit
 # lands in whichever conversation thread was open), or "".
@@ -82,7 +82,7 @@ NOGIT="$KG_DIR/plain"
 mkdir -p "$NOGIT"
 (cd "$NOGIT" && printf 'hello\n/quit\n' | env HOME="$KG_HOME" USERPROFILE="$(native "$KG_HOME")" \
     KDEPS_CONFIG_PATH="$KG_HOME/.kdeps/config.yaml" KDEPS_ASSETS_DIR="$KG_HOME/store" \
-    timeout 180 "$KDEPS_BIN" --new --backend openai --model fake >/dev/null 2>&1)
+    timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake >/dev/null 2>&1)
 PN=$(find "$V/projects/plain" -path '*/sessions/*.md' 2>/dev/null | head -1)
 if [ -n "$PN" ] && ! grep -q "^commits:" "$PN" && ! grep -q "^## Git" "$PN"; then
     test_passed "knowledge git - outside a repository the note has no git lines"

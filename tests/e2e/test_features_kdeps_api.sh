@@ -519,7 +519,7 @@ EOF
     log="$root/bad-repl.log"
     rc=0
     timeout 20 env -u KDEPS_API_TOKEN HOME="$home" KDEPS_API_LISTEN="bad-listen-addr" \
-        "$KDEPS_BIN" --new </dev/null >"$log" 2>&1 || rc=$?
+        "$KDEPS_BIN" --agent-loop --new </dev/null >"$log" 2>&1 || rc=$?
     if [ "$rc" -eq 0 ] || [ "$rc" -eq 124 ]; then
         test_failed "kdeps API - bad listen fails the REPL" "exit $rc"
     elif ! grep -F "kdeps api" "$log" >/dev/null; then
@@ -1214,7 +1214,7 @@ PY
 import signal, subprocess, sys, time
 binp, log = sys.argv[1], sys.argv[2]
 out = open(log, "wb")
-proc = subprocess.Popen([binp, "--new"], stdin=subprocess.PIPE, stdout=out, stderr=subprocess.STDOUT)
+proc = subprocess.Popen([binp, "--agent-loop", "--new"], stdin=subprocess.PIPE, stdout=out, stderr=subprocess.STDOUT)
 def stop(_sig, _frm):
     proc.kill()
     raise SystemExit(0)

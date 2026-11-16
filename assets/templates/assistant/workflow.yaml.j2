@@ -1,0 +1,16 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  version: "{{ version }}"
+  targetActionId: assistant
+
+deploy:
+  input:
+    sources: [interactive]   # kdeps run opens a prompt; each line is one turn
+
+repl:
+  prompt: "> "
+  sessionId: {{ name }}      # one stored conversation; change it to start a new one

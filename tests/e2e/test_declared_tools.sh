@@ -116,7 +116,7 @@ dt_run() {
     mkdir -p "$home"
     printf 'use the e2e_echo tool\n/quit\n' | HOME="$home" KDEPS_ASSETS_SRC="$DT_SRC" \
         KDEPS_ASSETS_DIR="$home/store" KDEPS_ASSETS_URL=off E2E_ECHO_KEY="$1" OPENAI_API_KEY=e2e \
-        timeout 120 "$KDEPS_BIN" --new --backend openai --base-url "http://127.0.0.1:$DT_PORT/v1" --model fake 2>&1 || true
+        timeout 120 "$KDEPS_BIN" --agent-loop --new --backend openai --base-url "http://127.0.0.1:$DT_PORT/v1" --model fake 2>&1 || true
 }
 
 OUT=$(dt_run "sekret")

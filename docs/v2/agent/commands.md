@@ -153,7 +153,7 @@ kdeps scans only text in `"..."` or `'...'`. `can you check df -h for me` trigge
 | `--theme <name>` | REPL theme: `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl-themes#themes)) |
 
 kdeps stores sessions and memory under `~/.kdeps/`, separately for each
-directory where `kdeps` runs. See [Sessions](/agent/repl-sessions#sessions).
+directory where `kdeps --agent-loop` runs. See [Sessions](/agent/repl-sessions#sessions).
 
 ## Auto-improve
 
@@ -217,7 +217,7 @@ A daily workflow (`.github/workflows/bug-hunt.yml`, 07:30 UTC) runs one task per
 
 ```bash
 id=$(grep -m1 'id: "' assets/models/openrouter.yaml | sed -E 's/.*"([^"]+)".*/\1/')
-printf '/auto-improve 1\n/exit\n' | kdeps --backend openrouter --model "$id" --instrument=bug-hunt-1
+printf '/auto-improve 1\n/exit\n' | kdeps --agent-loop --backend openrouter --model "$id" --instrument=bug-hunt-1
 ```
 
 ## Declared commands

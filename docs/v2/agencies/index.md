@@ -6,7 +6,7 @@ delegates to another with the `agent:` resource, which runs that agent's whole p
 
 ```bash
 kdeps run ./my-agency/     # run the entry-point agent's pipeline
-kdeps ./my-agency/         # register the agency as one LLM tool in the REPL
+kdeps --agent-loop ./my-agency/         # register the agency as one LLM tool in the REPL
 ```
 
 **Not this?** For a single deterministic pipeline, use [kdeps workflow](/workflow/).

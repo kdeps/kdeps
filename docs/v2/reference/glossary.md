@@ -7,7 +7,7 @@ mode and agent mode.
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/workflow/resources) |
-| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps [path]`. The LLM calls the whole workflow as one tool named after its `name:` under `metadata:`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/agent/) |
+| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps --agent-loop [path]`. The LLM calls the whole workflow as one tool named after its `name:` under `metadata:`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/agent/) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/workflow/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |

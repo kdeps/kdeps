@@ -116,11 +116,11 @@ run_one() {
 	set +e
 	if command -v timeout >/dev/null 2>&1; then
 		printf '/auto-improve %s\n/exit\n' "$task" | timeout "${BUG_HUNT_TIMEOUT:-20m}" \
-			"$kdeps_bin" --backend openrouter --model "$model" --instrument="bug-hunt-${task}" \
+			"$kdeps_bin" --agent-loop --backend openrouter --model "$model" --instrument="bug-hunt-${task}" \
 			>"$log" 2>&1
 	else
 		printf '/auto-improve %s\n/exit\n' "$task" | \
-			"$kdeps_bin" --backend openrouter --model "$model" --instrument="bug-hunt-${task}" \
+			"$kdeps_bin" --agent-loop --backend openrouter --model "$model" --instrument="bug-hunt-${task}" \
 			>"$log" 2>&1
 	fi
 	local code=$?

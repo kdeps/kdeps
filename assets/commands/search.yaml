@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.0.1
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -31,7 +31,7 @@ subcommands:
           {{range .places}}
           - {{.path}} (project){{if not .indexed}} - not indexed yet: `/search index`{{end}}{{end}}{{range .folders}}
           - {{.path}}{{if not .indexed}} - not indexed yet: `/search index`{{end}}{{end}}{{if not .folders}}
-          - (no other folders: `/search add <folder>`, or `kdeps --index <folder>`){{end}}
+          - (no other folders: `/search add <folder>`, or `kdeps --agent-loop --index <folder>`){{end}}
   add:
     run:
       - tool: session_ops

@@ -196,7 +196,7 @@ sa_loop() {
     (cd "$SA_WORK" && printf '%b' "$1" | env -u E2EPROV_API_KEY HOME="$SA_HOME" USERPROFILE="$(native "$SA_HOME")" \
         KDEPS_ASSETS_SRC='' KDEPS_ASSETS_DIR="$SA_HOME/store" KDEPS_ASSETS_URL="http://127.0.0.1:$SRV_PORT" \
         KDEPS_CONFIG_PATH="$SA_HOME/.kdeps/config.yaml" KDEPS_DATA_DIR="$SA_HOME/data" \
-        timeout 180 "$KDEPS_BIN" --new --backend e2eprov --model fake 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend e2eprov --model fake 2>&1) || true
 }
 # requests_with prints the logged request bodies containing $1.
 requests_with() { grep -F -- "$1" "$SA_LOG" || true; }

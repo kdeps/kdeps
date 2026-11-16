@@ -9,7 +9,7 @@ EFF_HOME=$(mktemp -d)
 trap 'rm -rf "$EFF_HOME"' EXIT
 
 run_eff() {
-    printf '%s\n/quit\n' "$1" | HOME="$EFF_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true
+    printf '%s\n/quit\n' "$1" | HOME="$EFF_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true
 }
 
 OUTPUT=$(run_eff "$(printf '/help\n/efficiency\n/efficiency reads 3\n/efficiency failures 7\n/efficiency off\n/efficiency verbose on\n/efficiency bogus 1\n/efficiency reads nope')")

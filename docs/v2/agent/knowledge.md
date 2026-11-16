@@ -417,7 +417,7 @@ A search folder is a folder outside the project (docs, specs, a shared library) 
 
 ```d2
 direction: right
-add: "kdeps --index ~/docs\n/search add ~/docs\nknowledge_card_update" {shape: oval}
+add: "kdeps --agent-loop --index ~/docs\n/search add ~/docs\nknowledge_card_update" {shape: oval}
 card: "project card\n| search | /home/me/docs |"
 index: "~/.kdeps/projects/docs-<hash>/index.db"
 recall: "recall: <knowledge-files>\nper folder"
@@ -442,7 +442,7 @@ The card stores it as a `search` row. Unlike `repo` or `folder`, a session start
 Add one at session start, from the shell, in a session, or let the model add it:
 
 ```bash
-kdeps --index ~/docs/billing-specs                # add and index before the session starts; repeatable, fine to pass every time
+kdeps --agent-loop --index ~/docs/billing-specs                # add and index before the session starts; repeatable, fine to pass every time
 kdeps knowledge folders                           # list the project's folders and their indexes
 kdeps knowledge folders add ~/docs/billing-specs  # add and index now
 kdeps knowledge folders index                     # update every folder's index

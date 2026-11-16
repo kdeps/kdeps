@@ -72,7 +72,7 @@ ap_loop() {
         KDEPS_COMPONENT_DIR='' \
         KDEPS_ASSETS_DIR="$home/store" KDEPS_ASSETS_URL="${AP_URL_OVERRIDE:-$AP_URL}" \
         KDEPS_CONFIG_PATH="$home/.kdeps/config.yaml" KDEPS_DATA_DIR="$home/data" "$@" \
-        timeout 180 "$KDEPS_BIN" --new 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new 2>&1) || true
 }
 ap_home() {
     local h="$AP_DIR/$1"

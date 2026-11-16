@@ -24,7 +24,7 @@ before=$(wc -c < "$E2E_MOCK_LLM_LOG")
 (cd "$TS_DIR/work" && printf 'CALL load_tools {"names":"git_ops"}\n/quit\n' \
     | env HOME="$TS_DIR/home" USERPROFILE="$(native "$TS_DIR/home")" \
         KDEPS_CONFIG_PATH="$TS_DIR/home/.kdeps/config.yaml" \
-        timeout 180 "$KDEPS_BIN" --new --backend openai --model fake >/dev/null 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake >/dev/null 2>&1) || true
 SENT=$(tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG")
 
 # One request per line: report each chat request's tool names.

@@ -55,7 +55,7 @@ the panel from the refined prompt.
 ```
 
 kdeps writes the choice to `~/.kdeps/agent-loop-settings.yaml` and uses it
-again on the next `kdeps` run.
+again on the next `kdeps --agent-loop` run.
 
 ## See also
 

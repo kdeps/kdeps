@@ -25,7 +25,7 @@ OUT=$(cd "$AQ_DIR/work" && printf '%s\n' \
     'Consolidated' '/quit' \
     | env HOME="$AQ_DIR/home" USERPROFILE="$(native "$AQ_DIR/home")" \
         KDEPS_CONFIG_PATH="$AQ_DIR/home/.kdeps/config.yaml" NO_COLOR=1 \
-        timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake 2>&1) || true
 SENT=$(tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG")
 
 if [[ "$OUT" == *"Pick a review mode"* ]] && [[ "$OUT" == *"1. Interactive"* ]] && [[ "$OUT" == *"2. Consolidated"* ]]; then

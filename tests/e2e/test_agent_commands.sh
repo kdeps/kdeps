@@ -30,7 +30,7 @@ cat > "$CMDS_ROOT/lock.json" <<JSON
 JSON
 
 OUTPUT=$(printf '/help\n/e2e-frugal\n/review-nope\n/quit\n' \
-    | HOME="$CMDS_HOME" KDEPS_ASSETS_DIR="$CMDS_ROOT" KDEPS_ASSETS_URL=off timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$CMDS_HOME" KDEPS_ASSETS_DIR="$CMDS_ROOT" KDEPS_ASSETS_URL=off timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 if output_grep_fixed "/review [focus]" "$OUTPUT" && output_grep_fixed "/frugal" "$OUTPUT"; then
     test_passed "commands - /help lists the shipped declared commands"

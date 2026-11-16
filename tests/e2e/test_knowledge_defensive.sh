@@ -63,7 +63,7 @@ kd_session() {
     (cd "$1" && printf '%b' "$2" | HOME="$KD_HOME" USERPROFILE="$(native "$KD_HOME")" \
         KDEPS_CONFIG_PATH="$KD_HOME/.kdeps/config.yaml" KDEPS_ASSETS_SRC="$KD_SRC" \
         KDEPS_ASSETS_DIR="$KD_HOME/store" KDEPS_ASSETS_URL=off \
-        timeout 180 "$KDEPS_BIN" --new --backend mockllm --model fake 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend mockllm --model fake 2>&1) || true
 }
 kd() {
     HOME="$KD_HOME" USERPROFILE="$(native "$KD_HOME")" KDEPS_CONFIG_PATH="$KD_HOME/.kdeps/config.yaml" \

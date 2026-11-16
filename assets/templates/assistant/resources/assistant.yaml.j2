@@ -1,0 +1,13 @@
+actionId: assistant
+name: Assistant
+
+chat:
+  model:
+    name: llama3.2:1b   # local llamafile, no API key; set backend: and a model for a cloud provider
+  context:
+    prompt: "{% raw %}{{ input('message') }}{% endraw %}"
+  loop:
+    # The agent works on the files of the folder you run it from.
+    tools: [read_file, edit_file, write_file, list_files, search_local, bash_exec]
+    maxRounds: 25
+    session: "{% raw %}{{ get('session') }}{% endraw %}"   # the prompt's session: one conversation across lines

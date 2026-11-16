@@ -173,7 +173,7 @@ ks_session_in() {
     (cd "$1" && printf '%b' "$2" | HOME="$KS_HOME" USERPROFILE="$(native "$KS_HOME")" \
         KDEPS_CONFIG_PATH="$KS_HOME/.kdeps/config.yaml" KDEPS_ASSETS_SRC="$KS_SRC" \
         KDEPS_ASSETS_DIR="$KS_HOME/store" KDEPS_ASSETS_URL=off \
-        timeout 180 "$KDEPS_BIN" --new --backend mockllm --model fake 2>&1) || true
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend mockllm --model fake 2>&1) || true
 }
 
 # ks_req prints the Nth logged request whose last user message contains $1.

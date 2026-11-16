@@ -51,13 +51,13 @@ There is no `kind: Agent`. Agent mode is how you *run* a workflow, not a separat
 From the project directory:
 
 ```bash
-kdeps .
+kdeps --agent-loop .
 ```
 
 Or pass the path:
 
 ```bash
-kdeps ./my-agent/
+kdeps --agent-loop ./my-agent/
 ```
 
 The REPL starts. The model can call one workflow tool (`my-agent`) plus the built-in tools (search, shell, files, memory). It does not register individual resources as tools.
@@ -75,12 +75,12 @@ The model calls `my-agent`. kdeps runs every resource in `requires:` order and r
 A folder of workflows registers one tool per `workflow.yaml` (and per agency):
 
 ```bash
-kdeps ./agents/
+kdeps --agent-loop ./agents/
 ```
 
 ## Summary
 
-- `kdeps [path]` is agent mode. `kdeps run workflow.yaml` is workflow mode. Same file.
+- `kdeps --agent-loop [path]` is agent mode. `kdeps run workflow.yaml` is workflow mode. Same file.
 - The tool name is `name:` under `metadata:`, not the filename.
 - The unit of work is the whole workflow, not a single resource.
 

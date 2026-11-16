@@ -9,7 +9,7 @@ server, deploy, and the optional registry. Most people need one or two. The
 [Which product do you need?](/start/#which-product-do-you-need) table matches
 each to a task.
 
-A `workflow.yaml` is the pipeline you deploy. `kdeps` with no path is the REPL
+A `workflow.yaml` is the pipeline you deploy. `kdeps --agent-loop` is the REPL
 against a local model, and it needs no YAML and no Docker. The registry is
 optional - it shares agents by name, not a step in building or running your own.
 The [two modes](#two-modes-one-workflow-file) below apply to whichever you use.
@@ -70,7 +70,7 @@ direction: right
 
 A: workflow.yaml
 B: "kdeps run\nworkflow mode\nDAG pipeline, deterministic\nships to production"
-C: "kdeps [path]\nagent mode\ninteractive LLM loop\ntools on demand"
+C: "kdeps --agent-loop [path]\nagent mode\ninteractive LLM loop\ntools on demand"
 
 A -> B
 A -> C

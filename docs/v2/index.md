@@ -24,7 +24,7 @@ features:
     link: /workflow/
     linkText: Build a workflow
   - title: kdeps agent
-    details: Run `kdeps` to get an AI REPL with tools and memory. It uses a local model or an LLM server that you host.
+    details: Run `kdeps --agent-loop` to get an AI REPL with tools and memory. It uses a local model or an LLM server that you host.
     link: /agent/
     linkText: Explore the agent
   - title: kdeps deploy

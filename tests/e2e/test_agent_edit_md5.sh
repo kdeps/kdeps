@@ -9,7 +9,7 @@ EDIT_HOME=$(mktemp -d)
 trap 'rm -rf "$EDIT_HOME"' EXIT
 
 OUTPUT=$(printf '/harness\n/quit\n' \
-    | HOME="$EDIT_HOME" timeout 60 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$EDIT_HOME" timeout 60 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 
 if output_grep_fixed "edit-workflow" "$OUTPUT" \
     && output_grep_fixed "preamble-section, order 135 enabled" "$OUTPUT"; then

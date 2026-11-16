@@ -9,7 +9,7 @@ TMP_HOME=$(mktemp -d)
 trap 'rm -rf "$TMP_HOME"' EXIT
 
 _repl() {
-    printf '%s\n' "$@" '/quit' | HOME="$TMP_HOME" timeout 15 "$KDEPS_BIN" 2>&1 || true
+    printf '%s\n' "$@" '/quit' | HOME="$TMP_HOME" timeout 15 "$KDEPS_BIN" --agent-loop 2>&1 || true
 }
 
 # /help
@@ -120,7 +120,7 @@ mkdir -p "$TMP_HOME/.kdeps/events"
 printf 'name: thinking-budget-high\nitems: 24000\nrun: cap\n' > "$TMP_HOME/.kdeps/events/thinking-budget-high.yaml"
 # USERPROFILE too: Windows reads the home folder from it, not HOME.
 OUTPUT=$(printf '%s\n' '/thinking high' '/quit' \
-    | HOME="$TMP_HOME" USERPROFILE="$(to_native_path "$TMP_HOME")" timeout 15 "$KDEPS_BIN" 2>&1 || true)
+    | HOME="$TMP_HOME" USERPROFILE="$(to_native_path "$TMP_HOME")" timeout 15 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 rm -f "$TMP_HOME/.kdeps/events/thinking-budget-high.yaml"
 if output_grep_fixed "budget 24000 tokens" "$OUTPUT"; then
     test_passed "REPL /thinking - the thinking-budget-high event sets the budget"
@@ -322,7 +322,7 @@ else
 fi
 
 # EOF on stdin exits cleanly
-OUTPUT=$(printf '' | HOME="$TMP_HOME" timeout 10 "$KDEPS_BIN" 2>&1 || true)
+OUTPUT=$(printf '' | HOME="$TMP_HOME" timeout 10 "$KDEPS_BIN" --agent-loop 2>&1 || true)
 if output_grep_i "panic|runtime error" "$OUTPUT"; then
     test_failed "REPL EOF on stdin - panicked" "Output: $OUTPUT"
 else

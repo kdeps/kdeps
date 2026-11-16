@@ -44,12 +44,25 @@ When you configure `apiServer`, kdeps does not start without `KDEPS_API_AUTH_TOK
 
 ---
 
-## `kdeps [path]` (agent REPL)
+## `kdeps [path]` (run a workflow)
+
+`kdeps` with no command runs a workflow, as `kdeps run` does: the one at `path`, or `./workflow.yaml` in the current folder. With neither, it prints help.
+
+```bash
+kdeps                    # runs ./workflow.yaml
+kdeps ./my-agent/        # runs that workflow
+```
+
+An agent-REPL flag (`--model`, `--backend`, `--resume`, ...) without `--agent-loop` is an error.
+
+---
+
+## `kdeps --agent-loop [path]` (agent REPL)
 
 Start agent mode. Agent mode is an interactive LLM loop. kdeps registers full workflows and components in it as tools. To give workflows as tools, give a path. For a bare REPL with no workflow tools, do not give a path.
 
 ```bash
-kdeps [path] [flags]
+kdeps --agent-loop [path] [flags]
 ```
 
 **Flags:**
@@ -69,10 +82,10 @@ kdeps [path] [flags]
 
 ```bash
 kdeps                                                         # bare REPL, no workflow tools
-kdeps ./my-agent/                                             # one tool: metadata.name
-kdeps ./agents/                                               # all workflows in folder as tools
-kdeps ./my-agent/ --model mistral
-kdeps ./agents/ --system "You are a helpful assistant."
+kdeps --agent-loop ./my-agent/                                             # one tool: metadata.name
+kdeps --agent-loop ./agents/                                               # all workflows in folder as tools
+kdeps --agent-loop ./my-agent/ --model mistral
+kdeps --agent-loop ./agents/ --system "You are a helpful assistant."
 ```
 
 See [Agent Mode](/agent/) for full details.
@@ -179,7 +192,7 @@ kdeps new [agent-name] [flags]
 | `--template, -t` | Agent template to use | `api-service` |
 | `--force` | Overwrite existing directory | `false` |
 
-**Available templates:** `api-service`, `sql-agent`, `agency`, `whatsapp-bot` (a WhatsApp Cloud API webhook: verification handshake, signed messages answered by an LLM and sent back through the `http_request` component)
+**Available templates:** `api-service`, `sql-agent`, `agency`, `whatsapp-bot` (a WhatsApp Cloud API webhook: verification handshake, signed messages answered by an LLM and sent back through the `http_request` component), `assistant` (a coding assistant: an `interactive` prompt and a `chat` with `loop:` over the file and shell tools)
 
 **Examples:**
 
@@ -187,6 +200,7 @@ kdeps new [agent-name] [flags]
 kdeps new my-agent                           # Uses api-service template
 kdeps new my-agent --template sql-agent      # SQL agent template
 kdeps new my-bot --template whatsapp-bot     # WhatsApp bot (webhook + Graph API reply)
+kdeps new my-helper --template assistant     # coding assistant; then cd my-helper && kdeps
 kdeps new my-agent --force                   # Overwrite existing
 ```
 
@@ -249,7 +263,7 @@ Exits with code 1 when any check has FAIL status.
 List, show and remove sessions recorded with [`--instrument`](/reference/troubleshooting#record-a-session-for-a-model-to-debug).
 
 ```bash
-kdeps --instrument=billing-bug          # record an agent session
+kdeps --agent-loop --instrument=billing-bug          # record an agent session
 kdeps run workflow.yaml --instrument=api-500
 kdeps instrument list                   # saved sessions, newest first
 kdeps instrument show billing-bug       # session.md and events.ndjson

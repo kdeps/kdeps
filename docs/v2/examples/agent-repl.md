@@ -1,6 +1,6 @@
 # Read a file in the REPL
 
-`kdeps` with no arguments reads and writes files in the current directory. No workflow YAML. No API key. Install is the [30-second quickstart](/agent/quickstart). The file tools are [File tools](/agent/tools-files).
+`kdeps --agent-loop` reads and writes files in the current directory. No workflow YAML. No API key. Install is the [30-second quickstart](/agent/quickstart). The file tools are [File tools](/agent/tools-files).
 
 On the first run, kdeps asks you to confirm the `llama3.2:1b` download (about 1.1 GB). After that, kdeps keeps the model in `~/.kdeps/models/`.
 
@@ -17,10 +17,10 @@ EOF
 ## Step 2: start the REPL
 
 ```bash
-kdeps
+kdeps --agent-loop
 ```
 
-Run it from `notes-agent`. With no path, `kdeps` uses the current directory. A path argument loads a workflow, and this folder has none, so `kdeps .` exits with `no workflow or agency files found`.
+Run it from `notes-agent`. With no path, `kdeps --agent-loop` uses the current directory. A path argument loads a workflow, and this folder has none, so `kdeps --agent-loop .` exits with `no workflow or agency files found`.
 
 ```text
 kdeps v2.x.x

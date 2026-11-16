@@ -410,7 +410,7 @@ func getToken(ctx context.Context) (string, error) {
 	secrets := loadSecrets()
 	if secrets == nil {
 		return "", fmt.Errorf(
-			"m365: not signed in -- run /login in the REPL (or kdeps --model m365-copilot"+
+			"m365: not signed in -- run /login in the REPL (or kdeps --agent-loop --model m365-copilot"+
 				" --backend m365 interactively) to open a browser and sign in,"+
 				" or provide email/password/mfaSecret at %s for a headless host",
 			secretsFile(),

@@ -36,7 +36,8 @@ kdeps run workflow.yaml
 | Command | Page | Description |
 |---|---|---|
 | `kdeps run` | [Dev commands](/reference/cli-dev#kdeps-run) | Run a workflow locally |
-| `kdeps [path]` | [Dev commands](/reference/cli-dev#kdeps-path-agent-repl) | Agent mode REPL |
+| `kdeps [path]` | [Dev commands](/reference/cli-dev#kdeps-path-run-a-workflow) | Run `path` or `./workflow.yaml`, as `kdeps run` |
+| `kdeps --agent-loop [path]` | [Dev commands](/reference/cli-dev#kdeps-agent-loop-path-agent-repl) | Agent mode REPL |
 | `kdeps validate` | [Dev commands](/reference/cli-dev#kdeps-validate) | Validate workflow config |
 | `kdeps test` | [Dev commands](/reference/cli-dev#kdeps-test) | Run the workflow's `evals:` in-process, no port bound |
 | `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |

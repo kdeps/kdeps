@@ -25,7 +25,7 @@ before=$(wc -c < "$E2E_MOCK_LLM_LOG")
 OUT=$( (cd "$DS_DIR/work" && printf 'CALLDSML bash_exec {"command":"echo $((6*7))dsmlout"}\n/quit\n' \
     | env HOME="$DS_DIR/home" USERPROFILE="$(native "$DS_DIR/home")" \
         KDEPS_CONFIG_PATH="$DS_DIR/home/.kdeps/config.yaml" \
-        timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true)
+        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake 2>&1) || true)
 SENT=$(tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG")
 
 # The command's output is not in the model's text, so only a real run sends it

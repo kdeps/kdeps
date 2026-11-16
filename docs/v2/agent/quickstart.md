@@ -36,7 +36,7 @@ kdeps --version
 ## Start the agent
 
 ```bash
-kdeps
+kdeps --agent-loop
 ```
 
 kdeps opens an interactive REPL. By default it uses the local llamafile model `llama3.2:1b` (~1.1 GB). On first use, you confirm the download. kdeps keeps the model in `~/.kdeps/models/`. You do not need an API key.
@@ -58,14 +58,14 @@ If you already have [Ollama](https://ollama.com) installed, point kdeps at it:
 ollama pull llama3.2
 
 # start kdeps using that model
-kdeps --model llama3.2 --backend ollama
+kdeps --agent-loop --model llama3.2 --backend ollama
 ```
 
 Or try a reasoning model:
 
 ```bash
 ollama pull deepseek-r1
-kdeps --model deepseek-r1 --backend ollama
+kdeps --agent-loop --model deepseek-r1 --backend ollama
 ```
 
 Your prompts never leave the machine.
@@ -77,11 +77,11 @@ Set your API key and pick a provider:
 ```bash
 # Anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
-kdeps --model claude-sonnet-4-6 --backend anthropic
+kdeps --agent-loop --model claude-sonnet-4-6 --backend anthropic
 
 # OpenAI
 export OPENAI_API_KEY=sk-...
-kdeps --model gpt-4o --backend openai
+kdeps --agent-loop --model gpt-4o --backend openai
 ```
 
 The `--backend` flag tells kdeps where to route the request. The `--model` flag picks the model. You can also set both in `~/.kdeps/config.yaml`. Then you do not type them each time.
@@ -91,7 +91,7 @@ The `--backend` flag tells kdeps where to route the request. The `--model` flag 
 When you have a workflow directory, give it as an argument to `kdeps`:
 
 ```bash
-kdeps ./my-workflow/
+kdeps --agent-loop ./my-workflow/
 ```
 
 The REPL starts with your workflow registered as a callable tool. The LLM decides when to invoke it. This is [agent mode](/agent/) - the LLM drives, your workflows execute on demand.
