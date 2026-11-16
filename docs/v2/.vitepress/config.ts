@@ -40,6 +40,8 @@ export default defineConfig({
     ['link', { rel: 'icon', href: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' }],
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['meta', { name: 'theme-color', content: '#080808' }],
+    // Motion is opt-in: without JS, or with reduced motion set, everything renders static.
+    ['script', {}, "if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('kd-motion')"],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps Documentation' }],
     ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],

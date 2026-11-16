@@ -2,6 +2,32 @@
   Copyright 2026 Kdeps, KvK 94834768
   Licensed under the Apache License, Version 2.0
 -->
+<script setup>
+import { onMounted, onUnmounted, ref } from 'vue'
+
+// Index of the lit step; -1 keeps all steps in their static style.
+const lit = ref(-1)
+const root = ref(null)
+let timer
+let io
+
+onMounted(() => {
+  if (!document.documentElement.classList.contains('kd-motion')) return
+  io = new IntersectionObserver(([e]) => {
+    clearInterval(timer)
+    if (!e.isIntersecting) return
+    lit.value = 0
+    timer = setInterval(() => { lit.value = (lit.value + 1) % 3 }, 1600)
+  }, { threshold: 0.4 })
+  io.observe(root.value)
+})
+
+onUnmounted(() => {
+  clearInterval(timer)
+  io?.disconnect()
+})
+</script>
+
 <template>
   <section class="how-it-works">
     <div class="container">
@@ -9,8 +35,8 @@
       <h2 class="section-title">How it works</h2>
       <p class="section-sub">Write YAML. Run it. Ship the same file.</p>
 
-      <div class="steps">
-        <div class="step">
+      <div ref="root" class="steps">
+        <div :class="['step', { on: lit === 0 }]">
           <div class="step-num">01</div>
           <div class="step-body">
             <h3>Write YAML</h3>
@@ -18,9 +44,9 @@
           </div>
         </div>
 
-        <div class="step-arrow">→</div>
+        <div :class="['step-arrow', { on: lit === 1 }]">→</div>
 
-        <div class="step">
+        <div :class="['step', { on: lit === 1 }]">
           <div class="step-num">02</div>
           <div class="step-body">
             <h3>Run it</h3>
@@ -28,9 +54,9 @@
           </div>
         </div>
 
-        <div class="step-arrow">→</div>
+        <div :class="['step-arrow', { on: lit === 2 }]">→</div>
 
-        <div class="step">
+        <div :class="['step', { on: lit === 2 }]">
           <div class="step-num">03</div>
           <div class="step-body">
             <h3>Ship it</h3>
@@ -138,11 +164,36 @@
   flex-shrink: 0;
 }
 
+/* The lit step and the arrow leading into it take the accent. */
+.step-num,
+.step-arrow {
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.step.on .step-num {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.08);
+}
+.step-body h3 { transition: color 0.3s ease; }
+.step.on h3 { color: var(--vp-c-brand-1); }
+.step-arrow.on {
+  color: var(--vp-c-brand-1);
+  animation: kd-nudge 0.8s ease-in-out;
+}
+@keyframes kd-nudge {
+  50% { translate: 4px 0; }
+}
+@keyframes kd-nudge-down {
+  50% { translate: 0 4px; }
+}
+
 @media (max-width: 768px) {
   .steps {
     flex-direction: column;
     gap: 32px;
   }
+
+  .step-arrow.on { animation-name: kd-nudge-down; }
 
   .step-arrow {
     transform: rotate(90deg);

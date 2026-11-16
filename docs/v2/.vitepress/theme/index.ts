@@ -19,8 +19,8 @@
  */
 
 import DefaultTheme from 'vitepress/theme'
-import { h } from 'vue'
-import type { Theme } from 'vitepress'
+import { h, nextTick, onMounted, watch } from 'vue'
+import { useRoute, type Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
 import MegaNav from './MegaNav.vue'
@@ -33,10 +33,46 @@ import FooterCTAs from './FooterCTAs.vue'
 import DesktopLanding from './DesktopLanding.vue'
 import './custom.css'
 
+// Fades home sections up as they scroll into view. Gated on the kd-motion
+// class set in <head>, so reduced-motion and no-JS visitors see them static.
+const REVEAL = '.VPHome .VPFeature, .VPHome section > .container'
+
+function observeReveals() {
+  if (!document.documentElement.classList.contains('kd-motion')) return
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue
+      const el = e.target as HTMLElement
+      // Drop the reveal classes once done so hover transitions apply again.
+      const done = (ev: TransitionEvent) => {
+        if (ev.target !== el || ev.propertyName !== 'opacity') return
+        el.removeEventListener('transitionend', done)
+        el.classList.remove('kd-rv', 'kd-in')
+        el.style.transitionDelay = ''
+      }
+      el.addEventListener('transitionend', done)
+      el.classList.add('kd-in')
+      io.unobserve(el)
+    }
+  }, { rootMargin: '0px 0px -10% 0px' })
+  document.querySelectorAll<HTMLElement>(REVEAL).forEach((el, i) => {
+    if (el.dataset.kdSeen) return
+    el.dataset.kdSeen = '1'
+    if (el.classList.contains('VPFeature')) el.style.transitionDelay = `${(i % 3) * 80}ms`
+    el.classList.add('kd-rv')
+    io.observe(el)
+  })
+}
+
 export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
     app.component('DesktopLanding', DesktopLanding)
+  },
+  setup() {
+    const route = useRoute()
+    onMounted(observeReveals)
+    watch(() => route.path, () => nextTick(observeReveals))
   },
   Layout() {
     return h(DefaultTheme.Layout, null, {

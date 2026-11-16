@@ -825,3 +825,14 @@ div[class*='language-'] > span.lang,
 .capabilities .diagram svg .connection.fill-B1 { fill: #00E5FF !important; }
 .capabilities .diagram svg .fill-B1 { fill: #2a2a2a !important; }
 .capabilities .diagram svg text.text-bold { fill: #f0f0f0 !important; }
+
+/* Scroll reveal (see observeReveals in index.ts). Only under html.kd-motion. */
+html.kd-motion .kd-rv {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html.kd-motion .kd-rv.kd-in {
+  opacity: 1;
+  transform: none;
+}
