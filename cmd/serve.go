@@ -406,8 +406,9 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	excludedTools := leanExcludedTools(registry)
 
 	loop := agent.New(ctx, eng, hostWorkflow, registry, cfg)
-	repl := agent.NewREPL(rootCtx, loop)
-	repl.RegisterCommandAPI()
+	// The terminal is one front end on the agent runtime; the desktop app is
+	// another (pkg/desktop).
+	repl := agent.NewRuntime(rootCtx, loop, agent.RuntimeOptions{}).REPL()
 	defer llm.ShutdownLocalServers()
 
 	fmt.Fprintln(os.Stderr, "Loading model catalog...")

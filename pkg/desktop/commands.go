@@ -92,55 +92,48 @@ func (s *Service) Command(line string) error {
 	}
 
 	s.mu.Lock()
-	if s.running {
-		s.mu.Unlock()
+	rt := s.rt
+	s.mu.Unlock()
+	err := rt.Go(func(ctx context.Context) func() { return s.runCommand(ctx, rt, line) })
+	if errors.Is(err, agent.ErrBusy) {
 		return errors.New("desktop: a turn is already running")
 	}
-	turnCtx, cancel := context.WithCancel(s.ctx)
-	s.running = true
-	s.turnCtx = turnCtx
-	s.cancel = cancel
-	loop, repl := s.loop, s.repl
-	s.mu.Unlock()
-
-	go s.runCommand(turnCtx, cancel, loop, repl, line)
-	return nil
+	return err
 }
 
-func (s *Service) runCommand(
-	ctx context.Context, cancel context.CancelFunc, loop *agent.Loop, repl *agent.REPL, line string,
-) {
-	defer cancel()
+// runCommand runs one slash command and returns the events to emit once the
+// runtime is idle again.
+func (s *Service) runCommand(ctx context.Context, rt *agent.Runtime, line string) func() {
+	loop := rt.Loop()
 	fields := strings.Fields(line)
 	name := strings.ToLower(fields[0])
 	beforeModel := loop.Config().Model
 	beforeSession := loop.SessionID()
 
-	err := repl.ExecuteCommand(ctx, &eventWriter{emit: s.opts.Emit, kind: KindCommandOut}, line)
+	err := rt.Command(ctx, &eventWriter{emit: s.opts.Emit, kind: KindCommandOut}, line)
 	if err != nil && ctx.Err() == nil {
 		s.opts.Emit(Event{Kind: KindCommandOut, Text: "error: " + err.Error() + "\n"})
 	}
 
 	cfg := loop.Config()
 	if cfg.Model != beforeModel {
-		s.rememberModel(ctx, repl, cfg, name, fields[1:])
+		s.rememberModel(ctx, rt, cfg, name, fields[1:])
 		s.opts.Emit(Event{Kind: KindModel, Model: cfg.Model, Backend: cfg.Backend})
 	}
-	s.mu.Lock()
-	s.running = false
-	s.mu.Unlock()
 
-	switch {
-	case name == "/clear":
-		s.opts.Emit(Event{Kind: KindUI, Text: "clear"})
-	case strings.HasPrefix(name, "/session") && loop.SessionID() != beforeSession:
-		s.opts.Emit(Event{Kind: KindUI, Text: "reload", SessionID: loop.SessionID()})
+	return func() {
+		switch {
+		case name == "/clear":
+			s.opts.Emit(Event{Kind: KindUI, Text: "clear"})
+		case strings.HasPrefix(name, "/session") && loop.SessionID() != beforeSession:
+			s.opts.Emit(Event{Kind: KindUI, Text: "reload", SessionID: loop.SessionID()})
+		}
+		s.opts.Emit(Event{Kind: KindTurnEnd, SessionID: loop.SessionID()})
 	}
-	s.opts.Emit(Event{Kind: KindTurnEnd, SessionID: loop.SessionID()})
 }
 
 // rememberModel carries a model switch into later chats and across launches.
-func (s *Service) rememberModel(ctx context.Context, repl *agent.REPL, cfg agent.Config, name string, args []string) {
+func (s *Service) rememberModel(ctx context.Context, rt *agent.Runtime, cfg agent.Config, name string, args []string) {
 	s.mu.Lock()
 	s.opts.Model, s.opts.Backend = cfg.Model, cfg.Backend
 	// A local server URL belongs to one running model; only a custom endpoint
@@ -152,7 +145,7 @@ func (s *Service) rememberModel(ctx context.Context, repl *agent.REPL, cfg agent
 	}
 	s.mu.Unlock()
 	if name == "/model" && len(args) == 1 && !modelSubcommands[strings.ToLower(args[0])] {
-		_ = repl.ExecuteCommand(ctx, io.Discard, "/model default "+args[0])
+		_ = rt.Command(ctx, io.Discard, "/model default "+args[0])
 	}
 }
 
@@ -171,9 +164,9 @@ func (s *Service) SetModel(name string) error {
 // registries, Ollama and the cloud catalog, flagged downloaded/enabled/current.
 func (s *Service) Models() []agent.ModelInfo {
 	s.mu.Lock()
-	repl := s.repl
+	rt := s.rt
 	s.mu.Unlock()
-	models := repl.ModelCatalog()
+	models := rt.ModelCatalog()
 	sort.SliceStable(models, func(i, j int) bool {
 		a, b := models[i], models[j]
 		if a.Current != b.Current {
@@ -190,9 +183,9 @@ func (s *Service) Models() []agent.ModelInfo {
 // CurrentModel reports the model the active chat runs on.
 func (s *Service) CurrentModel() ModelState {
 	s.mu.Lock()
-	loop := s.loop
+	rt := s.rt
 	s.mu.Unlock()
-	cfg := loop.Config()
+	cfg := rt.Loop().Config()
 	return ModelState{Model: cfg.Model, Backend: cfg.Backend}
 }
 
@@ -200,19 +193,19 @@ func (s *Service) CurrentModel() ModelState {
 // character offset): slash commands, subcommands, model names and @file paths.
 func (s *Service) Complete(line string, pos int) agent.Completion {
 	s.mu.Lock()
-	repl := s.repl
+	rt := s.rt
 	s.mu.Unlock()
-	return repl.Complete(line, pos)
+	return rt.Complete(line, pos)
 }
 
 // Commands lists every slash command (built-ins, skills, prompts) with its
 // one-line description from /help.
 func (s *Service) Commands() []CommandInfo {
 	s.mu.Lock()
-	repl := s.repl
+	rt := s.rt
 	s.mu.Unlock()
-	descs := repl.CommandDescriptions()
-	names := repl.CommandNames()
+	descs := rt.CommandDescriptions()
+	names := rt.CommandNames()
 	out := make([]CommandInfo, 0, len(names))
 	for _, n := range names {
 		if n == "/exit" || n == "/quit" {

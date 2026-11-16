@@ -453,7 +453,7 @@ func (s *Service) SetInChat(path string, on bool) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.running {
+	if s.rt.Running() {
 		return errors.New("desktop: a turn is running")
 	}
 	if existing := s.registry.Get(tool.Name); existing != nil && !s.ownsTool(existing) {
