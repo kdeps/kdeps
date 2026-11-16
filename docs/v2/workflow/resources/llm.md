@@ -21,6 +21,29 @@ A chat's keys sit in six groups:
 
 `loop` sits beside the groups: it runs the chat as the agent loop (see [Agent loop](#agent-loop)).
 
+## Defaults and auto values
+
+A chat gets the agent's quality defaults unless it sets a value. `auto` asks kdeps to choose.
+
+```yaml
+chat:
+  model:
+    name: auto            # best of your llm.models, else the best installed model
+    retries: auto         # transient failures retry 3 times (chat-retries event); 0 = off
+    thinking:
+      mode: none          # default: auto on models that reason; none = off
+  context:
+    contextLength: auto   # sized for the backend (the default)
+  tools:
+    list: auto            # every built-in kdeps tool a workflow can call (default: none)
+    maxRounds: auto       # the chat-max-rounds event, 25 (the default)
+  guardrails:
+    judges: auto          # one call picks up to 3 judges per request (default: none)
+```
+
+- On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
+- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`, `loop.judges: true`), the planning council (`loop.plan: true`) and prompt refine (`harness.refine: true`). They add tool access or model calls, so a chat never gets them silently.
+
 ## Where config lives
 
 Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. As a result, you can change backends with no change to your workflow.
@@ -470,6 +493,8 @@ chat:
     tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
     maxRounds: 25                              # tool rounds per request; 0 = the agent default
     session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
+    plan: true                                 # opt-in: planning council before a task (default false)
+    judges: true                               # opt-in: automatic judge roster (default false; guardrails.judges replace it)
 ```
 
 ```text
@@ -552,7 +577,7 @@ real step-by-step loop. Each call uses the real output of the previous tool.
 
 To run calls in batches again, set `KDEPS_ALLOW_MULTI_TOOL=1`.
 `tools.maxRounds` on the `chat:` resource sets the maximum number of rounds.
-Without it, the `chat-max-rounds` event sets the maximum (5).
+Without it (or with `auto`), the `chat-max-rounds` event sets the maximum (25).
 
 Agent mode's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new different calls to its tools when the budget is empty. If the model repeats a call, it gets the first result again, and the tool does not run again. If a call repeats more than `identical-tool-calls` (3) times, the chat answers. kdeps cuts a tool result to the `tool-result-truncate` event (8192 bytes, and keeps the start and the end). It cuts a tool error to `tool-error-truncate` (500).
 

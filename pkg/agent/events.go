@@ -312,6 +312,7 @@ func initEvents() {
 	configureJudges()
 	configureSubagent()
 	executorLLM.SetChatToolRounds(func() int { return effectiveRounds(eventChatMaxRounds) })
+	executorLLM.SetChatRetries(func() int { return max(effectiveItems(eventChatRetries, defaultChatRetries), 0) })
 	executorLLM.SetThinkingBudget(thinkingBudget)
 	configureToolBudget()
 	configureBodyLimit()
@@ -676,6 +677,9 @@ func memoryLowSignalLimit() int {
 // fallback -- same reasoning as effectiveBytes/effectiveDistinctCalls: 0
 // would mean "list nothing" / "keep nothing" / "bound the query to zero
 // relations," never a sane resolution of a missing/corrupt override.
+// defaultChatRetries is the chat-retries fallback when its event is missing.
+const defaultChatRetries = 3
+
 func effectiveItems(name string, fallback int) int {
 	if !EventEnabled(name) {
 		return disabledSentinel

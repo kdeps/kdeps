@@ -53,6 +53,8 @@ type Settings struct {
 	SystemPrompt func(spec domain.Judge, reply bool) string
 	// Preset returns a preset's judges, or false when no preset has that name.
 	Preset func(name string) ([]domain.Judge, bool)
+	// RosterPrompt is the system prompt of an automatic roster call.
+	RosterPrompt func() string
 }
 
 //nolint:gochecknoglobals // process-wide settings, installed once at startup

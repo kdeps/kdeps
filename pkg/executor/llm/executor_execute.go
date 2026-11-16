@@ -48,6 +48,9 @@ func (e *Executor) Execute(
 		execute = e.executeLoop
 	}
 	result, run, err := execute(ctx, config)
+	if err == nil && len(roster) == 0 && config.JudgesAuto && run.call != nil {
+		roster = autoRoster(run.call, run.prompt)
+	}
 	if err != nil || len(roster) == 0 {
 		return result, err
 	}
@@ -58,6 +61,8 @@ func (e *Executor) Execute(
 type chatRun struct {
 	cfg    *domain.ChatConfig
 	prompt string
+	// call is the chat's model call, for an automatic judge roster.
+	call chatCall
 }
 
 // executeChat runs one chat call: no judges.
@@ -87,6 +92,8 @@ func (e *Executor) executeChat(
 	if backendErr != nil {
 		return nil, chatRun{}, backendErr
 	}
+	applyThinkingDefault(resolvedConfig, modelStr)
+	withAutoTools(resolvedConfig)
 	chatTools, toolsErr := kdepsTools(withMemory(ctx), resolvedConfig.Tools)
 	if toolsErr != nil {
 		return nil, chatRun{}, toolsErr
@@ -105,9 +112,9 @@ func (e *Executor) executeChat(
 	timeout := e.resolveTimeout(resolvedConfig)
 	maxOutputBytes := e.resolveMaxOutputBytes()
 
-	raw := limitBody(backendName, freeModelCall(backendName, modelStr, func(model string) chatCall {
+	raw := withRetry(ctx.Ctx, limitBody(backendName, freeModelCall(backendName, modelStr, func(model string) chatCall {
 		return langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, model, timeout)
-	}))
+	})), retriesFor(resolvedConfig))
 	if resolvedConfig.Refine {
 		promptStr = refineChat(raw, messages, promptStr, requestConfig.ContextLength)
 	}
@@ -142,7 +149,7 @@ func (e *Executor) executeChat(
 	if err == nil {
 		logWorkflowRun(ctx, resolvedConfig, promptStr, result)
 	}
-	return result, chatRun{cfg: resolvedConfig, prompt: promptStr}, err
+	return result, chatRun{cfg: resolvedConfig, prompt: promptStr, call: raw}, err
 }
 
 // limitBody refuses a model call whose messages exceed backend's request body

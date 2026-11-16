@@ -160,8 +160,16 @@ type ChatConfig struct {
 	ToolChoice string `yaml:"toolChoice,omitempty"`
 
 	// MaxToolRounds caps the number of tool call / response round-trips for this
-	// resource. 0 means use the executor default (currently 5).
+	// resource. 0 (or auto) uses the chat-max-rounds event.
 	MaxToolRounds int `yaml:"maxToolRounds,omitempty"`
+
+	// ToolsAuto is tools.list: auto: every built-in kdeps tool a workflow
+	// chat can call is offered, plus the tools the chat lists itself.
+	ToolsAuto bool `yaml:"-"`
+
+	// Retries is model.retries: retries of the model call after a transient
+	// failure. Nil (or auto) uses the chat-retries event; 0 turns it off.
+	Retries *int `yaml:"retries,omitempty"`
 
 	// Loop runs this chat as the kdeps agent loop: the model works through
 	// built-in tools over many rounds, with compaction, and requests that
@@ -320,6 +328,9 @@ type ChatConfig struct {
 	// JudgePreset names a preset (assets/presets) whose judges review the
 	// answer, as agent mode's /harness preset applies them. Not with judges.
 	JudgePreset string `yaml:"judgePreset,omitempty"`
+	// JudgesAuto is guardrails.judges: auto: a roster call picks up to three
+	// judges for each request.
+	JudgesAuto bool `yaml:"-"`
 	// Harness names agent mode's preamble sections (accuracy, honesty,
 	// output, ...) to add to the system prompt, in order.
 	Harness []string `yaml:"harness,omitempty"`
@@ -430,6 +441,11 @@ type ChatLoopConfig struct {
 	Tools []string `yaml:"tools,omitempty"`
 	// MaxRounds caps tool rounds per request. 0 uses the agent default.
 	MaxRounds int `yaml:"maxRounds,omitempty"`
+	// Plan runs the planning council before a task. Opt-in: true turns it on.
+	Plan *bool `yaml:"plan,omitempty"`
+	// Judges reviews each answer with an automatic judge roster. Opt-in:
+	// true turns it on; listed guardrails.judges replace it.
+	Judges *bool `yaml:"judges,omitempty"`
 	// Session is the conversation id, usually an expression such as
 	// "{{ get('session') }}". Requests with the same id continue one stored
 	// conversation; empty starts a new one every request.

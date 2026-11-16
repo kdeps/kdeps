@@ -198,6 +198,7 @@ var (
 			"n":                       "model.n",
 			"minLength":               "model.minLength",
 			"maxLength":               "model.maxLength",
+			"retries":                 "model.retries",
 			"googleCachedContent":     "model.googleCachedContent",
 			"googleHarmThreshold":     "model.googleHarmThreshold",
 			"googleCloudProject":      "model.googleCloudProject",
@@ -283,7 +284,45 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	if err != nil {
 		return err
 	}
-	return flat.Decode((*chatConfigPlain)(c))
+	toolsAuto, judgesAuto := takeChatAutos(flat)
+	if err = flat.Decode((*chatConfigPlain)(c)); err != nil {
+		return err
+	}
+	c.ToolsAuto, c.JudgesAuto = toolsAuto, judgesAuto
+	return nil
+}
+
+// chatAutoValue is the value that asks kdeps to choose.
+const chatAutoValue = "auto"
+
+// takeChatAutos removes the auto values from a flat chat mapping. A count set
+// to auto (contextLength, maxToolRounds, retries) is the same as leaving it
+// out; tools: auto and judges: auto are reported, since a list cannot hold
+// them.
+func takeChatAutos(flat *yaml.Node) (bool, bool) {
+	toolsAuto, judgesAuto := false, false
+	if flat.Kind != yaml.MappingNode {
+		return false, false
+	}
+	kept := flat.Content[:0]
+	for i := 0; i+1 < len(flat.Content); i += 2 {
+		k, v := flat.Content[i], flat.Content[i+1]
+		if v.Kind == yaml.ScalarNode && v.Value == chatAutoValue {
+			switch k.Value {
+			case "contextLength", "maxToolRounds", "retries":
+				continue
+			case "tools":
+				toolsAuto = true
+				continue
+			case "judges":
+				judgesAuto = true
+				continue
+			}
+		}
+		kept = append(kept, k, v)
+	}
+	flat.Content = kept
+	return toolsAuto, judgesAuto
 }
 
 // MarshalYAML writes the grouped chat layout.
@@ -291,6 +330,17 @@ func (c ChatConfig) MarshalYAML() (any, error) {
 	var n yaml.Node
 	if err := n.Encode(chatConfigPlain(c)); err != nil {
 		return nil, err
+	}
+	auto := func(key string) {
+		n.Content = append(n.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: chatAutoValue})
+	}
+	if c.ToolsAuto && len(c.Tools) == 0 {
+		auto("tools")
+	}
+	if c.JudgesAuto && len(c.Judges) == 0 {
+		auto("judges")
 	}
 	return chatLayout.group(&n), nil
 }

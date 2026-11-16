@@ -96,6 +96,15 @@ func (e *Executor) resolveModelForExecution(
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
+	if modelStr == modelAuto {
+		// model: auto, as the agent's --model auto: the best llm.models
+		// entry, else the best installed model, else the default resolution.
+		m, b := autoModelPick(ctx.Ctx)
+		modelStr = m
+		if b != "" {
+			resolvedConfig.Backend = b
+		}
+	}
 	if isSystemSentinel(modelStr) {
 		// "system" resolves exactly like an omitted model: router / first
 		// configured model / best installed local / built-in default.

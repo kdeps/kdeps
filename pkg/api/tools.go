@@ -296,3 +296,18 @@ type toolItem struct {
 	Parameters  map[string]domain.ToolParam `json:"parameters,omitempty"`
 	AgentOnly   bool                        `json:"agentOnly,omitempty"`
 }
+
+// WorkflowToolNames lists, sorted, the registered tools a workflow chat can
+// call: every tool not limited to an agent session.
+func WorkflowToolNames() []string {
+	toolMu.RLock()
+	defer toolMu.RUnlock()
+	names := make([]string, 0, len(toolReg))
+	for name, spec := range toolReg {
+		if !spec.AgentOnly {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
+}

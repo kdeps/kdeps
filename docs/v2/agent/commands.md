@@ -47,7 +47,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/refine` | Show whether pre-turn prompt refinement is on (see [Prompt refinement](/agent/refine)) |
 | `/refine on\|off` | Enable or disable rewriting each prompt for clarity before the turn; off by default, persists across sessions. A session that already stored refine-on stays on |
 | `/plan` | Show whether the planning council runs before each task (see [Planning council](/agent/plan)) |
-| `/plan on\|off` | Enable or disable the council; on by default, persists across sessions |
+| `/plan on\|off` | Enable or disable the council; off by default, persists across sessions |
 | `/approve [<token_id>]` | List approval tokens, or grant a pending one. Only you can grant; the agent cannot (see [Approval tokens](/agent/approvals)) |
 | `/subagent` | Show the model subagents use: judges, knowledge extraction, prompt refinement, the planning council and the `subagent` tool (see [Subagents](/agent/subagent)) |
 | `/subagent current\|free\|<model>` | Use the session model, a large OpenRouter free model chosen per call, or any model. The session model is the default. Persists, and wins over `llm.subagent` |
@@ -62,11 +62,11 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
 | `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files` |
 | `/instruct list` | Name the topics without briefing the model |
-| `/judges` | Show the judge panel. It is the eval and runs unless turned off (see [Judge panel](/agent/judges)) |
+| `/judges` | Show the judge panel. It runs once turned on with `/judges auto on` or an explicit roster (see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
 | `/judges grade <name> <kind> <pattern>` | Attach a grader (`exact`, `contains`, `not_contains`, `regex`, `json`, `expr`) to a judge. It runs before that judge's model review |
-| `/judges auto [on\|off]` | Show or toggle the per-turn roster; on unless turned off; persists across sessions |
+| `/judges auto [on\|off]` | Show or toggle the per-turn roster; off by default; persists across sessions |
 | `/judges off` (or `/judges clear`) | Disable the judge panel (drops the roster, graders included) and store `auto_judges: false` |
 | `/memory` | Show memory store overview: entry count and the 10 most recently updated entries (with values) |
 | `/memory list` | List every stored memory entry with a truncated value preview |

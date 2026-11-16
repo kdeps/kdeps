@@ -23,10 +23,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/judge"
 )
 
 // Judge roster resolution: an explicit Config.Judges list is used as-is;
@@ -38,7 +38,7 @@ const judgeRosterActionID = "agent_loop_judge_roster"
 
 // maxAutoJudges bounds an auto-generated panel. Past a handful, judges stop
 // being independent perspectives and just multiply review cost.
-const maxAutoJudges = 3
+const maxAutoJudges = judge.MaxAutoJudges
 
 // generateJudgeRoster asks the model for a panel of reviewer personas suited
 // to input. Returns nil on any engine error or unparsable reply — a broken
@@ -103,34 +103,7 @@ func jsonResultText(result any) string {
 
 // parseJudgeRoster extracts the judge list from a model reply, tolerating a
 // code fence or surrounding prose around the JSON object.
-func parseJudgeRoster(reply string) []domain.Judge {
-	raw := extractJSONObject(reply)
-	if raw == "" {
-		return nil
-	}
-	var payload struct {
-		Judges []struct {
-			Name     string `json:"name"`
-			Criteria string `json:"criteria"`
-		} `json:"judges"`
-	}
-	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		return nil
-	}
-	out := make([]domain.Judge, 0, len(payload.Judges))
-	for _, j := range payload.Judges {
-		name := strings.TrimSpace(j.Name)
-		criteria := strings.TrimSpace(j.Criteria)
-		if name == "" || criteria == "" {
-			continue
-		}
-		out = append(out, domain.Judge{Name: name, Criteria: criteria})
-		if len(out) == maxAutoJudges {
-			break
-		}
-	}
-	return out
-}
+func parseJudgeRoster(reply string) []domain.Judge { return judge.ParseRoster(reply) }
 
 // Judges returns the explicit judge roster (nil when none configured).
 func (l *Loop) Judges() []domain.Judge {

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # E2E: a workflow chat's tool-call guard comes from events. Default rounds
-# are chat-max-rounds (5); a ~/.kdeps/events override changes them. A budget
+# are chat-max-rounds (25); a ~/.kdeps/events override changes them. A budget
 # event (tools: + distinctCalls) blocks new distinct calls, and a call the
 # model keeps repeating stops at identical-tool-calls (3), run only once. A
 # tool-result-truncate override cuts what the model sees of a result.
@@ -157,10 +157,10 @@ YAML
 }
 
 RESP=$(run_rounds "default")
-if echo "$RESP" | grep -q "LOOP DONE 5"; then
-    test_passed "Workflow chat rounds - the chat-max-rounds event caps a chat at 5 tool rounds"
+if echo "$RESP" | grep -q "LOOP DONE 25"; then
+    test_passed "Workflow chat rounds - the chat-max-rounds event caps a chat at 25 tool rounds"
 else
-    test_failed "Workflow chat rounds - the chat-max-rounds event caps a chat at 5 tool rounds" "resp=$RESP"
+    test_failed "Workflow chat rounds - the chat-max-rounds event caps a chat at 25 tool rounds" "resp=$RESP"
 fi
 
 RESP=$(run_rounds "override" "$TEST_DIR/home")
@@ -171,7 +171,7 @@ else
 fi
 
 RESP=$(run_rounds "budget" "$TEST_DIR/budget")
-if echo "$RESP" | grep -q "LOOP DONE 5 BLOCKED 3"; then
+if echo "$RESP" | grep -q "LOOP DONE 25 BLOCKED 23"; then
     test_passed "Workflow chat rounds - a budget event blocks calls past its distinctCalls"
 else
     test_failed "Workflow chat rounds - a budget event blocks calls past its distinctCalls" "resp=$RESP"

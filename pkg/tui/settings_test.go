@@ -35,10 +35,10 @@ func TestSettings_SaveLoad(t *testing.T) {
 	assert.Equal(t, []string{"lint"}, got.EnabledSkills)
 }
 
-func TestAgentLoopTuning_MissingAutoJudgesIsOn(t *testing.T) {
+func TestAgentLoopTuning_MissingAutoJudgesIsOff(t *testing.T) {
 	var on AgentLoopTuning
 	require.NoError(t, yaml.Unmarshal([]byte("max_tool_rounds: 7\ntools_configured: true\n"), &on))
-	assert.True(t, on.AutoJudges, "a file that never set auto_judges stays on")
+	assert.False(t, on.AutoJudges, "auto judges are opt-in: /judges auto")
 	assert.Equal(t, 7, on.MaxToolRounds)
 
 	var off AgentLoopTuning

@@ -76,17 +76,6 @@ func localModelNotServed(l *Loop) bool {
 	return backend == "" || backend == "file" || backend == "gguf"
 }
 
-// extractJSONObject returns the outermost {...} span of s, so a reply wrapped in
-// ```json fences or explanatory prose still parses.
-func extractJSONObject(s string) string {
-	start := strings.Index(s, "{")
-	end := strings.LastIndex(s, "}")
-	if start < 0 || end <= start {
-		return ""
-	}
-	return s[start : end+1]
-}
-
 // Defaults for the trivial-prompt events, used when an event is off.
 const (
 	defaultTrivialPromptMax   = 120

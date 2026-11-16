@@ -38,7 +38,7 @@ import (
 )
 
 // A workflow chat with no maxToolRounds runs as many tool rounds as the
-// chat-max-rounds event allows (5), then asks the model for its answer.
+// chat-max-rounds event allows (25), then asks the model for its answer.
 func TestWorkflowChat_ChatMaxRoundsEvent(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,8 +101,8 @@ func TestWorkflowChat_ChatMaxRoundsEvent(t *testing.T) {
 	out, err := engine.Execute(wf, nil)
 	require.NoError(t, err)
 	raw, _ := json.Marshal(out)
-	assert.Contains(t, string(raw), "DONE after 5")
-	assert.Equal(t, int32(5), calls.Load())
+	assert.Contains(t, string(raw), "DONE after 25")
+	assert.Equal(t, int32(25), calls.Load())
 }
 
 // A model that keeps issuing the same call gets the first result back without
