@@ -33,12 +33,12 @@ onUnmounted(() => io?.disconnect())
             <span class="chip strong">workflow.yaml</span>
             <div class="tracks"><i class="track"><b></b></i><i class="track"><b></b></i></div>
             <div class="row">
-              <span class="chip">kdeps run<em>API</em></span>
-              <span class="chip">kdeps .<em>agent REPL</em></span>
+              <span class="chip">api<em>HTTP</em></span>
+              <span class="chip">interactive<em>prompt</em></span>
             </div>
           </div>
-          <h3>Two modes, one file</h3>
-          <p><code>kdeps run</code> serves it as an API. <code>kdeps .</code> loads it as a tool in the agent loop.</p>
+          <h3>One file, any input</h3>
+          <p><code>kdeps</code> runs it. Requests come from an API, a bot, a file or an <code>interactive</code> prompt.</p>
         </div>
 
         <div class="box">

@@ -40,7 +40,7 @@ onUnmounted(() => {
           <div class="step-num">01</div>
           <div class="step-body">
             <h3>Write YAML</h3>
-            <p>Declare resources: chat, HTTP, Python, SQL. Connect them with <code>requires:</code> under <code>flow:</code>. One file operates in both modes.</p>
+            <p>Declare resources: chat, HTTP, Python, SQL. Connect them with <code>requires:</code> under <code>flow:</code>. A <code>chat</code> with <code>loop:</code> is an agent.</p>
           </div>
         </div>
 
@@ -50,7 +50,7 @@ onUnmounted(() => {
           <div class="step-num">02</div>
           <div class="step-body">
             <h3>Run it</h3>
-            <p><code>kdeps run</code> serves the API. <code>kdeps .</code> loads the same pipeline as a tool in the REPL.</p>
+            <p><code>kdeps</code> runs <code>./workflow.yaml</code>: as an API, a bot, a file processor or an interactive prompt.</p>
           </div>
         </div>
 

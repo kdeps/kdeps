@@ -20,11 +20,11 @@ hero:
 
 features:
   - title: kdeps workflow
-    details: A deterministic YAML pipeline. Serve it as an HTTP API, a bot, or a file processor. The same input always runs the same steps in the same order.
+    details: A YAML pipeline is the one way to run kdeps. Feed it from an HTTP API, a bot, a file, or an interactive prompt.
     link: /workflow/
     linkText: Build a workflow
   - title: kdeps agent
-    details: Run `kdeps --agent-loop` to get an AI REPL with tools and memory. It uses a local model or an LLM server that you host.
+    details: A chat with loop is an agent inside the workflow - tools, memory, one conversation per session. kdeps --agent-loop opens it as a REPL.
     link: /agent/
     linkText: Explore the agent
   - title: kdeps deploy
