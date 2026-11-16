@@ -135,12 +135,10 @@ var modelContextWindows = map[string]int{
 }
 
 // ContextWindowForModel returns the known context window size in tokens for a
-// model. Checks executorLLM.KnownCloudModels first -- the actively
-// maintained catalog (it's also where m365's aliases like "claude-sonnet"/
-// "quick"/"gpt-5.x" carry a conservative estimated window, since M365
-// doesn't publish exact limits) -- falling back to this file's own older,
-// narrower static table for any name the catalog doesn't have. Returns 0 if
-// the model is unknown to both (caller should fall back to defaults).
+// model. Checks executorLLM.KnownCloudModels first, the actively
+// maintained catalog, then this file's older, narrower static table for any
+// name the catalog doesn't have. Returns 0 if the model is unknown to both
+// (caller should fall back to defaults).
 func ContextWindowForModel(model string) int {
 	if ctx := executorLLM.ModelContextWindow(model); ctx > 0 {
 		return ctx

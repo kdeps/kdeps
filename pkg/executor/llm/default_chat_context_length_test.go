@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
@@ -73,17 +72,6 @@ func TestDefaultChatContextLength_OmitForOptionalBackends(t *testing.T) {
 func TestDefaultChatContextLength_Anthropic(t *testing.T) {
 	assert.Equal(t, defaultAnthropicChatContextLength, defaultChatContextLength(backendAnthropic))
 	assert.Equal(t, 8192, defaultChatContextLength(backendAnthropic))
-}
-
-// TestDefaultChatContextLength_M365 verifies m365 also gets the real
-// positive default, not omission: unlike openai/google/etc., m365 has no
-// documented API contract confirming "omitted means uncapped" -- it proxies
-// Microsoft 365 Copilot's consumer chat surface to whichever underlying
-// model it's configured for, and a real m365 write_file call with the field
-// omitted was confirmed live to still truncate.
-func TestDefaultChatContextLength_M365(t *testing.T) {
-	assert.Equal(t, defaultAnthropicChatContextLength, defaultChatContextLength(backendM365))
-	assert.Equal(t, 8192, defaultChatContextLength(backendM365))
 }
 
 // TestResolveChatRequestConfig_LocalBackend_NoExplicitContextLength confirms
@@ -173,32 +161,6 @@ func TestResolveChatRequestConfig_UnknownModel_FallsBackToBackendDefault(t *test
 	assert.Equal(t, defaultAnthropicChatContextLength, got.ContextLength)
 }
 
-// TestBuildOpenAICompatRequest_MaxTokens_M365_NotOmitted verifies the actual
-// wire-level request sent to the m365 backend carries a real max_tokens
-// value when unset, not an omitted field -- the fix for a live report of a
-// write_file call on m365 that "completed" but was silently truncated.
-func TestBuildOpenAICompatRequest_MaxTokens_M365_NotOmitted(t *testing.T) {
-	e := &Executor{}
-	requestConfig := e.resolveChatRequestConfig(&domain.ChatConfig{}, nil, backendM365)
-	req := buildOpenAICompatRequest("gpt-5.5", []map[string]interface{}{
-		{"role": "user", "content": "write a long file"},
-	}, requestConfig)
-
-	got, hasMaxTokens := req["max_tokens"]
-	require.True(t, hasMaxTokens, "m365 must not omit max_tokens -- its gateway's own default is unverified")
-	assert.Equal(t, defaultAnthropicChatContextLength, got)
-}
-
-// TestResolveChatRequestConfig_KnownM365Model_UsesCatalogMaxOutputTokens
-// confirms a recognized m365 model (e.g. Claude Sonnet routed through M365
-// Copilot) still gets its real cataloged ceiling rather than the
-// conservative fallback.
-func TestResolveChatRequestConfig_KnownM365Model_UsesCatalogMaxOutputTokens(t *testing.T) {
-	e := &Executor{}
-	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-sonnet"}, nil, backendM365)
-	assert.Equal(t, 64_000, got.ContextLength)
-}
-
 // TestResolveChatRequestConfig_MaxTokensBeatsEnv verifies an explicit
 // maxTokens is not undone by KDEPS_CHAT_CONTEXT_LENGTH. The env is a fallback
 // for requests that set neither contextLength nor maxTokens; letting it win
@@ -209,16 +171,16 @@ func TestResolveChatRequestConfig_MaxTokensBeatsEnv(t *testing.T) {
 	e := &Executor{}
 	n := 64000
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{
-		Model: "claude-sonnet", MaxTokens: &n,
-	}, nil, backendM365)
+		Model: "gpt-4o", MaxTokens: &n,
+	}, nil, "openai")
 	assert.Equal(t, 64000, got.ContextLength)
 
 	got = e.resolveChatRequestConfig(&domain.ChatConfig{
-		Model: "claude-sonnet", ContextLength: 2048, MaxTokens: &n,
-	}, nil, backendM365)
+		Model: "gpt-4o", ContextLength: 2048, MaxTokens: &n,
+	}, nil, "openai")
 	assert.Equal(t, 2048, got.ContextLength, "contextLength must still beat maxTokens and the env")
 
-	got = e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-sonnet"}, nil, backendM365)
+	got = e.resolveChatRequestConfig(&domain.ChatConfig{Model: "gpt-4o"}, nil, "openai")
 	assert.Equal(t, 4096, got.ContextLength, "env still applies when neither field is set")
 }
 
@@ -252,14 +214,14 @@ func TestResolveChatRequestConfig_ZeroMaxTokensFallsThroughToCatalog(t *testing.
 }
 
 // The agent loop sets MaxTokens on synthetic calls and leaves ContextLength
-// unset. That value must be the max_tokens the m365 gateway actually receives.
+// unset. That value must be the max_tokens the provider actually receives.
 func TestBuildOpenAICompatRequest_ExplicitMaxTokens_SentOnWire(t *testing.T) {
 	e := &Executor{}
 	n := 1000
 	requestConfig := e.resolveChatRequestConfig(&domain.ChatConfig{
-		Model: "claude-sonnet", MaxTokens: &n,
-	}, nil, backendM365)
-	req := buildOpenAICompatRequest("claude-sonnet", []map[string]interface{}{
+		Model: "gpt-4o", MaxTokens: &n,
+	}, nil, "openai")
+	req := buildOpenAICompatRequest("gpt-4o", []map[string]interface{}{
 		{"role": "user", "content": "summarize the session"},
 	}, requestConfig)
 	assert.Equal(t, 1000, req["max_tokens"])

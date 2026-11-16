@@ -46,7 +46,7 @@ var (
 		"use-kdeps-tools", "edit-workflow",
 	}
 	wantStandaloneEntries = []string{
-		"m365-sandbox", "tools-reminder", "skills-preamble",
+		"tools-reminder", "skills-preamble",
 		"compaction-system", "compaction-user", "compaction-update-user",
 		"judge-roster-system",
 		"judge-system", "subagent-system", "skill-folder", "ask-question", "refine-system",

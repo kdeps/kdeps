@@ -647,7 +647,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 // out of turoReduce. A cloud backend receives native schemas and omits the
 // text catalog, including its invoke skeletons.
 func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
-	for _, backend := range []string{"deepseek", "openai", "m365", "", "file", "gguf", "ollama"} {
+	for _, backend := range []string{"deepseek", "openai", "", "file", "gguf", "ollama"} {
 		t.Run(backend, func(t *testing.T) {
 			eng := executor.NewEngine(context.Background(), nil)
 			reg := tools.NewRegistry()
@@ -729,7 +729,7 @@ func TestBuildChatConfig_LaterTurnRepeatsAvailableTools(t *testing.T) {
 // turn (unlike the tools-reminder, which only repeats after turn 0).
 func TestBuildChatConfig_IncludesActiveHarnessReminder(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
-	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+	require.NoError(t, SetHarnessReminder("skills-preamble", true))
 
 	eng := executor.NewEngine(context.Background(), nil)
 	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
@@ -740,7 +740,7 @@ func TestBuildChatConfig_IncludesActiveHarnessReminder(t *testing.T) {
 	cfg := loop.buildChatConfig(context.Background(), "hello", "")
 	var found bool
 	for _, item := range cfg.Scenario {
-		if item.Prompt == harnessText("m365-sandbox") {
+		if item.Prompt == harnessText("skills-preamble") {
 			found = true
 		}
 	}
@@ -770,7 +770,7 @@ func TestBuildChatConfig_NoReminderScenarioWhenNoneActive(t *testing.T) {
 // the task-state-tool short-circuit path.
 func TestToolResultMessage_AppendsActiveHarnessReminder(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
-	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+	require.NoError(t, SetHarnessReminder("skills-preamble", true))
 
 	eng := executor.NewEngine(context.Background(), nil)
 	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
@@ -780,7 +780,7 @@ func TestToolResultMessage_AppendsActiveHarnessReminder(t *testing.T) {
 
 	got := loop.toolResultMessage(context.Background(),
 		domain.StreamedToolCall{Name: "read_file"}, "file contents")
-	assert.Contains(t, got, harnessText("m365-sandbox"))
+	assert.Contains(t, got, harnessText("skills-preamble"))
 }
 
 // TestBuildSystemPreamble_ConvergenceLimitReflectsActualWebLimit guards the
@@ -1229,8 +1229,7 @@ func TestStripContentToolCalls_DSMLEmbeddedInProse(t *testing.T) {
 // tool_calls tag), so two separate leaked blocks in the same reply caused
 // the strip to span both and delete everything between them -- including
 // real prose the user was meant to see. The regex must stop at each block's
-// own nearest close, matching the same non-greedy fix applied to m365's
-// <invoke> parsing for the identical "assumed only one occurrence" bug.
+// own nearest close. A greedy match deletes the prose between two blocks.
 func TestStripContentToolCalls_DSMLTwoBlocksPreservesBetween(t *testing.T) {
 	content := `<｜｜DSML｜｜tool_calls> <｜｜DSML｜｜invoke name="a"> </｜｜DSML｜｜invoke> </｜｜DSML｜｜tool_calls>` +
 		"\n\nHere is important text the user needs to see.\n\n" +

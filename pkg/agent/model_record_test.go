@@ -18,12 +18,12 @@ func withRecordHome(t *testing.T) {
 
 func TestModelRecord_CollectsDistinctRefusalsPerModel(t *testing.T) {
 	withRecordHome(t)
-	l := &Loop{config: Config{Backend: "m365", Model: "m365-copilot"}}
+	l := &Loop{config: Config{Backend: "openai", Model: "gpt-4o"}}
 	l.recordModelRefusal(refusalKindLimit, "I can't emit or execute the kdeps invoke blocks. They are not available.")
 	l.recordModelRefusal(refusalKindLimit, "I CAN'T emit or execute the kdeps invoke blocks.")
 	l.recordModelRefusal(refusalKindUnbacked, "Created [notes.md](https://x.invalid) containing hello")
 
-	rec := modelRecordFor("m365", "m365-copilot")
+	rec := modelRecordFor("openai", "gpt-4o")
 	require.NotNil(t, rec)
 	assert.Equal(t, 3, rec.Count, "every catch counts")
 	require.Len(t, rec.Refusals, 2, "the same words are kept once")
@@ -36,9 +36,9 @@ func TestModelRecord_CollectsDistinctRefusalsPerModel(t *testing.T) {
 	assert.Equal(t, refusalKindUnbacked, rec.Refusals[1].Kind)
 	assert.Nil(t, modelRecordFor("openai", "gpt-x"), "another model has its own record")
 
-	assert.True(t, clearModelRecord("m365", "m365-copilot"))
-	assert.Nil(t, modelRecordFor("m365", "m365-copilot"))
-	assert.False(t, clearModelRecord("m365", "m365-copilot"))
+	assert.True(t, clearModelRecord("openai", "gpt-4o"))
+	assert.Nil(t, modelRecordFor("openai", "gpt-4o"))
+	assert.False(t, clearModelRecord("openai", "gpt-4o"))
 }
 
 func TestModelRecord_BoundedByEvent(t *testing.T) {
@@ -56,11 +56,11 @@ func TestModelRecord_BoundedByEvent(t *testing.T) {
 
 func TestModelRecordPreamble_RendersTheRecord(t *testing.T) {
 	withRecordHome(t)
-	l := &Loop{config: Config{Backend: "m365", Model: "quick"}}
+	l := &Loop{config: Config{Backend: "openai", Model: "gpt-4o-mini"}}
 	assert.Empty(t, l.modelRecordPreamble(), "no record, no text")
 	l.recordModelRefusal(refusalKindLimit, "I can't access the repository.")
 	got := l.modelRecordPreamble()
-	assert.Contains(t, got, "m365/quick: 1 times")
+	assert.Contains(t, got, "openai/gpt-4o-mini: 1 times")
 	assert.Contains(t, got, `[invented limit] "I can't access the repository."`)
 	assert.Contains(t, got, "self-imposed")
 }

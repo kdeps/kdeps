@@ -1105,7 +1105,6 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	// First use: confirm + download + serve local model when not yet running.
 	l.ensureLocalModelReady(ctx)
-	l.ensureM365Ready(ctx)
 
 	// Auto-compact before the LLM call when history exceeds the token
 	// threshold, or when enough new conversation has accumulated since the
@@ -1212,7 +1211,6 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	l.noteTurnUser(input)
 	// First use: confirm + download + serve local model when not yet running.
 	l.ensureLocalModelReady(ctx)
-	l.ensureM365Ready(ctx)
 
 	l.autoCompactIfDue(ctx)
 
@@ -3352,9 +3350,8 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 	// Tool guidance, and on backends with no native tool channel a short
 	// name/description/parameter catalog, stay out of turoReduce. Exact tool
 	// names must survive byte-for-byte. Cloud backends receive native schemas
-	// via ToLLMTools and omit the text catalog. The m365 proxy renders its
-	// own list from those schemas. Always included when tools exist, even in
-	// small-context mode below.
+	// via ToLLMTools and omit the text catalog. Always included when tools
+	// exist, even in small-context mode below.
 	var toolParts []string
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		// The "internals" harness section states the web-tool convergence
@@ -3364,14 +3361,6 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 		toolParts = append(toolParts, harness)
 		if catalog := l.preambleToolCatalog(); catalog != "" {
 			toolParts = append(toolParts, catalog)
-		}
-		// M365 Copilot's "run code" / "Coding and executing" habit is the most
-		// aggressive -- confirmed live: a model fabricated a bash -lc action
-		// against M365's own empty /mnt/data sandbox instead of any fenced tool.
-		// Add the M365-specific reinforcement on top of the harness's
-		// "use-kdeps-tools" preamble section (part of assembledPreamble above).
-		if l.config.Backend == backendM365 {
-			toolParts = append(toolParts, harnessText("m365-sandbox"))
 		}
 		// The current model's own record of caught refusals, any backend.
 		if rec := l.modelRecordPreamble(); rec != "" {
@@ -3658,12 +3647,9 @@ func (l *Loop) buildChatConfig(
 	// Inject system preamble as scenario (prepended before history). The preamble
 	// is built once and reused, so mark it ephemeral on backends that actually
 	// support prompt caching (Anthropic): they cache the system prefix across
-	// turns. Confirmed live that setting this unconditionally breaks other
-	// backends -- m365's OpenAI-compatible request serialization has no notion
-	// of a CacheControl-wrapped content part, so it silently emitted an empty
-	// string for the whole system message instead of the real preamble text,
-	// leaving the model with no system content, no working directory, no tool
-	// guidance at all for that message.
+	// turns. Setting CacheControl on a backend that does not understand it
+	// drops the system message: the request emits an empty string instead of
+	// the preamble, so the model gets no working directory and no tool guidance.
 	if systemPreamble != "" {
 		item := domain.ScenarioItem{Role: "system", Prompt: systemPreamble}
 		if l.config.Backend == backendAnthropic {
@@ -3739,7 +3725,7 @@ func (l *Loop) historyMessages(ctx context.Context) string {
 }
 
 // preambleToolCatalog is the short text tool list for backends with no
-// native tool channel. Cloud backends and the m365 proxy omit it.
+// native tool channel. Cloud backends omit it.
 func (l *Loop) preambleToolCatalog() string {
 	if l == nil || l.registry == nil || !needsTextToolCatalog(l.config.Backend) {
 		return ""
@@ -3772,23 +3758,17 @@ func (l *Loop) callMaxTokens() *int {
 // syntheticCallMaxTokens returns the model output ceiling for the main turn
 // (when OutputTokenCap is zero), compaction, branch summaries, plan, confirm,
 // and handshake, so a call never falls back to whatever implicit
-// default the backend/provider applies -- confirmed on two fronts: a local
-// llama-server applies a smaller output cap than the model's real ceiling
-// unless told otherwise, and M365 Copilot's proxy has an undocumented
-// default that was silently truncating a multi-section compaction summary
-// down to just its first heading (the service doesn't publish exact
-// limits -- see the comment on M365's KnownCloudModels entries).
+// default the backend/provider applies. A local llama-server applies a
+// smaller output cap than the model's real ceiling unless told otherwise.
 //
 // For a local backend, the true ceiling is the server's own configured
 // --ctx-size (executorLLM.LocalContextSize) -- it can never generate past
 // its own context window anyway. For any model in
-// executorLLM.KnownCloudModels (which includes every m365 alias, using a
-// conservative estimate for the same reason), that catalog's real
-// advertised output ceiling (executorLLM.ModelMaxOutputTokens) is used
-// instead of trusting an unknown provider/proxy default. Returns nil only
-// for a model neither source knows about (a custom endpoint, an unlisted
-// model) -- there, the provider's own default is the best guess available,
-// same as before this existed.
+// executorLLM.KnownCloudModels, that catalog's advertised output ceiling
+// (executorLLM.ModelMaxOutputTokens) is used instead of an unknown provider
+// default. Returns nil only for a model neither source knows about (a custom
+// endpoint, an unlisted model). There, the provider's own default is the
+// best guess available.
 func syntheticCallMaxTokens(backend, model string) *int {
 	switch backend {
 	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
@@ -4102,9 +4082,7 @@ func (l *Loop) summarizeConversation(ctx context.Context, conversationText strin
 		// No tools - compaction is a standalone summarization call.
 	}
 	// See syntheticCallMaxTokens: a truncated compaction summary would
-	// silently lose conversation history -- confirmed live on M365, whose
-	// proxy's undocumented default cut a multi-section summary down to just
-	// its first heading.
+	// silently lose conversation history.
 	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(compactionActionID, chatCfg)
 

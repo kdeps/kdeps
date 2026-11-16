@@ -147,7 +147,7 @@ Enforcement stops in these conditions: it is off, the `audit` or `explain` agent
 
 The first request of a session, and the first request after compaction, a fold, or a model switch, always sends the full harness. Later requests in `summary` mode, and in `auto` mode on a backend other than Anthropic or OpenAI, send one line per section. That line is the hand-written `summary:` field in the section's harness YAML. The model calls `instruct` (alias `help`) with the section name to read the full text.
 
-`auto` leaves Anthropic and OpenAI on the full text. They cache a stable system prefix, so swapping in a summary barely saves anything and invalidates that cache. Ollama, llamafile, GGUF, M365, and the other backends pay for the prompt on every request, so the summary is the saving. The choice persists in `~/.kdeps/agent-loop-settings.yaml` (`prompt_mode`).
+`auto` leaves Anthropic and OpenAI on the full text. They cache a stable system prefix, so swapping in a summary barely saves anything and invalidates that cache. Ollama, llamafile, GGUF, and the other backends pay for the prompt on every request, so the summary is the saving. The choice persists in `~/.kdeps/agent-loop-settings.yaml` (`prompt_mode`).
 
 ## From the REPL
 

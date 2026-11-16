@@ -57,28 +57,13 @@ func TestSyntheticCallMaxTokens_LocalBackends(t *testing.T) {
 }
 
 // TestSyntheticCallMaxTokens_KnownCloudModel verifies that a model present in
-// executorLLM.KnownCloudModels (cloud or m365 -- m365's aliases carry a
-// conservative estimate since the service doesn't publish exact limits) gets
-// an explicit MaxTokens from the catalog's real advertised ceiling, instead
-// of trusting an unknown provider/proxy default. Confirmed live: M365's
-// proxy default was silently truncating a compaction summary to its first
-// heading when this was left nil.
+// executorLLM.KnownCloudModels gets an explicit MaxTokens from the catalog's
+// advertised output ceiling, instead of an unknown provider default.
 func TestSyntheticCallMaxTokens_KnownCloudModel(t *testing.T) {
 	got := syntheticCallMaxTokens("openai", "claude-opus-4-8")
 	require.NotNil(t, got, "a model in KnownCloudModels must get an explicit MaxTokens")
 	assert.Equal(t, executorLLM.ModelMaxOutputTokens("claude-opus-4-8"), *got)
 	assert.Greater(t, *got, 0)
-}
-
-// M365's short aliases are exactly the case this fix targets.
-func TestSyntheticCallMaxTokens_M365Alias(t *testing.T) {
-	for _, model := range []string{"claude-sonnet", "quick", "gpt-5.5"} {
-		t.Run(model, func(t *testing.T) {
-			got := syntheticCallMaxTokens(backendM365, model)
-			require.NotNil(t, got, "m365 alias %q must get an explicit MaxTokens", model)
-			assert.Greater(t, *got, 0)
-		})
-	}
 }
 
 // TestSyntheticCallMaxTokens_UnknownModel verifies a model absent from both
@@ -226,10 +211,8 @@ func TestCompactWithLLM_MaxTokens_UnknownCloudModel(t *testing.T) {
 	assert.Nil(t, captured.Resources[0].Chat.MaxTokens)
 }
 
-// This is the exact scenario the bug report was about: an m365 alias's
-// compaction call must carry the catalog's real output ceiling, not an
-// implicit (and apparently much smaller) M365 proxy default.
-func TestCompactWithLLM_MaxTokens_M365Backend(t *testing.T) {
+// A known cloud model's compaction call carries the catalog output ceiling.
+func TestCompactWithLLM_MaxTokens_KnownCloudModel(t *testing.T) {
 	var captured *domain.Workflow
 	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
@@ -237,8 +220,8 @@ func TestCompactWithLLM_MaxTokens_M365Backend(t *testing.T) {
 		return "## Goal\nx", nil
 	})
 	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:              "claude-sonnet",
-		Backend:            backendM365,
+		Model:              "gpt-4o",
+		Backend:            "openai",
 		CompactTokenBudget: 1,
 	})
 	for range compactMinTurns * 2 {
@@ -248,9 +231,8 @@ func TestCompactWithLLM_MaxTokens_M365Backend(t *testing.T) {
 	_, err := loop.CompactWithLLM(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, captured, "compaction workflow was not captured")
-	require.NotNil(t, captured.Resources[0].Chat.MaxTokens,
-		"m365's compaction call must get an explicit MaxTokens, not trust the proxy's unknown default")
-	assert.Equal(t, executorLLM.ModelMaxOutputTokens("claude-sonnet"), *captured.Resources[0].Chat.MaxTokens)
+	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, executorLLM.ModelMaxOutputTokens("gpt-4o"), *captured.Resources[0].Chat.MaxTokens)
 }
 
 func TestSummarizeBranch_MaxTokens_LocalBackend(t *testing.T) {
@@ -382,23 +364,23 @@ func TestSideCallMaxTokens_DisabledOrZeroFallsBack(t *testing.T) {
 	assert.Equal(t, 16384, *got)
 }
 
-func TestBuildHandshakeChatCfg_MaxTokens_M365(t *testing.T) {
-	l := &Loop{config: Config{Model: "claude-sonnet", Backend: backendM365}}
+func TestBuildHandshakeChatCfg_MaxTokens_KnownCloudModel(t *testing.T) {
+	l := &Loop{config: Config{Model: "gpt-4o", Backend: "openai"}}
 	cfg := l.buildHandshakeChatCfg("4242", 1, nil)
 	require.NotNil(t, cfg.MaxTokens)
-	assert.Equal(t, executorLLM.ModelMaxOutputTokens("claude-sonnet"), *cfg.MaxTokens)
+	assert.Equal(t, executorLLM.ModelMaxOutputTokens("gpt-4o"), *cfg.MaxTokens)
 }
 
-func TestHandshakeWarmup_MaxTokens_M365(t *testing.T) {
+func TestHandshakeWarmup_MaxTokens_KnownCloudModel(t *testing.T) {
 	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
 	l := newStreamingLoop(cfgs, 5)
-	l.config.Model = "claude-sonnet"
-	l.config.Backend = backendM365
+	l.config.Model = "gpt-4o"
+	l.config.Backend = "openai"
 	_, err := l.handshakeWarmup(context.Background())
 	require.NoError(t, err)
 	require.NotEmpty(t, cfgs.cfgs)
 	for _, cfg := range cfgs.cfgs {
 		require.NotNil(t, cfg.MaxTokens)
-		assert.Equal(t, executorLLM.ModelMaxOutputTokens("claude-sonnet"), *cfg.MaxTokens)
+		assert.Equal(t, executorLLM.ModelMaxOutputTokens("gpt-4o"), *cfg.MaxTokens)
 	}
 }

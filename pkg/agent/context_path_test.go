@@ -127,19 +127,6 @@ func TestContextPathStatus_UsesLocalContextSizeForFileBackend(t *testing.T) {
 	assert.Contains(t, status, "/32.8k")
 }
 
-// m365's aliases ("claude-sonnet", "quick", ...) resolve through
-// executorLLM.KnownCloudModels (ContextWindowForModel's primary source), not
-// this package's own narrower static table -- see
-// TestContextWindowForModel_M365Aliases for the underlying lookup, this
-// verifies contextPathStatus itself surfaces a window for one.
-func TestContextPathStatus_M365Backend(t *testing.T) {
-	resetContextSegments("claude-sonnet", backendM365)
-	recordContextSegment("system prompt", "hello world")
-
-	status := contextPathStatus()
-	require.NotEmpty(t, status, "an m365 model alias must resolve a context window")
-}
-
 func TestContextPathStatus_CloudBackendIgnoresLocalContextSize(t *testing.T) {
 	orig := executorLLM.LocalContextSize()
 	executorLLM.SetLocalContextSize(32768)

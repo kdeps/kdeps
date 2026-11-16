@@ -4,12 +4,12 @@
 
 ## Every prompt and every tool result
 
-Each harness section (see [Custom harness](/agent/repl#custom-harness)) has a normal place. A preamble section goes into the system prompt. A standalone entry operates only at its call site. Examples are a nudge, a praise line, the m365 sandbox warning, and the compaction, judge, and refine prompts. `/harness reminders <name> on` overrides this.
+Each harness section (see [Custom harness](/agent/repl#custom-harness)) has a normal place. A preamble section goes into the system prompt. A standalone entry operates only at its call site. Examples are a nudge, a praise line, and the compaction, judge, and refine prompts. `/harness reminders <name> on` overrides this.
 
 The raw text of the section then goes onto each prompt, from the first turn. It also goes onto each tool result, also when its trigger does not occur.
 
 ```
-/harness reminders m365-sandbox on
+/harness reminders tools-reminder on
 ```
 
 Use it for a model that needs guidance repeated more often than its normal placement: a stubborn sandbox habit, a recurring unwanted pattern, house style. Each reminder adds its tokens to every turn and every tool result, so keep it short-lived.

@@ -57,7 +57,7 @@ func fuzzyMatchEntries(entries []ModelEntry, query string) []ModelEntry {
 		// "too tight" filter by hardware fit; strip ANSI color codes from
 		// the rendered tag so escape sequences don't pollute matching.
 		// The tag names the backend ([openrouter], [openai enabled]).
-		// Backend is also searched on its own so a query like "m365"
+		// Backend is also searched on its own so a query like "openai"
 		// still matches when the tag format changes.
 		searchText := strings.ToLower(e.Name + " " + e.Backend + " " + e.FitLevel + " " + ansi.Strip(tagForEntry(e)))
 		total := 0.0

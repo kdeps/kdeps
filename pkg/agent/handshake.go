@@ -341,16 +341,9 @@ func handshakeHistoryPairs() int {
 // across warmup, evidence, and retries. See handshakeHistoryMaxPairs for why
 // bounding it matters.
 //
-// The first pair is anchored rather than evicted for a second reason found
-// live: the m365 backend's session pool decides "same conversation" vs. "new
-// conversation" by fingerprinting the FIRST message in the array
-// (server.go's fingerprint/formatDeltaMessages). A naive sliding window that
-// drops the oldest pair once the cap is hit keeps changing what that first
-// message is, so m365 silently started a brand-new conversation -- with a
-// fresh, generic system prompt and no memory of the evidence step -- on
-// every retry past the cap. Every kdeps backend can build its own message
-// history from this array; m365 is simply the one that depends on the FIRST
-// entry staying stable across calls, so it must never move.
+// The first pair stays. A sliding window that drops the oldest pair changes
+// the first message on every retry past the cap, so the model loses the
+// original challenge and answers a new conversation.
 func capHandshakeHistory(history []map[string]any) []map[string]any {
 	const perPair = 2
 	maxLen := handshakeHistoryPairs() * perPair
@@ -673,16 +666,6 @@ func handshakeStrongRetryNudge(challenge string, misses int, plural string) stri
 // already includes (proven to work) rather than a bespoke, unproven
 // one-liner; falls back to the one-liner only if that guidance is somehow
 // empty.
-//
-// buildSystemPreamble also layers the m365-sandbox reinforcement on top of
-// this same base for backendM365, because m365's "run code" / "Coding and
-// executing" habit is the most aggressive sandbox-hallucination failure mode
-// seen live: a model that reasons it is in a code-interpreter sandbox
-// concludes it "can't do anything" and gives up instead of calling the real
-// tool. The handshake is the worst place to skip that reinforcement -- it is
-// the one round explicitly designed to force a real tool call before
-// anything else happens -- so it must get the identical addition, not a
-// weaker or bespoke echo of it.
 func (l *Loop) handshakeGrounding(toolNames ...string) string {
 	grounding := renderAssembledPreamble(l.preambleData())
 	if grounding == "" {
@@ -707,9 +690,6 @@ func (l *Loop) handshakeGrounding(toolNames ...string) string {
 	// only the tool(s) this specific round actually needs.
 	if note := l.handshakeToolNote(toolNames...); note != "" {
 		grounding += "\n\n" + note
-	}
-	if l.config.Backend == backendM365 {
-		grounding += "\n\n" + harnessText("m365-sandbox")
 	}
 	return grounding
 }

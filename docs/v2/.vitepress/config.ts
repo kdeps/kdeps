@@ -569,7 +569,6 @@ export default defineConfig({
       'deployment/llm-server': '/llm-server/',
       'reference/cli/llm': '/llm-server/cli',
       'reference/llm-providers': '/llm-server/providers',
-      'reference/llm-providers-m365': '/llm-server/m365',
       'deployment/docker': '/deploy/docker',
       'deployment/kubernetes': '/deploy/kubernetes',
       'deployment/prepackage': '/deploy/binaries',

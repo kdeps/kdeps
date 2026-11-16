@@ -277,7 +277,6 @@ var commandSets = map[string][]string{
 	"bundle":    assets.BaseSets,
 	"doctor":    nil,
 	"edit":      nil,
-	"m365":      nil,
 	"new":       append(slices.Clone(assets.BaseSets), "templates"),
 	"export":    append(slices.Clone(assets.BaseSets), "docker", "k8s"),
 	"llm":       append(slices.Clone(assets.BaseSets), "docker", "k8s", "recipes"),
@@ -469,5 +468,4 @@ func addDeployCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDeploy, newExecCmd())
 	addCommandToGroup(rootCmd, groupDeploy, newExportCmd())
 	addCommandToGroup(rootCmd, groupDeploy, newLLMCmd())
-	addCommandToGroup(rootCmd, groupDeploy, newM365Cmd())
 }

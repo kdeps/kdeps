@@ -104,9 +104,9 @@ func TestRequestSizePreflightWarnings(t *testing.T) {
 	require.Len(t, warnings, 1)
 	assert.Contains(t, warnings[0], "dashscope")
 	// xai's limit is 50 MB, above the 10 MB threshold; another backend's
-	// limit is not shown (instrument session hunt7 warned about dashscope on m365)
+	// limit is not shown.
 	assert.Empty(t, RequestSizePreflightWarnings("xai"))
-	assert.Empty(t, RequestSizePreflightWarnings("m365"))
+	assert.Empty(t, RequestSizePreflightWarnings("groq"))
 }
 
 func TestRequestSizePreflightWarnings_UseTheEvents(t *testing.T) {

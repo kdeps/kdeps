@@ -35,7 +35,7 @@ func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
 // chatBackendEnum is every chat backend: the local and built-in ones plus each
 // cloud provider (the providers asset set included).
 func chatBackendEnum() []interface{} {
-	out := []interface{}{"file", "gguf", "ollama", "m365"}
+	out := []interface{}{"file", "gguf", "ollama"}
 	for _, p := range kdepsconfig.CloudLLMProviders() {
 		out = append(out, p.Name)
 	}

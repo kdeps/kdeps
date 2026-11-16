@@ -45,7 +45,7 @@ The step retries up to 3 times. The nudge explains that kdeps has no native tool
 
 ## Grounding message
 
-The exchange has the same tool-use guidance as each normal turn. A bare prompt and a tool schema look incomplete to models. The models then decide that the tool "isn't really available". For m365, the exchange also has the sandbox reinforcement of normal turns.
+The exchange has the same tool-use guidance as each normal turn. A bare prompt and a tool schema look incomplete to models. The models then decide that the tool "isn't really available".
 
 The grounding names `session_handshake` as a registered tool in one line, not the full catalog. A full catalog per round inflated a small local model's prompt to tens of thousands of tokens.
 
@@ -64,7 +64,7 @@ Every directive says the block goes outside any markdown code fence. A correct `
 
 ## What the retry keeps
 
-The handshake conversation keeps the first exchange plus the 3 most recent. With no limit, the prompt of a small local model increased from about 3k to more than 50k tokens, and the answers became worse. The first exchange stays because m365 uses a fingerprint of the first message. With it, m365 finds if a request continues a conversation. Without the first exchange, each retry starts a new conversation.
+The handshake conversation keeps the first exchange plus the 3 most recent. With no limit, the prompt of a small local model increased from about 3k to more than 50k tokens, and the answers became worse. The first exchange stays so a retry still has the original challenge. Without it, each retry starts a new conversation.
 
 ## No session trace
 

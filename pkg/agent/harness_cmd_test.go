@@ -70,11 +70,11 @@ func TestCmdHarness_EnableDisableRoundTrip(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
 
-	require.NoError(t, repl.dispatchCommand("/harness disable m365-sandbox"))
-	assert.False(t, HarnessEnabled("m365-sandbox"))
+	require.NoError(t, repl.dispatchCommand("/harness disable handshake"))
+	assert.False(t, HarnessEnabled("handshake"))
 
-	require.NoError(t, repl.dispatchCommand("/harness enable m365-sandbox"))
-	assert.True(t, HarnessEnabled("m365-sandbox"))
+	require.NoError(t, repl.dispatchCommand("/harness enable handshake"))
+	assert.True(t, HarnessEnabled("handshake"))
 }
 
 func TestCmdHarness_DisableUnknownSectionReportsError(t *testing.T) {
@@ -246,15 +246,15 @@ func TestHarnessRemindersBlock_EmptyWhenNoneActive(t *testing.T) {
 func TestHarnessRemindersBlock_JoinsActiveBodiesSorted(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	require.NoError(t, SetHarnessReminder("tools-reminder", true))
-	require.NoError(t, SetHarnessReminder("m365-sandbox", true))
+	require.NoError(t, SetHarnessReminder("skills-preamble", true))
 
 	block := harnessRemindersBlock()
-	m365Body := harnessText("m365-sandbox")
+	skillsBody := harnessText("skills-preamble")
 	toolsBody := harnessText("tools-reminder")
-	require.Contains(t, block, m365Body)
+	require.Contains(t, block, skillsBody)
 	require.Contains(t, block, toolsBody)
-	// "m365-sandbox" sorts before "tools-reminder" (harnessReminderNames is sorted).
-	assert.Less(t, strings.Index(block, m365Body), strings.Index(block, toolsBody))
+	// "skills-preamble" sorts before "tools-reminder" (harnessReminderNames is sorted).
+	assert.Less(t, strings.Index(block, skillsBody), strings.Index(block, toolsBody))
 }
 
 func TestAppendReminders_NoOpWhenNoneActive(t *testing.T) {

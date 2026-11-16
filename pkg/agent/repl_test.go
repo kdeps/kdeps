@@ -5141,21 +5141,20 @@ func TestDoModelCompletion_BackendNameSurfacesAllModels(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
-	// Mirrors the real m365 catalog shape: one model id happens to start with
-	// the backend name ("m365-copilot"), but most don't ("gpt-5.5",
-	// "claude-sonnet") -- a plain name-prefix search for "m365" must not stop
-	// at the one lucky match and hide the rest.
-	repl.modelNames = []string{"m365-copilot", "gpt-5.5", "claude-sonnet", "deepseek-chat"}
+	// One model id starts with the backend name ("openai-compat"), but most
+	// do not ("gpt-4o", "o1"). A plain name-prefix search for "openai" must
+	// not stop at the one lucky match and hide the rest.
+	repl.modelNames = []string{"openai-compat", "gpt-4o", "o1", "deepseek-chat"}
 	repl.cloudModelBackends = map[string]string{
-		"m365-copilot":  "m365",
-		"gpt-5.5":       "m365",
-		"claude-sonnet": "m365",
+		"openai-compat": "openai",
+		"gpt-4o":        "openai",
+		"o1":            "openai",
 		"deepseek-chat": "deepseek",
 	}
 
-	matched, isPrefix := repl.modelNamesMatchingToken("m365")
+	matched, isPrefix := repl.modelNamesMatchingToken("openai")
 	assert.False(t, isPrefix, "backend-name matches use the tag-suffix (offset 0) path")
-	assert.ElementsMatch(t, []string{"m365-copilot", "gpt-5.5", "claude-sonnet"}, matched)
+	assert.ElementsMatch(t, []string{"openai-compat", "gpt-4o", "o1"}, matched)
 	assert.NotContains(t, matched, "deepseek-chat")
 }
 
@@ -5876,9 +5875,8 @@ func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 	assert.Greater(t, clearIdx, spinnerIdx, "clear must come after spinner frames")
 }
 
-// After a switch, the status line's window is the new model's even for the
-// loop's own calls before the next turn (instrument session hunt11 showed
-// prompt refinement on m365/quick with the previous model's 200k window).
+// After a switch, the status line window is the new model's, including
+// the loop's own calls before the next turn.
 func TestApplyModelSwitch_StatusLineUsesTheNewModel(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = "ollama"
