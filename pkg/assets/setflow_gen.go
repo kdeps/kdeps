@@ -19,13 +19,13 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
 	},
 	"codegraph": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "the code graph is built or queried"},
 			{Label: "its rules are read from the codegraph set at start", Here: true},
 			{Label: "ranking weights, stopwords and limits apply to each query"},
 		},
-		UsedBy: []string{"kdeps (agent loop)"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "codegraph.Register", "codegraph.exposedNames"},
 	},
 	"commands": {

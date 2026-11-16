@@ -714,6 +714,29 @@
             }
           },
           "additionalProperties": false
+        },
+        "loop": {
+          "type": "object",
+          "description": "Run this chat as the kdeps agent loop: built-in tools over many rounds, compaction, and a conversation stored per session id.",
+          "additionalProperties": false,
+          "properties": {
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Built-in tools the loop may call (read_file, edit_file, bash_exec, ...). Empty offers every built-in tool."
+            },
+            "maxRounds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Tool rounds per request. 0 uses the agent default."
+            },
+            "session": {
+              "type": "string",
+              "description": "Conversation id, usually an expression such as {{ get('session') }}. Requests with the same id continue one stored conversation."
+            }
+          }
         }
       },
       "additionalProperties": false

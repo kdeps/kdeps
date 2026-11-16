@@ -85,6 +85,14 @@ func setupEngineAt(level slog.Level, debugMode bool) *executor.Engine {
 	engine := executor.NewEngine(processRoot(), logger)
 	engine.SetDebugMode(debugMode)
 	engine.SetRegistry(newExecutorRegistry(processRoot()))
+	// chat resources with a loop: block run the agent loop, each request on
+	// an engine of its own.
+	executorLLM.SetLoopRunner(agentMemory.LoopResourceRunner(func() *executor.Engine {
+		loopEngine := executor.NewEngine(processRoot(), logger)
+		loopEngine.SetDebugMode(debugMode)
+		loopEngine.SetRegistry(newExecutorRegistry(processRoot()))
+		return loopEngine
+	}, agentMemory.NewSessionStore("")))
 	return engine
 }
 

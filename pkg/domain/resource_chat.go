@@ -163,6 +163,11 @@ type ChatConfig struct {
 	// resource. 0 means use the executor default (currently 5).
 	MaxToolRounds int `yaml:"maxToolRounds,omitempty"`
 
+	// Loop runs this chat as the kdeps agent loop: the model works through
+	// built-in tools over many rounds, with compaction, and requests that
+	// share a session id continue one stored conversation.
+	Loop *ChatLoopConfig `yaml:"loop,omitempty"`
+
 	// FewShot injects example user/assistant pairs before the conversation history
 	// to demonstrate the expected output format. Each item should alternate roles:
 	// user (example input) then assistant (example output). Injected after scenario:
@@ -417,3 +422,16 @@ type StreamedToolCall struct {
 }
 
 // HTTPClientConfig represents HTTP client configuration.
+
+// ChatLoopConfig configures a chat resource that runs as the agent loop.
+type ChatLoopConfig struct {
+	// Tools names the built-in tools the loop may call (read_file, edit_file,
+	// bash_exec, ...). Empty offers every built-in tool.
+	Tools []string `yaml:"tools,omitempty"`
+	// MaxRounds caps tool rounds per request. 0 uses the agent default.
+	MaxRounds int `yaml:"maxRounds,omitempty"`
+	// Session is the conversation id, usually an expression such as
+	// "{{ get('session') }}". Requests with the same id continue one stored
+	// conversation; empty starts a new one every request.
+	Session string `yaml:"session,omitempty"`
+}

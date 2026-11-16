@@ -19,6 +19,8 @@ A chat's keys sit in six groups:
 | `rag` | `knowledge`, `retriever` (`passages`, `topK`, `maxTokens`), `chunk` |
 | `guardrails` | `judges`, `judgePreset` |
 
+`loop` sits beside the groups: it runs the chat as the agent loop (see [Agent loop](#agent-loop)).
+
 ## Where config lives
 
 Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. As a result, you can change backends with no change to your workflow.
@@ -452,6 +454,33 @@ chat:
 ```
 
 A path with no skills fails the resource. A skill marked `hidden: true` is not offered.
+
+## Agent loop
+
+`loop:` runs the chat as the kdeps agent loop: the model calls built-in tools over many rounds, with compaction, and requests with the same session id continue one stored conversation.
+
+```yaml
+# resources/assistant.yaml
+chat:
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "{{ get('q') }}"
+  loop:
+    tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
+    maxRounds: 25                              # tool rounds per request; 0 = the agent default
+    session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
+```
+
+```text
+request -> chat (loop) -> tool rounds -> reply -> next resource
+                 ^                |
+                 +-- session -----+   stored under the workflow name + session id
+```
+
+- The output has the plain chat shape: the reply is at `get('id').message.content`. Judges under `guardrails` review it as usual.
+- File tools stay inside the workspace: the working directory of `kdeps run`, or `KDEPS_WORKSPACE_ROOT`. A path outside it fails, since a workflow has no terminal to approve it.
+- An unknown tool name fails the resource and lists the built-in tools.
 
 ## Vision (file attachments)
 
