@@ -124,6 +124,17 @@ func (l *Loop) requestTools() []domain.Tool {
 	if l.registry == nil {
 		return nil
 	}
+	if len(l.config.AllowedTools) > 0 {
+		allow := make(map[string]bool, len(l.config.AllowedTools))
+		for _, n := range l.config.AllowedTools {
+			allow[n] = true
+		}
+		// Built-ins are OnDemand; everything else (project, component, MCP,
+		// the loop's own tools) is not and stays offered.
+		return l.registry.ToLLMToolsWhere(func(t *kdepstools.Tool) bool {
+			return t.Name != toolNameLoadTools && (allow[t.Name] || !t.OnDemand)
+		})
+	}
 	core := coreToolSet()
 	if core == nil || l.registry.Get(toolNameLoadTools) == nil {
 		return l.registry.ToLLMTools()

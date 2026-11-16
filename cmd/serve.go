@@ -367,6 +367,19 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 		agent.RestoreSessionConfig(memStore, &cfg)
 	}
 
+	// The workspace's workflow defines the session when its target is a chat
+	// with loop:: model and backend (unless given as flags), round cap, tools.
+	// A workflow that does not parse, or names unknown tools, is reported and
+	// the session starts with its own settings, as the desktop app does.
+	if loopChat, loopErr := agentLoopChat(path, hostWorkflow); loopErr != nil {
+		fmt.Fprintf(os.Stderr, "agent loop: workflow.yaml not applied: %v\n", loopErr)
+	} else if unknown := agent.UnknownLoopTools(registry, loopChat); len(unknown) > 0 {
+		fmt.Fprintf(os.Stderr, "agent loop: workflow.yaml not applied: loop.tools names unknown tool(s): %s\n",
+			strings.Join(unknown, ", "))
+	} else {
+		agent.ApplyLoopChat(&cfg, loopChat, flags.Model != "" || flags.Backend != "" || flags.BaseURL != "")
+	}
+
 	resumeID := flags.Resume
 	if resumeID == "" && !flags.NewSession {
 		// No explicit --resume / --new: offer this folder's saved sessions.
@@ -762,6 +775,19 @@ func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *e
 }
 
 // newMinimalHostWorkflow returns a bare workflow used as the agent loop host.
+// agentLoopChat is the loop chat that defines an agent session: the host
+// workflow's when a path was given, else ./workflow.yaml's.
+func agentLoopChat(path string, host *domain.Workflow) (*domain.ChatConfig, error) {
+	if path != "" {
+		return agent.LoopChat(host), nil
+	}
+	chat, err := agent.LoadLoopChat(".")
+	if errors.Is(err, agent.ErrNoWorkflow) {
+		return nil, nil //nolint:nilnil // no workflow here: nothing applies
+	}
+	return chat, err
+}
+
 func newMinimalHostWorkflow() *domain.Workflow {
 	return &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
