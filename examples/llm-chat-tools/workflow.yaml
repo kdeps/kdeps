@@ -9,12 +9,11 @@ metadata:
 
 deploy:
   input:
-    sources: [api]
+    sources: [interactive]
   runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
 repl:
-  executionType: stdin
   prompt: "You: "
   sessionId: "chat-tools-session"
 

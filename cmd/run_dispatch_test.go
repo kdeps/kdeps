@@ -1288,20 +1288,24 @@ func TestStartWebServer_ShutdownErr(t *testing.T) {
 	require.NoError(t, StartWebServer(wf, t.TempDir(), false))
 }
 
-// settings.llm.executionType: stdin starts the interactive REPL, as
-// --interactive does (it was not dispatched anywhere).
+// The interactive input source starts the REPL, as --interactive does.
 func TestWantsStdinREPL(t *testing.T) {
 	wf := &domain.Workflow{}
 	if wantsStdinREPL(wf) || wantsStdinREPL(nil) {
-		t.Fatal("no settings.llm: no REPL")
+		t.Fatal("no input sources: no REPL")
 	}
-	wf.Settings.LLM = &domain.LLMInputConfig{ExecutionType: domain.LLMExecutionTypeStdin}
-	if !wantsStdinREPL(wf) {
-		t.Fatal("executionType stdin starts the REPL")
-	}
-	wf.Settings.LLM.ExecutionType = domain.LLMExecutionTypeAPIServer
+	wf.Settings.Input = &domain.InputConfig{Sources: []string{domain.InputSourceAPI}}
 	if wantsStdinREPL(wf) {
-		t.Fatal("apiServer is not the REPL")
+		t.Fatal("api alone is not the REPL")
+	}
+	wf.Settings.Input.Sources = append(wf.Settings.Input.Sources, domain.InputSourceInteractive)
+	if !wantsStdinREPL(wf) {
+		t.Fatal("the interactive source starts the REPL")
+	}
+	wf.Settings.LLM = &domain.LLMInputConfig{Prompt: "You: "}
+	wf.Settings.Input.Sources = []string{domain.InputSourceAPI}
+	if wantsStdinREPL(wf) {
+		t.Fatal("repl: alone only styles the prompt")
 	}
 }
 

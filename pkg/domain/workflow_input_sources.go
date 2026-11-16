@@ -22,7 +22,7 @@ import "strings"
 
 // WorkflowInputSources returns supported input.sources values.
 func WorkflowInputSources() []string {
-	return []string{InputSourceAPI, InputSourceBot, InputSourceFile}
+	return []string{InputSourceAPI, InputSourceBot, InputSourceFile, InputSourceInteractive}
 }
 
 // IsValidWorkflowInputSource reports whether source is a supported input.sources value.

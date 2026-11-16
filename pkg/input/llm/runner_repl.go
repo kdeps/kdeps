@@ -127,8 +127,11 @@ func executeLLMMessage(
 		Method:    "POST",
 		Path:      "/llm",
 		SessionID: sessionID,
+		// session lets a chat loop: keep one conversation for the prompt:
+		// session: "{{ get('session') }}".
 		Body: map[string]interface{}{
 			"message": line,
+			"session": sessionID,
 		},
 	}
 

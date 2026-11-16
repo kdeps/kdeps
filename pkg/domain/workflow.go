@@ -33,16 +33,13 @@ const (
 	InputSourceBot = "bot"
 	// InputSourceFile is the input source for file content read from stdin or a file path.
 	InputSourceFile = "file"
+	// InputSourceInteractive is the terminal prompt: each line runs the workflow.
+	InputSourceInteractive = "interactive"
 	// BotExecutionTypePolling is the default long-running polling/WebSocket execution mode.
 	BotExecutionTypePolling = "polling"
 	// BotExecutionTypeStateless is a single-shot execution: reads a message from stdin (JSON),
 	// executes the workflow once, writes the reply to stdout, then exits.
 	BotExecutionTypeStateless = "stateless"
-
-	// LLMExecutionTypeStdin is an interactive stdin REPL.
-	LLMExecutionTypeStdin = "stdin"
-	// LLMExecutionTypeAPIServer starts the HTTP API server for REST-based chat.
-	LLMExecutionTypeAPIServer = "apiServer"
 )
 
 // Workflow represents a KDeps workflow configuration.

@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for examples/llm-chat (sources: [api] - interactive REPL and apiServer)
+# E2E tests for examples/llm-chat (sources: [interactive] - the interactive prompt)
 
 set -uo pipefail
 
@@ -52,18 +52,11 @@ else
     test_failed "llm-chat - workflow validates" "Validation failed for $WF"
 fi
 
-# T4: sources: [api] declared
-if grep -q "sources:.*\[api\]" "$WF"; then
-    test_passed "llm-chat - declares sources: [api]"
+# T5: the interactive input source is configured
+if grep -q "sources: \\[interactive\\]" "$WF"; then
+    test_passed "llm-chat - interactive input source configured"
 else
-    test_failed "llm-chat - declares sources: [api]" "sources: [api] not found in $WF"
-fi
-
-# T5: executionType: stdin configured
-if grep -q "executionType: stdin" "$WF"; then
-    test_passed "llm-chat - executionType: stdin configured"
-else
-    test_failed "llm-chat - executionType: stdin configured" "executionType: stdin not found in $WF"
+    test_failed "llm-chat - interactive input source configured" "sources: [interactive] not found in $WF"
 fi
 
 # T6: custom prompt configured
@@ -108,12 +101,12 @@ else
     test_failed "llm-chat - chat resource has prompt: field" "prompt: not found in $RES"
 fi
 
-# T12: README documents both execution types
+# T12: README documents the interactive source
 README="$PROJECT_ROOT/examples/llm-chat/README.md"
-if grep -q "apiServer\|stdin" "$README" 2>/dev/null; then
-    test_passed "llm-chat - README documents both execution types"
+if grep -q "sources: \\[interactive\\]" "$README" 2>/dev/null; then
+    test_passed "llm-chat - README documents the interactive source"
 else
-    test_failed "llm-chat - README documents both execution types" "stdin/apiServer not documented in README"
+    test_failed "llm-chat - README documents the interactive source" "sources: [interactive] not documented in README"
 fi
 
 echo ""

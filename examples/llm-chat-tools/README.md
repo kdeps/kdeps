@@ -1,6 +1,6 @@
 # LLM Chat with Tools
 
-Interactive LLM chat (stdin REPL) with **10 built-in tools**. The LLM can call any tool
+Interactive LLM chat (`interactive` input source) with **10 built-in tools**. The LLM can call any tool
 automatically when it needs factual data or computation.
 
 ## Tools Available
@@ -61,7 +61,7 @@ Pick a random item from: pizza,sushi,tacos,burger
 
 ```
 llm-chat-tools/
-|- workflow.yaml           # sources: [llm], executionType: stdin
+|- workflow.yaml           # sources: [interactive]
 +- resources/
    |- 01-calculator.yaml   # calcTool
    |- 02-weather.yaml      # weatherTool
@@ -78,16 +78,7 @@ llm-chat-tools/
 
 ## API Server Mode
 
-To expose as an HTTP endpoint instead of stdin REPL, change `executionType` in `workflow.yaml`:
-
-```yaml
-deploy:
-  input:
-    llm:
-      executionType: apiServer
-```
-
-Then query:
+To serve HTTP instead, set `deploy.input.sources: [api]` in `workflow.yaml` and add an `apiServer`. Then query:
 
 ```bash
 curl -X POST 'http://localhost:16401/api/v1/llm-chat-tools?message=What+is+pi+times+2'

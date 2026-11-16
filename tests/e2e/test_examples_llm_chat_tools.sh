@@ -54,18 +54,11 @@ else
     test_failed "llm-chat-tools - workflow validates" "Validation failed for $WF"
 fi
 
-# T4: workflow uses llm source
-if grep -q "sources:.*\[api\]" "$WF"; then
-    test_passed "llm-chat-tools - workflow uses sources: [api]"
+# T5: the interactive input source is configured
+if grep -q "sources: \\[interactive\\]" "$WF"; then
+    test_passed "llm-chat-tools - interactive input source configured"
 else
-    test_failed "llm-chat-tools - workflow uses sources: [api]" "sources: [api] not found in $WF"
-fi
-
-# T5: executionType is stdin
-if grep -q "executionType:.*stdin" "$WF"; then
-    test_passed "llm-chat-tools - executionType is stdin"
-else
-    test_failed "llm-chat-tools - executionType is stdin" "executionType: stdin not found in $WF"
+    test_failed "llm-chat-tools - interactive input source configured" "sources: [interactive] not found in $WF"
 fi
 
 # T6: all 10 tool resource files exist

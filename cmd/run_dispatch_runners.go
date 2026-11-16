@@ -65,11 +65,11 @@ func StartFileRunner(
 // types is forwarded to the workflow engine as input("message") and the result is
 // printed back. Exiting the REPL (/quit, /exit, Ctrl+D) returns from this function;
 // the background dispatch goroutine is abandoned and cleaned up when the process exits.
-// wantsStdinREPL reports whether the workflow asks for the interactive stdin
-// REPL itself (settings.llm.executionType: stdin), the same as --interactive.
+// wantsStdinREPL reports whether the workflow declares the interactive input
+// source, the same as --interactive.
 func wantsStdinREPL(workflow *domain.Workflow) bool {
-	return workflow != nil && workflow.Settings.LLM != nil &&
-		workflow.Settings.LLM.ExecutionType == domain.LLMExecutionTypeStdin
+	return workflow != nil && workflow.Settings.Input != nil &&
+		workflow.Settings.Input.HasInteractiveSource()
 }
 
 func startInteractiveMode(

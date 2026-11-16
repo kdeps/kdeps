@@ -114,7 +114,8 @@
                 "enum": [
                   "api",
                   "bot",
-                  "file"
+                  "file",
+                  "interactive"
                 ]
               }
             },
@@ -197,7 +198,19 @@
       "type": "object"
     },
     "repl": {
-      "type": "object"
+      "type": "object",
+      "description": "Look of the interactive prompt. Add interactive to deploy.input.sources to turn it on.",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Text shown before each line."
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session id for every line; a chat loop: keyed on get('session') keeps one conversation."
+        }
+      }
     },
     "resources": {
       "type": "array",

@@ -8,16 +8,13 @@ metadata:
   targetActionId: chat
 
 deploy:
-  # sources: [api] Start the LLM REPL with --interactive flag.
-  # executionType: stdin starts an interactive REPL on stdin/stdout.
-  # executionType: apiServer starts the HTTP API server instead.
+  # interactive: kdeps run opens a prompt; each line runs the workflow.
   input:
-    sources: [api]
+    sources: [interactive]
   runtime:
     timezone: Etc/UTC
     pythonVersion: "3.12"
 repl:
-  executionType: stdin
   prompt: "You: "
   sessionId: "llm-chat-session"
 

@@ -41,7 +41,7 @@ deploy:
 session:
   backend: memory
 repl:
-  executionType: stdin
+  prompt: "You: "
 resources:
   - actionId: a
     name: A
@@ -136,6 +136,6 @@ func TestYAMLLayout_Errors(t *testing.T) {
 	require.ErrorContains(t, err, "workflow.tests is now evals")
 	err = yaml.Unmarshal([]byte("memory:\n  type: sqlite\n"), &wf)
 	require.ErrorContains(t, err, "workflow.memory is now session")
-	err = yaml.Unmarshal([]byte("agent:\n  executionType: stdin\n"), &wf)
+	err = yaml.Unmarshal([]byte("agent:\n  prompt: x\n"), &wf)
 	require.ErrorContains(t, err, "workflow.agent is now repl")
 }

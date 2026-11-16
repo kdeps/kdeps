@@ -1,6 +1,6 @@
 # Input sources
 
-A workflow gets input from an HTTP server (`apiServer:` under `settings:`), a chat bot, or one file. You set the bot and file sources under `settings:` `input:`.
+A workflow gets input from an HTTP server (`apiServer:` under `settings:`), a chat bot, one file, or a terminal prompt. You set the bot, file and interactive sources under `settings:` `input:`.
 
 This sets how a workflow that runs gets its input. Agent mode does not use these sources. The prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
 
@@ -11,6 +11,7 @@ This sets how a workflow that runs gets its input. Agent mode does not use these
 | `api` | Valid source name. Does not open a port. |
 | `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
+| `interactive` | A terminal prompt: each line you type runs the workflow |
 
 An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, and no file source, `kdeps run` runs the workflow one time and stops.
 
@@ -121,15 +122,28 @@ example, use a `python` component or `exec` component step that streams rows.
 Do not use one step that keeps the full dataset in memory. The limit is a
 safety limit, not a target size.
 
-## Interactive REPL
+## Interactive source
 
-Start an interactive LLM REPL alongside the normal workflow execution with the `--interactive` flag. This is independent of the configured input source:
+`interactive` makes `kdeps run` a prompt. Each line you type runs the target resource with that line as `input('message')` and the prompt's session id as `get('session')`, then the result prints: a chat reply as text, anything else as JSON.
 
-```bash
-kdeps run workflow.yaml --interactive
+```yaml
+# workflow.yaml
+deploy:
+  input:
+    sources: [interactive]   # add api, bot or file to keep those running in the background
+repl:
+  prompt: "You: "            # text before each line (default "> ")
+  sessionId: my-session      # get('session') for every line (default "llm-repl-session")
 ```
 
-This opens a terminal REPL where you can send prompts and invoke tools interactively.
+```text
+$ kdeps run workflow.yaml
+You: What is 12 * 7?
+The answer is 84.
+You: /quit
+```
+
+`/list` shows the resources and components, `/run <actionId> key=value` runs one directly, and `/quit` (or Ctrl+D) exits. `--interactive` opens the same prompt for any workflow. A chat with [`loop:`](/workflow/resources/llm#agent-loop) whose `session` reads `get('session')` keeps one conversation across the lines.
 
 ## Use cases
 

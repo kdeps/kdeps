@@ -43,11 +43,16 @@ func (c *InputConfig) HasFileSource() bool {
 	return c.HasSource(InputSourceFile)
 }
 
-// LLMInputConfig holds optional configuration for the LLM REPL.
+// HasInteractiveSource reports whether "interactive" is in the Sources list.
+func (c *InputConfig) HasInteractiveSource() bool {
+	return c.HasSource(InputSourceInteractive)
+}
+
+// LLMInputConfig holds the look of the interactive prompt (repl:). The
+// interactive input source turns the prompt on.
 type LLMInputConfig struct {
-	ExecutionType string `yaml:"executionType,omitempty" json:"executionType,omitempty"`
-	Prompt        string `yaml:"prompt,omitempty"        json:"prompt,omitempty"`
-	SessionID     string `yaml:"sessionId,omitempty"     json:"sessionId,omitempty"`
+	Prompt    string `yaml:"prompt,omitempty"    json:"prompt,omitempty"`
+	SessionID string `yaml:"sessionId,omitempty" json:"sessionId,omitempty"`
 }
 
 // BotConfig contains configuration for chat-bot platform runners.

@@ -55,7 +55,7 @@ deploy:
   webServer: { ... }       # static file or app proxy settings
   runtime: { ... }         # runtime environment (Python, OS packages, LLM backend)
 session: { ... }           # per-session key-value store: set(k, v, 'session')
-repl: { ... }              # stdin chat prompt (executionType: stdin)
+repl: { ... }              # look of the interactive prompt (prompt, sessionId)
 ```
 
 Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set. kdeps does not ignore an unknown or removed key (a typo, or the old `sqlConnections`). `kdeps validate` fails with `Additional property <key> is not allowed`. See [Global Config](/reference/advanced-config) for the full reference.
@@ -77,27 +77,9 @@ agents:
 
 In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. If no profile matches, kdeps uses the global configuration with no change. On startup, kdeps warns about profiles that do not match any installed workflow name (non-fatal).
 
-## Interactive stdin REPL
+## Interactive prompt
 
-`executionType: stdin` under `repl:` makes `kdeps run` an interactive prompt (workflow mode). Each line that you type runs the target resource with that line as `input('message')`. Then the result prints. The reply of a chat resource prints as text. All other results print as JSON.
-
-`--interactive` does the same for all workflows. A server or bot workflow continues to run in the background when you type.
-
-```yaml
-# workflow.yaml
-repl:
-  executionType: stdin   # each stdin line runs targetActionId with it as the message
-  prompt: "You: "        # the prompt shown before each line
-```
-
-```text
-$ kdeps run workflow.yaml
-You: What is 12 * 7?
-The answer is 84.
-You: /quit
-```
-
-`/list` shows the resources and components, `/run <actionId> key=value` runs one directly, and `/quit` (or Ctrl+D) exits.
+`interactive` under `deploy.input.sources` makes `kdeps run` a prompt: each line runs the target resource. `repl:` sets its `prompt` and `sessionId`. See [Input sources](/workflow/input-sources#interactive-source).
 
 ## API server
 
