@@ -34,16 +34,16 @@ func TestAgentLoopChat(t *testing.T) {
 		Metadata:  domain.WorkflowMetadata{TargetActionID: "a"},
 		Resources: []*domain.Resource{{ActionID: "a", Chat: chat}},
 	}
-	got, err := agentLoopChat("./agents", host)
+	got, err := agentLoopChat("./agents", host, "")
 	require.NoError(t, err)
 	assert.Same(t, chat, got, "with a path, the host workflow defines the session")
 
 	t.Chdir(t.TempDir())
-	got, err = agentLoopChat("", host)
+	got, err = agentLoopChat("", host, "")
 	require.NoError(t, err)
 	assert.Nil(t, got, "no path and no ./workflow.yaml: nothing applies")
 
 	require.NoError(t, os.WriteFile("workflow.yaml", []byte("kind: [\n"), 0o644))
-	_, err = agentLoopChat("", host)
+	_, err = agentLoopChat("", host, "")
 	assert.Error(t, err, "a broken ./workflow.yaml is reported")
 }

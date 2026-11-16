@@ -24,7 +24,7 @@ features:
     link: /workflow/
     linkText: Build a workflow
   - title: kdeps agent
-    details: A chat with loop is an agent inside the workflow - tools, memory, one conversation per session. kdeps --agent-loop opens it as a REPL.
+    details: A chat with loop is an agent inside the workflow - tools, memory, one conversation per session. Its interactive prompt is the agent REPL, with slash commands and a model picker.
     link: /agent/
     linkText: Explore the agent
   - title: kdeps deploy
