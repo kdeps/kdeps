@@ -43,7 +43,11 @@ func (e *Executor) Execute(
 		}
 		roster = judges
 	}
-	result, run, err := e.executeChat(ctx, config)
+	execute := e.executeChat
+	if config.Loop != nil {
+		execute = e.executeLoop
+	}
+	result, run, err := execute(ctx, config)
 	if err != nil || len(roster) == 0 {
 		return result, err
 	}
