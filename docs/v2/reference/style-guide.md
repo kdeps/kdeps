@@ -22,15 +22,15 @@ skeleton from [Contributing to docs](./contributing-docs).
 | Troubleshooting | "Something broke. Fix it." | `reference/troubleshooting` |
 | Glossary | "Define this term." | `reference/glossary` |
 
-## Two modes
+## One workflow mode
 
-The directory is the label. `agent/` is agent mode. `workflow/`, `deploy/`, and
-`examples/` are workflow mode. On a shared page (`start/`, `reference/`), name
-the mode in the first sentence. Do not add an "Applies to" banner. A CLI
-reference and the glossary document the CLI and the terms, not a mode.
+A workflow is the one way to run kdeps. Requests reach it through an input
+source (`api`, `bot`, `file`, `interactive`). The agent loop is a `chat` with
+`loop:` inside a workflow; `kdeps --agent-loop` opens it as a REPL.
 
-- **Workflow mode** - DAG-deterministic request/response pipelines.
-- **Agent mode** - autonomous LLM agents with tool use and memory.
+The directory is the label. `agent/` covers the agent loop and its REPL.
+`workflow/`, `deploy/`, and `examples/` cover workflows. Do not add an
+"Applies to" banner.
 
 ## Voice and tone
 

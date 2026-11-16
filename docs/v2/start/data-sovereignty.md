@@ -104,7 +104,7 @@ Leave `base_url` unset and the desktop keeps its local model. Engines, GPU, and 
 Run `kdeps --agent-loop` to start an autonomous coding agent REPL that uses a local model. The agent has file edits, shell, search, and memory. kdeps sends no data to an external API. The [desktop app](/desktop/) is the same agent in a window, with the same local default.
 
 ```bash
-kdeps                      # agent REPL, default local llamafile model
+kdeps --agent-loop         # agent REPL, default local llamafile model
 kdeps --agent-loop --model llama3.1:8b  # bigger local model, still fully local
 ```
 

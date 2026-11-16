@@ -9,10 +9,10 @@ server, deploy, and the optional registry. Most people need one or two. The
 [Which product do you need?](/start/#which-product-do-you-need) table matches
 each to a task.
 
-A `workflow.yaml` is the pipeline you deploy. `kdeps --agent-loop` is the REPL
-against a local model, and it needs no YAML and no Docker. The registry is
-optional - it shares agents by name, not a step in building or running your own.
-The [two modes](#two-modes-one-workflow-file) below apply to whichever you use.
+A `workflow.yaml` is the one way to run kdeps, and the pipeline you deploy.
+`kdeps --agent-loop` opens its agent as a REPL against a local model, with no
+Docker. The registry is optional - it shares agents by name, not a step in
+building or running your own. See [one workflow, any input](#one-workflow-any-input).
 
 ---
 
@@ -63,20 +63,26 @@ The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
 The [`git` component](/workflow/resources/git) also lets an agent read and write
 repository state as part of its pipeline - status, diff, log, commit, branch.
 
-## Two modes, one workflow file
+## One workflow, any input
 
 ```d2
 direction: right
 
-A: workflow.yaml
-B: "kdeps run\nworkflow mode\nDAG pipeline, deterministic\nships to production"
-C: "kdeps --agent-loop [path]\nagent mode\ninteractive LLM loop\ntools on demand"
+api: "api\nHTTP request" {shape: oval}
+bot: "bot\nDiscord, Slack, Telegram" {shape: oval}
+file: "file\nstdin or path" {shape: oval}
+prompt: "interactive\nterminal prompt" {shape: oval}
+W: "workflow.yaml\nDAG, deterministic order"
+L: "chat with loop:\nagent: tools, memory"
 
-A -> B
-A -> C
+api -> W
+bot -> W
+file -> W
+prompt -> W
+W -> L: "when a step is an agent"
 ```
 
-Workflow mode is for production. kdeps validates the inputs, runs the resources in a fixed order, and gives predictable and auditable output. Agent mode is for exploration. The LLM selects the workflows to call and their order. Each workflow runs as a complete pipeline.
+kdeps validates the inputs, runs the resources in a fixed order, and gives predictable and auditable output. A step that needs judgment is a `chat` with `loop:`: the model calls tools over many rounds inside that one step. `kdeps --agent-loop` opens the same agent as a REPL.
 
 Same `workflow.yaml`, no rewrites, no re-config.
 

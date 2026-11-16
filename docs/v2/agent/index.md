@@ -1,11 +1,11 @@
 # kdeps agent
 
-kdeps agent is an autonomous LLM REPL that runs on your machine. It has tool use, persistent memory, multi-step reasoning, skills, and an opt-in judge panel (the [eval](/reference/glossary#eval)). The default model is local. It needs no API key and runs fully offline.
+The kdeps agent is the agent loop of a workflow: a `chat` with [`loop:`](/workflow/resources/llm#agent-loop) that calls tools over many rounds, with persistent memory, skills, and an opt-in judge panel (the [eval](/reference/glossary#eval)). `kdeps --agent-loop` opens it as a REPL on your machine. The default model is local. It needs no API key and runs fully offline.
 
 To send prompts to an [LLM server](/llm-server/) that you run, set `base_url` under `llm:`. Workflows and components register as tools. The model selects the tools to call.
 
 ```bash
-kdeps            # bare REPL - built-in tools only
+kdeps --agent-loop   # bare REPL - built-in tools only
 kdeps --agent-loop ./my-agent # also load that agent's workflows/components as tools
 ```
 
@@ -114,7 +114,7 @@ A workflow that does not parse, or names an unknown tool, is reported and the se
 ## Examples
 
 ```bash
-kdeps                                            # bare REPL, built-in tools only
+kdeps --agent-loop                               # bare REPL, built-in tools only
 kdeps --agent-loop ./my-agent/                                # register one workflow as a tool
 kdeps --agent-loop ./agents/                                  # register every workflow in the folder
 kdeps --agent-loop ./agents/ --model mistral --system "You are a data analyst."

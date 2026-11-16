@@ -40,20 +40,20 @@ line of configuration on the local machine. It is not part of the repository.
 ```text
 a folder with workflow.yaml
         |
-        +--  kdeps run ./my-agent/     ->  one-shot pipeline / HTTP API
+        +--  kdeps            ->  runs it: HTTP API, bot, file, or interactive prompt
         |
-        +--  kdeps --agent-loop ./my-agent/         ->  interactive REPL, agent calls the workflow as a tool
+        +--  kdeps --agent-loop   ->  the agent REPL on that folder's workflow
 ```
 
 - A **resource** is one step - an LLM call, a shell command, a SQL query, an HTTP
   request. It lives in its own YAML file.
 - A **workflow** is a folder of resources plus a `workflow.yaml` manifest. Each
-  resource declares what it `requires:`, and kdeps runs them in that order.
-- A **mode** is how you run the workflow. [Workflow mode](/workflow/)
-  (`kdeps run`) executes the steps in a fixed order and returns a structured
-  response - this is what you deploy. [Agent mode](/agent/)
-  (`kdeps --agent-loop [path]`) starts a chat REPL where an LLM decides when to call the
-  workflow.
+  resource declares what it `requires:`, and kdeps runs them in that order. It is
+  the one way to run kdeps.
+- An **input source** is how requests reach the workflow: `api`, `bot`, `file`, or
+  `interactive` (a terminal prompt). See [Input sources](/workflow/input-sources).
+- An **agent** is a `chat` with [`loop:`](/workflow/resources/llm#agent-loop): the
+  model calls tools over many rounds. `kdeps --agent-loop` opens it as a REPL.
 
 The [Glossary](/reference/glossary) gives the definition of each kdeps term.
 
@@ -62,7 +62,7 @@ The [Glossary](/reference/glossary) gives the definition of each kdeps term.
 No YAML needed. Run the binary:
 
 ```bash
-kdeps            # opens an AI chat REPL against a local model, no API key
+kdeps --agent-loop   # an AI chat REPL against a local model, no API key
 ```
 
 A minimal workflow is a folder with a manifest and two resources - one that

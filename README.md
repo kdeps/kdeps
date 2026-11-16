@@ -13,8 +13,8 @@
 
 kdeps builds git-native AI appliances. Your AI agent is YAML in your repository. You build it one time and run it where you need it.
 
-1. **Workflows** - deterministic YAML pipelines. Serve them as an HTTP API, a bot, or a file processor.
-2. **Agent** - `kdeps --agent-loop` opens an AI REPL with tools and memory. It uses a local model or an LLM server that you run.
+1. **Workflows** - a YAML pipeline is the one way to run kdeps. Feed it from an HTTP API, a bot, a file, or an interactive prompt.
+2. **Agents** - a `chat` with `loop:` is an AI agent with tools and memory, inside the same workflow. `kdeps new helper --template assistant` starts one.
 3. **Deploy on your infrastructure** - ship the same YAML as a Docker image, Kubernetes manifests, a bootable ISO, or one binary.
 
 ## Install
@@ -84,22 +84,35 @@ curl -s -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "Explain entropy in one sentence."}'
 ```
 
-Resources run in dependency order. Independent resources run in parallel, on the same scheduler as agent mode. The model can write a different answer each time. But for the same request, kdeps always runs the same steps in the same order.
+Resources run in dependency order. Independent resources run in parallel. The model can write a different answer each time. But for the same request, kdeps always runs the same steps in the same order.
 
-A chat puts its keys in these groups: `model`, `context`, `harness`, `tools`, `rag`, and `guardrails`. Guardrail judges review and revise the answer, as the judge panel of agent mode does. Harness sections, prompt refine, and skills come from agent mode. `tools.list` gives the names of agent mode tools (`web_search`, `calculator`, `subagent`, ...).
+A chat puts its keys in these groups: `model`, `context`, `harness`, `tools`, `rag`, and `guardrails`. Guardrail judges review and revise the answer. `tools.list` names built-in tools (`web_search`, `calculator`, `subagent`, ...), or `auto` for all of them. Judges, the planning council and prompt refine are opt-in.
 
 `kdeps test .` runs the `evals:` of a workflow in the process. It runs assertions, judges, and repeated runs against a pass-rate threshold.
 
 For more data, see the [workflow docs](https://kdeps.com/workflow/), [examples](https://kdeps.com/examples/), and [agencies](https://kdeps.com/agencies/) (many agents as one system).
 
-## 2. Agent
+## 2. Agents
+
+An agent is a workflow whose `chat` has a `loop:` block: the model calls tools over many rounds and keeps one conversation per session.
 
 ```bash
-kdeps                            # REPL with built-in tools (files, shell, search, memory)
-kdeps --agent-loop ./my-agent/ --model llama3.2   # also load that project's workflows as tools
+kdeps new helper --template assistant   # interactive prompt + chat with loop:
+cd helper && kdeps                      # bare kdeps runs ./workflow.yaml
+kdeps --agent-loop                      # the agent REPL, with slash commands and a model picker
 ```
 
-The model selects the tools to call. Before a file tool uses a path outside the working directory, it asks you. `~/.kdeps` and `/tmp` are exceptions.
+```yaml
+# helper/resources/assistant.yaml
+chat:
+  context:
+    prompt: "{{ input('message') }}"
+  loop:
+    tools: [read_file, edit_file, bash_exec]   # the tools the agent may call
+    session: "{{ get('session') }}"           # one conversation across prompts
+```
+
+File tools stay inside the working directory. In the REPL, a path outside it asks you first; `~/.kdeps` and `/tmp` are exceptions.
 
 For more data, see the [agent docs](https://kdeps.com/agent/) and the [desktop app](https://kdeps.com/agent/desktop#install).
 

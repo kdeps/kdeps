@@ -11,15 +11,16 @@ query, one shell command, one HTTP request. A resource lists what it `requires:`
 and kdeps runs the resources in that dependency order, passing each one's output
 forward. That ordered graph is the workflow.
 
-The tables below group every concept by what it does. Start with the two modes,
+The tables below group every concept by what it does. Start with the workflow,
 then reach for the rest as you need them.
 
-## The two modes
+## The workflow and its agent
 
 | Concept | What it is | Mode |
 |---|---|---|
-| [Workflow mode](/workflow/) | A DAG of resources that runs in dependency order and returns a response | Workflow |
-| [Agent mode](/agent/) | An LLM that calls workflows, components, and built-in tools to finish a task | Agent |
+| [Workflow](/workflow/) | A DAG of resources that runs in dependency order and returns a response; the one way to run kdeps | Workflow |
+| [Input sources](/workflow/input-sources) | How requests arrive: `api`, `bot`, `file`, `interactive` | Workflow |
+| [Agent loop](/agent/) | A `chat` with `loop:`: an LLM that calls tools over many rounds; `kdeps --agent-loop` opens it as a REPL | Agent |
 | [Agencies](/agencies/) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
 | [Components](/agencies/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
 

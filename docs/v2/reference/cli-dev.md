@@ -81,7 +81,7 @@ kdeps --agent-loop [path] [flags]
 **Examples:**
 
 ```bash
-kdeps                                                         # bare REPL, no workflow tools
+kdeps --agent-loop                                            # bare REPL, no workflow tools
 kdeps --agent-loop ./my-agent/                                             # one tool: metadata.name
 kdeps --agent-loop ./agents/                                               # all workflows in folder as tools
 kdeps --agent-loop ./my-agent/ --model mistral
