@@ -128,12 +128,12 @@ The layout is the same for a code repository, a document folder, a workflow, a b
 
 ## Set up
 
-The vault is on by default, in `~/.kdeps/notes`. The first session creates it. Every session rebuilds its graph in the background.
+The vault is opt-in. It lives in `~/.kdeps/notes`, which the first session creates. `/knowledge on` turns recall, session notes and the knowledge tools on, and kdeps remembers the choice. A workflow chat opts in with `rag.knowledge: true`.
 
 | Turn it | How |
 |---|---|
 | off for good | `knowledge.enabled: false` in `~/.kdeps/config.yaml` |
-| off or on, remembered across sessions | `/knowledge off`, `/knowledge on` |
+| on or off, remembered across sessions (off by default) | `/knowledge on`, `/knowledge off` |
 | to another folder | `knowledge.vault` in config.yaml, or `kdeps knowledge init <folder>` |
 
 ```yaml
@@ -243,7 +243,7 @@ How kdeps adds data to the note:
 
 ## Workflow mode
 
-A workflow [`chat`](/workflow/resources/llm#knowledge-recall) call recalls from the vault by default. Write is off, because a workflow can run thousands of times. To get a log for each workflow, turn it on:
+A workflow [`chat`](/workflow/resources/llm#knowledge-recall) call recalls from the vault only with `rag.knowledge: true`. Write is off, because a workflow can run thousands of times. To get a log for each workflow, turn it on:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -458,6 +458,14 @@ kdeps knowledge folders remove ~/docs/billing-specs
 
 The model uses `knowledge_card_update` with `add_search_folder` or `remove_search_folder`.
 
+A workflow names its search folders in `workflow.yaml`. kdeps adds and indexes them when it starts the workflow (`kdeps run`, `kdeps --agent-loop` in that folder, or the desktop workspace); without the key, nothing is indexed:
+
+```yaml
+# workflow.yaml
+knowledge:
+  index: [./docs, ~/specs/billing]   # a relative path is from the workflow's folder
+```
+
 kdeps refuses: your home folder, a filesystem root, the vault, the project's own folder, a folder inside one already searched, and a non-folder path.
 
 Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned, in any folder. The lists are in the set's `search.yaml` (`secret_names`, `secret_prefixes`, `secret_extensions`, `secret_dirs`). Without that file, kdeps indexes nothing. A deleted search folder shows up in `kdeps knowledge check`.
@@ -501,4 +509,4 @@ Install rejects a `check.yaml` with an empty message, an invalid template, or an
 | `knowledge_card_update` | Set `status` and/or `next`; stamps `updated`; `archived` moves the project to `archive/`; `add_search_folder` / `remove_search_folder` change the [search folders](#search-folders) |
 | `knowledge_note_save` | Save a new one-idea note; `scope`: `project` (default), `shared` or `inbox` |
 
-They are available in agent sessions when the vault is on. They refuse when `/knowledge off` is set. They are part of the `agent` asset profile.
+They are available in agent sessions once `/knowledge on` is set. Until then they refuse. They are part of the `agent` asset profile.

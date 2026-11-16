@@ -53,6 +53,8 @@ YAML
 
 KD_HOME="$KD_DIR/home"
 mkdir -p "$KD_HOME/.kdeps"
+# The vault is opt-in: these sessions turn it on (/knowledge on, persisted).
+printf 'agent_loop:\n  knowledge_on: true\n' > "$KD_HOME/.kdeps/agent-loop-settings.yaml"
 # kd_vault points config.yaml at vault $1.
 kd_vault() {
     # Single quotes: a Windows path's backslashes are escapes inside YAML double quotes.

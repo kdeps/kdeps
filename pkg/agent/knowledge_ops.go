@@ -42,7 +42,7 @@ var knowledgeOps = map[string]func(r *REPL, args map[string]any) (map[string]any
 			pending = n
 		}
 		return map[string]any{
-			"value": onOffWord(r.loop.knowledgeOn()), "vault": k.vault.Root, "graph": knowledge.GraphPath(k.dir),
+			"value": onOffWord(r.loop.vaultInUse()), "vault": k.vault.Root, "graph": knowledge.GraphPath(k.dir),
 			"pending": pending, "build": r.loop.knowledgeBuildMode(),
 		}, nil
 	},
@@ -63,7 +63,7 @@ func (r *REPL) vault(needOn bool) (*knowledgeState, error) {
 	if k == nil {
 		return nil, errors.New("the knowledge vault is disabled in ~/.kdeps/config.yaml (knowledge.enabled: false)")
 	}
-	if needOn && r.loop.knowledgeOff {
+	if needOn && !r.loop.knowledgeOn {
 		return nil, errors.New("the knowledge vault is off (/knowledge on)")
 	}
 	return k, nil

@@ -395,7 +395,7 @@ The free text models of OpenRouter are a separate registry, `models/openrouter`.
 
 ## `kdeps knowledge`
 
-Manages the [knowledge vault](/agent/knowledge): markdown notes that the agent recalls on each turn, with no full read. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand. `--extract` adds the model step and is off unless set.
+Manages the [knowledge vault](/agent/knowledge): markdown notes that the agent recalls on each turn, with no full read. Opt-in (`/knowledge on`, or `rag.knowledge: true` on a workflow chat); the vault is `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand. `--extract` adds the model step and is off unless set.
 
 ```bash
 kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)

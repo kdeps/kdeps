@@ -129,21 +129,21 @@ func (k *knowledgeState) searchRoots() []string {
 	return out
 }
 
-// knowledgeOn reports whether the vault is configured and not switched off
-// with /knowledge off.
-func (l *Loop) knowledgeOn() bool {
-	return l.knowledge != nil && !l.knowledgeOff
+// vaultInUse reports whether the vault is configured and switched on with
+// /knowledge on (it is opt-in).
+func (l *Loop) vaultInUse() bool {
+	return l.knowledge != nil && l.knowledgeOn
 }
 
 // SetKnowledge switches recall, session notes and the knowledge tools on or
 // off for this loop (/knowledge on|off), refreshing the system preamble.
 func (l *Loop) SetKnowledge(on bool) {
-	l.knowledgeOff = !on
+	l.knowledgeOn = on
 	l.InvalidateSystemPreamble()
 }
 
 // KnowledgeEnabled reports whether the knowledge vault is in use.
-func (l *Loop) KnowledgeEnabled() bool { return l.knowledgeOn() }
+func (l *Loop) KnowledgeEnabled() bool { return l.vaultInUse() }
 
 func (k *knowledgeState) sessionNotes() bool {
 	return k.cfg.SessionNotes == nil || *k.cfg.SessionNotes
@@ -262,7 +262,7 @@ func (k *knowledgeState) notifyMoved() {
 // and the card overview. The routing table (KDEPS.md) arrives through
 // instruction discovery.
 func (l *Loop) knowledgePreamble() string {
-	if !l.knowledgeOn() {
+	if !l.vaultInUse() {
 		return ""
 	}
 	return knowledge.Prompt(knowledge.PromptVault, map[string]any{
@@ -274,7 +274,7 @@ func (l *Loop) knowledgePreamble() string {
 // knowledge workspace's KDEPS.md) and the vault preamble.
 func (l *Loop) instructionParts() []string {
 	var extra []string
-	if l.knowledgeOn() {
+	if l.vaultInUse() {
 		extra = append(extra, l.knowledge.vault.Root)
 	}
 	var parts []string
@@ -290,7 +290,7 @@ func (l *Loop) instructionParts() []string {
 // knowledgeRecallItem is this turn's recall as a system item, or nil, and
 // says on w (when set) how much it added.
 func (l *Loop) knowledgeRecallItem(input string, w io.Writer) *domain.ScenarioItem {
-	if !l.knowledgeOn() || strings.TrimSpace(input) == "" {
+	if !l.vaultInUse() || strings.TrimSpace(input) == "" {
 		return nil
 	}
 	k := l.knowledge
@@ -486,7 +486,7 @@ func (l *Loop) LastRecall() (knowledge.Recall, string, bool) {
 // and refreshes the graph. Errors are reported, never fatal.
 func (l *Loop) writeSessionNote(summary string, w io.Writer) {
 	k := l.knowledge
-	if !l.knowledgeOn() || !k.sessionNotes() || strings.TrimSpace(summary) == "" {
+	if !l.vaultInUse() || !k.sessionNotes() || strings.TrimSpace(summary) == "" {
 		return
 	}
 	if !l.saveSessionNote(summary, w) {
@@ -516,7 +516,7 @@ func (l *Loop) writeSessionNote(summary string, w io.Writer) {
 // compaction and session end replaces it with a written one.
 func (l *Loop) UpdateSessionNote() {
 	k := l.knowledge
-	if !l.knowledgeOn() || !k.sessionNotes() || l.session == nil || l.session.TurnCount() == 0 {
+	if !l.vaultInUse() || !k.sessionNotes() || l.session == nil || l.session.TurnCount() == 0 {
 		return
 	}
 	msgs := l.session.RawMessages()
@@ -744,7 +744,7 @@ func (l *Loop) WriteSessionNoteNow(ctx context.Context, w io.Writer) {
 // SessionNoteDue reports whether turns happened since the last session note.
 func (l *Loop) SessionNoteDue() bool {
 	k := l.knowledge
-	return l.knowledgeOn() && k.sessionNotes() && l.session != nil && l.session.TurnCount() > k.notedTurns
+	return l.vaultInUse() && k.sessionNotes() && l.session != nil && l.session.TurnCount() > k.notedTurns
 }
 
 // registerKnowledgeTools offers the card and note tools when a vault is set.
@@ -827,7 +827,7 @@ func (l *Loop) updateCard(args map[string]any) (string, error) {
 // whenKnowledgeOn makes a knowledge tool refuse while /knowledge off.
 func (l *Loop) whenKnowledgeOn(fn func(map[string]any) (string, error)) func(map[string]any) (string, error) {
 	return func(args map[string]any) (string, error) {
-		if !l.knowledgeOn() {
+		if !l.vaultInUse() {
 			return "", errKnowledgeOff
 		}
 		return fn(args)
@@ -1155,7 +1155,7 @@ func (l *Loop) runBackgroundExtract() {
 // Session end passes all=false and runs only in automatic mode. An explicit
 // request prints why a disabled mode did not run.
 func (l *Loop) knowledgeExtractRuns(w io.Writer, all bool) bool {
-	if !l.knowledgeOn() || l.config.SubagentEngine == nil {
+	if !l.vaultInUse() || l.config.SubagentEngine == nil {
 		return false
 	}
 	mode := l.knowledgeBuildMode()
@@ -1235,7 +1235,7 @@ func HarnessText(name string) string { return harnessText(name) }
 // mid-session are seen on the next turn.
 func (l *Loop) turnStateBlock(focus string) string {
 	var parts []string
-	if l.knowledgeOn() {
+	if l.vaultInUse() {
 		l.knowledge.prepareProject()
 		if o := l.knowledge.overview(); o != "" {
 			parts = append(parts, "<knowledge-status>\n"+o+"</knowledge-status>")

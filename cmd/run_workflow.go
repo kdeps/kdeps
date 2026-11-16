@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
@@ -226,6 +227,10 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	}
 	if llmErr := ensureLLMBackendStep(workflow); llmErr != nil {
 		return llmErr
+	}
+	// knowledge.index: the folders this workflow searches, indexed now.
+	if indexErr := agent.IndexWorkflowFolders(filepath.Dir(workflowPath), workflow); indexErr != nil {
+		return indexErr
 	}
 
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")

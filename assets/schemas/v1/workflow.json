@@ -212,6 +212,22 @@
         }
       }
     },
+    "knowledge": {
+      "type": "object",
+      "description": "The folders this workflow searches. kdeps indexes them when it starts the workflow.",
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Folders to index for search_local and recall. A relative path is from the workflow's folder."
+        }
+      }
+    },
     "resources": {
       "type": "array",
       "items": {

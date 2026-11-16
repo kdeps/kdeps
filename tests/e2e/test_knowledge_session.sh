@@ -18,7 +18,7 @@
 #   - /knowledge off stops recall and is remembered by the next session;
 #     knowledge.enabled: false turns everything off
 #   - an old ~/.kdeps/memory database moves into the vault once
-#   - a workflow chat call gets recall; chat.knowledge: false does not;
+#   - a workflow chat call with rag.knowledge: true gets recall; without it, none;
 #     knowledge.workflow_notes: true logs each call to the workflow's project
 set -uo pipefail
 
@@ -134,6 +134,9 @@ KS_HOME="$KS_DIR/home"
 KS_VAULT="$KS_DIR/vault"
 KS_PROJ="$KS_DIR/app"
 mkdir -p "$KS_HOME/.kdeps" "$KS_PROJ" "$KS_VAULT/projects/app/decisions" "$KS_VAULT/shared"
+# The vault is opt-in: these sessions turn it on (/knowledge on, persisted).
+printf 'agent_loop:\n  knowledge_on: true\n' > "$KS_HOME/.kdeps/agent-loop-settings.yaml"
+
 cat > "$KS_VAULT/projects/app/app.md" <<CARD
 ---
 type: project
@@ -496,7 +499,7 @@ else
 fi
 ks_config ""
 
-# --- workflow mode: chat calls recall by default; knowledge: false skips -------
+# --- workflow mode: recall is opt-in (rag.knowledge: true) ------------------
 KS_WF="$KS_DIR/wf"
 mkdir -p "$KS_WF/resources"
 cat > "$KS_WF/workflow.yaml" <<'YAML'
@@ -539,24 +542,24 @@ ks_run() {
         KDEPS_ASSETS_SRC="$KS_SRC" KDEPS_ASSETS_DIR="$KS_HOME/store" KDEPS_ASSETS_URL=off \
         timeout 120 "$KDEPS_BIN" run "$KS_WF/workflow.yaml" --file "$(native "$KS_DIR/question.txt")" 2>&1 </dev/null || true
 }
-ks_wf_resources ""
+ks_wf_resources "rag:
+    knowledge: true"
 : > "$KS_LOG"
 OUT=$(ks_run)
 REQ=$(ks_req "workflow question")
 if output_grep_fixed "<knowledge-recall>" "$REQ" && output_grep "Billing decision.md" "$REQ"; then
-    test_passed "knowledge workflow - a chat call recalls related notes by default"
+    test_passed "knowledge workflow - rag.knowledge: true recalls related notes"
 else
     test_failed "knowledge workflow - recall in chat call" "$OUT | $REQ"
 fi
-ks_wf_resources "rag:
-    knowledge: false"
+ks_wf_resources ""
 : > "$KS_LOG"
 OUT=$(ks_run)
 REQ=$(ks_req "workflow question")
 if [ -n "$REQ" ] && ! output_grep_fixed "<knowledge-recall>" "$REQ"; then
-    test_passed "knowledge workflow - chat.knowledge: false skips recall for that call"
+    test_passed "knowledge workflow - recall is opt-in: no recall without rag.knowledge"
 else
-    test_failed "knowledge workflow - knowledge: false" "$OUT | $REQ"
+    test_failed "knowledge workflow - recall without opting in" "$OUT | $REQ"
 fi
 if [ ! -d "$KS_VAULT/projects/ks-wf" ]; then
     test_passed "knowledge workflow - workflow runs write nothing by default"

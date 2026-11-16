@@ -28,6 +28,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
@@ -59,7 +60,12 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 			PlanCouncil:  req.Plan,
 			AutoJudges:   req.Judges,
 			PromptRefine: req.Refine,
+			KnowledgeOn:  req.Knowledge,
 			Thinking:     req.Thinking,
+		}
+		if req.Knowledge {
+			_, kc := knowledge.Configured()
+			cfg.Knowledge, cfg.KnowledgeCtx = kc, req.Ctx
 		}
 		key := ""
 		if req.Session != "" {

@@ -337,7 +337,7 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 		subagentSpec = identityCfg.LLM.Subagent
 	}
 	if knowledgeCfg == nil {
-		// The knowledge vault is on by default for agent sessions.
+		// The vault is available to agent sessions; /knowledge on uses it.
 		knowledgeCfg = &config.KnowledgeConfig{}
 	}
 
@@ -370,7 +370,13 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	// The workspace's workflow defines the session when its target is a chat
 	// with loop:: model and backend (unless given as flags), round cap, tools.
 	// A workflow that does not parse, or names unknown tools, is reported and
-	// the session starts with its own settings, as the desktop app does.
+	// the session starts with its own settings, as the desktop app does. Its
+	// knowledge.index folders are indexed first.
+	if wf, wfDir, wfErr := agentWorkflow(path, hostWorkflow); wfErr == nil {
+		if indexErr := agent.IndexWorkflowFolders(wfDir, wf); indexErr != nil {
+			fmt.Fprintf(os.Stderr, "agent loop: %v\n", indexErr)
+		}
+	}
 	if loopChat, loopErr := agentLoopChat(path, hostWorkflow); loopErr != nil {
 		fmt.Fprintf(os.Stderr, "agent loop: workflow.yaml not applied: %v\n", loopErr)
 	} else if unknown := agent.UnknownLoopTools(registry, loopChat); len(unknown) > 0 {
@@ -775,17 +781,31 @@ func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *e
 }
 
 // newMinimalHostWorkflow returns a bare workflow used as the agent loop host.
+// agentWorkflow is the workflow that defines an agent session and its
+// folder: the host workflow when a path was given, else ./workflow.yaml.
+func agentWorkflow(path string, host *domain.Workflow) (*domain.Workflow, string, error) {
+	if path != "" {
+		dir := path
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			dir = filepath.Dir(path)
+		}
+		return host, dir, nil
+	}
+	wf, err := agent.LoadWorkspaceWorkflow(".")
+	if errors.Is(err, agent.ErrNoWorkflow) {
+		return nil, ".", nil
+	}
+	return wf, ".", err
+}
+
 // agentLoopChat is the loop chat that defines an agent session: the host
 // workflow's when a path was given, else ./workflow.yaml's.
 func agentLoopChat(path string, host *domain.Workflow) (*domain.ChatConfig, error) {
-	if path != "" {
-		return agent.LoopChat(host), nil
+	wf, _, err := agentWorkflow(path, host)
+	if err != nil {
+		return nil, err
 	}
-	chat, err := agent.LoadLoopChat(".")
-	if errors.Is(err, agent.ErrNoWorkflow) {
-		return nil, nil //nolint:nilnil // no workflow here: nothing applies
-	}
-	return chat, err
+	return agent.LoopChat(wf), nil
 }
 
 func newMinimalHostWorkflow() *domain.Workflow {

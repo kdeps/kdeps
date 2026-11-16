@@ -242,3 +242,18 @@ func TestInputSourcesIntegration_REPLBlock(t *testing.T) {
 	removed["repl"] = map[string]interface{}{"executionType": "stdin"}
 	require.Error(t, schemaValidator.ValidateWorkflow(removed))
 }
+
+// TestWorkflowKnowledgeIndex_Schema: knowledge.index lists folders; other
+// keys under knowledge are rejected.
+func TestWorkflowKnowledgeIndex_Schema(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	ok := workflowWithInput(map[string]interface{}{"sources": []string{"api"}})
+	ok["knowledge"] = map[string]interface{}{"index": []string{"./docs", "~/specs"}}
+	require.NoError(t, schemaValidator.ValidateWorkflow(ok))
+
+	bad := workflowWithInput(map[string]interface{}{"sources": []string{"api"}})
+	bad["knowledge"] = map[string]interface{}{"vault": "~/notes"}
+	require.Error(t, schemaValidator.ValidateWorkflow(bad))
+}

@@ -302,6 +302,10 @@ type Config struct {
 	// KnowledgeCtx is the parent context of the vault's background graph
 	// builds; the vault stays off without it.
 	KnowledgeCtx context.Context
+	// KnowledgeOn starts the session with the vault in use (recall, session
+	// notes, knowledge tools). Opt-in: /knowledge on, or rag.knowledge: true
+	// on a workflow chat.
+	KnowledgeOn bool
 	// SubagentEngine makes an engine for one subagent call that runs beside
 	// the turn: knowledge extraction and judge-roster generation. A fresh one
 	// each, because Engine.Execute keeps per-run state and two calls must not
@@ -333,7 +337,7 @@ type Loop struct {
 	ctx               context.Context
 	knowledge         *knowledgeState // nil when no vault is configured
 	plan              *planState      // the current task's council plan; nil before one
-	knowledgeOff      bool            // /knowledge off
+	knowledgeOn       bool            // /knowledge on
 	knowledgeBuild    string          // /knowledge build; empty until that command is saved
 	knowledgeBuildSet bool
 	noteID            string // session note id before the session is saved
@@ -582,6 +586,7 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 	if !cfg.Nested {
 		l.becomeSessionLoop()
 	}
+	l.knowledgeOn = cfg.KnowledgeOn
 	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
 		// A project folder that moves (archived, or back) takes its memory along.
 		l.knowledge.moved = func() {

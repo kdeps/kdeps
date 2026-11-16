@@ -46,7 +46,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its output goes back to the caller"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "agent.LoadLoopChat", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
+		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkspaceWorkflow", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
 	},
 	"defaults": {
 		Mode: "both",
@@ -189,7 +189,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the workflow is accepted, or each error is named"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "agent.LoadLoopChat", "validator.NewSchemaValidator", "validator.schemaFS"},
+		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkspaceWorkflow", "validator.NewSchemaValidator", "validator.schemaFS"},
 	},
 	"templates": {
 		Mode: "both",

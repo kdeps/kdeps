@@ -56,6 +56,7 @@ deploy:
   runtime: { ... }         # runtime environment (Python, OS packages, LLM backend)
 session: { ... }           # per-session key-value store: set(k, v, 'session')
 repl: { ... }              # look of the interactive prompt (prompt, sessionId)
+knowledge: { ... }         # folders this workflow searches; indexed at start (index: [./docs])
 ```
 
 Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set. kdeps does not ignore an unknown or removed key (a typo, or the old `sqlConnections`). `kdeps validate` fails with `Additional property <key> is not allowed`. See [Global Config](/reference/advanced-config) for the full reference.

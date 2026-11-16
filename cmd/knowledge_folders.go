@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -153,29 +152,12 @@ func indexFoldersFlag(folders []string) error {
 	if len(folders) == 0 {
 		return nil
 	}
-	vault, kc := knowledge.Configured()
-	if kc != nil && kc.Enabled != nil && !*kc.Enabled {
-		return errors.New("--index records folders in the project card: enable the knowledge vault " +
-			"(knowledge.enabled in ~/.kdeps/config.yaml)")
-	}
-	v := knowledge.Vault{Root: vault}
-	if _, err := os.Stat(v.Root); errors.Is(err, os.ErrNotExist) {
-		if _, initErr := knowledge.Init(v); initErr != nil {
-			return initErr
-		}
-	}
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	card, _, err := v.EnsureProject(wd, time.Now())
-	if err != nil {
-		return err
-	}
-	for _, f := range folders {
-		if _, err = agent.AddProjectFolder(v, card, f); err != nil {
-			return fmt.Errorf("--index %s: %w", f, err)
-		}
+	if err = agent.IndexProjectFolders(wd, folders); err != nil {
+		return fmt.Errorf("--index: %w", err)
 	}
 	return nil
 }

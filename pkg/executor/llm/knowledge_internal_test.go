@@ -37,6 +37,9 @@ import (
 
 // withVault builds a graph for a small vault and points the executor's
 // knowledge config at it.
+// recallOn is rag.knowledge: true; recall is opt-in.
+func recallOn() *bool { on := true; return &on }
+
 func withVault(t *testing.T, kc *config.KnowledgeConfig) string {
 	t.Helper()
 	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
@@ -54,8 +57,10 @@ func withVault(t *testing.T, kc *config.KnowledgeConfig) string {
 
 func TestKnowledgeRecall_Workflow(t *testing.T) {
 	vault := withVault(t, &config.KnowledgeConfig{})
-	got := knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?")
+	got := knowledgeRecall(t.Context(), &domain.ChatConfig{Knowledge: recallOn()}, "how do we bill?")
 	assert.Contains(t, got, filepath.Join(vault, "shared", "Billing decision.md"))
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?"),
+		"recall is opt-in: rag.knowledge: true")
 
 	off := false
 	assert.Empty(
@@ -63,16 +68,17 @@ func TestKnowledgeRecall_Workflow(t *testing.T) {
 		knowledgeRecall(t.Context(), &domain.ChatConfig{Knowledge: &off}, "how do we bill?"),
 		"per resource",
 	)
-	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "  "))
-	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "unrelated zzz"))
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{Knowledge: recallOn()}, "  "))
+	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{Knowledge: recallOn()}, "unrelated zzz"))
 
 	configuredVault = func() (string, *config.KnowledgeConfig) {
 		return vault, &config.KnowledgeConfig{Enabled: &off}
 	}
-	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?"), "turned off in config")
+	optedIn := &domain.ChatConfig{Knowledge: recallOn()}
+	assert.Empty(t, knowledgeRecall(t.Context(), optedIn, "how do we bill?"), "turned off in config")
 
 	configuredVault = func() (string, *config.KnowledgeConfig) { return t.TempDir(), &config.KnowledgeConfig{} }
-	assert.Empty(t, knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?"), "an empty vault")
+	assert.Empty(t, knowledgeRecall(t.Context(), optedIn, "how do we bill?"), "an empty vault")
 }
 
 func TestKnowledgeRecall_BuildsMissingGraph(t *testing.T) {
@@ -85,7 +91,7 @@ func TestKnowledgeRecall_BuildsMissingGraph(t *testing.T) {
 	t.Cleanup(func() { configuredVault = orig })
 	configuredVault = func() (string, *config.KnowledgeConfig) { return vault, &config.KnowledgeConfig{} }
 
-	got := knowledgeRecall(t.Context(), &domain.ChatConfig{}, "how do we bill?")
+	got := knowledgeRecall(t.Context(), &domain.ChatConfig{Knowledge: recallOn()}, "how do we bill?")
 	assert.Contains(t, got, filepath.Join(vault, "shared", "Billing decision.md"))
 }
 
@@ -98,7 +104,7 @@ func TestBuildMessages_AddsRecallAfterSystemPrompt(t *testing.T) {
 	)
 	require.NoError(t, err)
 	msgs, err := e.buildMessages(expression.NewEvaluator(nil), ctx,
-		&domain.ChatConfig{Prompt: "how do we bill?", JSONResponse: true}, "how do we bill?")
+		&domain.ChatConfig{Prompt: "how do we bill?", JSONResponse: true, Knowledge: recallOn()}, "how do we bill?")
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(msgs), 3)
 	assert.Equal(t, roleSystem, msgs[0][jsonFieldRole], "the system prompt stays first")
@@ -108,7 +114,7 @@ func TestBuildMessages_AddsRecallAfterSystemPrompt(t *testing.T) {
 	msgs, err = e.buildMessages(
 		expression.NewEvaluator(nil),
 		ctx,
-		&domain.ChatConfig{Prompt: "bill"},
+		&domain.ChatConfig{Prompt: "bill", Knowledge: recallOn()},
 		"how do we bill?",
 	)
 	require.NoError(t, err)

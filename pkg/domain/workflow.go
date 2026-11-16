@@ -50,6 +50,9 @@ type Workflow struct {
 	Settings   WorkflowSettings `yaml:"settings"`            // written as deploy, session and repl (yaml_layout.go)
 	Resources  []*Resource      `yaml:"resources,omitempty"` // Can be inline or loaded from resources/ directory.
 	Tests      []TestCase       `yaml:"evals,omitempty"`     // Cases run by kdeps test.
+	// Knowledge names the folders this workflow searches; kdeps indexes them
+	// when it starts the workflow.
+	Knowledge *WorkflowKnowledge `yaml:"knowledge,omitempty"`
 
 	// Components maps component name -> parsed Component definition.
 	// Populated by the parser when loading components alongside the workflow.
@@ -212,3 +215,11 @@ type InputConfig struct {
 }
 
 // HasSource reports whether the given source is in the Sources list.
+
+// WorkflowKnowledge is a workflow's knowledge: block.
+type WorkflowKnowledge struct {
+	// Index lists the folders the workflow searches (search_local, recall).
+	// A relative path is from the workflow's folder. kdeps adds each as a
+	// search folder of the workflow's project and indexes it at start.
+	Index []string `yaml:"index,omitempty"`
+}

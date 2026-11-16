@@ -197,7 +197,7 @@ var sessionSettings = map[string]sessionSetting{
 	},
 	// /knowledge on|off: per-turn recall, session notes and the knowledge tools.
 	"knowledge": {
-		get: func(r *REPL) map[string]any { return onOffState(r.loop.knowledgeOn()) },
+		get: func(r *REPL) map[string]any { return onOffState(r.loop.vaultInUse()) },
 		set: func(r *REPL, v string) error {
 			if r.loop.knowledge == nil {
 				return errors.New("the knowledge vault is disabled in ~/.kdeps/config.yaml (knowledge.enabled: false)")

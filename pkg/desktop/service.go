@@ -270,7 +270,7 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 // workflow that does not parse, or names unknown tools, is reported and the
 // app's own settings stay.
 func (s *Service) applyWorkspaceLoop(cfg *agent.Config) {
-	chat, err := agent.LoadLoopChat(".")
+	wf, err := agent.LoadWorkspaceWorkflow(".")
 	if errors.Is(err, agent.ErrNoWorkflow) {
 		return
 	}
@@ -278,6 +278,10 @@ func (s *Service) applyWorkspaceLoop(cfg *agent.Config) {
 		s.opts.Emit(Event{Kind: KindError, Text: "workflow.yaml: " + err.Error()})
 		return
 	}
+	if indexErr := agent.IndexWorkflowFolders(".", wf); indexErr != nil {
+		s.opts.Emit(Event{Kind: KindError, Text: indexErr.Error()})
+	}
+	chat := agent.LoopChat(wf)
 	if unknown := agent.UnknownLoopTools(s.registry, chat); len(unknown) > 0 {
 		s.opts.Emit(Event{Kind: KindError, Text: "workflow.yaml loop.tools names unknown tool(s): " +
 			strings.Join(unknown, ", ")})

@@ -55,10 +55,9 @@ func LoopChat(wf *domain.Workflow) *domain.ChatConfig {
 // ErrNoWorkflow is LoadLoopChat's error for a folder with no workflow.yaml.
 var ErrNoWorkflow = errors.New("no workflow.yaml")
 
-// LoadLoopChat parses dir's workflow.yaml and returns its LoopChat (nil when
-// the target is not a loop chat). A folder with no workflow.yaml returns
-// ErrNoWorkflow.
-func LoadLoopChat(dir string) (*domain.ChatConfig, error) {
+// LoadWorkspaceWorkflow parses dir's workflow.yaml. A folder with no
+// workflow.yaml returns ErrNoWorkflow.
+func LoadWorkspaceWorkflow(dir string) (*domain.Workflow, error) {
 	path := filepath.Join(dir, manifest.WorkflowYAML)
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrNoWorkflow
@@ -70,6 +69,17 @@ func LoadLoopChat(dir string) (*domain.ChatConfig, error) {
 	wf, err := parseryaml.NewParser(sv, expression.NewParser()).ParseWorkflow(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return wf, nil
+}
+
+// LoadLoopChat parses dir's workflow.yaml and returns its LoopChat (nil when
+// the target is not a loop chat). A folder with no workflow.yaml returns
+// ErrNoWorkflow.
+func LoadLoopChat(dir string) (*domain.ChatConfig, error) {
+	wf, err := LoadWorkspaceWorkflow(dir)
+	if err != nil {
+		return nil, err
 	}
 	return LoopChat(wf), nil
 }
@@ -97,6 +107,9 @@ func ApplyLoopChat(cfg *Config, chat *domain.ChatConfig, keepModel bool) {
 		cfg.MaxToolRounds = chat.Loop.MaxRounds
 	}
 	cfg.AllowedTools = append([]string(nil), chat.Loop.Tools...)
+	if chat.Knowledge != nil && *chat.Knowledge {
+		cfg.KnowledgeOn = true
+	}
 }
 
 // UnknownLoopTools names the tools chat's loop: lists that reg does not have.

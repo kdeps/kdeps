@@ -61,7 +61,7 @@ func knowledgeLoop(t *testing.T) (*Loop, string) {
 		require.NoError(t, os.MkdirAll(filepath.Dir(abs), 0o750))
 		require.NoError(t, os.WriteFile(abs, []byte(c), 0o600))
 	}
-	l := &Loop{registry: kdepstools.NewRegistry(), session: NewSession(10)}
+	l := &Loop{registry: kdepstools.NewRegistry(), session: NewSession(10), knowledgeOn: true}
 	l.knowledge = newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: vault})
 	require.NotNil(t, l.knowledge)
 	require.NoError(t, l.knowledge.build())
@@ -368,14 +368,14 @@ func TestCmdKnowledge(t *testing.T) {
 	assert.Contains(t, out, filepath.Base(vault), "a long vault path may wrap")
 	out, _ = run("/knowledge off")
 	assert.Contains(t, out, "knowledge vault off")
-	assert.True(t, saved.KnowledgeOff, "persisted")
+	assert.False(t, saved.KnowledgeOn, "persisted")
 	out, _ = run("/knowledge")
 	assert.Contains(t, out, "/knowledge on")
 	_, err = run("/recall")
 	require.ErrorContains(t, err, "is off (/knowledge on)")
 	out, _ = run("/knowledge on")
 	assert.Contains(t, out, "knowledge vault on")
-	assert.False(t, saved.KnowledgeOff)
+	assert.True(t, saved.KnowledgeOn)
 	out, _ = run("/knowledge")
 	assert.Contains(t, out, "build: manual")
 	out, _ = run("/knowledge build auto")
@@ -390,8 +390,10 @@ func TestCmdKnowledge(t *testing.T) {
 	_, err = run("/knowledge bogus")
 	require.ErrorContains(t, err, "unknown /knowledge subcommand")
 
-	r.applyToolTuning(ToolTuning{KnowledgeOff: true})
+	r.applyToolTuning(ToolTuning{KnowledgeOn: false})
 	assert.False(t, l.KnowledgeEnabled(), "restored from the saved settings")
+	r.applyToolTuning(ToolTuning{KnowledgeOn: true})
+	assert.True(t, l.KnowledgeEnabled())
 	l.knowledge.waitBuilds()
 }
 
@@ -754,4 +756,12 @@ func TestKnowledgeRecallFiles_FromTheEvent(t *testing.T) {
 func TestKnowledgeRecallFiles_OffKeepsTheDefault(t *testing.T) {
 	withEvent(t, Event{Name: eventKnowledgeRecallFiles, Items: 5, Run: actionCap, Disabled: true})
 	assert.Equal(t, defaultKnowledgeRecallFiles, knowledgeRecallFiles())
+}
+
+func TestKnowledge_OptIn(t *testing.T) {
+	l := &Loop{}
+	l.knowledge = newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: t.TempDir()})
+	assert.False(t, l.KnowledgeEnabled(), "the vault is opt-in: /knowledge on")
+	l.SetKnowledge(true)
+	assert.True(t, l.KnowledgeEnabled())
 }

@@ -117,6 +117,7 @@ scenario test_workflow_chat_nudges.sh
 scenario test_workflow_chat_memory_tools.sh
 scenario test_workflow_chat_openrouter_free.sh
 scenario test_workflow_chat_loop.sh
+scenario test_workflow_knowledge_index.sh
 scenario test_workflow_chat_auto.sh
 scenario test_entry_points.sh
 scenario test_workflow_chat_tool_permission.sh

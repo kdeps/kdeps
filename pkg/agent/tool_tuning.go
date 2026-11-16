@@ -90,9 +90,8 @@ type ToolTuning struct {
 	// snapshot from before this field existed (unmarshals to false) already
 	// restores the correct default.
 	HandshakeOn bool
-	// KnowledgeOff persists /knowledge off (default on; off is not the zero
-	// value, so an older snapshot restores on).
-	KnowledgeOff bool
+	// KnowledgeOn persists /knowledge on (default off).
+	KnowledgeOn bool
 	// PlanCouncil persists /plan on (default off).
 	PlanCouncil bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
@@ -174,7 +173,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		RefineOff:            !c.PromptRefine,
 		RefineConfigured:     true,
 		HandshakeOn:          c.HandshakeEnabled,
-		KnowledgeOff:         r.loop.knowledgeOff,
+		KnowledgeOn:          r.loop.knowledgeOn,
 		PlanCouncil:          c.PlanCouncil,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
@@ -271,7 +270,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		r.loop.SetPromptRefine(!t.RefineOff)
 	}
 	r.loop.SetHandshakeEnabled(t.HandshakeOn)
-	r.loop.knowledgeOff = t.KnowledgeOff
+	r.loop.knowledgeOn = t.KnowledgeOn
 	c.PlanCouncil = t.PlanCouncil
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold

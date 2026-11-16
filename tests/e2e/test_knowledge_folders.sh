@@ -55,6 +55,8 @@ V="$KF_DIR/vault"
 P="$KF_DIR/app"
 DOCS="$KF_DIR/docs"
 mkdir -p "$KF_HOME/.kdeps" "$P" "$DOCS/specs"
+# The vault is opt-in: these sessions turn it on (/knowledge on, persisted).
+printf 'agent_loop:\n  knowledge_on: true\n' > "$KF_HOME/.kdeps/agent-loop-settings.yaml"
 printf "llm:\n  mockllm_api_key: sk-mock\nknowledge:\n  vault: '%s'\n" "$(native "$V")" > "$KF_HOME/.kdeps/config.yaml"
 printf 'The zorbulator reconciles invoices every night.\n' > "$DOCS/specs/billing.md"
 printf 'zorbulator invoices private key material\n' > "$DOCS/specs/id_rsa"

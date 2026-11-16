@@ -46,6 +46,8 @@ type LoopRequest struct {
 	Plan   bool
 	Judges bool
 	Refine bool
+	// Knowledge uses the knowledge vault (rag.knowledge: true).
+	Knowledge bool
 	// Thinking is the chat's thinking setting, after its default.
 	Thinking *domain.ThinkingConfig
 }
@@ -117,8 +119,9 @@ func (e *Executor) executeLoop(
 		// Judges listed under guardrails review the reply already.
 		Judges: resolved.Loop.Judges != nil && *resolved.Loop.Judges &&
 			len(resolved.Judges) == 0 && resolved.JudgePreset == "",
-		Refine:   resolved.Refine,
-		Thinking: resolved.Thinking,
+		Refine:    resolved.Refine,
+		Knowledge: resolved.Knowledge != nil && *resolved.Knowledge,
+		Thinking:  resolved.Thinking,
 	})
 	if err != nil {
 		return nil, chatRun{}, fmt.Errorf("chat loop: %w", err)

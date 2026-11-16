@@ -22,6 +22,8 @@ KG_HOME="$KG_DIR/home"
 V="$KG_DIR/vault"
 P="$KG_DIR/billing"
 mkdir -p "$KG_HOME/.kdeps" "$P"
+# The vault is opt-in: these sessions turn it on (/knowledge on, persisted).
+printf 'agent_loop:\n  knowledge_on: true\n' > "$KG_HOME/.kdeps/agent-loop-settings.yaml"
 printf "knowledge:\n  vault: '%s'\n" "$(native "$V")" > "$KG_HOME/.kdeps/config.yaml"
 export GIT_CEILING_DIRECTORIES="$KG_DIR" GIT_AUTHOR_NAME=e2e GIT_AUTHOR_EMAIL=e2e@example.com \
     GIT_COMMITTER_NAME=e2e GIT_COMMITTER_EMAIL=e2e@example.com GIT_CONFIG_GLOBAL="$NULL_PATH"
