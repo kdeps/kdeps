@@ -24,6 +24,7 @@ import { useRoute, type Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
 import MegaNav from './MegaNav.vue'
+import HomeBoxes from './HomeBoxes.vue'
 import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
 import HomeGitNative from './HomeGitNative.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
@@ -80,6 +81,7 @@ export default {
       'home-hero-info': () => h(HeroInfo),
       'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [
+        h(HomeBoxes),
         h(HomeWhoNeedsThis),
         h(HomeGitNative),
         h(HomeHowItWorks),
