@@ -100,9 +100,6 @@ type Config struct {
 	// ResumeSessionID is the store id ResumeSession was loaded from, so
 	// continuing the conversation updates that row instead of forking a new one.
 	ResumeSessionID string
-	// OfferSessionPicker opens the resume picker over the full-screen view at
-	// startup, instead of before it, when this folder has saved sessions.
-	OfferSessionPicker bool
 	// CompactTokenBudget is the approximate number of recent tokens to retain
 	// when compacting with CompactWithLLM. 0 uses the default (20000).
 	CompactTokenBudget int
@@ -2879,13 +2876,10 @@ func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bo
 // dispatchStreamToolCall executes a tool call from the streaming path,
 // recording it in an instrumented session.
 func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
-	sendScreenPill("tool", tc.Name)
-	defer sendScreenPill("tool", "")
 	started := time.Now()
 	called := tc.Name
 	result := l.runStreamToolCall(&tc, w)
 	recordToolCall(l.eventLoop, called, tc.Name, tc.Arguments, result, time.Since(started))
-	feedToolResult(tc.Name, tc.Arguments, result)
 	return result
 }
 

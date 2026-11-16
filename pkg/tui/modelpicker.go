@@ -40,19 +40,10 @@ type modelPickerModel struct {
 	termWidth    int
 	quitted      bool
 	cancelled    bool
-	// embedded is set when the picker runs as an overlay inside another
-	// program. Finishing then must not quit that program.
-	embedded bool
 }
 
-// finish is the command a finished picker returns: quit when standalone,
-// nothing when embedded (the host closes the overlay on Done).
-func (m modelPickerModel) finish() tea.Cmd {
-	if m.embedded {
-		return nil
-	}
-	return tea.Quit
-}
+// finish is the command a finished picker returns.
+func (m modelPickerModel) finish() tea.Cmd { return tea.Quit }
 
 type pickerGroup struct {
 	label   string
@@ -490,47 +481,4 @@ func (m modelPickerModel) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
 	return v
-}
-
-// ModelPickerOverlay is the model picker as an overlay for the full-screen
-// view: it takes the keys until the user picks or cancels, then reports Done.
-type ModelPickerOverlay struct {
-	m modelPickerModel
-}
-
-// NewModelPickerOverlay builds the model picker for the full-screen view.
-func NewModelPickerOverlay(entries []ModelEntry, currentModel, preFilter string) ModelPickerOverlay {
-	m := newModelPickerModel(entries, currentModel, preFilter)
-	m.embedded = true
-	return ModelPickerOverlay{m: m}
-}
-
-// Init has no startup command.
-func (p ModelPickerOverlay) Init() tea.Cmd { return nil }
-
-// Update forwards the message to the picker.
-func (p ModelPickerOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	next, cmd := p.m.Update(msg)
-	if m, ok := next.(modelPickerModel); ok {
-		p.m = m
-	}
-	return p, cmd
-}
-
-// View draws the picker.
-func (p ModelPickerOverlay) View() tea.View { return p.m.View() }
-
-// Done reports that the user picked a model or cancelled.
-func (p ModelPickerOverlay) Done() bool { return p.m.quitted || p.m.cancelled }
-
-// Result returns the chosen model name, and false when the user cancelled.
-func (p ModelPickerOverlay) Result() (string, bool) {
-	if p.m.cancelled || !p.m.quitted {
-		return "", false
-	}
-	flat := p.m.flatFiltered()
-	if p.m.cursor >= 0 && p.m.cursor < len(flat) {
-		return flat[p.m.cursor].Name, true
-	}
-	return "", false
 }

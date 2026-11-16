@@ -57,72 +57,29 @@ of it, and submit.
 
 ## Line editing and history search
 
-The prompt supports readline editing. kdeps stores history in `~/.kdeps/repl_history`. The full-screen prompt uses the same history.
+The prompt supports readline editing. kdeps stores history in `~/.kdeps/repl_history`.
 
 | Key | Action |
 |---|---|
 | `Ctrl+A` / `Ctrl+E` | Start / end of line |
-| `Ctrl+Left` / `Ctrl+Right` (`Alt+Left` / `Alt+Right`, `Alt+B` / `Alt+F`) | Move by word |
+| `Ctrl+B` / `Ctrl+F` | Back / forward one character |
+| `Alt+B` / `Alt+F` | Back / forward one word |
 | `Ctrl+U` / `Ctrl+K` | Delete before / after the cursor |
 | `Ctrl+W`, `Alt+Backspace` | Delete the word before the cursor |
 | `Alt+D` | Delete the next word |
-| `Ctrl+D` | Delete the character under the cursor (not saved for `Ctrl+Y`); quit on an empty prompt |
-| `Ctrl+Y` | Put back text removed by `Ctrl+K`, `Ctrl+U`, `Ctrl+W`, `Alt+D` or `Ctrl+Shift+X`; repeated removals with no typing between join into one yank |
-| Up / Down | Step through history |
-| `Ctrl+P` / `Ctrl+N` | Previous / next history line (full-screen) |
-| `Ctrl+O` | Edit the line in `$KDEPS_EDITOR`, then `$VISUAL`, `$EDITOR`, `vi` |
+| `Ctrl+Y` | Put back the last deleted text |
+| `Ctrl+T` | Swap the two characters before the cursor |
+| `Ctrl+D` | Delete the character under the cursor; quit on an empty prompt |
+| `Ctrl+L` | Clear the screen |
+| Up / Down, `Ctrl+P` / `Ctrl+N` | Step through history |
 
-Full-screen prompt only:
-
-| Input | Action |
-|---|---|
-| `Shift+Left` / `Shift+Right`, drag | Select |
-| `Ctrl+Shift+A` | Select the whole line |
-| `Ctrl+Shift+C` | Copy the selection; with none, copy the visible main pane as one line |
-| `Ctrl+Shift+X` | Cut the selection |
-| Typing, Backspace | Replace the selection |
-| Esc | Clear the selection; on a recalled line, restore the unsent text (does not quit) |
-| Click | Move the cursor (prompt) or focus the pane for arrow keys (main pane, feed) |
-| Double / triple click | Select the word / line |
-| Drag the feed border | Resize the feed; the main pane keeps at least 20 columns, the feed at least 30 |
-
-- kdeps keeps an edit on a recalled line, so the next `Ctrl+N` does not replace it.
-- `Ctrl+O`: when you save, the text replaces the prompt. kdeps does not send it. Newlines become spaces, a blank file clears the prompt, and a failed editor leaves the prompt unchanged.
-- A prompt longer than the row scrolls to keep the cursor visible. A click lands on the drawn letter.
-
-`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match. `Ctrl+S` searches forward. Enter runs the match. `Ctrl+G` or Esc cancels.
+`Ctrl+R` searches history backward: type a substring and the line fills with the newest match. `Ctrl+R` again jumps to the next older match. `Ctrl+S` searches forward. Enter runs the match. `Ctrl+G` cancels.
 
 Some terminals and multiplexers capture `Ctrl+S` for flow control (XON/XOFF). `stty -ixon` in your shell config frees it.
 
-## Full-screen scrolling
-
-In a terminal, the agent loop (`kdeps [path]`) draws the session full-screen on the alternate screen. Workflow and agency runs (`kdeps run`) never do. Piped or redirected input or output gets the line REPL. `KDEPS_TUI=0` forces the line REPL. `KDEPS_TUI=1` forces full-screen.
-
-The view stays live during a turn. If you send a prompt before the turn ends, the prompt waits and runs next, in order. `/model` opens its picker immediately. The model that you select starts after the turn.
-
-| Key | Action |
-|---|---|
-| Up / Down | Scroll the focused pane one row |
-| `Shift+Up` / `Shift+Down` | Scroll the main pane one output (a multi-line block counts as one) |
-| `Ctrl+Up` / `Ctrl+Down` | Scroll half a page |
-| PgUp / PgDown | Scroll a page |
-| Home / End | Oldest row / newest row (End resumes following) |
-| `Ctrl+End` | Follow the main pane, even when the feed is focused |
-| `Ctrl+Space` | Fold the bottom output of the main pane to its first line, or unfold it |
-| `Ctrl+Shift+V` | Paste clipboard text into the prompt (newlines become spaces) |
-| `Ctrl+G` | Open or close the key list |
-| `Ctrl+T` | Hide or show the header pills (model name and title stay) |
-| `Ctrl+Z` | Suspend to the shell; the view returns when that shell exits |
-
-- Scrolling stops at either end, so one PgDown from the top moves forward.
-- On an older row the status row says `not following`, and new output does not move the view. End, scrolling to the newest row, or sending a prompt follows again.
-- If a pane has more rows than it can show, it draws a scroll bar on its right edge when you scroll. The scroll bar fades a short time after.
-- One-line outputs do not fold. An empty clipboard leaves the prompt unchanged.
-- Plain `Space`, `z`, `v`, `g` and `t` still type.
-
 ## Multimodal input
 
-Attach images and other binary files to your prompt using `@`. In the full-screen prompt, Ctrl+V pastes a clipboard image as `@path`. Ctrl+V pastes a clipboard path to an image file in the same way. Text and an empty clipboard do not change the prompt. `v` types as usual.
+Attach images and other binary files to your prompt using `@`.
 
 ```bash
 # Attach a local image
@@ -148,10 +105,6 @@ review @notes.txt and summarize the key points
 expands to the file's contents. Any memory id works: pastes (`paste:<id>`),
 entries that the model saved with `memory_save`, or ids that `/memory` lists.
 After `@`, Tab completes memory ids and file paths.
-
-The full-screen prompt
-does the same: Tab on an `@` token fills one match, extends a shared prefix,
-or lists the matches. Text before the `@` stays.
 
 ```bash
 # Reuse an earlier paste

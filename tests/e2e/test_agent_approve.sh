@@ -24,7 +24,7 @@ OUT=$(cd "$AP_DIR/work" && printf '%s\n' \
     'CALL approval_grant {"token_id":"apt-1"}' \
     '/approve' '/approve apt-1' '/quit' \
     | env HOME="$AP_DIR/home" USERPROFILE="$(native "$AP_DIR/home")" \
-        KDEPS_CONFIG_PATH="$AP_DIR/home/.kdeps/config.yaml" KDEPS_TUI=0 NO_COLOR=1 \
+        KDEPS_CONFIG_PATH="$AP_DIR/home/.kdeps/config.yaml" NO_COLOR=1 \
         timeout 180 "$KDEPS_BIN" --new --backend openai --model fake 2>&1) || true
 
 if [[ "$OUT" == *"e2e-approve-marker"* ]] && [[ "$OUT" == *"pending"* ]]; then

@@ -49,19 +49,10 @@ type listPickerModel struct {
 	// deletion is disabled (RunListPicker's default, unchanged behavior).
 	onDelete  func(id string) (bool, error)
 	statusMsg string
-	// embedded is set when the picker runs as an overlay inside another
-	// program. Finishing then must not quit that program.
-	embedded bool
 }
 
-// finish is the command a finished picker returns: quit when standalone,
-// nothing when embedded (the host closes the overlay on Done).
-func (m listPickerModel) finish() tea.Cmd {
-	if m.embedded {
-		return nil
-	}
-	return tea.Quit
-}
+// finish is the command a finished picker returns.
+func (m listPickerModel) finish() tea.Cmd { return tea.Quit }
 
 func newListPickerModel(title string, items []ListItem, onDelete func(id string) (bool, error)) listPickerModel {
 	return listPickerModel{
