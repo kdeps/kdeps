@@ -50,7 +50,7 @@ func (s *Service) SetWorkspace(dir string) error {
 		return fmt.Errorf("desktop: %s is not a directory", abs)
 	}
 	s.mu.Lock()
-	if s.running {
+	if s.rt.Running() {
 		s.mu.Unlock()
 		return errors.New("desktop: a turn is running")
 	}

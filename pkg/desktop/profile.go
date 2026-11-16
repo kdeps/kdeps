@@ -34,7 +34,7 @@ const instructionsFile = "KDEPS.md"
 
 func (s *Service) invalidatePreamble() {
 	s.mu.Lock()
-	loop := s.loop
+	loop := s.rt.Loop()
 	s.mu.Unlock()
 	loop.InvalidateSystemPreamble()
 }
@@ -67,7 +67,7 @@ func (s *Service) Presets() []agent.Preset {
 // ApplyPreset persists a preset's overrides and refreshes the system prompt.
 func (s *Service) ApplyPreset(name string) error {
 	s.mu.Lock()
-	loop := s.loop
+	loop := s.rt.Loop()
 	s.mu.Unlock()
 	if err := agent.ApplyPreset(name, loop); err != nil {
 		return err

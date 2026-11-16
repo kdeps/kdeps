@@ -151,12 +151,10 @@ type Service struct {
 	registry *tools.Registry
 	apiSrv   *api.Server
 
-	mu        sync.Mutex
-	loop      *agent.Loop
-	repl      *agent.REPL
-	running   bool
-	turnCtx   context.Context
-	cancel    context.CancelFunc
+	mu sync.Mutex
+	// rt is the active chat's agent runtime: its loop, commands and the one
+	// in-flight turn or command.
+	rt        *agent.Runtime
 	pending   map[string]chan agent.ApprovalChoice
 	approvSeq int
 	// inChat maps a project manifest path to the tool SetInChat registered.
@@ -248,22 +246,19 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		Metadata:   domain.WorkflowMetadata{Name: "agent", Version: "0.0.0"},
 	}
 	loop := agent.New(s.ctx, s.opts.Engine, wf, s.registry, cfg)
-	repl := agent.NewREPL(s.ctx, loop)
-	repl.RegisterCommandAPI()
-	repl.SetHeadless()
+	rt := agent.NewRuntime(s.ctx, loop, agent.RuntimeOptions{
+		Headless: true,
+		Out:      &tokenWriter{emit: s.opts.Emit},
+	})
 	// NewREPL turns thinking on for the terminal; the chat view renders plain
 	// answer text, so leave it off until the user runs /thinking.
 	loop.SetThinking(nil)
-	repl.SetRunFn(func(ctx context.Context, input string) (string, error) {
-		_, err := loop.RunStreaming(ctx, input, &tokenWriter{emit: s.opts.Emit})
-		return "", err
-	})
 	if s.opts.WireREPL != nil {
-		s.opts.WireREPL(repl)
+		s.opts.WireREPL(rt.REPL())
 	}
 	s.mu.Lock()
-	old := s.repl
-	s.loop, s.repl = loop, repl
+	old := s.rt
+	s.rt = rt
 	s.mu.Unlock()
 	if old != nil {
 		old.Close()
@@ -274,69 +269,61 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 func (s *Service) SessionID() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.loop.SessionID()
+	return s.rt.SessionID()
 }
 
 // Running reports whether a turn is in flight.
 func (s *Service) Running() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.running
+	return s.rt.Running()
 }
 
 // Send starts a turn asynchronously and returns at once. Progress arrives as
 // events, ending with KindTurnEnd or KindError. files are dropped attachments:
 // media goes to the model as multimodal parts, text files are inlined.
 func (s *Service) Send(prompt string, files []string) error {
-	s.mu.Lock()
-	if s.running {
-		s.mu.Unlock()
-		return errors.New("desktop: a turn is already running")
-	}
 	input, media, err := buildInput(prompt, files)
 	if err != nil {
-		s.mu.Unlock()
 		return err
 	}
-	turnCtx, cancel := context.WithCancel(s.ctx)
-	s.running = true
-	s.turnCtx = turnCtx
-	s.cancel = cancel
-	loop := s.loop
+	s.mu.Lock()
+	rt := s.rt
 	s.mu.Unlock()
 
-	if len(media) > 0 {
-		loop.SetPendingFiles(media)
+	err = rt.Go(func(ctx context.Context) func() {
+		if len(media) > 0 {
+			rt.Loop().SetPendingFiles(media)
+		}
+		return s.runTurn(ctx, rt, input)
+	})
+	if errors.Is(err, agent.ErrBusy) {
+		return errors.New("desktop: a turn is already running")
 	}
-	go s.runTurn(turnCtx, cancel, loop, input)
-	return nil
+	return err
 }
 
-func (s *Service) runTurn(ctx context.Context, cancel context.CancelFunc, loop *agent.Loop, input string) {
-	defer cancel()
-	_, err := loop.RunStreaming(ctx, input, &tokenWriter{emit: s.opts.Emit})
-	s.mu.Lock()
-	s.running = false
-	s.mu.Unlock()
+// runTurn runs one turn and returns the event to emit once the runtime is
+// idle again.
+func (s *Service) runTurn(ctx context.Context, rt *agent.Runtime, input string) func() {
+	err := rt.Turn(ctx, input, &tokenWriter{emit: s.opts.Emit})
 	if err != nil && ctx.Err() == nil {
-		cfg := loop.Config()
-		s.opts.Emit(Event{Kind: KindError, Text: fmt.Sprintf(
+		cfg := rt.Loop().Config()
+		ev := Event{Kind: KindError, Text: fmt.Sprintf(
 			"%s\n\nModel: %s (%s). Pick another with the model selector or /model.",
 			err, cfg.Model, cfg.Backend,
-		)})
-		return
+		)}
+		return func() { s.opts.Emit(ev) }
 	}
-	s.opts.Emit(Event{Kind: KindTurnEnd, SessionID: loop.SessionID()})
+	return func() { s.opts.Emit(Event{Kind: KindTurnEnd, SessionID: rt.SessionID()}) }
 }
 
 // Cancel aborts the running turn, denying any open approval.
 func (s *Service) Cancel() {
 	s.mu.Lock()
-	cancel := s.cancel
+	rt := s.rt
 	s.mu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
+	rt.Cancel()
 }
 
 // Approve answers a pending approval: "once", "always" or "deny".
@@ -358,7 +345,7 @@ func (s *Service) approve(req agent.ApprovalRequest) agent.ApprovalChoice {
 	s.approvSeq++
 	id := "approval-" + strconv.Itoa(s.approvSeq)
 	s.pending[id] = ch
-	ctx := s.turnCtx
+	ctx := s.rt.JobContext()
 	s.mu.Unlock()
 
 	s.opts.Emit(Event{Kind: KindApproval, Approval: &Approval{
