@@ -222,6 +222,10 @@ type agentLoopFlags struct {
 	Theme        string
 	Konfig       string
 	Index        []string
+	// Workflow is the workflow file that defines the session (kdeps run on
+	// an interactive workflow whose target is a chat with loop:). It is not
+	// registered as a tool.
+	Workflow string
 }
 
 // processRootCtx is the process's one root context; context.Background is
@@ -372,12 +376,12 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	// A workflow that does not parse, or names unknown tools, is reported and
 	// the session starts with its own settings, as the desktop app does. Its
 	// knowledge.index folders are indexed first.
-	if wf, wfDir, wfErr := agentWorkflow(path, hostWorkflow); wfErr == nil {
+	if wf, wfDir, wfErr := agentWorkflow(path, hostWorkflow, flags.Workflow); wfErr == nil {
 		if indexErr := agent.IndexWorkflowFolders(wfDir, wf); indexErr != nil {
 			fmt.Fprintf(os.Stderr, "agent loop: %v\n", indexErr)
 		}
 	}
-	if loopChat, loopErr := agentLoopChat(path, hostWorkflow); loopErr != nil {
+	if loopChat, loopErr := agentLoopChat(path, hostWorkflow, flags.Workflow); loopErr != nil {
 		fmt.Fprintf(os.Stderr, "agent loop: workflow.yaml not applied: %v\n", loopErr)
 	} else if unknown := agent.UnknownLoopTools(registry, loopChat); len(unknown) > 0 {
 		fmt.Fprintf(os.Stderr, "agent loop: workflow.yaml not applied: loop.tools names unknown tool(s): %s\n",
@@ -783,7 +787,11 @@ func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *e
 // newMinimalHostWorkflow returns a bare workflow used as the agent loop host.
 // agentWorkflow is the workflow that defines an agent session and its
 // folder: the host workflow when a path was given, else ./workflow.yaml.
-func agentWorkflow(path string, host *domain.Workflow) (*domain.Workflow, string, error) {
+func agentWorkflow(path string, host *domain.Workflow, file string) (*domain.Workflow, string, error) {
+	if file != "" {
+		wf, err := agent.LoadWorkflowFile(file)
+		return wf, filepath.Dir(file), err
+	}
 	if path != "" {
 		dir := path
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
@@ -800,8 +808,8 @@ func agentWorkflow(path string, host *domain.Workflow) (*domain.Workflow, string
 
 // agentLoopChat is the loop chat that defines an agent session: the host
 // workflow's when a path was given, else ./workflow.yaml's.
-func agentLoopChat(path string, host *domain.Workflow) (*domain.ChatConfig, error) {
-	wf, _, err := agentWorkflow(path, host)
+func agentLoopChat(path string, host *domain.Workflow, file string) (*domain.ChatConfig, error) {
+	wf, _, err := agentWorkflow(path, host, file)
 	if err != nil {
 		return nil, err
 	}

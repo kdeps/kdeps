@@ -25,7 +25,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its rules are read from the codegraph set at start", Here: true},
 			{Label: "ranking weights, stopwords and limits apply to each query"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "codegraph.Register", "codegraph.exposedNames"},
 	},
 	"commands": {
@@ -46,7 +46,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its output goes back to the caller"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkspaceWorkflow", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
+		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkflowFile", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
 	},
 	"defaults": {
 		Mode: "both",
@@ -55,7 +55,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "config.GetDefaults"},
 	},
 	"docker": {
@@ -189,7 +189,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the workflow is accepted, or each error is named"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkspaceWorkflow", "validator.NewSchemaValidator", "validator.schemaFS"},
+		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkflowFile", "validator.NewSchemaValidator", "validator.schemaFS"},
 	},
 	"templates": {
 		Mode: "both",

@@ -62,6 +62,11 @@ func LoadWorkspaceWorkflow(dir string) (*domain.Workflow, error) {
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrNoWorkflow
 	}
+	return LoadWorkflowFile(path)
+}
+
+// LoadWorkflowFile parses the workflow at path.
+func LoadWorkflowFile(path string) (*domain.Workflow, error) {
 	sv, err := validator.NewSchemaValidator()
 	if err != nil {
 		return nil, err
@@ -107,6 +112,17 @@ func ApplyLoopChat(cfg *Config, chat *domain.ChatConfig, keepModel bool) {
 		cfg.MaxToolRounds = chat.Loop.MaxRounds
 	}
 	cfg.AllowedTools = append([]string(nil), chat.Loop.Tools...)
+	// The chat's system scenario items are the session's system prompt,
+	// unless --system set one.
+	if cfg.SystemPrompt == "" {
+		var system []string
+		for _, item := range chat.Scenario {
+			if item.Role == "system" && literal(item.Prompt) {
+				system = append(system, item.Prompt)
+			}
+		}
+		cfg.SystemPrompt = strings.Join(system, "\n\n")
+	}
 	if chat.Knowledge != nil && *chat.Knowledge {
 		cfg.KnowledgeOn = true
 	}

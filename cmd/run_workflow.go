@@ -239,6 +239,9 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 		if flags.Memory {
 			eng = setupEngineWithMemory(eng, workflow, debugMode)
 		}
+		if agent.LoopChat(workflow) != nil {
+			return startAgentREPLMode(cmd.Context(), eng, workflow, workflowPath, flags, debugMode)
+		}
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}
 	return dispatchExecution(
