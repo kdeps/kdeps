@@ -103,7 +103,7 @@ for simple chat, as compaction does. A failure in the panel becomes an
 approval, so it does not stop the turn. Examples of failures are a judge
 that gives an error, has a timeout, or never calls `judge_verdict`.
 
-**On until you turn it off.** The REPL and the desktop agent loop start with the panel on. If a settings file does not set `auto_judges`, the panel stays on. `/judges off` (or `/judges clear`) removes the roster and writes `auto_judges: false`. `/judges auto on` turns it on again. A roster that you configure (`/judges add` / `remove`) is only for the session and has priority over the generated roster.
+**Off until you turn it on.** The REPL, the desktop app and workflow chats start with no panel. `/judges auto on` turns the automatic roster on and remembers it; a workflow chat uses `guardrails.judges: auto`, or `loop.judges: true` with `loop:`. `/judges off` (or `/judges clear`) removes the roster and writes `auto_judges: false`. A roster that you configure (`/judges add` / `remove`) is only for the session and has priority over the generated roster.
 
 Library callers get no panel unless they set `Config.Judges` or `Config.AutoJudges`. When the agent calls a workflow or an agency as a tool, the panel reviews that turn's final answer. An agency started as its own agent loop gets the same default. `kdeps run` does not.
 

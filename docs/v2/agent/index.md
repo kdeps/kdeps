@@ -1,6 +1,6 @@
 # kdeps agent
 
-kdeps agent is an autonomous LLM REPL that runs on your machine. It has tool use, persistent memory, multi-step reasoning, skills, and a judge panel (the [eval](/reference/glossary#eval), on by default). The default model is local. It needs no API key and runs fully offline.
+kdeps agent is an autonomous LLM REPL that runs on your machine. It has tool use, persistent memory, multi-step reasoning, skills, and an opt-in judge panel (the [eval](/reference/glossary#eval)). The default model is local. It needs no API key and runs fully offline.
 
 To send prompts to an [LLM server](/llm-server/) that you run, set `base_url` under `llm:`. Workflows and components register as tools. The model selects the tools to call.
 

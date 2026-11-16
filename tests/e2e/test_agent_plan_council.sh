@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # E2E: the planning council plans an agent task after refine - three seats
 # draft and revise, append job orders, rank them - and the turn gets the sorted
-# plan plus a progress file. /plan off skips it. Against the shared mock LLM.
+# plan plus a progress file. The council is opt-in: /plan on runs it, /plan off
+# skips it. Against the shared mock LLM.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,7 +30,7 @@ run_agent() {
 }
 
 before=$(wc -c < "$E2E_MOCK_LLM_LOG")
-OUT=$(run_agent 'Please review the build scripts and summarize what each one does for a newcomer')
+OUT=$(run_agent '/plan on' 'Please review the build scripts and summarize what each one does for a newcomer')
 SENT=$(tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG")
 
 if [[ "$OUT" == *"[plan] council of 3"* ]] && [[ "$OUT" == *"job orders ->"* ]]; then

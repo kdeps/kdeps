@@ -56,12 +56,12 @@ const (
 )
 
 // PlanCouncilEnabled reports whether the planning council runs before a task.
-func (l *Loop) PlanCouncilEnabled() bool { return l != nil && !l.config.PlanCouncilOff }
+func (l *Loop) PlanCouncilEnabled() bool { return l != nil && l.config.PlanCouncil }
 
 // SetPlanCouncil turns the planning council on or off.
 func (l *Loop) SetPlanCouncil(on bool) {
 	if l != nil {
-		l.config.PlanCouncilOff = !on
+		l.config.PlanCouncil = on
 	}
 }
 

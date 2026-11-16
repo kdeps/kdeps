@@ -1619,10 +1619,9 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
-	// The judge panel is the eval and is on: a non-trivial turn grows a roster
-	// and reviews the answer. /judges off persists via applyToolTuning below.
-	// A settings file that never set auto_judges stays on.
-	r.loop.config.AutoJudges = true
+	// The automatic judge panel is opt-in: /judges auto turns it on and the
+	// choice persists via applyToolTuning below.
+	r.loop.config.AutoJudges = false
 	// Pre-turn prompt refinement is off by default. /refine on turns it on
 	// and the choice persists via applyToolTuning below. A settings file
 	// that already stored refine-on (RefineConfigured, RefineOff false)

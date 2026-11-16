@@ -247,9 +247,9 @@ type Config struct {
 	// (a workflow chat's loop.tools). Project, component and MCP tools stay;
 	// load_tools is not offered, so nothing outside the list can be loaded.
 	AllowedTools []string
-	// PlanCouncilOff skips the planning council that runs before a task
-	// (after refine); on by default, /plan off turns it off.
-	PlanCouncilOff bool
+	// PlanCouncil runs the planning council before a task (after refine).
+	// Off by default: /plan on, or loop.plan: true on a workflow chat.
+	PlanCouncil bool
 	// Subagent is the model for subagent calls: knowledge-graph extraction,
 	// prompt refinement, and judges. Empty or "current" uses this loop's
 	// model. "free" picks a large OpenRouter free model for each call.

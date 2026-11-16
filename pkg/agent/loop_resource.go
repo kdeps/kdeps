@@ -55,10 +55,11 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 			// narration have no terminal to land on.
 			ToolOutputWriter: io.Discard,
 			StreamFinalOnly:  true,
-			// Agent REPL defaults; loop.plan / loop.judges: false turn them off.
-			PlanCouncilOff: !req.Plan,
-			AutoJudges:     req.Judges,
-			Thinking:       req.Thinking,
+			// Opt-in, as in the REPL: loop.plan, loop.judges, harness.refine.
+			PlanCouncil:  req.Plan,
+			AutoJudges:   req.Judges,
+			PromptRefine: req.Refine,
+			Thinking:     req.Thinking,
 		}
 		key := ""
 		if req.Session != "" {

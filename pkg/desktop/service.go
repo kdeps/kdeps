@@ -224,7 +224,6 @@ func (s *Service) openLoop(resume *agent.Session, id string) {
 		Model:          s.opts.Model,
 		Backend:        s.opts.Backend,
 		BaseURL:        s.opts.BaseURL,
-		AutoJudges:     true,
 		Streamer:       streamer,
 		ModelService:   llm.NewModelService(s.ctx, nil),
 		Store:          s.store,

@@ -90,7 +90,7 @@ type AgentLoopTuning struct {
 	RefineConfigured     bool     `yaml:"refine_configured,omitempty"`
 	HandshakeOn          bool     `yaml:"handshake_on,omitempty"`
 	KnowledgeOff         bool     `yaml:"knowledge_off,omitempty"`
-	PlanCouncilOff       bool     `yaml:"plan_council_off,omitempty"`
+	PlanCouncil          bool     `yaml:"plan_council,omitempty"`
 	FoldThreshold        int      `yaml:"fold_threshold,omitempty"`
 	FoldContextItems     int      `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool     `yaml:"fold_auto,omitempty"`
@@ -103,19 +103,6 @@ type AgentLoopTuning struct {
 	SubagentSet          bool     `yaml:"subagent_set,omitempty"`
 	KnowledgeBuild       string   `yaml:"knowledge_build,omitempty"`
 	KnowledgeBuildSet    bool     `yaml:"knowledge_build_set,omitempty"`
-}
-
-// UnmarshalYAML leaves auto-judges on when the file never set the key.
-// auto_judges has no omitempty, so /judges off is stored as false and comes
-// back false. A file from before the key existed unmarshals as on.
-func (t *AgentLoopTuning) UnmarshalYAML(value *yaml.Node) error {
-	type plain AgentLoopTuning
-	decoded := plain{AutoJudges: true}
-	if err := value.Decode(&decoded); err != nil {
-		return err
-	}
-	*t = AgentLoopTuning(decoded)
-	return nil
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

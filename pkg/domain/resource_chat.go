@@ -441,12 +441,10 @@ type ChatLoopConfig struct {
 	Tools []string `yaml:"tools,omitempty"`
 	// MaxRounds caps tool rounds per request. 0 uses the agent default.
 	MaxRounds int `yaml:"maxRounds,omitempty"`
-	// Plan runs the planning council before a task, as the agent REPL does.
-	// Nil means on; false turns it off.
+	// Plan runs the planning council before a task. Opt-in: true turns it on.
 	Plan *bool `yaml:"plan,omitempty"`
-	// Judges reviews each answer with an automatic judge roster, as the agent
-	// REPL does. Nil means on unless guardrails.judges are set; false turns
-	// it off.
+	// Judges reviews each answer with an automatic judge roster. Opt-in:
+	// true turns it on; listed guardrails.judges replace it.
 	Judges *bool `yaml:"judges,omitempty"`
 	// Session is the conversation id, usually an expression such as
 	// "{{ get('session') }}". Requests with the same id continue one stored

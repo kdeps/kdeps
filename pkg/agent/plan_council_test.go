@@ -48,8 +48,12 @@ func councilLoop(t *testing.T, fn func(*domain.Workflow, interface{}) (interface
 		engine:   eng,
 		registry: reg,
 		workflow: newTestWorkflowForSession(),
-		config:   Config{Backend: "openai"},
+		config:   Config{Backend: "openai", PlanCouncil: true},
 	}
+}
+
+func TestPlanCouncil_OffByDefault(t *testing.T) {
+	assert.False(t, (&Loop{}).PlanCouncilEnabled(), "the council is opt-in: /plan on")
 }
 
 func councilReply(wf *domain.Workflow) (interface{}, error) {

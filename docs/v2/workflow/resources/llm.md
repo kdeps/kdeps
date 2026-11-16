@@ -42,7 +42,7 @@ chat:
 ```
 
 - On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
-- Opt-in with `auto`: built-in tools and the judge roster. They add tool access and model calls, so a chat never gets them silently.
+- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`, `loop.judges: true`), the planning council (`loop.plan: true`) and prompt refine (`harness.refine: true`). They add tool access or model calls, so a chat never gets them silently.
 
 ## Where config lives
 
@@ -493,8 +493,8 @@ chat:
     tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
     maxRounds: 25                              # tool rounds per request; 0 = the agent default
     session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
-    plan: true                                 # planning council before a task (default true)
-    judges: true                               # automatic judge roster (default true; off when guardrails.judges are set)
+    plan: true                                 # opt-in: planning council before a task (default false)
+    judges: true                               # opt-in: automatic judge roster (default false; guardrails.judges replace it)
 ```
 
 ```text
