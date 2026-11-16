@@ -70,13 +70,14 @@ const categories: MenuCategory[] = [
     link: '/agent/',
     groups: [{
       items: [
-        { title: 'Overview', desc: 'Coding CLI. Uses a local model or an LLM server that you run', link: '/agent/' },
+        { title: 'Overview', desc: 'A chat with loop: in a workflow; kdeps --agent-loop opens it as a REPL', link: '/agent/' },
         { title: 'Quickstart', desc: 'Run your first agent', link: '/agent/quickstart' },
         { title: 'Desktop app', desc: 'The agent in a window. Uses a local model or an LLM server that you run', link: '/desktop/' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools that the LLM can call', link: '/agent/tools' },
-        { title: 'Planning council', desc: 'Agrees on a plan and a progress file before the turn starts', link: '/agent/plan' },
-        { title: 'Judge panel', desc: 'Checks that the work is correct, not only that it continues', link: '/agent/judges' },
+        { title: 'Planning council', desc: 'Opt-in: agrees on a plan and a progress file before the turn starts', link: '/agent/plan' },
+        { title: 'Judge panel', desc: 'Opt-in: checks that the work is correct, not only that it continues', link: '/agent/judges' },
         { title: 'Persistent memory', desc: 'Facts and decisions that stay across sessions', link: '/agent/memory' },
+        { title: 'Knowledge vault', desc: 'Opt-in recall of your notes; knowledge.index searches your docs', link: '/agent/knowledge' },
         { title: 'Skills & prompt templates', desc: 'Reusable instructions that the agent loads when necessary', link: '/agent/skills' },
       ],
     }],
