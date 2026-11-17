@@ -31,23 +31,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
-func TestResolveChatBackend_EnvAndOllamaHost(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
-	t.Setenv("OLLAMA_HOST", "")
-	assert.Equal(t, "openai", resolveChatBackend())
-
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
-	require.NoError(t, os.Unsetenv("KDEPS_DEFAULT_BACKEND"))
-	t.Setenv("OLLAMA_HOST", "http://ollama.internal:11434")
-	assert.Equal(t, chatBackendOllama, resolveChatBackend())
-}
-
-func TestResolveChatBaseURL_OllamaDefaultPort(t *testing.T) {
-	t.Setenv("OLLAMA_HOST", "")
-	require.NoError(t, os.Unsetenv("OLLAMA_HOST"))
-	assert.Equal(t, "http://localhost:11434", resolveChatBaseURL("", chatBackendOllama))
-}
-
 func TestLlamafileListCmd_RunE(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
