@@ -91,27 +91,25 @@ func init() {
 //nolint:gochecknoglobals // fixed list
 var requiredCommands = []string{
 	"help", "exit", "clear", "model", "compact", "session", "settings", "update",
-	"fold", "memory", "skills", "prompts", "reload", "judges", "harness", "efficiency", "recall", "knowledge",
+	"fold", "memory", "skills", "prompts", "reload", "harness", "recall", "knowledge",
 	"prompt", "search", "context", "konfig", "kartographer",
 }
 
-// requiredHarness are the standalone prompts that compaction, goals, judges,
-// prompt refinement and the session handshake are built on. They can be
-// updated or disabled (/harness disable), not removed.
+// requiredHarness are the standalone prompts that compaction and judges
+// are built on. They can be updated or disabled (/harness disable), not removed.
 //
 //nolint:gochecknoglobals // fixed list
 var requiredHarness = []string{
 	"compaction-system", "compaction-user", "compaction-update-user", "branch-summary",
 	"judge-roster-system", "judge-system",
-	"refine-system", "handshake", "handshake-ack",
 }
 
 // requiredTools are the tools every agent session keeps, whatever profile
 // installed the assets: a tool without its definition is not offered to the
 // model, so these are what a minimum install can work with. They are the
 // file, shell, search, memory and knowledge tools, and the loop's own
-// control tools (without those, goal mode, judges and the handshake cannot
-// finish), and session_ops, which /clear, /compact, /history and /copy run. Web, code-intelligence, team and other tools are installed with
+// control tools (without those, judges cannot finish), and session_ops,
+// which /clear, /compact, /history and /copy run. Web, code-intelligence, team and other tools are installed with
 // the tools set, or one by one (kdeps install tools/<name>).
 //
 //nolint:gochecknoglobals // fixed list
@@ -121,7 +119,7 @@ var requiredTools = []string{
 	"memory_save", "memory_search", "memory_query", "memory_delete",
 	"knowledge_recall", "knowledge_card_get", "knowledge_card_update", "knowledge_note_save",
 	"load_skill", "load_tools", "identity_get",
-	"judge_verdict", "session_handshake", "session_ops",
+	"judge_verdict", "session_ops",
 }
 
 // harnessContext is a harness entry's model-facing text: its body, unless

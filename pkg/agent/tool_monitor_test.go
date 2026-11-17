@@ -372,38 +372,35 @@ func TestToolTuning_ZeroPersistedValuesPreserveDefaults(t *testing.T) {
 	assert.Equal(t, 6000, r.loop.config.CompactTokenBudget)
 }
 
-// TestToolTuning_ToolsAndJudgesZeroSnapshotPreservesDefaults guards against a
-// snapshot saved before ToolsFullMode/AutoJudges existed (zero values: lean,
-// off) silently overriding the full-tools/auto-judges-on defaults wireREPL
-// already set. ToolsConfigured is the sentinel that gates this.
-func TestToolTuning_ToolsAndJudgesZeroSnapshotPreservesDefaults(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{AutoJudges: true}}}
+// TestToolTuning_ToolsZeroSnapshotPreservesDefaults guards against a
+// snapshot saved before ToolsFullMode existed (zero value: lean) silently
+// overriding the full-tools default wireREPL already set.
+// ToolsConfigured is the sentinel that gates this.
+func TestToolTuning_ToolsZeroSnapshotPreservesDefaults(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{}}}
 	r.toolsFullMode = true
 	r.applyToolTuning(ToolTuning{}) // no fields set at all -- an old snapshot
-	assert.True(t, r.loop.config.AutoJudges, "AutoJudges default must survive an unconfigured snapshot")
 	assert.True(t, r.toolsFullMode, "ToolsFullMode default must survive an unconfigured snapshot")
 }
 
-func TestToolTuning_ToolsAndJudgesConfiguredSnapshotApplies(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{AutoJudges: true}}}
+func TestToolTuning_ToolsConfiguredSnapshotApplies(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{}}}
 	r.toolsFullMode = true
 	var got bool
 	r.toolsFilterFn = func(full bool) int {
 		got = full
 		return 16
 	}
-	r.applyToolTuning(ToolTuning{ToolsConfigured: true, ToolsFullMode: false, AutoJudges: false})
-	assert.False(t, r.loop.config.AutoJudges, "explicit AutoJudges=false must apply")
+	r.applyToolTuning(ToolTuning{ToolsConfigured: true, ToolsFullMode: false})
 	assert.False(t, r.toolsFullMode, "explicit ToolsFullMode=false must apply")
 	assert.False(t, got, "the filter fn must have been called with full=false")
 }
 
-func TestToolTuning_ToolsAndJudgesSnapshotRoundTrip(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{AutoJudges: false}}}
+func TestToolTuning_ToolsSnapshotRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{}}}
 	r.toolsFullMode = false
 	snap := r.toolTuningSnapshot()
 	assert.True(t, snap.ToolsConfigured)
-	assert.False(t, snap.AutoJudges)
 	assert.False(t, snap.ToolsFullMode)
 }
 
@@ -492,34 +489,4 @@ func TestToolTuning_StallOffRoundTrip(t *testing.T) {
 	r2 := &REPL{loop: &Loop{config: Config{ToolStallTimeout: 10 * time.Minute}}}
 	r2.applyToolTuning(ToolTuning{ToolStallTimeout: "off"})
 	assert.EqualValues(t, -1, r2.loop.config.ToolStallTimeout)
-}
-
-// An old snapshot that never set RefineConfigured leaves PromptRefine
-// alone. A persisted /refine off or on is restored.
-func TestToolTuning_RefineLeavesUnconfiguredSnapshotAlone(t *testing.T) {
-	r := &REPL{loop: &Loop{config: Config{PromptRefine: true}}}
-
-	// A snapshot from before RefineConfigured existed must not change refine.
-	r.applyToolTuning(ToolTuning{ToolsConfigured: true})
-	if !r.loop.PromptRefineEnabled() {
-		t.Fatal("a pre-RefineConfigured snapshot must leave refinement as it was")
-	}
-
-	off := &REPL{loop: &Loop{config: Config{PromptRefine: false}}}
-	off.applyToolTuning(ToolTuning{ToolsConfigured: true})
-	if off.loop.PromptRefineEnabled() {
-		t.Fatal("a pre-RefineConfigured snapshot must not turn refinement on")
-	}
-
-	// A persisted "/refine off" is restored.
-	r.applyToolTuning(ToolTuning{RefineConfigured: true, RefineOff: true})
-	if r.loop.PromptRefineEnabled() {
-		t.Fatal("a persisted /refine off must restore")
-	}
-
-	// ...and "/refine on".
-	r.applyToolTuning(ToolTuning{RefineConfigured: true, RefineOff: false})
-	if !r.loop.PromptRefineEnabled() {
-		t.Fatal("a persisted /refine on must restore")
-	}
 }

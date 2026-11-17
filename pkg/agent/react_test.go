@@ -210,7 +210,7 @@ func TestRunReact_MaxRoundsReturnsLastContent(t *testing.T) {
 
 func TestBuildReactSystemPreamble_ContainsFormat(t *testing.T) {
 	loop := newStreamingLoop(&mockStreamer{}, 5)
-	preamble := loop.buildReactSystemPreamble(t.Context())
+	preamble := loop.buildReactSystemPreamble()
 	if !strings.Contains(preamble, "Thought:") {
 		t.Errorf("preamble missing 'Thought:' format instruction, got: %q", preamble[:clampMax(200, len(preamble))])
 	}
@@ -246,7 +246,7 @@ func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
 		MaxToolRounds: 5,
 		SystemPrompt:  "You are a helpful assistant",
 	})
-	preamble := loop.buildReactSystemPreamble(t.Context())
+	preamble := loop.buildReactSystemPreamble()
 	if !strings.Contains(preamble, "You are a helpful assistant") {
 		t.Errorf("expected system prompt in preamble, got: %q", preamble[:clampMax(100, len(preamble))])
 	}
@@ -310,7 +310,7 @@ func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
 		Streamer:      &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
 		MaxToolRounds: 5,
 	})
-	preamble := loop.buildReactSystemPreamble(t.Context())
+	preamble := loop.buildReactSystemPreamble()
 	// Both tool names should appear in the preamble
 	if !strings.Contains(preamble, "tool_alpha") {
 		t.Errorf("expected tool_alpha in preamble, got: %q", preamble[:clampMax(200, len(preamble))])

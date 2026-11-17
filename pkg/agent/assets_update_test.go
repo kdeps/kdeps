@@ -110,12 +110,12 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	assert.Contains(t, out.String(), "All assets are up to date.")
 
 	out.Reset()
-	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"themes/vim"}}))
-	assert.Contains(t, out.String(), "themes/vim")
+	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"presets/frugal"}}))
+	assert.Contains(t, out.String(), "presets/frugal")
 	out.Reset()
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{List: true}))
 	assert.Regexp(t, `tools/md5_file\s+2\.1\.0\s+downloaded\s+tools`, out.String())
-	assert.Regexp(t, `themes/vim\s+1\.0\.0\s+removed\s+agent`, out.String())
+	assert.Regexp(t, `presets/frugal\s+1\.2\.2\s+removed\s+context`, out.String())
 	assert.Regexp(t, `harness/safety\s+1\.1\.0\s+source\s+guardrails`, out.String())
 
 	err := RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"themes/normal"}})
@@ -453,9 +453,9 @@ func TestAssetUpdateNotice(t *testing.T) {
 
 func TestReloadAssets_KeepsTheme(t *testing.T) {
 	t.Cleanup(func() { SetTheme(defaultThemeName) })
-	require.True(t, SetTheme("vim"))
+	require.True(t, SetTheme("normal"))
 	ReloadAssets()
-	assert.Equal(t, "vim", currentThemeKey)
+	assert.Equal(t, "normal", currentThemeKey)
 }
 
 func TestCmdUpdate(t *testing.T) {

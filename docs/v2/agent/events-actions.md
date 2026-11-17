@@ -15,15 +15,15 @@ description: >-
   whatever was gathered, instead of letting the model keep spinning.
 ```
 
-Nine actions ship, one per distinct behavior: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `fail_handshake`, `accept_last`. If the `run:` of an event has a different name (a typo, or a renamed or removed action), kdeps prints a startup warning to stderr. The warning gives the event and the action. A broken override always gives a warning.
+Eight actions ship, one per distinct behavior: `compact`, `truncate`, `reject`, `block`, `drop_oldest`, `cap`, `force_answer`, `accept_last`. If the `run:` of an event has a different name (a typo, or a renamed or removed action), kdeps prints a startup warning to stderr. The warning gives the event and the action. A broken override always gives a warning.
 
 ## Behavior stays Go code
 
-The behavior of each action is Go code, because the action has a real side effect. For example, it summarizes a conversation, truncates a string, or refuses a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, `~/.kdeps/harness/` and `~/.kdeps/themes/` share one embed-plus-override shape and are the source of truth for what happens and when. [konfig](./konfig.md) exports and imports all of them.
+The behavior of each action is Go code, because the action has a real side effect. For example, it summarizes a conversation, truncates a string, or refuses a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, and `~/.kdeps/harness/` share one embed-plus-override shape and are the source of truth for what happens and when. [konfig](./konfig.md) exports and imports them. Only the `normal` theme applies.
 
 ## Not every action is freely swappable
 
-Actions are not freely swappable between events with the same trigger shape. `handshake-timeout`, `judge-max-rounds` and `subagent-max-rounds` (all `force_answer`) set a sub-loop's round budget and rely on the loop's round-exhaustion behavior. Changing their `run:` validates (the name exists) but changes nothing. The call site implements only its named action.
+Actions are not freely swappable between events with the same trigger shape. `judge-max-rounds` and `subagent-max-rounds` set a sub-loop's round budget. Changing their `run:` validates (the name exists) but changes nothing. The call site implements only its named action.
 
 ## Enforcement: hard vs. soft
 

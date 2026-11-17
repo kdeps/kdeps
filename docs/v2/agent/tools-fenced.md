@@ -36,7 +36,6 @@ The runtime returns the real output.
 
 - A literal invoke runs only outside a markdown fence. Inside a ``` or ~~~ block it is an example.
 - A fence inside a parameter value stays part of the value.
-- A fenced `session_handshake` block still counts in the [handshake](/agent/tools-handshake) round.
 
 A shell invoke without a `<parameter>` tag still runs. The command is the block body, an attribute on the opening tag, or one `command:` / `command="..."` / JSON line in the block:
 
@@ -96,7 +95,7 @@ continue # present this to yourself on the next run so I won't type continue
 
 That sentence saves memory key `preference:continue` for the project, so later turns continue without an instruction. A greeting or a `status` request gets a text answer.
 
-The nudges stop when the tool phase ends. The last permitted round, and all rounds after an efficiency stop, run without tools and ask for plain text. A text answer there is final.
+The nudges stop when the tool phase ends. The last permitted round runs without tools and asks for plain text. A text answer there is final.
 
 ## Good tool calls are praised
 
@@ -105,8 +104,6 @@ A `[GOOD]` line lands in the tool result message, so it stays in history:
 - a failed call that succeeds on retry (the counterpart to `[TOOL FAILED]`)
 - a real call right after a fake sandbox session, noting it reached the real filesystem
 - each of the first 3 successful calls in a session. After that, routine successes get none
-
-The handshake's tool result carries the same line on a correct call.
 
 ## Narrate before each tool call
 

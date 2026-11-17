@@ -141,7 +141,7 @@ component:
   with:
     command: echo "Hello, {{ input('name') }}! (from greeter)"
 EOF
-OUT=$(cd "$WT_DIR" && printf '/refine off\n/turo off\n/judges auto on\nuse the greeter tool to greet Ada please\n/exit\n' \
+OUT=$(cd "$WT_DIR" && printf 'use the greeter tool to greet Ada please\n/exit\n' \
     | HOME="$WT_HOME" USERPROFILE="$(to_native_path "$WT_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$WT_PORT/v1" --model fake greeter 2>&1 || true)
@@ -151,11 +151,6 @@ if output_grep_fixed "PARAM_NAME" "$LOG" && output_grep_fixed "Hello, Ada!" "$LO
     test_passed "workflow tool params - input('name') is a name parameter the call fills"
 else
     test_failed "workflow tool params - name parameter" "out=$(printf '%s' "$OUT" | tail -c 600) log=$LOG"
-fi
-if [ "$(printf '%s\n' "$LOG" | grep -c '^JUDGE')" = "1" ]; then
-    test_passed "workflow tool params - a judge verdict with approved \"true\" approves the first time"
-else
-    test_failed "workflow tool params - string verdict" "log=$LOG"
 fi
 
 restore_llm_override

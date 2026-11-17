@@ -76,13 +76,7 @@ func sessionOpTable() map[string]sessionOp {
 	for op, fn := range knowledgeOps {
 		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
 	}
-	for op, fn := range efficiencyOps {
-		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
-	}
 	for op, fn := range harnessOps {
-		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
-	}
-	for op, fn := range judgesOps {
 		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
 	}
 	for op, fn := range modelOps {
@@ -302,16 +296,13 @@ func importSession(store *SessionStore, path string) (string, error) {
 	return id, nil
 }
 
-// loadSession makes stored session id the live one: its messages, its model,
-// and a required handshake, since a resumed session's tool-calling path is
-// unproven until the model makes one real call in it.
+// loadSession makes stored session id the live one: its messages and its model.
 func (r *REPL) loadSession(store *SessionStore, id string) error {
 	session, err := store.Load(id)
 	if err != nil {
 		return fmt.Errorf("session load: %w", err)
 	}
 	r.loop.session.ReplaceMessages(session.RawMessages())
-	r.loop.RequireHandshake()
 	r.loop.SetSessionID(id) // continue this stored session on exit
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil {
 		r.loop.resumeNote = resumedSessionNote(meta.UpdatedAt, time.Now())

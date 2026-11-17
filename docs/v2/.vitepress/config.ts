@@ -126,7 +126,6 @@ export default defineConfig({
             { text: 'Built-in tools', link: '/agent/tools' },
             { text: 'Fenced tools', link: '/agent/tools-fenced' },
             { text: 'Harness reminders', link: '/agent/tools-harness' },
-            { text: 'Session-integrity handshake', link: '/agent/tools-handshake' },
             { text: 'File tools', link: '/agent/tools-files' },
             { text: 'Edit file', link: '/agent/tools-edit' },
             { text: 'Memory and identity', link: '/agent/tools-memory' },
@@ -145,14 +144,10 @@ export default defineConfig({
         {
           text: 'Control',
           items: [
-            { text: 'Prompt refinement', link: '/agent/refine' },
-            { text: 'Planning council', link: '/agent/plan' },
             { text: 'Subagents', link: '/agent/subagent' },
-            { text: 'Efficiency enforcement', link: '/agent/efficiency' },
             { text: 'Judge panel', link: '/agent/judges' },
             { text: 'Approval tokens', link: '/agent/approvals' },
             { text: 'Tool execution monitoring', link: '/agent/monitoring' },
-            { text: 'Prompt reduction (turo)', link: '/agent/turo' },
           ]
         },
         {
@@ -521,7 +516,12 @@ export default defineConfig({
       'modes/agent-loop-approvals': '/agent/approvals',
       'modes/agent-loop-monitoring': '/agent/monitoring',
       'modes/agent-loop-shell': '/agent/shell',
-      'modes/agent-loop-turo': '/agent/turo',
+      'modes/agent-loop-turo': '/agent/repl',
+      'agent/refine': '/agent/repl',
+      'agent/plan': '/agent/repl',
+      'agent/efficiency': '/agent/events-presets',
+      'agent/turo': '/agent/repl',
+      'agent/tools-handshake': '/agent/tools-fenced',
       'getting-started/local-agent': '/agent/quickstart',
       'getting-started/agent-skills': '/agent/ai-assisted-authoring',
       'concepts/memory': '/agent/memory',

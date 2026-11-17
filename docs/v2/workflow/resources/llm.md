@@ -42,7 +42,7 @@ chat:
 ```
 
 - On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
-- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`, `loop.judges: true`), the planning council (`loop.plan: true`) and prompt refine (`harness.refine: true`). They add tool access or model calls, so a chat never gets them silently.
+- Opt-in: built-in tools (`tools.list: auto`) and the judge roster (`guardrails.judges: auto`). They add tool access or model calls, so a chat never gets them silently.
 
 ## Where config lives
 
@@ -382,7 +382,7 @@ Output:
 
 ## Judges
 
-`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel. If any rejects, the chat runs again with their feedback, and the panel reviews the revision. Agent mode's [judge panel](/agent/judges) runs on the same engine.
+`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel. If any rejects, the chat runs again with their feedback, and the panel reviews the revision. `kdeps test` uses the same judges. See [Judge panel](/agent/judges).
 
 ```text
 chat -> judges (parallel) -> all approve? -> output
@@ -450,20 +450,6 @@ chat:
 
 Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing. An unknown name fails the resource.
 
-## Prompt refine
-
-`refine: true` rewrites the prompt into a clearer, self-contained request before the call, as agent mode's `/refine` does:
-
-```yaml
-chat:
-  context:
-    prompt: "{{ get('q') }}"   # e.g. "fix it" -> "Fix the failing build in ./cmd and report what changed."
-  harness:
-    refine: true                 # one extra model call with the refine-system harness prompt
-```
-
-The chat's history is context for the rewrite. A trivial prompt, a failed refine call or an unusable reply keeps the prompt as written.
-
 ## Skills
 
 `tools.skills` gives the chat the skills of agent mode. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
@@ -493,8 +479,6 @@ chat:
     tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
     maxRounds: 25                              # tool rounds per request; 0 = the agent default
     session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
-    plan: true                                 # opt-in: planning council before a task (default false)
-    judges: true                               # opt-in: automatic judge roster (default false; guardrails.judges replace it)
 ```
 
 ```text
@@ -595,7 +579,7 @@ Each nudge occurs a maximum of `maxOccurrences` times (from its harness entry). 
 
 First, kdeps checks each model call against the [request body limit](/reference/security#request-body-size-preflight) of the backend. A request above the limit fails with a clear error. It never goes to the model.
 
-A failed tool call gets a failure brief after its error, as in agent mode: the folder of a missing path or the lines around a failed `edit_file`, and an instruction to fix the cause and call again. The `efficiency-failures` event (5) caps the briefed failures per chat call. Later failures return the plain error. `failure-context-bytes`, `failure-dir-entries` and `failure-error-bytes` size the brief.
+A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `efficiency-failures` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop does not attach this brief. A failed tool result there ends with `[TOOL FAILED]`. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
 
 If a call is larger than the context of the model, kdeps compacts it and tries again one time, as in agent mode. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
 

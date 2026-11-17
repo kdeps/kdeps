@@ -93,7 +93,6 @@ func TestParseYAMLEvent_ToolBudgetRules(t *testing.T) {
 // In a real turn, a call past a tools: event's limit never reaches the tool.
 func TestRunStreaming_ToolBudgetEventBlocksTheNextDistinctCall(t *testing.T) {
 	isolateEventsAndPresetsHome(t)
-	require.NoError(t, SetEfficiencyEnabled(false))
 	withEvent(
 		t,
 		Event{Name: "counted-budget", Tools: []string{"counted"}, On: EventTrigger{DistinctCalls: 1}, Run: actionBlock},

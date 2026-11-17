@@ -66,17 +66,15 @@ type theme struct {
 
 const defaultThemeName = "normal"
 
-// builtinThemeOrder lists the shipped themes in display order. It is the
-// fixed prefix of themeOrder; anything after it came from
-// ~/.kdeps/themes/*.yaml (see initThemes).
+// builtinThemeOrder is the one shipped palette.
 //
-//nolint:gochecknoglobals // immutable listing of the shipped themes
-var builtinThemeOrder = []string{"normal", "black", "linux", "vim", "emacs"}
+//nolint:gochecknoglobals // immutable listing of the shipped theme
+var builtinThemeOrder = []string{"normal"}
 
 //nolint:gochecknoglobals // the theme registry, listing order, and active state
 var (
-	// themes and themeOrder are populated at init() from loadBuiltinThemes()
-	// + loadUserThemes() -- see theme_yaml.go. Never nil after init.
+	// themes and themeOrder hold the normal palette after initThemes.
+	// Never nil after init.
 	themes     map[string]*theme
 	themeOrder []string
 
@@ -177,16 +175,14 @@ func exportThemeEntries() []yamlTheme {
 	return out
 }
 
-// SetTheme selects the active theme. Unknown names leave the current theme
-// unchanged and return false.
-//
-//kdeps:flow themes: kdeps starts, or /theme > [the theme colors the terminal] > every reply and prompt
+// SetTheme keeps the one palette. Any other name leaves it unchanged and
+// returns false.
 func SetTheme(name string) bool {
 	key := strings.ToLower(strings.TrimSpace(name))
-	if _, ok := themes[key]; !ok {
+	if key != "" && key != defaultThemeName {
 		return false
 	}
-	currentThemeKey = key
+	currentThemeKey = defaultThemeName
 	applyActiveTheme()
 	return true
 }
@@ -344,26 +340,17 @@ func installedThemeOrder(loaded map[string]*theme) []string {
 	return append(out, extra...)
 }
 
-// initThemes loads the built-in themes, layers any user themes on top, and
-// applies the default ("normal") theme. Exported as a function (called from
-// init(), and re-callable from tests that need a clean registry) rather than
-// living entirely inside init() -- loadUserThemes touches the filesystem, and
-// tests want to trigger that deterministically instead of only at process
-// startup.
+// initThemes loads the normal palette and applies it. Exported so tests can
+// reset the registry.
 func initThemes() {
-	themes = loadBuiltinThemes()
-	installedThemeNames = installedThemeOrder(themes)
-	themeOrder = append([]string{}, installedThemeNames...)
-	userThemes, loadErrs := loadUserThemes()
-	for _, e := range loadErrs {
-		fmt.Fprintf(os.Stderr, "theme: %v\n", e)
+	loaded := loadBuiltinThemes()
+	themes = map[string]*theme{}
+	if normal, ok := loaded[defaultThemeName]; ok {
+		themes[defaultThemeName] = normal
 	}
-	customThemeNames = make([]string, 0, len(userThemes))
-	for name := range userThemes {
-		customThemeNames = append(customThemeNames, name)
-	}
-	sort.Strings(customThemeNames)
-	mergeUserThemes(userThemes)
+	installedThemeNames = []string{defaultThemeName}
+	themeOrder = []string{defaultThemeName}
+	customThemeNames = nil
 	currentThemeKey = defaultThemeName
 	modelNameDisplayMode = modelNameDisplayAuto
 	applyActiveTheme()

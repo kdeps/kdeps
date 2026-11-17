@@ -4,7 +4,7 @@
 
 kdeps permits paths under `~/.kdeps` and `/tmp` with no prompt, also when the workspace root is a different folder. On Windows, the permitted temp directory is the process temp directory. kdeps blocks a directory that has only the same name, and it always blocks `/`. kdeps converts a relative path to the absolute path in the working directory. Then it checks that path and gives it to the script.
 
-Permission modes, lean mode, the handshake, and harness reminders stay on [Built-in tools](/agent/tools).
+Permission modes, lean mode, and harness reminders stay on [Built-in tools](/agent/tools).
 
 Each of these tools is also a workflow component. The component POSTs to `/apis/tools.kdeps.io/v1/tools/{name}/call` and passes `file_path` (`path` for `list_files`). The session's last file, `match_id`, and the colored diff stay in the agent loop.
 

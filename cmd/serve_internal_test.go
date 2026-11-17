@@ -826,10 +826,14 @@ func TestResolveTheme_Precedence(t *testing.T) {
 	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "vim" {
 		t.Errorf("persisted Theme=vim should win, got %q", got)
 	}
-	// Env wins over the persisted setting.
+	// Only normal is a theme. An unknown env name falls through.
 	t.Setenv("KDEPS_THEME", "linux")
-	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "linux" {
-		t.Errorf("KDEPS_THEME=linux should win over persisted Theme=vim, got %q", got)
+	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "vim" {
+		t.Errorf("KDEPS_THEME=linux is not a theme, persisted Theme stays, got %q", got)
+	}
+	t.Setenv("KDEPS_THEME", "normal")
+	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "normal" {
+		t.Errorf("KDEPS_THEME=normal should win over persisted Theme=vim, got %q", got)
 	}
 	t.Setenv("KDEPS_THEME", "")
 	// Flag wins over everything.

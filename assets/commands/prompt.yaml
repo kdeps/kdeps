@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.0.1
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -25,7 +25,7 @@ subcommands:
           {{range .tools}}
           - `{{.name}}` (~{{.tokens}} tokens) {{.description}}{{end}}{{end}}
 
-          Token counts are local tiktoken estimates of what was actually sent (post-fold, post-turo) -- they will not exactly match the provider's billed count for non-OpenAI-family models, but explain the relative weight of each part of the request.
+          Token counts are local tiktoken estimates of the sent text after fold. They do not match the provider billed count. They show the relative weight of each part of the request.
           (use `/prompt raw` for exact JSON, including full tool schemas){{end}}
   raw:
     run:

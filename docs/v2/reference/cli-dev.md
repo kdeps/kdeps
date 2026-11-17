@@ -318,7 +318,7 @@ kdeps update --check                  # list available updates, change nothing
 kdeps update harness                  # every item in one set
 kdeps install harness/safety          # one item at its newest version (unpins it), with what it requires
 kdeps install harness/safety@1.2.0    # exactly that version, pinned (older = downgrade)
-kdeps uninstall themes/vim themes/linux   # remove items (restore with: kdeps install themes/vim)
+kdeps uninstall presets/frugal            # remove one item (restore with: kdeps install presets/frugal)
 kdeps list --assets                   # every item, its version, state, shelf and ~context tokens
 kdeps list rag                        # one shelf (model, context, harness, tools, memory, rag, agent, guardrails, evals, workflow, deploy)
 kdeps profile agent                   # install a profile: minimum, workflows, agent, deploy, full (or sets and items: docker,tools/bash_exec)

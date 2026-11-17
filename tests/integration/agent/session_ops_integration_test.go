@@ -108,12 +108,11 @@ func TestSessionOps_SettingsThroughTheAPI(t *testing.T) {
 	repl.RegisterCommandAPI()
 	t.Cleanup(func() { api.SetSessionOps(nil) })
 
-	setOff := map[string]any{"operation": "set", "key": "refine", "value": "off"}
+	setOff := map[string]any{"operation": "set", "key": "autocontext", "value": "off"}
 	out, err := api.CallTool(t.Context(), "session_ops", setOff)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"value":"off"}`, out)
-	require.False(t, loop.PromptRefineEnabled())
-	out, err = api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "refine"})
+	out, err = api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "autocontext"})
 	require.NoError(t, err)
 	require.JSONEq(t, `{"value":"off"}`, out)
 	setOff["value"] = "maybe"

@@ -108,7 +108,16 @@ func TestRegisterSkillLoader_NoRelatedSkills(t *testing.T) {
 	assert.Equal(t, "Do A.", out)
 }
 
+func isolateSkillDirs(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Chdir(t.TempDir())
+}
+
 func TestRegisterSkillLoader_UnknownSkillListsAvailable(t *testing.T) {
+	isolateSkillDirs(t)
 	reg := tools.NewRegistry()
 	loop := &Loop{
 		registry: reg,
@@ -206,11 +215,13 @@ func TestDispatchCommand_SkillNotFound_NoError(t *testing.T) {
 // --- loadSkillSlice ---
 
 func TestLoadSkillSlice_Empty(t *testing.T) {
+	isolateSkillDirs(t)
 	slc := loadSkillSlice([]string{"/nonexistent"})
 	assert.Empty(t, slc)
 }
 
 func TestLoadSkillSlice_WithSkill(t *testing.T) {
+	isolateSkillDirs(t)
 	dir := t.TempDir()
 	content := "---\nname: my-skill\ndescription: does things\n---\n\nContent."
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o644))
@@ -222,6 +233,7 @@ func TestLoadSkillSlice_WithSkill(t *testing.T) {
 }
 
 func TestReloadSkills(t *testing.T) {
+	isolateSkillDirs(t)
 	loop := makeTestLoop(nil)
 	assert.Empty(t, loop.skillList)
 	assert.Empty(t, loop.Skills())
@@ -306,6 +318,7 @@ func TestDispatchCommand_Settings(t *testing.T) {
 }
 
 func TestLoadSkillSlice_DedupByName(t *testing.T) {
+	isolateSkillDirs(t)
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()
 	content := "---\nname: same-skill\n---\nContent."
@@ -3382,7 +3395,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 	reg := tools.NewRegistry()
 	loop := New(t.Context(), eng, newTestWorkflowForSession(), reg, Config{
 		Model:                "test",
-		Streamer:             &autoHandshakeStreamer{inner: ms},
+		Streamer:             ms,
 		CompactTokenBudget:   1,
 		AutoCompactThreshold: 1,
 		MaxToolRounds:        3,

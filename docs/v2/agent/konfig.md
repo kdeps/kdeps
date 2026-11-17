@@ -12,7 +12,7 @@ kdeps konfig export [path]     # default ./konfig.yaml, from a bare CLI invocati
 /konfig export [path]          # inside the REPL, exports the LIVE session's config
 ```
 
-The CLI form reads the settings that kdeps keeps in `~/.kdeps/agent-loop-settings.yaml`. If you did not change a setting, it reads the built-in default. The REPL form records the exact state of the current session. This state includes changes from `/model tool set`, `/theme`, `/efficiency verbose on`, and other commands that do not save to a file.
+The CLI form reads the settings that kdeps keeps in `~/.kdeps/agent-loop-settings.yaml`. If you did not change a setting, it reads the built-in default. The REPL form records the exact state of the current session. This state includes changes from `/model tool set` and other commands that do not save to a file.
 
 ## Importing
 
@@ -43,9 +43,9 @@ Import writes each section to its usual place, replacing any built-in or user en
 
 | Section | Contents |
 |---|---|
-| `tuning` | Every `/model tool set` knob - rounds, retries, compaction/fold thresholds, memory-graph leaf limits, web/bash/file/code call limits, turo settings, refine/handshake toggles |
+| `tuning` | Every `/model tool set` knob: rounds, retries, compaction and fold thresholds, memory-graph leaf limits, and web, bash, file, and code call limits |
 | `harness` | Every tool-use/behavior-prompt section - all built-in sections plus any `~/.kdeps/harness/*.yaml` overrides, already merged by name |
-| `themes` | Every REPL theme - built-in plus any `~/.kdeps/themes/*.yaml` overrides, merged by name, with every palette color fully resolved (never left blank to inherit from `normal` on import) |
+| `themes` | The `normal` palette. Import can write other theme files. Only `normal` applies |
 | `events` | Every reactive LLM event (`auto-compact`, `fold`, and the round-count guards) - built-in plus any `~/.kdeps/events/*.yaml` overrides, merged by name. See [events](./events.md) |
 | `actions` | Every registered action name (the fixed vocabulary events' `run:` fields draw from) - built-in plus any `~/.kdeps/actions/*.yaml` overrides, merged by name. See [events](./events.md) |
 | `presets` | Every named harness/event bundle (`frugal`, `balanced`, `thorough`, ...) - built-in plus any `~/.kdeps/presets/*.yaml` overrides, merged by name. See [presets](./events.md#presets) |

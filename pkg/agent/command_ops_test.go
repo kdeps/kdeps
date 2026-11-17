@@ -20,7 +20,6 @@ package agent
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -140,11 +139,11 @@ func TestRegisterCommandAPI(t *testing.T) {
 	if repl.loop.Session().TurnCount() != 0 {
 		t.Fatal("api clear did not clear the session")
 	}
-	if _, err := api.CallCommand(t.Context(), "handshake", map[string]any{"args": []string{"on"}}); err != nil {
+	if _, err := api.CallCommand(t.Context(), "autocontext", map[string]any{"args": []string{"off"}}); err != nil {
 		t.Fatalf("a setting: command is on the API: %v", err)
 	}
-	if !repl.loop.HandshakeEnabled() {
-		t.Fatal("api handshake on did not set the setting")
+	if repl.autoContextDetect {
+		t.Fatal("api autocontext off did not set the setting")
 	}
 	if _, err := api.CallCommand(t.Context(), "not_a_command", nil); err == nil ||
 		err.Error() != "command not found" {
@@ -161,19 +160,17 @@ func TestSettingCommands_RunFromTheirAssets(t *testing.T) {
 	var saved []ToolTuning
 	r.SetSaveTuningFn(func(tt ToolTuning) error { saved = append(saved, tt); return nil })
 
-	require.NoError(t, r.dispatchCommand("/refine off"))
-	assert.False(t, loop.PromptRefineEnabled())
-	require.NoError(t, r.dispatchCommand("/refine ON"))
-	assert.True(t, loop.PromptRefineEnabled(), "values match without case")
-	require.NoError(t, r.dispatchCommand("/handshake on"))
-	assert.True(t, loop.HandshakeEnabled())
+	require.NoError(t, r.dispatchCommand("/autocontext off"))
+	assert.False(t, r.autoContextDetect)
+	require.NoError(t, r.dispatchCommand("/autocontext ON"))
+	assert.True(t, r.autoContextDetect, "values match without case")
 	require.NoError(t, r.dispatchCommand("/permissions read-only"))
 	assert.Equal(t, PermissionReadOnly, loop.config.PermissionMode)
 	require.NoError(t, r.dispatchCommand("/permission bogus"))
 	assert.Equal(t, PermissionReadOnly, loop.config.PermissionMode, "an unlisted value changes nothing")
-	assert.Len(t, saved, 4, "each stored value persists")
+	assert.Len(t, saved, 3, "each stored value persists")
 
-	c := declaredCommand("refine")
+	c := declaredCommand("autocontext")
 	require.NotNil(t, c)
 	require.NotNil(t, c.Setting)
 }
@@ -204,58 +201,8 @@ func TestThinkingSetting_FromItsAsset(t *testing.T) {
 	assert.Contains(t, out, `Warning: model "no-reasoning-model" may not support extended thinking.`)
 }
 
-func TestThemeSetting_OptionsShowOnAndJoin(t *testing.T) {
-	t.Cleanup(func() { _ = SetTheme("normal") })
-	r := NewREPL(context.Background(), makeTestLoop(nil))
-	defer r.cancel()
-
-	out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/theme list")) })
-	assert.Contains(t, out, "Theme: normal")
-	assert.Contains(t, out, "Built-in: "+strings.Join(BuiltinThemeNames(), ", "))
-	assert.Contains(t, out, "Custom (~/.kdeps/themes): none")
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/theme VIM")) })
-	assert.Equal(t, "vim", CurrentThemeName(), "theme names come from the setting's options")
-	assert.Contains(t, out, "Theme set to vim (saved)")
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/theme bogus")) })
-	assert.Contains(t, out, "Unknown theme: bogus. Valid: "+strings.Join(ThemeNames(), ", "))
-}
-
-func TestTuroSetting_StagesLevelsAndState(t *testing.T) {
-	turoOnce.Do(func() {})
-	oldEnabled := turoEnabled
-	turoEnabled = true
-	t.Cleanup(func() {
-		turoEnabled = oldEnabled
-		SetTuroRuntimeOff(false)
-		SetTuroStage("gloss", true)
-	})
-	r := NewREPL(context.Background(), makeTestLoop(nil))
-	defer r.cancel()
-
-	out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo off")) })
-	assert.True(t, TuroRuntimeOff())
-	assert.Contains(t, out, "turo off")
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo ultra")) })
-	assert.False(t, TuroRuntimeOff(), "a level turns turo back on")
-	assert.Equal(t, "ultra", TuroLevel())
-	assert.Contains(t, out, "turo level: ultra")
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo gloss  OFF")) })
-	assert.False(t, TuroStage("gloss"))
-	assert.Contains(t, out, "turo gloss off")
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo")) })
-	assert.Contains(t, out, "level: ultra")
-	assert.Contains(t, out, "gloss: off")
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo gloss")) })
-	assert.Contains(t, out, "Usage: /turo")
-
-	turoEnabled = false
-	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo on")) })
-	assert.Contains(t, out, "turo is not installed")
-	assert.False(t, TuroRuntimeOff())
-}
-
 func TestSettingSpec_Validate(t *testing.T) {
-	ok := settingSpec{Key: "refine", Values: []string{"on"}, Show: "s", Set: "x", Invalid: "i"}
+	ok := settingSpec{Key: "permission", Values: []string{"on"}, Show: "s", Set: "x", Invalid: "i"}
 	require.NoError(t, ok.validate())
 	bad := ok
 	bad.Key = "nope"
@@ -263,13 +210,13 @@ func TestSettingSpec_Validate(t *testing.T) {
 	bad = ok
 	bad.Values = nil
 	require.ErrorContains(t, bad.validate(), "values is required")
-	bad.Key = "theme"
-	require.NoError(t, bad.validate(), "a setting with its own options needs no values")
+	bad.Key = "context"
+	require.NoError(t, bad.validate(), "a setting that accepts a count needs no values")
 	bad = ok
 	bad = ok
 	bad.Set = "{{"
 	require.ErrorContains(t, bad.validate(), "setting: set")
 	_, err := parseYAMLCommand([]byte("name: x\nusage: [{help: h}]\nrun: [{prompt: p}]\n"+
-		"setting: {key: refine, values: [on], show: s, set: s, invalid: s}\n"), "x.yaml")
+		"setting: {key: permission, values: [on], show: s, set: s, invalid: s}\n"), "x.yaml")
 	require.ErrorContains(t, err, "exactly one of run, setting or subcommands")
 }

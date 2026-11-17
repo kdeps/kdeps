@@ -69,22 +69,10 @@ type sessionSetting struct {
 //
 //nolint:gochecknoglobals // fixed table of live REPL state
 var sessionSettings = map[string]sessionSetting{
-	"plan": {
-		get: func(r *REPL) map[string]any { return onOffState(r.loop.PlanCouncilEnabled()) },
-		set: func(r *REPL, v string) error { r.loop.SetPlanCouncil(v == toggleOn); return nil },
-	},
-	"refine": {
-		get: func(r *REPL) map[string]any { return onOffState(r.loop.PromptRefineEnabled()) },
-		set: func(r *REPL, v string) error { r.loop.SetPromptRefine(v == toggleOn); return nil },
-	},
 	"subagent": {
 		get:     func(r *REPL) map[string]any { return subagentSettingState(r.loop) },
 		set:     func(r *REPL, v string) error { return r.loop.SetSubagent(v) },
 		accepts: func(v string) bool { return strings.TrimSpace(v) != "" },
-	},
-	"handshake": {
-		get: func(r *REPL) map[string]any { return onOffState(r.loop.HandshakeEnabled()) },
-		set: func(r *REPL, v string) error { r.loop.SetHandshakeEnabled(v == toggleOn); return nil },
 	},
 	"autocontext": {
 		get: func(r *REPL) map[string]any { return onOffState(r.autoContextDetect) },
@@ -138,52 +126,6 @@ var sessionSettings = map[string]sessionSetting{
 			return nil
 		},
 	},
-	"theme": {
-		get: func(_ *REPL) map[string]any {
-			return map[string]any{
-				"value": CurrentThemeName(), "builtin": BuiltinThemeNames(), "custom": CustomThemeNames(),
-			}
-		},
-		set: func(r *REPL, v string) error {
-			SetTheme(v)
-			if r.saveThemeFn != nil {
-				if err := r.saveThemeFn(v); err != nil {
-					return fmt.Errorf("persist theme setting: %w", err)
-				}
-			}
-			fmt.Fprintln(os.Stdout, r.modeline()) // redrawn in the new colors
-			return nil
-		},
-		options: ThemeNames,
-	},
-	"turo": {
-		get: func(r *REPL) map[string]any {
-			state := map[string]any{"value": toggleOn, "available": turoAvailable(r.ctx), "level": TuroLevel()}
-			if TuroRuntimeOff() {
-				state["value"] = toggleOff
-			}
-			for _, stage := range turoStages {
-				state[stage] = onOffState(TuroStage(stage))["value"]
-			}
-			return state
-		},
-		set: func(r *REPL, v string) error {
-			if !turoAvailable(r.ctx) {
-				return nil
-			}
-			// "<stage> on|off" toggles a stage; on/off the reducer; anything
-			// else is a level, which also turns the reducer on.
-			if stage, state, ok := strings.Cut(v, " "); ok {
-				SetTuroStage(stage, state == toggleOn)
-				return nil
-			}
-			if v != toggleOn && v != toggleOff {
-				SetTuroLevel(v)
-			}
-			SetTuroRuntimeOff(v == toggleOff)
-			return nil
-		},
-	},
 	// /context: the context window, in tokens. Cloud backends manage it themselves.
 	"context": {
 		get: func(r *REPL) map[string]any {
@@ -214,25 +156,7 @@ var sessionSettings = map[string]sessionSetting{
 		get: func(r *REPL) map[string]any { return map[string]any{"value": r.loop.knowledgeBuildMode()} },
 		set: func(r *REPL, v string) error { return r.loop.SetKnowledgeBuild(v) },
 	},
-	// /efficiency on|off, verbose and prompt mode.
-	"efficiency": {
-		get: func(_ *REPL) map[string]any { return onOffState(EfficiencyEnabled()) },
-		set: func(_ *REPL, v string) error { return SetEfficiencyEnabled(v == toggleOn) },
-	},
-	"efficiency-verbose": {
-		get: func(_ *REPL) map[string]any { return onOffState(EfficiencyVerbose()) },
-		set: func(_ *REPL, v string) error { return SetEfficiencyVerbose(v == toggleOn) },
-	},
-	"efficiency-prompt": {
-		get: func(r *REPL) map[string]any { return map[string]any{"value": r.loop.PromptMode()} },
-		set: func(r *REPL, v string) error { return r.loop.SetPromptMode(v) },
-	},
-	// /judges auto: a judge roster generated per turn.
-	"auto-judges": {
-		get: func(r *REPL) map[string]any { return onOffState(r.loop.AutoJudges()) },
-		set: func(r *REPL, v string) error { r.loop.SetAutoJudges(v == toggleOn); return nil },
-	},
-	// /model name: how the modeline shows the model name. "auto" follows the theme.
+	// /model name: how the modeline shows the model name.
 	"model-name": {
 		get: func(_ *REPL) map[string]any {
 			mode := ModelNameDisplayMode()
@@ -323,10 +247,12 @@ func (r *REPL) foldState() map[string]any {
 	}
 }
 
-// turoStages are the lossy turo pipeline stages the turo setting reports.
-//
-//nolint:gochecknoglobals // fixed list of turo's stage flags
-var turoStages = []string{"filler", "synonyms", "gloss", "defmatch", "arrows"}
+func onOffWord(on bool) string {
+	if on {
+		return toggleOn
+	}
+	return toggleOff
+}
 
 func onOffState(on bool) map[string]any {
 	if on {

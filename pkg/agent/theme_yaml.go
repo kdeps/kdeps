@@ -36,11 +36,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
-// Themes are data, not code: every built-in theme (normal, black, linux,
-// vim, emacs) is a YAML file in the themes asset set, and users can
-// drop their own into ~/.kdeps/themes/*.yaml to add a theme or override a
-// built-in by reusing its name -- no Go code or recompilation required
-// either way.
+// Themes are data, not code. The built-in palette is themes/normal.yaml.
 
 // yamlPalette mirrors palette's color fields with exported names and yaml
 // tags so a theme file can be unmarshaled directly. Every field is optional:
@@ -120,6 +116,8 @@ type themeFS interface {
 }
 
 // loadBuiltinThemes parses every themes/*.yaml file of the asset set.
+//
+//kdeps:flow themes: kdeps starts > [the normal palette colors the terminal] > every reply and prompt
 func loadBuiltinThemes() map[string]*theme {
 	return loadBuiltinThemesFrom(assets.Open("themes"))
 }

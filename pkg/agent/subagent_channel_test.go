@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/config"
-	"github.com/kdeps/kdeps/v3/pkg/domain"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
@@ -173,37 +172,6 @@ func TestApplyToolTuning_AuxSetWins(t *testing.T) {
 	snap := r.toolTuningSnapshot()
 	assert.Equal(t, subagentCurrent, snap.Subagent)
 	assert.True(t, snap.SubagentSet)
-}
-
-func TestRefinePrompt_UsesSubagentWhenTheLocalModelIsUnserved(t *testing.T) {
-	stubFreeIDs(t, []string{"big/70b:free"})
-	var gotModel, gotBackend string
-	l := refineLoop(t, func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
-		gotModel = wf.Resources[0].Chat.Model
-		gotBackend = wf.Resources[0].Chat.Backend
-		return "rewritten request", nil
-	})
-	l.config.Backend = "file"
-	l.config.Model = "local.gguf"
-	l.config.Subagent = subagentFree
-	got := refinePrompt(context.Background(), l, "do the thing with the config and restart it")
-	assert.Equal(t, "rewritten request", got)
-	assert.Equal(t, "big/70b:free", gotModel)
-	assert.Equal(t, openrouterBackend, gotBackend)
-}
-
-func TestGenerateJudgeRoster_UsesSubagent(t *testing.T) {
-	stubFreeIDs(t, []string{"big/70b:free"})
-	var gotModel string
-	l := refineLoop(t, func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
-		gotModel = wf.Resources[0].Chat.Model
-		return `{"judges":[{"name":"correctness","criteria":"check it"}]}`, nil
-	})
-	l.config.Subagent = "big/70b:free"
-	roster := generateJudgeRoster(l, "explain the parser and name the file it reads")
-	require.Len(t, roster, 1)
-	assert.Equal(t, "big/70b:free", gotModel)
-	assert.Equal(t, "correctness", roster[0].Name)
 }
 
 func TestExtractModel_AuxBeatsTheExtractPin(t *testing.T) {

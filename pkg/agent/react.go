@@ -82,7 +82,7 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 		}
 	}
 
-	systemPreamble := l.buildReactSystemPreamble(ctx)
+	systemPreamble := l.buildReactSystemPreamble()
 	chatCfg := l.buildReactChatConfig(input, systemPreamble, nil)
 
 	var finalAnswer string
@@ -107,9 +107,6 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 			break
 		}
 
-		// Execute the tool and add the observation. The user sees the raw tool
-		// output; the copy fed back to the LLM is routed through turo (when
-		// active) so tool output is reduced like everything else in the prompt.
 		observation := l.dispatchReactTool(toolName, toolInput)
 		fmt.Fprintf(w, "\nObservation: %s\n", observation)
 
@@ -117,7 +114,7 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 			thought:     content,
 			action:      toolName,
 			actionInput: toolInput,
-			observation: turoReduce(ctx, observation),
+			observation: observation,
 		}
 		chatCfg = l.appendReactStep(chatCfg, step)
 	}
@@ -135,7 +132,7 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 }
 
 // buildReactSystemPreamble builds the MRKL system prompt with tool descriptions.
-func (l *Loop) buildReactSystemPreamble(ctx context.Context) string {
+func (l *Loop) buildReactSystemPreamble() string {
 	tools := l.registry.List()
 	var descs, names strings.Builder
 	for _, t := range tools {
@@ -146,7 +143,7 @@ func (l *Loop) buildReactSystemPreamble(ctx context.Context) string {
 		names.WriteString(t.Name)
 	}
 
-	base := turoReduce(ctx, fmt.Sprintf(reactSystemTemplate, descs.String(), names.String()))
+	base := fmt.Sprintf(reactSystemTemplate, descs.String(), names.String())
 
 	extra := l.buildSystemPreamble()
 	if extra != "" {

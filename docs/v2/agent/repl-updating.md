@@ -43,7 +43,7 @@ kdeps behavior files are versioned assets. They update separately from the binar
 | `events` | An agent-loop event and its limits | `events/file-read-limit` |
 | `actions` | An action an event can fire | `actions/block` |
 | `presets` | A named bundle of harness/event settings | `presets/frugal` |
-| `themes` | A REPL color theme | `themes/vim` |
+| `themes` | The REPL palette. Only `normal` applies | `themes/normal` |
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
 | `commands` | A REPL slash command: a built-in's help and aliases, or a [declared command](/agent/commands#declared-commands) run entirely from its steps | `commands/review` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
@@ -164,7 +164,7 @@ CI, Docker and scripts get no question. `KDEPS_PROFILE` names the profile (`KDEP
 
 ### What a profile installs later
 
-A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the `normal` theme, the loop's required tools and harness, and 23 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `judges`, `harness`, `efficiency`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
+A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the `normal` theme, the loop's required tools and harness, and 21 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `harness`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
 
 ```text
 $ KDEPS_PROFILE=minimum kdeps
@@ -180,10 +180,10 @@ kdeps gives the name of an item that fails for a different reason. If other item
 - Sets with no necessary items (`events`, `actions`, `presets`) stay empty. kdeps records them as empty in `lock.json`, so the next start makes no network call.
 - If a necessary item is not installed when code reads it, kdeps installs it one time, on first use. The terminal shows its name: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).
 - A Go built-in command (`builtin: true`) runs without its file. The file only adds it to `/help`.
-- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/refine` or `/review`) exists only when installed: `kdeps install commands/refine` adds `/refine`, `kdeps install commands` adds all.
+- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/review`) exists only when installed. `kdeps install commands/review` adds `/review`. `kdeps install commands` adds all.
 - You cannot uninstall a necessary item.
 
-A switch to a smaller profile prunes items. `kdeps profile minimum` after `agent` or `full` deletes all items that are not in the new profile (`commands/efficiency  remove  not in the profile`). A set that is not in the profile also loses its necessary items. The base sets and the sets of the agent loop are exceptions. If you install an item by name later, `kdeps update` keeps it.
+A switch to a smaller profile prunes items. `kdeps profile minimum` after `agent` or `full` deletes all items that are not in the new profile (`docker/image  remove  not in the profile`). A set that is not in the profile also loses its necessary items. The base sets and the sets of the agent loop are exceptions. If you install an item by name later, `kdeps update` keeps it.
 
 With no profile chosen (no terminal, no `KDEPS_PROFILE`), a command installs each set it loads in full on first need (`kdeps export` installs `docker` and `k8s`). Either way, a workflow that calls a missing component downloads it on that call:
 
@@ -214,7 +214,7 @@ kdeps list --assets                         # every item: version, state, shelf,
 kdeps list rag                              # one shelf (see Shelves below)
 kdeps info tools/read_file                  # an item's purpose, where it runs, installed version, ~tokens
 kdeps info events                           # a set: purpose, where it runs, items
-kdeps uninstall themes/vim,presets/frugal   # remove items
+kdeps uninstall presets/frugal              # remove one item
 ```
 
 In the REPL, `/update`, `/update check`, `/update list` and `/update remove <item>...` do the same and apply immediately. Changed tool descriptions reach the model from the next start.
@@ -237,7 +237,7 @@ In the REPL, `/update`, `/update check`, `/update list` and `/update remove <ite
     components/web_search                install   - -> 1.0.1
   ```
 
-  Install fails if a requirement is not published for your kdeps. It also fails if a requirement is pinned outside the range. To remove the pin, update the pinned item by name. Events require their action, presets their events and actions, `/frugal` and `/thorough` their preset, components their schema version. Publishing rejects a requirement no published version satisfies.
+  Install fails if a requirement is not published for your kdeps. It also fails if a requirement is pinned outside the range. To remove the pin, update the pinned item by name. Events require their action. Presets require their events and actions. Components require their schema version. Publishing rejects a requirement no published version satisfies.
 - Before a download replaces a file, kdeps checks it against the published sha256 and the parser of the set. If you edit a file in `~/.kdeps/assets/` manually, its checksum fails and kdeps ignores it. `kdeps update <item>` restores it.
 - kdeps skips a file that it cannot read (corrupt, or written for a newer kdeps) with a warning. As a result, `kdeps update` can always repair it.
 
@@ -246,8 +246,8 @@ In the REPL, `/update`, `/update check`, `/update list` and `/update remove <ite
 A removed item stays hidden until you update it by name. The model does not see a removed tool. kdeps does not send a removed harness section. kdeps does not list a removed theme or template. You cannot remove these items:
 
 - `themes/normal`
-- the internal harness prompts: compaction, judges, prompt refinement, session handshake
-- the loop's control tools: `judge_verdict`, `session_handshake`, `session_ops`
+- the internal harness prompts: compaction, judges, and branch summaries
+- the loop's control tools: `judge_verdict` and `session_ops`
 - the model registries: `models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`
 
 `/harness disable <name>` turns off a harness section. It does not remove the section.
@@ -274,8 +274,8 @@ A [shelf](/reference/glossary#shelf) is the engineering category of an asset. Th
 | tools | Tool definitions other than memory, rag, guardrails, or agent. Web search and scrapers stay here |
 | memory | `memory_*`, `knowledge_*`, the memory harness section, memory events |
 | rag | `embedding_*`, `search_local`, `retrieve_context`, `load_document`, the rerank tools |
-| agent | Slash commands other than `/model`. Goals, tasks, teams, `load_skill`, `instruct`, `identity_get`, `themes/` |
-| guardrails | Approval tools, the handshake, `session_handshake`, the safety harness. Events and actions that block, reject, or fail |
+| agent | Slash commands other than `/model`. `load_skill`, `instruct`, `identity_get`, `themes/` |
+| guardrails | Approval tools and the safety harness. Events and actions that block, reject, or fail |
 | evals | Judge prompts, `judge_verdict`, `judge-iterations`, `judge-max-rounds`. The items keep the name judge. The panel is the eval |
 | workflow | `schemas/`, `templates/`, `components/`, `defaults/` |
 | deploy | `docker/`, `k8s/` |

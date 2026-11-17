@@ -166,8 +166,8 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 
 	themePath := filepath.Join(home, ".kdeps", "themes", "my-theme.yaml")
 	assert.FileExists(t, themePath)
-	assert.Contains(t, themes, "my-theme", "reloaded in-process after import")
-	assert.Equal(t, "linux", CurrentThemeName(), "active theme applied after import")
+	assert.NotContains(t, themes, "my-theme")
+	assert.Equal(t, "normal", CurrentThemeName())
 
 	eventPath := filepath.Join(home, ".kdeps", "events", "auto-compact.yaml")
 	assert.FileExists(t, eventPath)

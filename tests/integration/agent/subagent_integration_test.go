@@ -112,18 +112,13 @@ func TestSubagent_AgentTurnHandsATaskToAFreshLoop(t *testing.T) {
 	assert.NotContains(t, s.tools[0], "subagent")
 }
 
-// TestDesignReviewPreset_SetsTheJudgePanel checks the shipped preset puts its
-// four reviewers on the session's judge panel.
-func TestDesignReviewPreset_SetsTheJudgePanel(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	t.Cleanup(agent.ReloadAssets)
-	loop := subagentTestLoop(t, &subagentTurnStreamer{})
-
-	require.NoError(t, agent.ApplyPreset("design-review", loop))
+// TestDesignReviewPreset_NamesItsJudgePanel checks the shipped preset still
+// names its four reviewers for a workflow chat's judgePreset.
+func TestDesignReviewPreset_NamesItsJudgePanel(t *testing.T) {
+	p, ok := agent.PresetByName("design-review")
+	require.True(t, ok)
 	names := []string{}
-	for _, j := range loop.Judges() {
+	for _, j := range p.Judges {
 		names = append(names, j.Name)
 	}
 	assert.Equal(t, []string{"scope", "clarity", "failure-modes", "readiness"}, names)

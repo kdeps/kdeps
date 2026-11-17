@@ -91,7 +91,6 @@ func runLookupTwice(t *testing.T, file, event string) int {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, file), []byte(event), 0o600))
 	agent.ReloadAssets()
 	agent.ResetConvergence()
-	require.NoError(t, agent.SetEfficiencyEnabled(false))
 
 	runs := 0
 	reg := tools.NewRegistry()
