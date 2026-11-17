@@ -557,7 +557,7 @@ func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 	t.Setenv("PATH", "")
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "models-dir-for-test-xyz"))
 	// Clear all distinct known cloud model env vars. Skip models with no
-	// EnvVar (e.g. m365, which authenticates via browser login, not a key).
+	// EnvVar, because those need no key.
 	cleared := map[string]bool{}
 	for _, m := range executorLLM.KnownCloudModels {
 		if m.EnvVar == "" || cleared[m.EnvVar] {
@@ -701,18 +701,6 @@ func TestContextWindowForModel_Unknown(t *testing.T) {
 	t.Parallel()
 	ctx := ContextWindowForModel("completely-unknown-model-xyz")
 	assert.Equal(t, 0, ctx)
-}
-
-// M365's aliases ("claude-sonnet", "quick", "gpt-5.x", ...) never match this
-// file's own static table (keyed on real Anthropic/OpenAI API version
-// strings) -- they must resolve through executorLLM.KnownCloudModels, where
-// the m365 catalog entries carry a conservative estimated window (M365
-// doesn't publish exact limits). See ContextWindowForModel's doc comment.
-func TestContextWindowForModel_M365Aliases(t *testing.T) {
-	t.Parallel()
-	for _, model := range []string{"m365-copilot", "quick", "claude-sonnet", "claude-opus", "gpt-5.5"} {
-		assert.Greaterf(t, ContextWindowForModel(model), 0, "m365 alias %q must resolve a window", model)
-	}
 }
 
 // A current Anthropic model not present in this file's own (older, narrower)

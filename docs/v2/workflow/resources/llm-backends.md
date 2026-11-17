@@ -149,7 +149,7 @@ hosts: [groq.com]                  # identifies the provider from a base URL
 
 `keyFallbacks` lists env vars read for the key when `envVar` and `configKey` are both unset. OpenRouter ships `keyFallbacks: [OPENAI_API_KEY]`.
 
-`url` can refer to environment variables, for example `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai` for Cloudflare. To add a different OpenAI-compatible provider, write one such file. During development, put it into `$KDEPS_ASSETS_SRC/providers/`. Or publish it to the asset set. Anthropic, Google, Cohere, Bedrock, WatsonX and M365 have their own protocols and stay built in.
+`url` can refer to environment variables, for example `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai` for Cloudflare. To add a different OpenAI-compatible provider, write one such file. During development, put it into `$KDEPS_ASSETS_SRC/providers/`. Or publish it to the asset set. Anthropic, Google, Cohere, Bedrock and WatsonX have their own protocols and stay built in.
 
 ## Unified models list
 
@@ -235,7 +235,7 @@ See [Routing](/workflow/resources/llm-routing) for every strategy's config shape
 
 ## Supported backends
 
-kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and OpenAI-compatible APIs. The APIs are OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, M365 Copilot, and self-hosted servers (vLLM, TGI, LocalAI, LlamaCpp). Per-provider snippets and model names: [LLM Provider Reference](/llm-server/providers).
+kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and OpenAI-compatible APIs. The APIs are OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, and self-hosted servers (vLLM, TGI, LocalAI, LlamaCpp). Per-provider snippets and model names: [LLM Provider Reference](/llm-server/providers).
 
 ## Vertex AI (google cloud)
 

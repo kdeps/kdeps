@@ -175,8 +175,8 @@ func hasCloudProviderKey(llm LLMKeys) bool {
 
 func allProviderNames() []string {
 	list := cloudProviderList()
-	names := make([]string, 0, len(list)+3) //nolint:mnd // file + ollama + m365 prepended
-	names = append(names, fileBackendStr, ollamaBackendStr, m365BackendStr)
+	names := make([]string, 0, len(list)+2) //nolint:mnd // file + ollama prepended
+	names = append(names, fileBackendStr, ollamaBackendStr)
 	for _, p := range list {
 		names = append(names, p.name)
 	}

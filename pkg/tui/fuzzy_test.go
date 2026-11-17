@@ -23,20 +23,19 @@ func TestFuzzyMatchEntries_AllDelimiters(t *testing.T) {
 
 func TestFuzzyMatchEntries_MatchesByBackendName(t *testing.T) {
 	// The tag names the backend, and Backend is also in the search text, so
-	// "m365" matches every m365 model, including ids that do not repeat it
-	// (gpt-5.5, claude-sonnet, ...).
+	// "openai" matches every openai model, including ids that do not repeat it.
 	entries := []ModelEntry{
-		{Name: "m365-copilot", Backend: "m365"},
-		{Name: "gpt-5.5", Backend: "m365"},
-		{Name: "claude-sonnet", Backend: "m365"},
+		{Name: "openai-compat", Backend: "openai"},
+		{Name: "gpt-4o", Backend: "openai"},
+		{Name: "o1", Backend: "openai"},
 		{Name: "deepseek-chat", Backend: "deepseek"},
 	}
-	got := fuzzyMatchEntries(entries, "m365")
+	got := fuzzyMatchEntries(entries, "openai")
 	names := make([]string, len(got))
 	for i, e := range got {
 		names[i] = e.Name
 	}
-	assert.ElementsMatch(t, []string{"m365-copilot", "gpt-5.5", "claude-sonnet"}, names)
+	assert.ElementsMatch(t, []string{"openai-compat", "gpt-4o", "o1"}, names)
 }
 
 func TestFuzzyMatchEntries_BareQueryMatchesQualifiedName(t *testing.T) {

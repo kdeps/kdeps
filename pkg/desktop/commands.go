@@ -59,7 +59,6 @@ var terminalOnlyCommands = map[string]string{
 	"/exit":    "Close the window to exit.",
 	"/quit":    "Close the window to exit.",
 	"/editor":  "/editor opens a terminal editor; write your message in the composer instead.",
-	"/login":   "Set provider API keys in Settings (the settings button, then API keys).",
 	"/upgrade": "Install a newer desktop release from the GitHub releases page; /upgrade replaces the CLI binary.",
 }
 

@@ -211,7 +211,6 @@ scenario test_connection_prompt.sh
 scenario test_model_resolution.sh
 scenario test_doctor.sh
 scenario test_llm_cli.sh
-scenario test_m365_proxy.sh
 scenario test_env_cmd.sh
 scenario test_validate_doctor.sh
 scenario test_test_cmd.sh

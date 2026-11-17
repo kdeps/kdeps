@@ -134,9 +134,8 @@ func TestInitHarness_AssembledPreambleContainsEveryBuiltinSection(t *testing.T) 
 }
 
 func TestInitHarness_StandaloneEntriesAreNotInAssembledPreamble(t *testing.T) {
-	// m365-sandbox is the clearest case: it must never appear in the
-	// always-sent preamble, only when explicitly fetched for an M365 backend.
-	sandbox := harnessText("m365-sandbox")
+	// A standalone entry must never appear in the always-sent preamble.
+	sandbox := harnessText("tools-reminder")
 	require.NotEmpty(t, sandbox)
 	assert.NotContains(t, assembledPreamble, sandbox)
 }
@@ -224,7 +223,7 @@ func TestSetHarnessEnabled_PreservesSummary(t *testing.T) {
 
 func TestSetHarnessEnabled_DisableThenEnableRoundTrips(t *testing.T) {
 	isolateHarnessHome(t)
-	const name = "m365-sandbox"
+	const name = "handshake"
 	require.True(t, HarnessEnabled(name))
 
 	require.NoError(t, SetHarnessEnabled(name, false))

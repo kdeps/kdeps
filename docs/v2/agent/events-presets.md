@@ -14,7 +14,7 @@ You can turn off each event or harness section from the REPL. kdeps saves the ch
 
 - This writes (or removes) `disabled: true` in `~/.kdeps/events/<name>.yaml`, the file `/konfig import` writes, then reloads the registry.
 - A disabled event never starts, because its threshold becomes too high to reach. For `auto-compact` and `fold`, the loop skips the check. Their context-window branch ignores a high threshold, so the check is necessary.
-- Harness sections use `/harness list` and `/harness enable|disable <name>`. A disabled preamble section leaves the system prompt on the next turn. A disabled standalone section (e.g. `m365-sandbox`) returns empty.
+- Harness sections use `/harness list` and `/harness enable|disable <name>`. A disabled preamble section leaves the system prompt on the next turn. A disabled standalone section (e.g. `tools-reminder`) returns empty.
 - An unknown or corrupted event or harness name fails open (enabled). Only an explicit `disabled: true` disables a safety mechanism.
 
 ## Occurrence caps on standalone harness text

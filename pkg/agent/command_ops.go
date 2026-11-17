@@ -46,7 +46,6 @@ func builtinCommandOps() map[string]commandMethod {
 		"settings": func(r *REPL, _ []string) error { return r.cmdSettings() },
 		"editor":   func(r *REPL, _ []string) error { return r.cmdEditor() },
 		"upgrade":  func(r *REPL, a []string) error { return r.cmdUpgrade(a) },
-		"login":    func(r *REPL, a []string) error { return r.cmdLogin(a) },
 		"exit": func(r *REPL, _ []string) error {
 			r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 			return nil

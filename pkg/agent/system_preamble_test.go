@@ -128,30 +128,15 @@ func TestCachedSystemPreamble_NoRegistryNoWorkingDirectory(t *testing.T) {
 	}
 }
 
-// M365 Copilot models have their own native "run code"/code-interpreter habit
-// baked in regardless of the fenced tool list they're given -- confirmed live
-// as a model fabricating a bash action against M365's own sandbox instead of
-// calling a registered tool. The no-sandbox guidance line must appear only for
-// the m365 backend, not for other backends where it would be noise/inaccurate.
+// Every backend gets the fenced-tools guidance when tools are registered.
 func TestCachedSystemPreamble_KdepsToolsGuidance(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	reg.Register(&kdepstools.Tool{Name: "noop"})
 
-	// Every backend gets the fenced-tools-first guidance.
 	otherLoop := &Loop{registry: reg, config: Config{Backend: "openai"}}
 	out := otherLoop.cachedSystemPreamble()
 	if !strings.Contains(out, "<use-kdeps-tools>") {
 		t.Errorf("every backend should get the fenced-tools guidance:\n%s", out)
-	}
-	if strings.Contains(out, "different, empty machine") {
-		t.Errorf("non-m365 backend must not get the m365-specific reinforcement:\n%s", out)
-	}
-
-	// M365 gets that plus its own reinforcement.
-	m365Loop := &Loop{registry: reg, config: Config{Backend: backendM365}}
-	out = m365Loop.cachedSystemPreamble()
-	if !strings.Contains(out, "<use-kdeps-tools>") || !strings.Contains(out, "different, empty machine") {
-		t.Errorf("m365 backend should get both the general and m365-specific guidance:\n%s", out)
 	}
 }
 
@@ -198,7 +183,7 @@ func TestRunStreaming_ScenarioCarriesWorkingDirectory(t *testing.T) {
 
 // CacheControl is an Anthropic-specific hint ("ephemeral" per-message
 // caching). Confirmed live that setting it unconditionally silently drops
-// the ENTIRE system message for a non-Anthropic backend (m365): its
+// the ENTIRE system message for a non-Anthropic backend: its
 // OpenAI-compatible request serialization has no notion of a
 // CacheControl-wrapped content part and emits an empty string instead of the
 // real preamble -- no tool guidance, no working directory, nothing. This
@@ -210,7 +195,7 @@ func TestBuildChatConfig_CacheControlOnlyForAnthropic(t *testing.T) {
 		wantCache bool
 	}{
 		{backend: "anthropic", wantCache: true},
-		{backend: "m365", wantCache: false},
+		{backend: "groq", wantCache: false},
 		{backend: "openai", wantCache: false},
 		{backend: "", wantCache: false},
 	}

@@ -1655,8 +1655,7 @@ func isToolMemoryWorthy(toolName string) bool {
 // as a memory entry, so a later turn (or a future session) can memory_search
 // for what the model was actually reasoning about, not just what it said or
 // did. Called after every round that produced any reasoning text, across
-// every thinking-capable backend (native extended thinking, M365 Copilot's
-// chain-of-thought summary, etc.) since they all flow through the same
+// every thinking-capable backend, since they all flow through the same
 // ThinkingWriter/liveThinkingWriter pipeline. No-op for empty/whitespace-only
 // text so an idle round can't create a blank entry.
 func (m *MemoryStore) SaveThinking(text string) int {

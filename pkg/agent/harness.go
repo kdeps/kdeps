@@ -40,7 +40,7 @@ var (
 
 // harnessText returns a harness entry's raw body, or "" if name is unknown
 // or the entry is disabled (see HarnessEnabled). Used for every
-// single-purpose instruction (m365-sandbox, tools-reminder, skills-preamble,
+// single-purpose instruction (tools-reminder, skills-preamble,
 // the compaction/judge-roster/refine/branch-summary system prompts)
 // that used to be a Go string constant.
 //

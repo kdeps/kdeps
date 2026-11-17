@@ -44,7 +44,7 @@ import (
 // harnessKindPreambleSection entries are assembled, in ascending Order, into
 // one string that goes into every turn's system preamble (see
 // harnessAssembledPreamble). harnessKindStandalone entries are looked up
-// individually by name at their one call site (m365-sandbox, the compaction/
+// individually by name at their one call site (the compaction/
 // goal/judge/refine prompts, etc.) and never auto-assembled.
 const (
 	harnessKindPreambleSection = "preamble-section"

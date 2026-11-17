@@ -223,12 +223,6 @@ llm:
 
 Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` field for it). `model` is a WatsonX model ID, e.g. `ibm/granite-13b-chat-v2` or `meta-llama/llama-3-70b-instruct`.
 
-## M365 Copilot
-
-The `m365` backend connects to the chat service of Microsoft 365 Copilot. It uses a local OpenAI-compatible server that kdeps runs in front of the service. It uses no API key. Authentication is a signed-in Microsoft 365 account. You sign in with a browser (interactive) or a scripted `secrets.json` (headless/CI).
-
-See [M365 Copilot](/llm-server/m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
-
 ## Self-hosted solutions
 
 kdeps works with any self-hosted solution that implements the OpenAI API: vLLM, Text Generation Inference (TGI), LocalAI, LlamaCpp Server, LM Studio.

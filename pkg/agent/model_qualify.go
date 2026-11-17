@@ -150,7 +150,7 @@ func qualifyCollisions(entries []LocalModelEntry) {
 		if len(backendsFor[e.Name]) > 1 {
 			// Type is the friendly display label ("llamafile"/"gguf"/"ollama")
 			// for local entries but empty for cloud ones, where Backend
-			// itself (e.g. "m365", "deepseek") is already the right label.
+			// itself (e.g. "openai", "deepseek") is already the right label.
 			displayType := e.Type
 			if displayType == "" {
 				displayType = e.Backend

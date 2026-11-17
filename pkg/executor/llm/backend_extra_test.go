@@ -52,7 +52,7 @@ func TestModelManager_EnsureModel_CloudBackendSkipsDownloadAndServe(t *testing.T
 	}
 
 	mgr := llm.NewModelManagerFromServiceInterface(mockSvc)
-	for _, backend := range []string{"m365", "openai", "anthropic", "cloud"} {
+	for _, backend := range []string{"openai", "anthropic", "cloud"} {
 		downloadCalled, serveCalled = false, false
 		err := mgr.EnsureModel(t.Context(), &domain.ChatConfig{Backend: backend, Model: "anything"})
 		require.NoError(t, err, backend)

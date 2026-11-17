@@ -178,9 +178,8 @@ func CloudModelIDs() []string {
 }
 
 // BuildProviderStatus returns a map from backend name to true when that
-// provider is usable: either its API key env var is set to a non-empty value,
-// or the model declares no EnvVar at all (e.g. m365, which authenticates via a
-// browser-login-cached token rather than an API key).
+// provider is usable: its API key env var is set to a non-empty value.
+// A model that declares no EnvVar is treated as ready.
 func BuildProviderStatus() map[string]bool {
 	seen := make(map[string]bool)
 	status := make(map[string]bool)

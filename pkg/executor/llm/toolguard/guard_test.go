@@ -18,10 +18,10 @@ func TestLooksLikeConfabulation(t *testing.T) {
 	}
 }
 
-// Relapse phrasings from the m365 backend where the model blames the
-// environment for empty tool results instead of retrying with a real fenced
-// tool call. Each must be caught so the confab-retry loop forces another turn.
-func TestLooksLikeConfabulation_M365EnvironmentBlame(t *testing.T) {
+// Phrasings where the model blames the environment for empty tool results
+// instead of retrying with a real fenced tool call. Each must be caught so
+// the confab-retry loop forces another turn.
+func TestLooksLikeConfabulation_EnvironmentBlame(t *testing.T) {
 	cases := []string{
 		`All bash_exec calls are returning "NO CONTENT AVAILABLE" regardless of command.`,
 		"This appears to be an infrastructure problem preventing me from accessing the filesystem.",
@@ -32,7 +32,7 @@ func TestLooksLikeConfabulation_M365EnvironmentBlame(t *testing.T) {
 	}
 	for _, c := range cases {
 		if !LooksLikeConfabulation(c) {
-			t.Errorf("should detect m365 environment-blame confabulation: %q", c)
+			t.Errorf("should detect environment-blame confabulation: %q", c)
 		}
 	}
 	// A genuine final answer that merely mentions the word "system" must not trip.
@@ -53,11 +53,10 @@ func TestLooksLikeHallucinatedCompletion(t *testing.T) {
 	}
 }
 
-// /mnt/data is the mount of the provider's own sandbox filesystem (e.g. M365
-// Copilot's code interpreter), not the caller's real disk. A reply reporting
-// facts about it is truthful about the wrong machine, confirmed as a real
-// live failure mode (a model explored an empty /mnt/data and reported "no
-// project found" for a real, populated local repository).
+// /mnt/data is the mount of a provider's own sandbox filesystem, not the
+// caller's real disk. A reply that reports facts about it describes the
+// wrong machine. A model explored an empty /mnt/data and reported "no
+// project found" for a real, populated local repository.
 func TestLooksLikeHallucinatedCompletion_ProviderSandboxPath(t *testing.T) {
 	if !LooksLikeHallucinatedCompletion(
 		"## Current project status\n\n- Project directory: `/mnt/data`\n- Files present: None",

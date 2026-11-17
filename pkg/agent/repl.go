@@ -72,8 +72,8 @@ const (
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
-	// 20, not 10: typing a backend name (e.g. "m365", which has 16 catalog
-	// entries) should surface every one of that backend's models, not an
+	// 20, not 10: typing a backend name should surface every one of that
+	// backend's models, not an
 	// arbitrarily truncated subset -- the user has already narrowed intent
 	// by typing the exact backend name.
 	replModelCompletionMax         = 20 // max model name suggestions for /model <tab> with a partial filter
@@ -784,12 +784,11 @@ func boldTagKeyword(tag, keyword string) string {
 // name-prefix search misses, marking each match in seen as it's found:
 //
 //   - Backend-name match: a multi-model cloud backend's own name is often
-//     also one of its model IDs (m365 -> "m365-copilot"), which would
+//     also one of its model IDs (openai -> "openai-compat"), which would
 //     short-circuit a plain prefix search before it ever considers the rest
-//     of that backend's models -- most of them don't repeat the backend name
-//     in their own ID at all (m365 -> "gpt-5.5", "claude-sonnet", "quick",
-//     ...). So typing "m365" surfaces every m365 model, not just the one
-//     literally named that.
+//     of that backend's models. Most of them do not repeat the backend name
+//     in their own ID (openai -> "gpt-4o", "o1"). Typing "openai" surfaces
+//     every openai model, not just the one literally named that.
 //   - Qualified-bare-name match: a collision-qualified local entry (e.g.
 //     "gguf:qwen3:30b") no longer has the bare alias as its own literal
 //     prefix, so typing the bare name a user remembers ("qwen3") wouldn't

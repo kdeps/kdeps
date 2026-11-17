@@ -365,65 +365,6 @@ func TestHandshakeGrounding_OmitsFullCatalog(t *testing.T) {
 		"naming one tool must only add a short note, not the full registry catalog")
 }
 
-// TestPerformHandshake_M365GetsSandboxReinforcement covers the m365 backend's
-// most aggressive sandbox-hallucination failure mode: a model that reasons
-// it is running in its own "run code" / code-interpreter sandbox and
-// concludes it "can't do anything" instead of making the real tool call the
-// handshake is asking for. buildSystemPreamble already layers the
-// "m365-sandbox" harness section on top of the base tool-use guidance for
-// backendM365 on ordinary turns; the handshake grounding must carry the
-// identical addition, since the handshake round is the one place this
-// failure is most costly (it blocks the entire turn from ever starting).
-func TestPerformHandshake_M365GetsSandboxReinforcement(t *testing.T) {
-	isolateHarnessAndEventsHome(t)
-	initHarness()
-	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
-	eng := executor.NewEngine(context.Background(), nil)
-	loop := New(t.Context(), eng, newTestWorkflowForSession(), newStreamingRegistry(), Config{
-		Model:         "test",
-		Backend:       backendM365,
-		Streamer:      cfgs,
-		MaxToolRounds: 5,
-	})
-	loop.config.Backend = backendM365
-	require.NoError(t, loop.performHandshake(context.Background()))
-
-	require.NotEmpty(t, cfgs.cfgs)
-	sandbox := harnessText("m365-sandbox")
-	require.NotEmpty(t, sandbox, "the harness asset must be loaded for this test to mean anything")
-	foundReinforcedChallenge := false
-	for _, cfg := range cfgs.cfgs {
-		for _, item := range cfg.Scenario {
-			if item.Role == "system" && strings.Count(item.Prompt, sandbox) == 1 {
-				foundReinforcedChallenge = true
-			}
-		}
-	}
-	assert.True(t, foundReinforcedChallenge,
-		"m365 challenge grounding must add the sandbox reinforcement to the assembled preamble")
-}
-
-// TestPerformHandshake_NonM365SkipsSandboxReinforcement ensures the addition
-// is m365-specific, not accidentally sent to every backend.
-func TestPerformHandshake_NonM365SkipsSandboxReinforcement(t *testing.T) {
-	isolateHarnessAndEventsHome(t)
-	initHarness()
-	cfgs := &cfgCapturingStreamer{inner: &handshakeStreamer{}}
-	loop := newStreamingLoop(cfgs, 5)
-	loop.config.Backend = "openai"
-	require.NoError(t, loop.performHandshake(context.Background()))
-
-	require.NotEmpty(t, cfgs.cfgs)
-	sandbox := harnessText("m365-sandbox")
-	require.NotEmpty(t, sandbox, "the harness asset must be loaded for this test to mean anything")
-	for _, item := range cfgs.cfgs[0].Scenario {
-		if item.Role == "system" {
-			assert.Equal(t, 0, strings.Count(item.Prompt, sandbox),
-				"non-m365 handshake grounding must never carry the sandbox reinforcement")
-		}
-	}
-}
-
 // cfgCapturingStreamer wraps another Streamer and records every ChatConfig
 // it sees, delegating the actual response.
 type cfgCapturingStreamer struct {
@@ -637,22 +578,18 @@ func TestCapHandshakeHistory_KeepsMostRecentPairs(t *testing.T) {
 	}
 	capped := capHandshakeHistory(history)
 	assert.Len(t, capped, defaultHandshakeHistoryPairs*2)
-	// Must keep the FIRST pair anchored (see capHandshakeHistory -- m365's
-	// session-continuity fingerprint depends on it never moving) plus the
-	// most recent pairs, dropping only the middle.
+	// Keep the first pair. A retry must still see the original challenge.
+	// Drop only the middle pairs.
 	assert.Equal(t, "q0", capped[0][toolParamContent])
 	assert.Equal(t, "a0", capped[1][toolParamContent])
 	last := capped[len(capped)-1]
 	assert.Equal(t, "a9", last[toolParamContent])
 }
 
-// TestCapHandshakeHistory_AnchorsFirstPairAcrossRepeatedCapping is the direct
-// regression test for the m365 handshake bug: capping must never change
-// which message is first, even after being applied many times in a row (as
-// performHandshake does on every retry) -- a sliding window that drops the
-// oldest pair once the cap is hit would flip m365's session-continuity
-// fingerprint on every subsequent call, making it silently start a brand-new
-// conversation each time.
+// TestCapHandshakeHistory_AnchorsFirstPairAcrossRepeatedCapping checks that
+// capping never changes which message is first, even after many passes (as
+// performHandshake does on every retry). A sliding window that drops the
+// oldest pair would hide the original challenge from the next call.
 func TestCapHandshakeHistory_AnchorsFirstPairAcrossRepeatedCapping(t *testing.T) {
 	var history []map[string]any
 	history = append(history,

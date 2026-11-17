@@ -100,8 +100,8 @@ func normalizeToolArgs(canonicalTool string, args map[string]any) {
 
 // coerceToolArgTypes converts a value the model supplied for a declared
 // integer/number/boolean parameter into that type, when it arrived as a
-// string instead. Fenced/prompt-based tool-calling protocols (e.g. m365)
-// have no JSON-schema enforcement, so models sometimes quote a number
+// string instead. Fenced tool-calling protocols have no JSON-schema
+// enforcement, so models sometimes quote a number
 // ("id": "1") or a boolean ("enabled": "true"); tools that declare a
 // non-string type get that coercion for free here instead of each one
 // hand-rolling its own parsing. Values already of the right shape, or of a

@@ -73,10 +73,9 @@ func TestBuildUnifiedModelEntries_ThreeWayCollision(t *testing.T) {
 }
 
 func TestBuildUnifiedModelEntries_CloudCollision(t *testing.T) {
-	// Fabricate a cloud collision using KnownCloudModels' own m365-copilot id
-	// paired with a synthetic llamafile alias of the exact same name -- this
-	// doesn't depend on any real cloud catalog duplicate existing today.
-	llamafiles := []llm.LlamafileEntry{{Alias: "m365-copilot"}}
+	// Fabricate a cloud collision using a real catalog id paired with a
+	// synthetic llamafile alias of the same name.
+	llamafiles := []llm.LlamafileEntry{{Alias: "gpt-4o"}}
 
 	entries := BuildUnifiedModelEntries(llamafiles, nil, nil, alwaysFalse, alwaysFalse, true)
 
@@ -85,14 +84,14 @@ func TestBuildUnifiedModelEntries_CloudCollision(t *testing.T) {
 		if e.Type == modelTypeLLamafile {
 			llamafileName = e.Name
 		}
-		if e.Backend == "m365" && e.Name == "m365:m365-copilot" {
+		if e.Backend == "openai" && e.Name == "openai:gpt-4o" {
 			cloudName = e.Name
 		}
 	}
-	assert.Equal(t, "llamafile:m365-copilot", llamafileName)
-	assert.Equal(t, "m365:m365-copilot", cloudName)
-	// The other 15 m365 catalog entries have no collision and must stay bare.
-	assert.Contains(t, names(entries), "gpt-5.5")
+	assert.Equal(t, "llamafile:gpt-4o", llamafileName)
+	assert.Equal(t, "openai:gpt-4o", cloudName)
+	// A cloud id with no local alias stays bare.
+	assert.Contains(t, names(entries), "claude-opus-4-8")
 }
 
 func TestQualifyModelName_Llamafile(t *testing.T) {
@@ -121,10 +120,10 @@ func TestSplitQualifiedModelName_OllamaIdentity(t *testing.T) {
 }
 
 func TestSplitQualifiedModelName_CloudBackend(t *testing.T) {
-	backend, name, ok := SplitQualifiedModelName("m365:gpt-5.5")
+	backend, name, ok := SplitQualifiedModelName("openai:gpt-4o")
 	assert.True(t, ok)
-	assert.Equal(t, "m365", backend)
-	assert.Equal(t, "gpt-5.5", name)
+	assert.Equal(t, "openai", backend)
+	assert.Equal(t, "gpt-4o", name)
 }
 
 func TestSplitQualifiedModelName_UnknownPrefixTreatedAsBare(t *testing.T) {

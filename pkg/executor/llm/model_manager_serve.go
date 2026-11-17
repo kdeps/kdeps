@@ -27,7 +27,7 @@ import (
 )
 
 // supportsModelDownload is the backends ModelService.DownloadModel actually
-// implements. Cloud backends (m365, openai, anthropic, ...) have nothing to
+// implements. Cloud backends (openai, anthropic, ...) have nothing to
 // fetch; calling DownloadModel for them logs a warning on every LLM call.
 func supportsModelDownload(backend string) bool {
 	switch backend {

@@ -1,8 +1,6 @@
 // Package toolguard holds detection heuristics and pacing primitives for LLM
-// tool-calling loops that are useful across every backend, not just one. It has
-// no dependency on any specific backend or transport, so both the generic
-// executor (pkg/executor/llm) and transport-specific packages (e.g.
-// pkg/executor/llm/m365) can share it without import cycles.
+// tool-calling loops. It has no dependency on any specific backend or
+// transport, so the executor can share it without an import cycle.
 package toolguard
 
 import "regexp"
@@ -28,10 +26,9 @@ var confabulationPatterns = compileAll([]string{
 	`(?i)(?:file|directory|folder|it)\s+(?:appears?|seems?|looks?)\s+(?:to\s+be\s+)?empty`,
 	`(?i)nothing\s+to\s+(?:simplify|fix|do|change|show|read)`,
 	`(?i)(?:tool|command|it)\s+returned\s+(?:no|empty|nothing)`,
-	// Relapse phrasings where the model blames the environment for empty tool
-	// results instead of retrying (confirmed live on the m365 backend with a
-	// Claude tone: every bash_exec reported as returning "NO CONTENT
-	// AVAILABLE"). None of the patterns above match these.
+	// Phrasings where the model blames the environment for empty tool
+	// results instead of retrying (every bash_exec reported as returning
+	// "NO CONTENT AVAILABLE"). None of the patterns above match these.
 	`(?i)no\s+content\s+available`,
 	`(?i)(?:prevent(?:s|ing|ed)?|blocking|blocked)\s+me\s+from\s+(?:accessing|reading|examining|running|executing)`,
 	`(?i)(?:infrastructure|execution\s+environment|environment)\s+(?:problem|issue|failure|is\s+not\s+functioning|not\s+working)`,
@@ -46,12 +43,11 @@ var hallucinatedCompletionPatterns = compileAll([]string{
 	`(?i)\b(?:the\s+)?(?:file|readme|script|config|change|version|content)\s+(?:has|have|is|was|were)\s+(?:been\s+)?(?:created|replaced|updated|saved|written|applied|added|modified|overwritten)\b`,
 	`(?i)\bhere'?s\s+(?:the\s+)?(?:updated|new|simplified|replaced|final)\s+(?:file|readme|version|content)\b`,
 	`(?i)\b(?:executed|ran|invoked|launched|compiled)\b[^.\n]{0,40}\b(?:it|them|this|the\s+(?:script|program|file|code|command|tests?)|python3?|node)\b`,
-	// /mnt/data is the mount point of the provider's own server-side sandbox
-	// (M365 Copilot's code-interpreter container), not the caller's real
-	// filesystem. A reply reporting facts about it -- "no project found",
-	// file listings, git state -- is a true statement about the wrong
+	// /mnt/data is the mount point of a provider's own server-side sandbox,
+	// not the caller's real filesystem. A reply that reports facts about it
+	// ("no project found", file listings, git state) describes the wrong
 	// machine: the model explored its own sandbox instead of calling a real
-	// tool, so there's nothing to salvage from the claim.
+	// tool, so there is nothing to salvage from the claim.
 	`(?i)/mnt/data\b`,
 })
 

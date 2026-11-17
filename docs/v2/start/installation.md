@@ -177,7 +177,6 @@ you select yes, kdeps opens the backend list and writes the configuration:
     [3] cloud      OpenAI, Anthropic, DeepSeek, Groq, xAI, ... (needs an API key)
     [4] ollama     connect to an Ollama server
     [5] router     route across multiple models by strategy (advanced)
-    [6] m365       Microsoft 365 Copilot (browser login, no API key)
     [0] Skip (configure later)
 ```
 
@@ -187,10 +186,6 @@ Each choice fills in the matching `llm:` fields:
 - **cloud** - sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
 - **ollama** - sets `backend: ollama` and the host URL.
 - **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `models:` and `strategy:` under `llm:`.
-- **m365** - sets `backend: m365`. It does not use an API key. It authenticates
-  with a Microsoft 365 sign-in that the browser keeps in its cache. For CI and
-  servers, it uses headless credentials. See
-  [LLM Provider Reference - M365 Copilot](/llm-server/m365).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
 fully commented template instead. To run the wizard again, remove

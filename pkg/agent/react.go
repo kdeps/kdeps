@@ -55,8 +55,8 @@ Begin!`
 // that truncated the value to just its opening "{", which then fails
 // json.Unmarshal in dispatchReactTool and silently falls back to wrapping
 // the truncated "{" as a bogus {"input": "{"} argument, corrupting the real
-// tool call. Same root cause as the m365 fenced/invoke parsing bugs:
-// assuming a narrower shape (single-line) than what a real reply produces.
+// tool call. The same bug hits any parser that assumes a single-line
+// value when a real reply pretty-prints the JSON.
 // parseReactAction below uses jsonutil.ScanBalancedObject to recover the
 // full value regardless of how it's formatted.
 var reactActionPrefixRe = regexp.MustCompile(`(?i)Action:\s*(.+?)\s*\nAction\s+Input:\s*`)

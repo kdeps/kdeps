@@ -10,7 +10,6 @@ Every capability the model has is a kdeps tool, including `bash_exec` and the fi
 
 - After the first turn, kdeps gives the rule again in one line on each turn.
 - Every turn carries facts kdeps measured in the real environment: date and time, OS/arch, file and directory counts in the working directory, the git branch. A model suspecting a sandbox can check a `list_files` result against them.
-- M365 Copilot gets a stronger version on top. Its habit is the most persistent.
 
 ## Claimed actions need a tool result
 
@@ -53,7 +52,6 @@ ls -la && cat README.md
 |---|---|
 | Local (file, gguf, ollama, llamafile) or unset | one `<available_tools>` list in the preamble: name, one-line description, parameter names |
 | Cloud | native tool schema; no text list |
-| m365 proxy | renders its own list from the schemas; no second copy |
 
 Later turns have a one-line reminder, not the list. A native model can write `<invoke>` / `<tool_call>` blocks as text. kdeps recovers these blocks. This includes the DSML form of DeepSeek (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend returns as plain content.
 

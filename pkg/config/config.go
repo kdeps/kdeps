@@ -35,7 +35,6 @@ const (
 	ollamaBackendStr = "ollama"
 	fileBackendStr   = "file"
 	ggufBackendStr   = "gguf"
-	m365BackendStr   = "m365"
 )
 
 //nolint:gochecknoglobals // test-replaceable

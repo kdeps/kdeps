@@ -74,7 +74,7 @@ var selfLimitMarkers = []string{
 	"isn't a tool", "is not a tool", "include a terminal",
 	"is on you", "have to stop", "i must decline", "shouldn't touch",
 	"sandbox i have",
-	// Environment claims. The m365 backend answered "are not accessible in
+	// Environment claims. A model answered "are not accessible in
 	// this execution environment" about a workspace it had read a turn
 	// earlier, and the turn accepted it without a nudge because no marker
 	// matched.
