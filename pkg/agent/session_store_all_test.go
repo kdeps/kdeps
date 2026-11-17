@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 )
 
 func saveIn(t *testing.T, base, cwd, prompt string) string {
@@ -96,6 +98,58 @@ func TestSessionStore_ListAllMeta_LegacyFolder(t *testing.T) {
 		assert.True(t, folders[plain], "a decodable folder name resolves when that folder exists")
 	}
 	assert.False(t, folders[gone], "a folder that cannot be found is left out")
+}
+
+// putFixedSession writes one session whose UpdatedAt is exact, so a test can
+// prove order when the wall clock does not advance.
+func putFixedSession(t *testing.T, base, cwd, id string, updated int64, prompt string) {
+	t.Helper()
+	st := NewSessionStore(base)
+	st.SetCwd(cwd)
+	entries := []sessionEntry{{
+		Type: "session_meta", Timestamp: updated, SessionID: id,
+		Turns: 1, CreatedAt: updated, UpdatedAt: updated,
+		FirstPrompt: prompt, Cwd: cwd,
+	}}
+	data, err := json.Marshal(entries)
+	require.NoError(t, err)
+	require.NoError(t, st.withDB(func(db *bolt.DB) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket(agentSessionBucket).Put([]byte(id), data)
+		})
+	}))
+}
+
+func TestListAllMeta_OrdersByUpdatedAtThenSessionID(t *testing.T) {
+	base := t.TempDir()
+	old := t.TempDir()
+	mid := t.TempDir()
+	fresh := t.TempDir()
+	putFixedSession(t, base, old, "session-300-9", 10, "old")
+	putFixedSession(t, base, mid, "session-100-1", 20, "same-time-earlier-id")
+	putFixedSession(t, base, fresh, "session-200-1", 20, "same-time-later-id")
+
+	all, err := NewSessionStore(base).ListAllMeta(nil)
+	require.NoError(t, err)
+	require.Len(t, all, 3)
+	assert.Equal(t, "session-200-1", all[0].ID)
+	assert.Equal(t, "session-100-1", all[1].ID)
+	assert.Equal(t, "session-300-9", all[2].ID)
+}
+
+func TestListMeta_EqualUpdatedAtOrdersBySessionID(t *testing.T) {
+	base := t.TempDir()
+	cwd := t.TempDir()
+	putFixedSession(t, base, cwd, "session-100-1", 50, "earlier")
+	putFixedSession(t, base, cwd, "session-100-2", 50, "later")
+
+	st := NewSessionStore(base)
+	st.SetCwd(cwd)
+	metas, err := st.ListMeta()
+	require.NoError(t, err)
+	require.Len(t, metas, 2)
+	assert.Equal(t, "session-100-2", metas[0].ID)
+	assert.Equal(t, "session-100-1", metas[1].ID)
 }
 
 func TestSessionStore_ListAllMeta_MissingBase(t *testing.T) {

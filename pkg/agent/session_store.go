@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -385,8 +386,46 @@ func (s *SessionStore) ListAllMeta(known []string) ([]SessionMetadata, error) {
 			all = append(all, s.folderMeta(e.Name(), byKey)...)
 		}
 	}
-	sort.SliceStable(all, func(i, j int) bool { return all[i].UpdatedAt > all[j].UpdatedAt })
+	sort.SliceStable(all, func(i, j int) bool { return sessionMetaNewer(all[i], all[j]) })
 	return all, nil
+}
+
+// sessionMetaNewer reports whether a lists before b.
+// A later UpdatedAt wins. Equal timestamps use the id's unix nano, then its
+// counter. UnixMilli can stay still across two saves, and directory order is
+// not save order.
+func sessionMetaNewer(a, b SessionMetadata) bool {
+	if a.UpdatedAt != b.UpdatedAt {
+		return a.UpdatedAt > b.UpdatedAt
+	}
+	aNano, aCount := sessionIDRank(a.ID)
+	bNano, bCount := sessionIDRank(b.ID)
+	if aNano != bNano {
+		return aNano > bNano
+	}
+	if aCount != bCount {
+		return aCount > bCount
+	}
+	return a.ID > b.ID
+}
+
+// sessionIDRank reads the unix nano and the counter that newSessionID writes.
+// Any other id ranks as zero.
+func sessionIDRank(id string) (int64, int64) {
+	rest, ok := strings.CutPrefix(id, "session-")
+	if !ok {
+		return 0, 0
+	}
+	nanoStr, countStr, ok := strings.Cut(rest, "-")
+	if !ok {
+		return 0, 0
+	}
+	nano, errNano := strconv.ParseInt(nanoStr, 10, 64)
+	count, errCount := strconv.ParseInt(countStr, 10, 64)
+	if errNano != nil || errCount != nil {
+		return 0, 0
+	}
+	return nano, count
 }
 
 // folderMeta lists the sessions of one encoded folder under the base path,
@@ -465,14 +504,7 @@ func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
 		return nil, err
 	}
 
-	// Most-recently-active first.
-	for i := 0; i < len(metas); i++ {
-		for j := i + 1; j < len(metas); j++ {
-			if metas[j].UpdatedAt > metas[i].UpdatedAt {
-				metas[i], metas[j] = metas[j], metas[i]
-			}
-		}
-	}
+	sort.SliceStable(metas, func(i, j int) bool { return sessionMetaNewer(metas[i], metas[j]) })
 	return metas, nil
 }
 
