@@ -175,7 +175,7 @@ The evaluate turn reads `session.md` and `events.ndjson` (`kind` on each line). 
 - If an open issue has the same title, kdeps uses it. It prints its URL and does not file a new issue.
 - Only provider refusals or rate limits: no issue, and it prints `auto-improve: no issue (provider-only failures)`. A kdeps error, tool error or clean run still files one.
 
-The three tasks are: read `README.md` and name the two modes, run `git status --short`, and find the `instrument.Start` signature.
+The three tasks are: read `README.md` and name the four outputs of one `workflow.yaml`, run `git status --short`, and find the `instrument.Start` signature.
 
 `/auto-improve 2` runs only task 2, then its evaluate, in the current session. The number is 1, 2, or 3.
 
@@ -501,7 +501,7 @@ A long answer pages in an interactive terminal (Enter/Space for the next page, `
 
 ## See also
 
-- [Agent mode](/agent/) - overview and starting the REPL
+- [Agent REPL](/agent/) - start the REPL
 - [Built-in tools](/agent/tools) - tools available to the model
 
 ## Declared commands on the API

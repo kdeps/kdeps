@@ -4,7 +4,7 @@ The `exec` component runs a shell command and returns a structured result: `{suc
 
 It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `exec` tool of the kdeps API. This tool runs the native exec executor. kdeps rejects a workflow that uses `exec:` directly, as primary or in a `before:`/`after:` step.
 
-It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
+It runs as a workflow step. In the REPL, it runs inside the workflow when the model calls that workflow as a tool.
 
 ```d2
 direction: right
@@ -255,7 +255,7 @@ validations:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
 
-The `exec` tool of the workflow has no agent guardrails. It does not check `KDEPS_ALLOW_BASH` or the bash command blocklist, as `bash_exec` does in agent mode. A workflow YAML is trusted configuration. Treat `command:` as code that you ship.
+The `exec` tool of the workflow has no agent guardrails. It does not check `KDEPS_ALLOW_BASH` or the bash command blocklist, as `bash_exec` does in the REPL. A workflow YAML is trusted configuration. Treat `command:` as code that you ship.
 
 ## See also
 

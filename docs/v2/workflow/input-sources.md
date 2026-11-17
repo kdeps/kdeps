@@ -2,7 +2,7 @@
 
 A workflow gets input from an HTTP server (`apiServer:` under `settings:`), a chat bot, one file, or a terminal prompt. You set the bot, file and interactive sources under `settings:` `input:`.
 
-This sets how a workflow that runs gets its input. Agent mode does not use these sources. The prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
+This sets how a run gets its input. `interactive` is one of the four sources. When the target is a `chat` with `loop:`, that prompt is the agent REPL. When the model calls a workflow as a tool, that workflow still uses its own input settings.
 
 ## Overview
 
@@ -159,5 +159,5 @@ When the target is a `chat` with `loop:`, the prompt is the agent REPL. The REPL
 ## See also
 
 - [Workflow configuration](/workflow/configuration) - full `deploy` reference
-- [Workflow mode](/workflow/) - how the request-response cycle works
+- [Workflow](/workflow/) - the request and the response
 - [Bot configuration](/workflow/configuration#bot-source) - full bot settings

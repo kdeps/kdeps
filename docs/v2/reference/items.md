@@ -2,8 +2,6 @@
 
 Use cases, dynamic items, collecting results, and best practices for the [`items:` field](/workflow/items).
 
-Works in workflow and agent mode.
-
 ## Use cases
 
 ### Batch LLM processing

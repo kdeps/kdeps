@@ -1,6 +1,6 @@
 # Agent loop REPL features
 
-Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, and the tool budget. This is agent mode only. For starting the loop and registering workflows as tools, see [Agent mode](/agent/). For the slash commands, see [REPL slash commands](/agent/commands).
+Runtime behaviors of the interactive agent loop REPL: pasting, rendering, notifications, and the tool budget. To start the loop, see the [agent REPL](/agent/). For the slash commands, see [REPL slash commands](/agent/commands).
 
 ## Pasting
 
@@ -187,12 +187,12 @@ When a tool stalls (no output for the stall-timeout duration), the default is to
 
 | Topic | Page |
 |---|---|
-| Look, custom themes, the context-path status line | [Themes](/agent/repl-themes) |
+| Look, the normal palette, the context-path status line | [Themes](/agent/repl-themes) |
 | Token budget, compaction, fold | [Context window](/agent/repl-context) |
 | Per-folder history and the resume picker | [Sessions](/agent/repl-sessions) |
 | `/upgrade`, nightly, and a pinned version | [Updating kdeps](/agent/repl-updating) |
 
-- [Agent mode](/agent/) - starting the loop, tool registration
+- [Agent REPL](/agent/) - start the loop
 - [REPL slash commands](/agent/commands) - the full command table
 - [Skills and prompt templates](/agent/skills) - context files that teach the agent
 - [Local model management](/agent/models) - `/model`, `/context`, running servers

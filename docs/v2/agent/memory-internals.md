@@ -165,4 +165,4 @@ Focus matching splits the prompt and each entry into stemmed words, like knowled
 ## See also
 
 - [Persistent memory](/agent/memory) - the memory tools and entry types
-- [Agent mode](/agent/) - how the agent loop works
+- [Agent REPL](/agent/) - how the loop works

@@ -111,7 +111,7 @@ export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
 
 Generate the same snippet with `kdeps llm client-config`.
 
-Chat resources in workflow mode and agent mode keep their `model:` field. Only the backend URL changes.
+Chat resources in the workflow and in the REPL keep their `model:` field. Only the backend URL changes.
 
 To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. This is different from `KDEPS_LLM_BASE_URL`. It has priority over the `backend:` of a resource and the `--backend` of the session. It needs no API key, and kdeps starts no llamafile or ollama:
 

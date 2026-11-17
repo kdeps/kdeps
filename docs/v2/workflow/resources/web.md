@@ -2,8 +2,6 @@
 
 Three components reach the web: `http_request` for APIs, `web_scraper` for page text, and `web_search` to find pages. Each has its own reference page.
 
-Works in workflow and agent mode.
-
 | Resource | Use it for | Reference |
 | :--- | :--- | :--- |
 | `component: http_request` | Call a JSON API, webhook, or REST endpoint | [HTTP client](/workflow/resources/http-client) |

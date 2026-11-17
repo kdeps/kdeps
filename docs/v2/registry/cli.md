@@ -20,7 +20,7 @@ Each is a top-level `kdeps` command. `--registry <url>` (or `KDEPS_REGISTRY_URL`
 
 ## LLM context tokens
 
-`kdeps install`, `kdeps update` and `kdeps list` estimate what each item adds to the model's context (about 4 bytes per token). A package installed from the registry is a tool in agent mode, so its name, description and input schema count:
+`kdeps install`, `kdeps update` and `kdeps list` estimate what each item adds to the model's context (about 4 bytes per token). A package installed from the registry is a tool in the REPL, so its name, description, and input schema count:
 
 ```text
 $ kdeps install scraper-native

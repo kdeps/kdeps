@@ -3,8 +3,6 @@
 Two resources for local files and version control. Each has its own reference
 page.
 
-Works in workflow and agent mode.
-
 | Resource | Does | Reference |
 | :--- | :--- | :--- |
 | `component: file` | Read, write, patch, list, delete, copy, move files and directories | [File](/workflow/resources/file) |

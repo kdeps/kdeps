@@ -20,9 +20,7 @@ llm:
 
 The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
 
-**Not this?** If you want a deterministic request->response pipeline (same input,
-same execution path, safe to run unattended), that is [kdeps workflow](/workflow/).
-To orchestrate several agents as one system, [kdeps agencies](/agencies/).
+The same `workflow.yaml` is the pipeline. `kdeps` runs it. This page is the REPL for a `chat` with `loop:`. To run several workflows as one system, see [Agencies](/agencies/).
 
 ---
 
@@ -138,22 +136,16 @@ kdeps --agent-loop --resume abc123def456                      # resume a session
 | Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
 | Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
-## Differences from workflow mode
+## The same file
 
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps --agent-loop [path]`) |
-|--|-----------------------------|---------------------------------|
-| Execution | DAG, deterministic | LLM loop, tool-driven |
-| Entry point | `metadata.targetActionId` | User prompt |
-| Unit of work | Individual resources | Whole workflows |
-| Tools | Functions in `chat.tools` | One per workflow + one per component + built-ins |
-| Input | One workflow path | Optional file or folder |
-| Conversation | Single run | Multi-turn, persistent JSONL |
+`kdeps` runs `./workflow.yaml` as an HTTP API, a bot, a file, or an interactive prompt. `kdeps --agent-loop` opens a `chat` with `loop:` as this REPL. The steps around that chat stay in `requires:` order.
 
 ## See also
 
 - [Agent loop REPL features](/agent/repl) - pasting, rendering, sessions, updates
 - [Skills and prompt templates](/agent/skills) - context files that teach the agent
 - [REPL slash commands](/agent/commands) - full command reference
-- [Workflow mode](/workflow/) - deterministic DAG pipelines
+- [Workflow](/workflow/) - the YAML pipeline
+- [Input sources](/workflow/input-sources) - API, bot, file, or interactive prompt
 - [LLM provider reference](/llm-server/providers) - backend config and model names
 - [Agencies](/agencies/) - multi-agent orchestration

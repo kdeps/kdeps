@@ -1,6 +1,6 @@
 # Load a workflow as a tool
 
-Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/agent/). You type a prompt. The model decides when to call the workflow. kdeps runs the full DAG and returns the result.
+Turn a `kind: Workflow` file into a tool the [REPL](/agent/) can call. You type a prompt. The model decides when to call the workflow. kdeps runs the full DAG and returns the result.
 
 **Needs:** a workflow directory with `workflow.yaml` and a `name:` under `metadata:` (the quickstart project `my-agent` works).
 
@@ -39,12 +39,12 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 
 metadata:
-  name: my-agent          # tool name in agent mode
+  name: my-agent          # tool name in the REPL
   version: "1.0.0"
   targetActionId: response
 ```
 
-There is no `kind: Agent`. Agent mode is how you *run* a workflow, not a separate YAML kind.
+There is no `kind: Agent`. `kdeps --agent-loop` runs this file. It is not a second YAML kind.
 
 ## Step 2: start the REPL with the workflow
 
@@ -80,13 +80,13 @@ kdeps --agent-loop ./agents/
 
 ## Summary
 
-- `kdeps --agent-loop [path]` is agent mode. `kdeps run workflow.yaml` is workflow mode. Same file.
+- `kdeps --agent-loop [path]` opens the REPL. `kdeps run workflow.yaml` runs the file. Same file.
 - The tool name is `name:` under `metadata:`, not the filename.
 - The unit of work is the whole workflow, not a single resource.
 
 ## Next steps
 
-- [Agent mode](/agent/) - flags, folder discovery, how tools run
+- [Agent REPL](/agent/) - flags, folders, and tools
 - [Built-in tools](/agent/tools) - what the REPL can do with no YAML
 - [Skills and prompt templates](/agent/skills) - markdown that shapes the REPL
 - [Quickstart](/workflow/quickstart) - the HTTP API for the same file

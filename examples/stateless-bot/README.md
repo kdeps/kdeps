@@ -68,5 +68,5 @@ stateless-bot/
 ## See Also
 
 - [Telegram Bot Example](../telegram-bot/) — Long-running polling bot
-- [Input Sources Documentation](../../docs/v2/concepts/input-sources.md)
-- [Bot Tutorial](../../docs/v2/concepts/input-sources.md)
+- [Input sources](../../docs/v2/workflow/input-sources.md)
+- [Bot reply](../../docs/v2/workflow/resources/bot-reply.md)

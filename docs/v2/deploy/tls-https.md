@@ -5,7 +5,7 @@ Serve the kdeps API server and web server over HTTPS for a custom domain. Two mo
 1. **Static certificates** - you supply PEM `certFile` / `keyFile`
 2. **Let's Encrypt** - kdeps gets and renews certificates with ACME for your domain
 
-Works in workflow mode (HTTP API / web) and for any agent package that enables `apiServer` / `webServer`. Agent mode REPL does not listen for HTTPS itself.
+HTTPS applies to a workflow that serves HTTP. The REPL does not listen for HTTPS.
 
 ## Choose a mode
 

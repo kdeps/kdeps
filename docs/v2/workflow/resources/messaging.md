@@ -2,8 +2,6 @@
 
 The bot reply that sends a message to a person. Each has its own reference page.
 
-Works in workflow and agent mode.
-
 | Resource | Channel | Reference |
 | :--- | :--- | :--- |
 | `apiResponse:` (bot mode) | The workflow result is sent to the chat that delivered the message | [Bot replies](/workflow/resources/bot-reply) |

@@ -107,18 +107,16 @@ kdeps run ./my-agent/     # run it once / serve it
 kdeps --agent-loop ./my-agent/         # or load it as a tool in the chat REPL
 ```
 
-## Which product do you need?
+## Where to read next
 
-kdeps is a small number of bounded things. Most people need one or two.
-
-| You want to... | Product |
+| You want to... | Read |
 |---|---|
-| A deterministic YAML pipeline - API, bot, or file processor | [kdeps workflow](/workflow/) |
-| A local autonomous agent - tool use, memory, a REPL | [kdeps agent](/agent/) |
-| To orchestrate several agents/workflows as one system | [kdeps agencies](/agencies/) |
-| Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/llm-server/) |
-| To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/) |
-| To find, install, or publish shared agents by name | [kdeps registry](/registry/) *(optional)* |
+| Run the YAML as an API, a bot, or a file processor | [Workflow](/workflow/) |
+| Open a `chat` with `loop:` as a REPL | [Agent REPL](/agent/) |
+| Run several workflows as one system | [Agencies](/agencies/) |
+| Serve an OpenAI-compatible endpoint, with no workflow | [LLM server](/llm-server/) |
+| Ship the file as Docker, Kubernetes, an ISO, or a binary | [Deploy](/deploy/) |
+| Find, install, or publish a shared agent by name | [Registry](/registry/) *(optional)* |
 
 The registry is the only optional piece - it shares agents by name, it is not a
 step in building or running your own.

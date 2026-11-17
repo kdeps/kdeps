@@ -1,6 +1,6 @@
 # Routing
 
-Routing delegates model selection from resource YAML to [config](/workflow/resources/llm-backends). It applies in both modes, wherever a `chat:` resource runs. Set a resource's `model` field to `router`:
+Routing delegates model selection from resource YAML to [config](/workflow/resources/llm-backends). It applies wherever a `chat:` resource runs. Set a resource's `model` field to `router`:
 
 ```yaml
 # resources/llm.yaml
@@ -114,7 +114,7 @@ llm:
 
 kdeps gives a score only to entries on a local backend (`file`, `gguf`, `ollama`), because `llmfit` measures hardware fit. kdeps uses a cloud entry only through `default: true`, when no local entry gets a score. If `llmfit` is not installed, routing uses the fallback in the same way. kdeps calculates the `llmfit` index one time for each process and keeps it in a cache.
 
-Agent mode has the same strategy with `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local model management](/agent/models#how-a-model-is-picked-when-none-is-configured).
+The REPL has the same strategy with `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local model management](/agent/models#how-a-model-is-picked-when-none-is-configured).
 
 ## `auto-router`: zero-config, fully automatic
 
@@ -136,7 +136,7 @@ Resolution order, with no config required:
 2. **Cloud fallback** - the first provider that has an API key env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...). kdeps does not use providers with no single default model (OpenRouter, Hugging Face, Bedrock, Watsonx, ...). The list includes the free models of OpenRouter, from `models/openrouter`.
 3. **Built-in default** - if the two steps above find nothing, kdeps uses the zero-config built-in llamafile (`llama3.2:1b`). This is the same model that kdeps uses when you do not set `model:`.
 
-Agent mode has the same sentinel with `--model auto-router` - see [Local model management](/agent/models#-model-auto-router-zero-config-fully-automatic).
+The REPL has the same sentinel with `--model auto-router` - see [Local model management](/agent/models#-model-auto-router-zero-config-fully-automatic).
 
 ## See also
 

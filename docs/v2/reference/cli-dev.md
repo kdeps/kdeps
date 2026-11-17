@@ -25,7 +25,7 @@ kdeps run [workflow.yaml | directory | package.kdeps] [flags]
 | `--interactive` | Open an interactive LLM REPL alongside the running workflow | `false` |
 | `--file` | File path to process (file input source only). Takes priority over stdin, `KDEPS_FILE_PATH`, and `input.file.path` config | |
 | `--events` | Emit structured NDJSON execution events to stderr (resource lifecycle, failure classification) | `false` |
-| `--memory` | Enable the agent memory store in workflow mode - resources can use `memory_save`/`memory_search`/`memory_list`/`memory_delete` expression functions | `false` |
+| `--memory` | Enable the agent memory store for a workflow. Resources can use `memory_save`, `memory_search`, `memory_list`, and `memory_delete` | `false` |
 
 **Examples:**
 
@@ -59,7 +59,7 @@ An agent-REPL flag (`--model`, `--backend`, `--resume`, ...) without `--agent-lo
 
 ## `kdeps --agent-loop [path]` (agent REPL)
 
-Start agent mode. Agent mode is an interactive LLM loop. kdeps registers full workflows and components in it as tools. To give workflows as tools, give a path. For a bare REPL with no workflow tools, do not give a path.
+Open the agent REPL. kdeps registers full workflows and components as tools. To give workflows as tools, give a path. For a bare REPL with no workflow tools, do not give a path.
 
 ```bash
 kdeps --agent-loop [path] [flags]
@@ -87,7 +87,7 @@ kdeps --agent-loop ./my-agent/ --model mistral
 kdeps --agent-loop ./agents/ --system "You are a helpful assistant."
 ```
 
-See [Agent Mode](/agent/) for full details.
+See the [agent REPL](/agent/) for the flags and the folder layout.
 
 ---
 

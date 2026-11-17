@@ -1,30 +1,22 @@
 # Why kdeps?
 
-Workflow mode runs an AI workload in production as an API, a chatbot or a background job. Agent mode uses the same file when the model must select the steps. You pay for the hardware it runs on.
+One `workflow.yaml` runs as an API, a bot, a file job, or a prompt. A `chat` with `loop:` is the step where the model picks tools. You pay for the hardware it runs on.
 
-## The six products
+## The same file
 
-kdeps is a small number of bounded pieces - workflow, agent, agencies, LLM
-server, deploy, and the optional registry. Most people need one or two. The
-[Which product do you need?](/start/#which-product-do-you-need) table matches
-each to a task.
-
-A `workflow.yaml` is the one way to run kdeps, and the pipeline you deploy.
-`kdeps --agent-loop` opens its agent as a REPL against a local model, with no
-Docker. The registry is optional - it shares agents by name, not a step in
-building or running your own. See [one workflow, any input](#one-workflow-any-input).
+One `workflow.yaml` is the pipeline you deploy. `kdeps --agent-loop` opens a `chat` with `loop:` as a REPL, on a local model, with no Docker. The registry is optional. It shares agents by name. See [one workflow, any input](#one-workflow-any-input). The [where to read next](/start/#where-to-read-next) table names the other docs.
 
 ---
 
 ## Deterministic by design
 
-An LLM is probabilistic: the same question twice can get two answers. Workflow mode puts the LLM in a deterministic shell.
+An LLM is probabilistic: the same question twice can get two answers. The workflow puts that model in a fixed shell.
 
 The same request always goes through the same resources. `requires:` sets the order. Validations run before a model call. The output follows a fixed schema. The text that the model writes can be different each time. But the steps, their order, and the shape of the output do not change.
 
 If the input is wrong, the workflow stops quickly with a clear error. It does not hallucinate a response. The structure of the output is reproducible and auditable, and the workflow can run safely without supervision. For these reasons, kdeps is applicable to production, not only to demos.
 
-Agent mode is the opposite: there the model decides which resources run and in what order.
+Inside `loop:`, the model picks tools. `requires:` still sets the order of the steps around that chat.
 
 ## Git-native
 
@@ -121,7 +113,7 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 | Operations teams | Automate repetitive work: log analysis, PR reviews, triage, ticket creation, incident messaging |
 | SMEs without an AI hire | Add AI to existing business processes and APIs with near-zero code and no recurring AI bill |
 | Marketing and growth | Content pipelines, SEO automation, campaign reporting |
-| Regulated and public-sector teams | Meet data-residency rules - self-hosted LLM and coding agent in the region you choose |
+| Regulated and public-sector teams | Meet data-residency rules. Run your own LLM and the workflow in the region you choose |
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
 Examples: log-file analysis, automated code review, a JIRA ticket from an alert, an incident summary posted to MS Teams. Each is a workflow calling a model and one or two APIs, deployed as one image.
@@ -143,6 +135,6 @@ kdeps uses [Kartographer](https://github.com/kdeps/kartographer), a graph librar
 - [Quickstart](/workflow/quickstart) - build your first workflow API
 - [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Data sovereignty](/start/data-sovereignty) - your prompts stay on your servers
-- [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
-- [Workflow mode](/workflow/) - deterministic DAG pipelines
-- [Agent mode](/agent/) - autonomous LLM loop
+- [Load a workflow as a tool](/workflow/as-a-tool) - the same file, called by the model
+- [Workflow](/workflow/) - the YAML pipeline
+- [Agent REPL](/agent/) - a chat with `loop:`

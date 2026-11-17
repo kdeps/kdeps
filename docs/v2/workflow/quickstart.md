@@ -1,8 +1,6 @@
 # Quickstart
 
-Build a two-resource LLM API in [workflow mode](/workflow/), then load the same file as a tool in [agent mode](/agent/).
-
-Works in workflow and agent mode.
+Build a two-resource LLM API from one `workflow.yaml`. The same file is the agent REPL when its chat has `loop:`.
 
 ## The mental model
 
@@ -10,8 +8,7 @@ A **resource** is one step in its own YAML file (here: an LLM call, then a
 response). A **workflow** is a folder of resources plus a `workflow.yaml`
 manifest. Each resource names what it `requires:`, and kdeps runs the steps in
 that dependency order (a DAG). The next step reads the output of a step with
-`get('<actionId>')`. This fixed order is the meaning of "workflow mode", and
-it is what you deploy.
+`get('<actionId>')`. This fixed order is the pipeline, and it is what you deploy.
 
 ## Overview
 
@@ -19,8 +16,8 @@ This quickstart guides you through:
 
 - Creating a project
 - Writing a two-resource workflow (an LLM call and a response)
-- Running it as an HTTP API in workflow mode
-- Calling the same workflow as a tool in agent mode
+- Running it as an HTTP API
+- Opening the same chat as the agent REPL
 
 It is for developers who have used a terminal and an HTTP API before. For the
 REPL with no YAML, see [Run locally](/agent/quickstart). For install
@@ -162,9 +159,9 @@ B -> C: "output stored as get('llm')"
 C -> D
 ```
 
-`requires: [llm]` means `response` will not run until `llm` has finished. This two-resource DAG is the simplest workflow mode pipeline.
+`requires: [llm]` means `response` will not run until `llm` has finished. This two-resource DAG is the simplest pipeline.
 
-## Try agent mode
+## Open the REPL
 
 Same file, different command. `kdeps --agent-loop .` registers this workflow as one tool named `my-agent`. Step-by-step: [Load a workflow as a tool](/workflow/as-a-tool).
 
@@ -175,9 +172,9 @@ kdeps --agent-loop ./agents/    # one tool per workflow in the folder
 
 ## Next steps
 
-- [Load a workflow as a tool](/workflow/as-a-tool) - agent mode with this file
-- [Workflow mode](/workflow/) - how the DAG pipeline runs
-- [Agent mode](/agent/) - the interactive LLM loop
+- [Load a workflow as a tool](/workflow/as-a-tool) - the same file, called by the model
+- [Workflow](/workflow/) - how the pipeline runs
+- [Agent REPL](/agent/) - a chat with `loop:`
 - [workflow.yaml reference](/workflow/configuration) - every field
 - [Resources overview](/workflow/resources) - all resource types
 - [CLI reference](/reference/cli) - all commands and flags

@@ -4,7 +4,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 ## Where it runs
 
-All resource types work in both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, kdeps registers full workflows as tools. The LLM calls a workflow as a unit, and all resource dependencies in it resolve correctly.
+Every resource type runs in the workflow. `requires:` sets the order. In the REPL, kdeps registers the whole workflow as one tool. The model calls that tool, and the same order runs inside it.
 
 ## The shape of a resource
 

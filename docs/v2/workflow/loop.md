@@ -2,7 +2,7 @@
 
 The [`loop`](/reference/glossary#loop) block gives conditional iteration with no fixed limit. This makes kdeps workflows Turing complete.
 
-Set on a resource. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool.
+Set on a resource. In the REPL, it runs inside the workflow when the model calls that workflow as a tool.
 
 `items` iterates over a fixed list. `loop` repeats a resource body when an expression is true. Without `while:`, it repeats a fixed number of times. It has full `set()`/`get()` state. To pause for a fixed duration between iterations, add `every:`. This makes the loop a scheduled task.
 

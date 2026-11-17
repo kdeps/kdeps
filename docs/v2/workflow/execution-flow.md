@@ -1,6 +1,6 @@
 # Execution flow
 
-How kdeps resolves, orders, and runs resources in a workflow. This applies to both modes: it is the DAG that workflow mode runs directly, and the same DAG that executes when agent mode calls a workflow tool.
+How kdeps resolves, orders, and runs resources in a workflow. `kdeps run` runs that DAG directly. The same DAG runs when the REPL calls the workflow as a tool.
 
 ## Overview
 
@@ -137,7 +137,7 @@ A `component:` call runs beside others when the component is read-only in the [p
 
 A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
 
-One cap covers both modes: workflow resources, subagents, judges and agent tool calls. It is the `parallel` event:
+One cap covers workflow resources, subagents, judges, and REPL tool calls. It is the `parallel` event:
 
 ```yaml
 # ~/.kdeps/events/parallel.yaml
@@ -224,9 +224,9 @@ J -> B: no
 
 See [Loop](/workflow/loop) for full details.
 
-## Agent mode execution
+## REPL execution
 
-In agent mode (`kdeps --agent-loop [path]`), the execution model differs:
+In the REPL (`kdeps --agent-loop [path]`), the execution model differs:
 
 1. kdeps registers each workflow as one tool (tool name = `name:` under `metadata:`)
 2. kdeps registers each agency as one tool (tool name = `agency.metadata.name`). The LLM cannot call the internal agents directly
@@ -241,7 +241,7 @@ Pointing at a single file registers one tool. Pointing at a folder registers one
 
 ## See also
 
-- [Workflow mode](/workflow/) - deterministic DAG pipelines
-- [Agent mode](/agent/) - LLM-driven tool calling
+- [Workflow](/workflow/) - the YAML pipeline
+- [Agent REPL](/agent/) - the model calls tools
 - [Validation & control flow](/workflow/validation) - skip, check, and error handling
 - [Loop](/workflow/loop) - a loop that repeats when a condition is true

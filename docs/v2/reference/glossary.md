@@ -6,7 +6,7 @@ a `chat` with `loop:` inside it, and `kdeps --agent-loop` opens it as a REPL.
 
 | Term | Definition | More |
 | :--- | :--- | :--- |
-| <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/workflow/resources) |
+| <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In the REPL, resources are not tools. The whole workflow is the tool, named after `metadata.name`. | [Resources overview](/workflow/resources) |
 | agent | A workflow whose `chat` has a `loop:` block: the model calls tools over many rounds and keeps one conversation per session. `kdeps --agent-loop [path]` opens it as a REPL, where workflows at `path` are tools named after their `metadata.name`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent loop](/agent/) |
 | <a id="input-source"></a>input source | How requests reach a workflow: `api` (HTTP), `bot`, `file`, or `interactive` (a terminal prompt where each line is one request). Set under `deploy.input.sources`. | [Input sources](/workflow/input-sources) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/agencies/) |
@@ -51,7 +51,7 @@ a `chat` with `loop:` inside it, and `kdeps --agent-loop` opens it as a REPL.
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/workflow/resources/llm-backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set as `targetActionId:` under `metadata:`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
 | <a id="theme"></a>theme | The agent-loop REPL palette. Only `normal` applies. `--theme` and `KDEPS_THEME` accept that name. Prompts, responses, and logs stay the same. | [Themes](/agent/repl-themes) |
-| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in a `chat:` resource's `tools:`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
+| tools | Functions registered with the LLM. In the REPL, tools are whole workflows and components. On a chat resource, tools are the functions in `tools:`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
 | <a id="validations"></a>`validations` | A resource-level block with `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. | [Validation and control flow](/workflow/validation) |
 | workflow | The top-level unit of execution: a YAML file defining resources, dependencies, and configuration. Declared as `kind: Workflow`. | [workflow.yaml](/workflow/configuration) |
 

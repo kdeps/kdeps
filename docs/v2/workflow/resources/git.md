@@ -4,7 +4,7 @@ The `git` component runs version-control operations (status, diff, log, show, br
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
+The workflow runs this resource as a step. In the REPL, that workflow is one tool.
 
 ## Requirements
 

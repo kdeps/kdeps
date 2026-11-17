@@ -123,7 +123,7 @@ func autoImproveTasks(root string) []string {
 		fmt.Sprintf(
 			"The kdeps repo root is %s.\n"+
 				"Use the read_file tool on README.md. In one sentence, "+
-				"name the two modes kdeps runs. Do not edit files.",
+				"name the four outputs of one workflow.yaml. Do not edit files.",
 			root,
 		),
 		fmt.Sprintf(

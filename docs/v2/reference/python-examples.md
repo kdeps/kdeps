@@ -2,8 +2,6 @@
 
 Examples, error handling, and debugging guidance for the [`python` component](/workflow/resources/python).
 
-Works in workflow and agent mode.
-
 ## Examples
 
 ## Data transformation

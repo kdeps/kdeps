@@ -2,8 +2,6 @@
 
 Example `http_request` component calls for common API integration patterns. See [HTTP client component](/workflow/resources/http-client) for the full configuration reference.
 
-Works in workflow and agent mode.
-
 ## Fetch data and process
 
 <div v-pre>

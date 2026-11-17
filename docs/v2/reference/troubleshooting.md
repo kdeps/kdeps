@@ -2,8 +2,6 @@
 
 Common errors, what they mean, and how to fix them.
 
-Works in workflow and agent mode.
-
 ## Dependency errors
 
 ### Dependency cycle detected

@@ -35,7 +35,7 @@ This is standalone-only, like nightly. Homebrew, .deb and .apk print a link to t
 
 ## Updating assets
 
-kdeps behavior files are versioned assets. They update separately from the binary. Harness sections, events, actions, presets, themes, tool definitions and slash commands drive agent mode. LLM server recipes, `kdeps new` templates, workflow schemas, executor defaults, components and Docker/Kubernetes templates drive workflow mode.
+kdeps behavior files are versioned assets. They update separately from the binary. Harness sections, events, actions, presets, themes, tool definitions, and slash commands drive the REPL. LLM server recipes, `kdeps new` templates, workflow schemas, executor defaults, components, and Docker or Kubernetes templates drive the workflow.
 
 | Set | What an item is | Example id |
 |---|---|---|

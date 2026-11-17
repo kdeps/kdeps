@@ -37,5 +37,5 @@ Scope matching supports wildcards: an empty `Action` matches any action. The `Be
 
 ## See also
 
-- [Agent mode](/agent/) - overview and starting the REPL
+- [Agent REPL](/agent/) - start the REPL
 - [Built-in tools](/agent/tools) - permission modes and the full tool catalog

@@ -1,6 +1,6 @@
 # Expression helper functions
 
-Expression helpers add safe nested-property access, null coalescing, JSON serialization, URL encoding and conditionals beyond `get()` and `set()`. They are available in both modes, wherever an expression runs.
+Expression helpers add safe nested-property access, null coalescing, JSON serialization, URL encoding and conditionals beyond `get()` and `set()`. They are available wherever an expression runs.
 
 ## Overview
 

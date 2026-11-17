@@ -1,13 +1,11 @@
 ---
 title: Data Sovereignty
-description: Run your own LLM and coding agent on servers you control, in the region you choose. Prompts, code, and data stay inside your boundary - no third-party AI provider in the loop.
+description: Run your own LLM and the workflow on servers you control, in the region you choose. Prompts, code, and data stay inside your boundary. No third-party AI provider is in the loop.
 ---
 
 # Data sovereignty
 
-With kdeps, you run the full AI stack on servers that you control, in the region that you select. The stack includes the model, the coding agent, and the API in front of them. Your prompts, source code, and customer data stay in that boundary. They do not go to a third-party AI provider.
-
-Works in workflow mode, agent mode and agencies.
+With kdeps, you run the full AI stack on servers that you control, in the region that you select. The stack includes the model, the workflow, and the API in front of them. Your prompts, source code, and customer data stay in that boundary. They do not go to a third-party AI provider.
 
 ## Where your data goes
 
@@ -98,9 +96,9 @@ Leave `base_url` unset and the CLI keeps its local model. Engines, GPU, and the 
 
 ## Three ways to keep it inside your boundary
 
-### 1. Coding agent on your own machine
+### 1. The agent REPL on your own machine
 
-Run `kdeps --agent-loop` to start an autonomous coding agent REPL that uses a local model. The agent has file edits, shell, search, and memory. kdeps sends no data to an external API.
+Run `kdeps --agent-loop` to open the agent REPL with a local model. The agent has file edits, shell, search, and memory. kdeps sends no data to an external API.
 
 ```bash
 kdeps --agent-loop         # agent REPL, default local llamafile model
@@ -109,7 +107,7 @@ kdeps --agent-loop --model llama3.1:8b  # bigger local model, still fully local
 
 ### 2. Your own LLM server in your own datacenter
 
-Provision a standalone OpenAI-compatible inference appliance on a server you control, then point every client at it. The clients are the [coding CLI](/agent/) and any workflow host. One `base_url` serves all of them. `models:` names one model or several. The steps are [above](#cli-to-a-private-llm-server).
+Provision a standalone OpenAI-compatible inference appliance on a server you control, then point every client at it. The clients are the [agent REPL](/agent/) and any workflow host. One `base_url` serves all of them. `models:` names one model or several. The steps are [above](#cli-to-a-private-llm-server).
 
 ```bash
 kdeps llm wizard           # pick engine + model, then build/run/export Docker, ISO, or Kubernetes

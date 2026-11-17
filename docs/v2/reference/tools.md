@@ -1,6 +1,6 @@
 # Function calling
 
-Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. It is not the agent REPL [built-in tools](/agent/tools). In agent mode, tools are whole workflows and components. This page is the workflow examples: chaining, debugging, and the patterns below.
+Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. It is not the agent REPL [built-in tools](/agent/tools). In the REPL, tools are whole workflows and components. This page is the workflow examples: chaining, debugging, and the patterns below.
 
 ## Examples
 
@@ -305,7 +305,7 @@ component:
 
 ## Built-in agent tools
 
-In [agent mode](/agent/), kdeps registers these tools automatically when you configure the related API key. They are available to the LLM without any `tools:` block in your YAML.
+In [the REPL](/agent/), kdeps registers these tools automatically when you configure the related API key. They are available to the LLM without any `tools:` block in your YAML.
 
 ### Google AI cache tools
 

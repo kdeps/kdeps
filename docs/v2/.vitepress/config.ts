@@ -30,7 +30,7 @@ const navVersion = process.env.KDEPS_DOCS_VERSION || pkg.version
 
 export default defineConfig({
   title: 'kdeps',
-  description: 'AI appliance builder. Define AI agents and workflow pipelines in YAML. Ship them as Docker, Kubernetes, ISO, or one binary.',
+  description: 'One workflow.yaml becomes an offline API, a binary, an image, or an ISO.',
 
   appearance: 'force-dark',
 
@@ -45,7 +45,7 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps Documentation' }],
     ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
-    ['meta', { name: 'og:description', content: 'AI appliance builder. Define AI agents and workflow pipelines in YAML. Ship them as Docker, Kubernetes, ISO, or one binary.' }],
+    ['meta', { name: 'og:description', content: 'One workflow.yaml becomes an offline API, a binary, an image, or an ISO.' }],
   ],
 
   lastUpdated: true,
@@ -102,10 +102,10 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Which product?',
+          text: 'Read next',
           items: [
-            { text: 'kdeps workflow', link: '/workflow/' },
-            { text: 'kdeps agent', link: '/agent/' },
+            { text: 'Workflow file', link: '/workflow/' },
+            { text: 'Agent REPL', link: '/agent/' },
             { text: 'kdeps agencies', link: '/agencies/' },
             { text: 'kdeps LLM server', link: '/llm-server/' },
             { text: 'kdeps deploy', link: '/deploy/' },

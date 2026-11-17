@@ -4,7 +4,7 @@ The `file` component runs one filesystem operation (read, write, patch, list, de
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the workflow containing it runs as a single callable tool.
+The workflow runs this resource as a step. In the REPL, that workflow is one tool.
 
 ## Requirements
 
