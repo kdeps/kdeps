@@ -131,16 +131,6 @@ func TestCobraRunEHandlers(t *testing.T) {
 			"new",
 			func() error { return newNewCmd().RunE(&cobra.Command{}, []string{"test-agent-" + t.Name()}) },
 		},
-		{"chat", func() error {
-			// EOF stdin
-			r, w, err := os.Pipe()
-			require.NoError(t, err)
-			require.NoError(t, w.Close())
-			orig := os.Stdin
-			os.Stdin = r
-			t.Cleanup(func() { os.Stdin = orig; _ = r.Close() })
-			return newChatCmd().RunE(&cobra.Command{}, nil)
-		}},
 		{"agent-loop", func() error { return runAgentLoopCmd(t.Context(), tmp, &agentLoopFlags{}) }},
 		{
 			"exec",

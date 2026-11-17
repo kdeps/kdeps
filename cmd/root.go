@@ -276,7 +276,6 @@ var commandSets = map[string][]string{
 	"export":    append(slices.Clone(assets.BaseSets), "docker", "k8s"),
 	"llm":       append(slices.Clone(assets.BaseSets), "docker", "k8s", "recipes"),
 	"llamafile": {"models"},
-	"chat":      append(slices.Clone(assets.BaseSets), assets.AgentSets...),
 	"konfig":    append(slices.Clone(assets.BaseSets), assets.AgentSets...),
 }
 
@@ -439,7 +438,6 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newTestCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newRunCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newEnvCmd())
-	addCommandToGroup(rootCmd, groupDevelop, newChatCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newKonfigCmd())

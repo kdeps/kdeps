@@ -149,7 +149,6 @@ scenario test_native_scraper.sh
 # CLI subcommand E2E tests
 scenario test_bundle_export.sh
 scenario test_export_k8s.sh
-scenario test_chat_cmd.sh
 scenario test_chat_cmd_repl.sh
 scenario test_agent_model_name.sh
 scenario test_agent_paste.sh

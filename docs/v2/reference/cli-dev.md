@@ -335,42 +335,6 @@ kdeps profile                         # choose the profile again, or tick sets a
 
 [Updating assets](/agent/repl-updating#updating-assets) lists the profiles and what each profile installs.
 
----
-
-## `kdeps chat`
-
-Interactive AI assistant that generates and runs kdeps workflows from natural language.
-
-```bash
-kdeps chat [flags]
-```
-
-**Flags:**
-
-| Flag | Description | Default |
-|---|---|---|
-| `--model` | LLM model for workflow generation | From config |
-| `--base-url` | LLM backend base URL, including `/v1` | `http://localhost:11434/v1` |
-| `--session` | Resume a previous session by ID | New session |
-| `--no-execute` | Generate workflow but do not allow `/run` | `false` |
-
-**REPL slash commands:**
-
-| Command | Description |
-|---|---|
-| `/show` | Print the generated workflow YAML |
-| `/run` | Execute the workflow |
-| `/save [path]` | Save workflow to directory |
-| `/export` | Show Kubernetes manifests |
-| `/reset` | Clear conversation and start fresh |
-| `/quit` | Exit |
-
-```bash
-kdeps chat                                    # Start interactive assistant
-kdeps chat --model gpt-4o                     # Use specific model
-echo "list files in /tmp" | kdeps chat --no-execute
-```
-
 ## `kdeps llamafile`
 
 Manage the local model registry. Covers llamafile, GGUF (llama.cpp), and Ollama models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`. kdeps downloads models on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels a download immediately.
