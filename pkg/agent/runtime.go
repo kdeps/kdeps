@@ -29,8 +29,7 @@ import (
 var ErrBusy = errors.New("agent: a turn is already running")
 
 // Runtime is the agent runtime a front end drives: one loop, its slash-command
-// dispatcher, and at most one in-flight job (a turn or a command). The
-// terminal REPL and the desktop app both sit on it.
+// dispatcher, and at most one in-flight job (a turn or a command).
 type Runtime struct {
 	ctx  context.Context
 	loop *Loop

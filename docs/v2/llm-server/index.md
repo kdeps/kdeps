@@ -15,7 +15,7 @@ see [Local models](/start/local-models).
 
 ---
 
-Serves workflow hosts, the [coding CLI](/agent/), and the [desktop app](/desktop/). On each client, set `backend: openai` and `base_url` under `llm:`. `models:` names one model or several.
+Serves workflow hosts and the [coding CLI](/agent/). On each client, set `backend: openai` and `base_url` under `llm:`. `models:` names one model or several.
 
 ## How it fits
 
@@ -235,7 +235,6 @@ Default: no auth (private networks - document the risk). Opt in with the recipe'
 ## See also
 
 - [Data sovereignty](/start/data-sovereignty) - prompts stay on your network
-- [Desktop app](/desktop/) - window client for this server
 - [Coding CLI](/agent/) - developer client for this server
 - [LLM backends](/workflow/resources/llm-backends) - client-side backend selection
 - [LLM commands](/llm-server/cli) - full CLI flag reference

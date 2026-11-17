@@ -1,6 +1,6 @@
 # kdeps API
 
-The kdeps API is the control listener for agent mode (the REPL and the desktop app) and workflow mode (`kdeps run`). It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
+The kdeps API is the control listener for agent mode (the REPL) and workflow mode (`kdeps run`). It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
 
 ```text
 caller -> bearer check -> handler
@@ -212,7 +212,7 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
 
 The call runs against the REPL that published it, so it acts on that session (`/clear` empties it). The response is the output of the command, as `text/plain`. A command that prints only to the terminal returns an empty body. A command that fails returns `400` with the error text. Arg decoding accepts a JSON array, a string (split on whitespace), or an `arguments` string. An unknown name is `404` with message `command not found`.
 
-The agent loop (`kdeps`, the desktop app) publishes the routes. A `kdeps run` process serves the routes with no commands registered: the list is empty and every call is `404`. `/update` re-registers the commands after it installs assets, so a new display name or usage line shows without a restart.
+The agent loop (`kdeps`) publishes the routes. A `kdeps run` process serves the routes with no commands registered: the list is empty and every call is `404`. `/update` re-registers the commands after it installs assets, so a new display name or usage line shows without a restart.
 
 ## Other calls
 

@@ -34,9 +34,9 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
-// The agent REPL and the desktop chat take their settings from the
-// workspace's workflow: when its target action is a chat with a loop: block,
-// that chat's model, round cap and tools define the session.
+// The agent REPL takes its settings from the workspace workflow. When the
+// target action is a chat with a loop: block, that chat's model, round cap,
+// and tools define the session.
 
 // LoopChat returns the chat with a loop: block that wf's target action runs,
 // or nil.

@@ -490,7 +490,7 @@ request -> chat (loop) -> tool rounds -> reply -> next resource
 - The output has the plain chat shape: the reply is at `get('id').message.content`. Judges under `guardrails` review it as usual.
 - File tools stay inside the workspace: the working directory of `kdeps run`, or `KDEPS_WORKSPACE_ROOT`. A path outside it fails, since a workflow has no terminal to approve it.
 - An unknown tool name fails the resource and lists the built-in tools.
-- When this chat is the workflow's target, `kdeps --agent-loop` and the desktop chat in that folder use its model, `tools` and `maxRounds` too. See [Settings from the workflow](/agent/#settings-from-the-workflow).
+- When this chat is the workflow's target, `kdeps --agent-loop` uses its model, `tools` and `maxRounds` too. See [Settings from the workflow](/agent/#settings-from-the-workflow).
 
 ## Vision (file attachments)
 

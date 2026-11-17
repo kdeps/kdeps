@@ -16,8 +16,8 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-// Package api is the process control API. The REPL, the desktop app, and
-// kdeps run start one server. Client calls the handler in process. HTTP
+// Package api is the process control API. The REPL and kdeps run start one
+// server. Client calls the handler in process. HTTP
 // against Addr calls the same handler. Both paths use the same bearer token.
 package api
 

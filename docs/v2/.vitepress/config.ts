@@ -64,7 +64,6 @@ export default defineConfig({
       { text: 'Start', link: '/start/' },
       { text: 'Workflow', link: '/workflow/' },
       { text: 'Agent', link: '/agent/' },
-      { text: 'Desktop', link: '/desktop/' },
       { text: 'Agencies', link: '/agencies/' },
       { text: 'LLM server', link: '/llm-server/' },
       { text: 'Deploy', link: '/deploy/' },
@@ -137,8 +136,6 @@ export default defineConfig({
             { text: 'Sessions', link: '/agent/repl-sessions' },
             { text: 'Updating kdeps', link: '/agent/repl-updating' },
             { text: 'Local model management', link: '/agent/models' },
-            { text: 'Desktop app', link: '/desktop/' },
-            { text: 'Desktop app reference', link: '/agent/desktop' },
           ]
         },
         {
