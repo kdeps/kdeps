@@ -38,7 +38,6 @@ sets:
   k8s: deploy
   memory: memory
   knowledge: rag
-  codegraph: tools
 
 # items: a shelf other than its set's default. The key is set/name.
 items:

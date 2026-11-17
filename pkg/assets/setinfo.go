@@ -58,7 +58,6 @@ var setPurposes = map[string]string{
 	"commands":   "Slash commands: the help and completion of the built-in ones, and declared commands that run other commands and prompts.",
 	"recipes":    "How to build and run an LLM server as a Docker appliance: engine, base image, install steps, ports and health check.",
 	"knowledge":  "How the local search index splits text: word length, stopwords, stems, and which files it reads.",
-	"codegraph":  "The code graph's business rules: ranking weights, stopwords, result limits and path bounds.",
 	"models":     "The model catalogs: downloadable llamafile and GGUF models, the cloud models of each provider with their limits, and the harvested OpenRouter free models.",
 	"templates":  "Project scaffolds for kdeps new.",
 	"docker":     "The Dockerfile, entrypoint and supervisor templates of a kdeps image.",

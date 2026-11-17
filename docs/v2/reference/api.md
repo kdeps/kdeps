@@ -34,16 +34,16 @@ Five YAML sets configure the agent loop. They are configuration data, not callab
 
 Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
 
-## Knowledge and code graph rules
+## Local search rules
 
-Two more asset sets hold business rules for the graph features. kdeps reads each file one time, the first time that it needs it.
+The `knowledge/` asset set holds the rules for local search. kdeps reads the file one time, the first time that it needs it.
 
 | Set | Read by | What it configures |
 |---|---|---|
 | `knowledge/` | `pkg/searchrules/` | `search.yaml`: how the local search index splits files and queries into terms (minimum length, stopwords, stem suffixes; rebuild an index after you change them), which folders and file types it reads, which key and credential files it never reads or returns, and how a link graph re-ranks results |
-| `codegraph/` | `pkg/codegraph/codegraph.go` | The code graph's ranking weights, stopwords, result limits and path bounds, handed to Kartographer |
 
-If `search.yaml` is missing or broken, local search indexes nothing. The code graph reports that it has no rules until its file loads.
+If `search.yaml` is missing or broken, local search indexes nothing.
+
 ## Traceability: API to component to YAML
 
 Every YAML file that runs reaches the kdeps API. A workflow uses a tool through a component. A slash command uses the REPL through the commands group. The agent loop reads a loop data set directly:
@@ -217,8 +217,6 @@ The agent loop (`kdeps`) publishes the routes. A `kdeps run` process serves the 
 ## Other calls
 
 These tools use the same call route: `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `session_ops`, `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the asset-declared tools. `session_ops` also runs the agent-session tools `identity_get`, `judge_verdict`, `load_skill`, `load_tools`, `subagent` and `ask_question`. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
-
-The code-graph tools are the agent's `code_` tools: `code_find_symbol`, `code_callers`, `code_callees`, `code_impact`, `code_impact_and_risk` (files a symbol change touches, with the tests that reach it), `code_impact_of_diff` (symbols a unified diff touches and their dependents), `code_tests_for`, `code_rank_files`, `code_query`, `code_file_neighbors`, `code_node`, `code_trace`, `code_shortest_path`, `code_expand`, `code_find_seeds`, `code_search`, `code_render_subgraph`, `code_references`, `code_imports_exports` and `code_stats`. They run on the working directory and build the index on the first call. The `codegraph` asset set (`tools.yaml`) lists them. Each is the Kartographer tool with the same name and a `code_` prefix.
 
 Asset-declared tools keep their `http:`, `exec:` or `python:` block in the tool asset, and the handler runs it: `calculator`, `clipboard_copy`, `cohere_rerank`, `edit_file`, `exa_search`, `file_ops`, `git_ops`, `google_cache_create`, `google_cache_delete`, `google_cache_list`, `hf_repo_files`, `hf_search`, `jina_rerank`, `list_files`, `md5_file`, `ocr_image`, `retrieve_context`, `sql_describe_table`, `sql_list_tables`, `sql_query`, `tail_file`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `web_scraper`, `web_search`, `wikipedia`, `wolfram_alpha`, `zapier_list_actions`, `zapier_run_action`.
 

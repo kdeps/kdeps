@@ -32,7 +32,6 @@ import (
 	"sync"
 
 	"github.com/kdeps/kdeps/v3/pkg/api"
-	codegraphtools "github.com/kdeps/kdeps/v3/pkg/codegraph"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	execSearch "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
@@ -64,7 +63,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 		}
 	}()
 	registerBashExec(ctx, reg)
-	registerCodeGraphTools(reg)
 	registerBashJobList(ctx, reg)
 	registerBashJobWait(ctx, reg)
 	registerReadFile(ctx, reg)
@@ -790,16 +788,4 @@ func indexInBackground(fn func()) {
 func WaitForBackgroundIndexing() {
 	backgroundIndexing.Wait()
 	api.WaitSearchIndex()
-}
-
-// registerCodeGraphTools offers the code graph of the working directory to the
-// agent. The tools are named in the codegraph asset set.
-func registerCodeGraphTools(reg *kdepstools.Registry) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return
-	}
-	if rerr := codegraphtools.Register(reg, dir); rerr != nil {
-		fmt.Fprintf(os.Stderr, "codegraph tools: %v\n", rerr)
-	}
 }
