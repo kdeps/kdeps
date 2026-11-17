@@ -51,6 +51,16 @@ else
     test_skipped "entry points - bare kdeps runs the assistant (needs the mock LLM)"
 fi
 
+# --- the workflow's prompt is the agent REPL: slash commands work ---------------
+if [ -f "$EP_DIR/asst/workflow.yaml" ]; then
+    OUT=$(cd "$EP_DIR/asst" && printf '/help\n/quit\n' | timeout 120 "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
+    if output_grep_fixed "/model" "$OUT" && output_grep_fixed "/session" "$OUT"; then
+        test_passed "entry points - kdeps run on the assistant opens the agent REPL (slash commands)"
+    else
+        test_failed "entry points - kdeps run on the assistant opens the agent REPL (slash commands)" "$(printf '%s' "$OUT" | tail -c 600)"
+    fi
+fi
+
 # --- kdeps --agent-loop in the project: the workflow's loop.tools are the tools --
 if [ -n "${E2E_MOCK_LLM_LOG:-}" ] && [ -f "$EP_DIR/asst/workflow.yaml" ]; then
     (cd "$EP_DIR/asst" && printf 'ENTRYLOOPTOOLS hi\n/quit\n' \

@@ -70,7 +70,7 @@ const categories: MenuCategory[] = [
     link: '/agent/',
     groups: [{
       items: [
-        { title: 'Overview', desc: 'A chat with loop: in a workflow; kdeps --agent-loop opens it as a REPL', link: '/agent/' },
+        { title: 'Overview', desc: 'A chat with loop: in a workflow; its interactive prompt is the agent REPL', link: '/agent/' },
         { title: 'Quickstart', desc: 'Run your first agent', link: '/agent/quickstart' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools that the LLM can call', link: '/agent/tools' },
         { title: 'Subagents', desc: 'A fresh loop for one task. It sees only that task', link: '/agent/subagent' },

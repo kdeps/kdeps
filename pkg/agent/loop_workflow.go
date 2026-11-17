@@ -63,6 +63,15 @@ func LoadLoopChat(dir string) (*domain.ChatConfig, error) {
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrNoWorkflow
 	}
+	wf, err := LoadWorkflowFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return LoopChat(wf), nil
+}
+
+// LoadWorkflowFile parses the workflow at path.
+func LoadWorkflowFile(path string) (*domain.Workflow, error) {
 	sv, err := validator.NewSchemaValidator()
 	if err != nil {
 		return nil, err
@@ -71,7 +80,7 @@ func LoadLoopChat(dir string) (*domain.ChatConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return LoopChat(wf), nil
+	return wf, nil
 }
 
 // ApplyLoopChat makes cfg run as chat declares: its round cap and tool
@@ -97,6 +106,17 @@ func ApplyLoopChat(cfg *Config, chat *domain.ChatConfig, keepModel bool) {
 		cfg.MaxToolRounds = chat.Loop.MaxRounds
 	}
 	cfg.AllowedTools = append([]string(nil), chat.Loop.Tools...)
+	// The chat's system scenario items are the session's system prompt,
+	// unless --system set one.
+	if cfg.SystemPrompt == "" {
+		var system []string
+		for _, item := range chat.Scenario {
+			if item.Role == "system" && literal(item.Prompt) {
+				system = append(system, item.Prompt)
+			}
+		}
+		cfg.SystemPrompt = strings.Join(system, "\n\n")
+	}
 }
 
 // UnknownLoopTools names the tools chat's loop: lists that reg does not have.
