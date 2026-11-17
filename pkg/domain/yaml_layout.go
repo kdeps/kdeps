@@ -235,7 +235,6 @@ var (
 			"toolChoice":                "tools.choice",
 			"maxToolRounds":             "tools.maxRounds",
 			"skills":                    "tools.skills",
-			"knowledge":                 "rag.knowledge",
 			"retrieverContext":          "rag.retriever.passages",
 			"retrieverContextTopK":      "rag.retriever.topK",
 			"retrieverContextMaxTokens": "rag.retriever.maxTokens",

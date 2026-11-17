@@ -2,7 +2,7 @@
 
 Persistent memory stores and recalls facts across agent sessions for one project. [Session storage](/workflow/sessions) is different: it persists across HTTP requests from one caller.
 
-Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts. The long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
+Persistent memory is an agent mode store. The memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts.
 
 ## How it works
 
@@ -15,16 +15,16 @@ created: 2026-10-15T09:12:03Z
 updated: 2026-10-15T09:12:03Z
 summary: Louvain first, Leiden later.
 references: ["fact:vault"]       # memory keys this entry depends on
-links: ["[[fact-vault]]"]          # the same, as links the knowledge graph follows
+links: ["[[fact-vault]]"]          # the same keys, as wiki links
 ---
 Louvain first, Leiden later.
 ```
 
-Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Older memory is in `~/.kdeps/memory/`. The first time that the memory of a folder loads, kdeps moves the older memory into the vault. It renames the old database to `memory.bolt.moved`.
+Memory lives in `~/.kdeps/notes/projects/<name>/memory/`. `<name>` is the base name of the working directory. Two folders with the same base name share one memory folder. Thinking and tool-result captures go in `memory/.auto/`. A note you write there by hand is an entry too, keyed by its title. Each entry has a key, a value, a type, timestamps, and optional references to other entries.
 
-Memory lives in the [knowledge vault](/agent/knowledge) as one markdown note per entry, in `<vault>/projects/<project>/memory/`. The project is the one whose card covers the folder, else one kdeps creates, named after the git repository root or folder. Thinking and tool-result captures go in a hidden `memory/.auto/` folder, outside the link graph. A note you write there by hand is an entry too, keyed by its title. Each entry has a key, value, type, timestamps and optional references to other entries.
+Older memory in `~/.kdeps/memory/` is copied into that folder once. kdeps then renames the old database to `memory.bolt.moved`.
 
-`KDEPS_MEMORY_GLOBAL=1` shares one store across every project, in `<vault>/shared/memory/`. Session storage (conversation history) stays per-directory either way.
+`KDEPS_MEMORY_GLOBAL=1` shares one store across every project, in `~/.kdeps/notes/shared/memory/`. Session storage stays per directory either way.
 
 Every turn gets one graph-ordered `<memory>` block, rebuilt and focused on that turn's request. It is not in the cached system prompt, so memory saved mid-session reaches the next turn. Entries appear in causal order with the newest unfinished task flagged, so a model taking over after a switch knows where to continue. Format: [Memory internals](/agent/memory-internals#prompt-injection).
 
@@ -163,7 +163,7 @@ Workflow resources can call `memory_list()` to list the keys. The agent loop doe
 
 ## Configuration
 
-Memory is on by default when the agent loop starts. You do not need YAML configuration. The store lives in `<vault>/projects/<project>/memory/` (default vault: `~/.kdeps/notes`).
+Memory is on by default when the agent loop starts. You do not need YAML configuration. The store lives in `~/.kdeps/notes/projects/<name>/memory/`. `<name>` is the base name of the working directory.
 
 ## See also
 

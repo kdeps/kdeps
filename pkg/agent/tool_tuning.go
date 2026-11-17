@@ -65,9 +65,6 @@ type ToolTuning struct {
 	// ContextSize persists the /context <size> choice. 0 means never
 	// configured.
 	ContextSize int
-	// KnowledgeOff persists /knowledge off (default on; off is not the zero
-	// value, so an older snapshot restores on).
-	KnowledgeOff bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
 	// since the last checkpoint that triggers an automatic fold). 0 means
 	// never configured -- applyConfigDefaults' default (2000) applies.
@@ -99,11 +96,6 @@ type ToolTuning struct {
 	// snapshot from before this field existed leaves llm.subagent in charge.
 	Subagent    string
 	SubagentSet bool
-	// KnowledgeBuild persists /knowledge build. KnowledgeBuildSet is the
-	// sentinel: a snapshot from before this field existed leaves knowledge.build
-	// in charge.
-	KnowledgeBuild    string
-	KnowledgeBuildSet bool
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -136,7 +128,6 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		PermissionMode:       string(c.PermissionMode),
 		ThinkingMode:         thinkingMode,
 		ContextSize:          r.contextSize,
-		KnowledgeOff:         r.loop.knowledgeOff,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
@@ -147,8 +138,6 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		PromptMode:           c.PromptMode,
 		Subagent:             c.Subagent,
 		SubagentSet:          c.SubagentSet,
-		KnowledgeBuild:       r.loop.knowledgeBuild,
-		KnowledgeBuildSet:    r.loop.knowledgeBuildSet,
 	}
 }
 
@@ -213,7 +202,6 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 		}
 		r.autoContextDetect = t.AutoContextDetect
 	}
-	r.loop.knowledgeOff = t.KnowledgeOff
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold
 	}
@@ -238,10 +226,6 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	if t.SubagentSet {
 		c.Subagent = t.Subagent
 		c.SubagentSet = true
-	}
-	if t.KnowledgeBuildSet {
-		r.loop.knowledgeBuild = t.KnowledgeBuild
-		r.loop.knowledgeBuildSet = true
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or

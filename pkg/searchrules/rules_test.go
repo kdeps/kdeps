@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package knowledge
+package searchrules
 
 import (
 	"os"
@@ -39,7 +39,7 @@ func TestSearchTokenizer_KeepsTheIndexTerms(t *testing.T) {
 }
 
 func TestParseSearchRules_RejectsBadValues(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "assets", knowledgeSet, searchItem+".yaml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "assets", searchSet, searchItem+".yaml"))
 	require.NoError(t, err)
 	_, err = parseSearchRules(data)
 	require.NoError(t, err)
@@ -52,10 +52,6 @@ func TestParseSearchRules_RejectsBadValues(t *testing.T) {
 		_, caseErr := parseSearchRules([]byte(text))
 		assert.Error(t, caseErr, name)
 	}
-	spec := knowledgeSpec()
-	require.Contains(t, spec.Required, searchItem)
-	require.NoError(t, spec.Validate(data, searchItem))
-	require.Error(t, spec.Validate([]byte("min_word_length: 0\n"), searchItem))
 }
 
 func TestSearchFilter_KeepsTheIndexRules(t *testing.T) {
@@ -87,7 +83,7 @@ func TestSearchLimits_KeepTheOldValues(t *testing.T) {
 	for n, want := range map[int]int{1: 1, 2: 1, 3: 2, 4: 2, 5: 3} {
 		assert.Equal(t, want, SearchLimitsNow().RecallMatches(n), "the old (n+1)/2 for %d words", n)
 	}
-	data, err := os.ReadFile(filepath.Join("..", "..", "assets", knowledgeSet, searchItem+".yaml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "assets", searchSet, searchItem+".yaml"))
 	require.NoError(t, err)
 	for name, from := range map[string]string{
 		"zero preview": "preview_chars: 240", "boost below 1": "graph_boost: 1.25",

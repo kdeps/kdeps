@@ -136,7 +136,7 @@ kdeps uses [Kartographer](https://github.com/kdeps/kartographer), a graph librar
 
 | Project | What it does | Where kdeps uses it |
 |---|---|---|
-| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library that resolves dependent nodes. | The link graph for `search_local` `graphBoost` and skill-library linking when those files are outside the knowledge vault. Inside the vault, both read the vault graph. |
+| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library that resolves dependent nodes. | The link graph for `search_local` `graphBoost` and for skill-library linking. |
 
 ## See also
 

@@ -27,8 +27,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 func notesStore(t *testing.T) *MemoryStore {
@@ -47,11 +45,9 @@ func TestMemoryNotes_RoundTrip(t *testing.T) {
 	file := filepath.Join(s.path, "decision-louvain.md")
 	data, err := os.ReadFile(file)
 	require.NoError(t, err)
-	note := knowledge.ParseNote("decision-louvain.md", data)
-	assert.Equal(t, "Louvain first.", note.Summary, "the summary is the first line")
-	require.Len(t, note.MetaLinks, 1)
-	assert.True(t, strings.HasSuffix(note.MetaLinks[0], "/memory/fact-vault"),
-		"references are full-path wikilinks the graph follows: %v", note.MetaLinks)
+	assert.Contains(t, string(data), "summary: Louvain first.")
+	assert.Contains(t, string(data), "[[")
+	assert.Contains(t, string(data), "memory/fact-vault")
 	assert.Contains(t, string(data), "key: decision:louvain")
 
 	again := NewMemoryStore(filepath.Dir(s.path))
@@ -111,18 +107,9 @@ func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	assert.Zero(t, parseMillis("nope"))
 	root := t.TempDir()
 	plain := filepath.Join(t.TempDir(), "plain")
-	assert.Equal(t, filepath.Join(root, "projects", "plain", "memory"), projectMemoryDir(root, plain),
-		"a place without a card: the project kdeps creates for it")
-	card, _, err := knowledge.Vault{
-		Root: root,
-	}.CreateProject(
-		"named",
-		knowledge.Layout().Sources.Folder,
-		plain,
-		time.Now(),
-	)
-	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(card.Dir(), "memory"), projectMemoryDir(root, filepath.Join(plain, "sub")))
+	assert.Equal(t, filepath.Join(root, "projects", "plain", "memory"), projectMemoryDir(root, plain))
+	assert.Equal(t, filepath.Join(root, "projects", "sub", "memory"),
+		projectMemoryDir(root, filepath.Join(plain, "sub")))
 	assert.Empty(t, legacyMemoryPath("x"), "tests never touch the real old store")
 
 	s := NewMemoryStore(t.TempDir())
@@ -134,45 +121,20 @@ func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	require.Error(t, s.migrateLegacy())
 }
 
-func TestMemoryStore_RebaseFollowsTheProject(t *testing.T) {
+func TestMemoryStore_RebaseKeepsTheFolder(t *testing.T) {
 	root := t.TempDir()
 	cwd := filepath.Join(t.TempDir(), "proj")
 	require.NoError(t, os.MkdirAll(cwd, 0o750))
-	v := knowledge.Vault{Root: root}
-	card, _, err := v.EnsureProject(cwd, time.Now())
-	require.NoError(t, err)
 	s := NewMemoryStore(root)
 	s.SetCwd(cwd)
 	require.NoError(t, s.Load())
 	require.NoError(t, s.Set("fact:a", "one"))
-	require.NoError(t, v.SetStatus(card, knowledge.Layout().Card.Archived, "", time.Now()))
-
 	s.Rebase()
-	assert.Equal(t, filepath.Join(root, "archive", "proj", "memory"), s.path)
-	require.NoError(t, s.Set("fact:b", "two"))
-	assert.FileExists(t, filepath.Join(root, "archive", "proj", "memory", "fact-a.md"))
-	assert.FileExists(t, filepath.Join(root, "archive", "proj", "memory", "fact-b.md"))
-	assert.NoDirExists(t, filepath.Join(root, "projects", "proj"), "nothing is written to the old place")
-	s.Rebase() // unchanged: nothing to do
+	assert.Equal(t, filepath.Join(root, "projects", "proj", "memory"), s.path)
+	assert.FileExists(t, filepath.Join(root, "projects", "proj", "memory", "fact-a.md"))
 
 	g := NewMemoryStore(root)
 	g.SetGlobal()
 	g.Rebase()
-	assert.Equal(t, filepath.Join(root, "shared", "memory"), g.path, "global memory never moves")
-}
-
-func TestProjectMemoryDir_FollowsTheNameClashRule(t *testing.T) {
-	root := t.TempDir()
-	v := knowledge.Vault{Root: root}
-	_, _, err := v.CreateProject("work", knowledge.Layout().Sources.Folder, "/elsewhere/work", time.Now())
-	require.NoError(t, err)
-	cwd := filepath.Join(t.TempDir(), "clash", "work")
-	require.NoError(t, os.MkdirAll(cwd, 0o750))
-	dir := projectMemoryDir(root, cwd)
-	card, created, err := v.EnsureProject(cwd, time.Now())
-	require.NoError(t, err)
-	assert.True(t, created)
-	assert.Equal(t, "clash-work", card.Name)
-	assert.Equal(t, filepath.Join(card.Dir(), "memory"), dir,
-		"memory saved before the project exists lands in the folder the project then gets")
+	assert.Equal(t, filepath.Join(root, "shared", "memory"), g.path)
 }

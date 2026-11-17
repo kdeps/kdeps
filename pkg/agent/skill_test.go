@@ -24,13 +24,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/kdeps/kartographer/graph"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 	"github.com/kdeps/kdeps/v3/pkg/skills"
 )
 
@@ -374,71 +372,6 @@ func TestComputeRelatedSkills_NewIndexedGraphError(t *testing.T) {
 	skills := []Skill{{Name: "a", Source: "/a/SKILL.md"}}
 	if got := computeRelatedSkills(t.Context(), skills, []string{"/a"}); got != nil {
 		t.Fatalf("expected nil on bbolt open error, got %v", got)
-	}
-}
-
-func TestComputeRelatedSkills_VaultNoteUsesKnowledgeGraph(t *testing.T) {
-	t.Setenv("KDEPS_CONFIG_PATH", "")
-	vault := knowledge.DefaultVault()
-	writeSkillFixture(t, filepath.Join(vault, "skillA"), "skillA", "",
-		"See [skillB](../skillB/SKILL.md).")
-	writeSkillFixture(t, filepath.Join(vault, "skillB"), "skillB", "", "No links here.")
-	if _, _, err := knowledge.Build(
-		t.Context(), knowledge.Vault{Root: vault}, knowledge.GraphDir(vault), time.Now(),
-	); err != nil {
-		t.Fatal(err)
-	}
-
-	// A corrupt scratch db would make the kartographer path return nothing.
-	// Vault notes must still resolve from the knowledge graph.
-	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
-	if err := os.WriteFile(dbPath, []byte("not a bbolt database"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Remove(dbPath) })
-
-	skills := discoverSkillsInDir(vault)
-	related := computeRelatedSkills(t.Context(), skills, []string{vault})
-	if got := related["skillA"]; len(got) != 1 || got[0] != "skillB" {
-		t.Fatalf("expected skillA related to [skillB] from the vault graph, got %v", got)
-	}
-	if got := related["skillB"]; len(got) != 1 || got[0] != "skillA" {
-		t.Fatalf("expected the reference to count in both directions, got %v", got)
-	}
-}
-
-func TestComputeRelatedSkills_VaultNoteBuildsGraph(t *testing.T) {
-	vault := t.TempDir()
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(cfgPath, []byte("knowledge:\n  vault: "+vault+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
-	writeSkillFixture(t, filepath.Join(vault, "skillA"), "skillA", "",
-		"See [skillB](../skillB/SKILL.md).")
-	writeSkillFixture(t, filepath.Join(vault, "skillB"), "skillB", "", "No links here.")
-	graphPath := knowledge.GraphPath(knowledge.GraphDir(vault))
-	if _, err := os.Stat(graphPath); !os.IsNotExist(err) {
-		t.Fatalf("graph must not exist yet, stat err=%v", err)
-	}
-
-	// A corrupt scratch db would make the kartographer path return nothing.
-	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
-	if err := os.WriteFile(dbPath, []byte("not a bbolt database"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Remove(dbPath) })
-
-	skills := discoverSkillsInDir(vault)
-	related := computeRelatedSkills(t.Context(), skills, []string{vault})
-	if _, err := os.Stat(graphPath); err != nil {
-		t.Fatalf("skill linking should build the vault graph: %v", err)
-	}
-	if got := related["skillA"]; len(got) != 1 || got[0] != "skillB" {
-		t.Fatalf("expected skillA related to [skillB] after an automatic build, got %v", got)
-	}
-	if got := related["skillB"]; len(got) != 1 || got[0] != "skillA" {
-		t.Fatalf("expected the reference to count in both directions, got %v", got)
 	}
 }
 

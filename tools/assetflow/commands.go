@@ -31,7 +31,7 @@ import (
 const rootLabel = "kdeps (agent loop)"
 
 // commandEntries maps the SSA name of each command's run function to the
-// command's label ("kdeps knowledge folders add").
+// command's label ("kdeps llm export iso").
 func commandEntries(root *cobra.Command) map[string]string {
 	out := map[string]string{}
 	var walk func(c *cobra.Command)

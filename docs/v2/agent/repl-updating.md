@@ -164,7 +164,7 @@ CI, Docker and scripts get no question. `KDEPS_PROFILE` names the profile (`KDEP
 
 ### What a profile installs later
 
-A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the `normal` theme, the loop's required tools and harness, and 21 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `harness`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
+A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the `normal` theme, the loop's required tools and harness, and 19 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `harness`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
 
 ```text
 $ KDEPS_PROFILE=minimum kdeps
@@ -178,7 +178,7 @@ When files download, a terminal writes one line again and again, as in `minimum 
 kdeps gives the name of an item that fails for a different reason. If other items installed, kdeps continues and shows the profile again (`Profile: full (every asset set)`). If no items installed, kdeps stops. It tells you to run `kdeps profile` when you are online.
 
 - Sets with no necessary items (`events`, `actions`, `presets`) stay empty. kdeps records them as empty in `lock.json`, so the next start makes no network call.
-- If a necessary item is not installed when code reads it, kdeps installs it one time, on first use. The terminal shows its name: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).
+- If a necessary item is not installed when code reads it, kdeps installs it one time, on first use. The terminal shows its name: `Installed knowledge/search 1.3.2 (first use).` (the first local search).
 - A Go built-in command (`builtin: true`) runs without its file. The file only adds it to `/help`.
 - A YAML command (`run:`, `setting:` or `subcommands:`, such as `/review`) exists only when installed. `kdeps install commands/review` adds `/review`. `kdeps install commands` adds all.
 - You cannot uninstall a necessary item.

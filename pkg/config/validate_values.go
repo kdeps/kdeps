@@ -53,13 +53,6 @@ func (c *Config) validateValues() []string {
 		warnings = append(warnings, validateDuration(field.path, field.value)...)
 	}
 
-	if c.Knowledge != nil && c.Knowledge.Recall.Hops > 2 {
-		warnings = append(warnings, fmt.Sprintf(
-			"knowledge.recall.hops %d exceeds the supported range; use 1 or 2",
-			c.Knowledge.Recall.Hops,
-		))
-	}
-
 	return warnings
 }
 

@@ -232,8 +232,6 @@ chat:
     name: fake
   context:
     prompt: "E2E-WORKFLOW-PROMPT {{ input('fileContent') }}"
-  rag:
-    knowledge: false
 YAML
 cat > "$SA_WF/resources/echo.yaml" <<'YAML'
 actionId: echo

@@ -52,6 +52,9 @@ func harnessText(name string) string {
 	return ""
 }
 
+// HarnessText returns a standalone harness prompt by name.
+func HarnessText(name string) string { return harnessText(name) }
+
 // HarnessEnabled reports whether a registered harness section is active. An
 // unregistered name fails open (true) -- a missing/corrupt registry entry
 // should never silently disable behavior; only an explicit "disabled: true"

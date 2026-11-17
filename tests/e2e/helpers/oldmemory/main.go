@@ -17,7 +17,7 @@
 // license notices and attribution when redistributing derived code.
 
 // Command oldmemory writes a memory database in the layout kdeps used before
-// memory moved into the knowledge vault (~/.kdeps/memory/<encoded dir>/
+// memory moved into markdown notes (~/.kdeps/memory/<encoded dir>/
 // memory.bolt), so the E2E tests can check the one-time move.
 //
 //	go run ./tests/e2e/helpers/oldmemory <home> <project dir> <key> <value>

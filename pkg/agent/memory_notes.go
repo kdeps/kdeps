@@ -37,14 +37,11 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/yaml.v3"
-
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
-// Memory lives in the knowledge vault as markdown notes, one per entry:
-// <vault>/projects/<project>/memory/<key>.md. High-churn auto-captures
-// (thinking, tool results) go in memory/.auto/, hidden: in the
-// vault, out of the link graph.
+// Memory lives as markdown notes, one per entry:
+// <root>/projects/<project>/memory/<key>.md. High-churn auto-captures
+// (thinking, tool results) go in memory/.auto/.
 const (
 	memoryGlobalName  = "global"
 	memoryHashLen     = 6
@@ -52,6 +49,10 @@ const (
 	legacyMovedSuffix = ".moved"
 	memoryDirPerm     = 0o750
 	memoryFilePerm    = 0o600
+	memoryProjects    = "projects"
+	memoryShared      = "shared"
+	memoryFolder      = "memory"
+	memoryAutoFolder  = ".auto"
 )
 
 var memorySlugRe = regexp.MustCompile(`[^\p{L}\p{N}._-]+`)
@@ -68,10 +69,16 @@ type memoryNote struct {
 	Links      []string `yaml:"links,omitempty"`
 }
 
-// defaultMemoryRoot is the configured vault.
+// defaultMemoryRoot is ~/.kdeps/notes. Tests get a per-process temp folder.
 func defaultMemoryRoot() string {
-	vault, _ := knowledge.Configured()
-	return vault
+	if testing.Testing() {
+		return filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-test-notes-%d", os.Getpid()))
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(os.TempDir(), "kdeps-notes")
+	}
+	return filepath.Join(home, ".kdeps", "notes")
 }
 
 // legacyMemoryPath is where the old store kept folder name's database
@@ -84,21 +91,27 @@ func legacyMemoryPath(name string) string {
 	return filepath.Join(home, memoryDir, name, legacyMemoryFile)
 }
 
-// projectMemoryDir is a working directory's memory folder in the vault at root:
-// the memory/ folder of the project whose card covers cwd, else of the
-// project kdeps creates for cwd on its first turn.
+// projectMemoryDir is a working directory's memory folder under root.
+// The project name is the folder's base name.
 func projectMemoryDir(root, cwd string) string {
-	v := knowledge.Vault{Root: root}
-	if c := v.CardForDir(cwd); c != nil {
-		return filepath.Join(c.Dir(), knowledge.Layout().Project.Memory)
+	name := filepath.Base(filepath.Clean(cwd))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		name = "project"
 	}
-	name, _, _ := v.NewProjectName(cwd)
-	return filepath.Join(root, knowledge.Layout().Folders.Projects, name, knowledge.Layout().Project.Memory)
+	return filepath.Join(root, memoryProjects, name, memoryFolder)
 }
 
-// vaultRoot is the vault the store writes into: its base path, unless the
-// store is global or rooted elsewhere.
-func (m *MemoryStore) vaultRoot() string { return m.basePath }
+// noteRoot is the folder memory notes are written under.
+func (m *MemoryStore) noteRoot() string { return m.basePath }
+
+// memoryWikiLink is a link to file, written from the memory root.
+func memoryWikiLink(root, file string) string {
+	rel, err := filepath.Rel(root, file)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		rel = filepath.Base(file)
+	}
+	return "[[" + strings.TrimSuffix(filepath.ToSlash(rel), ".md") + "]]"
+}
 
 // memorySlug turns a key into a file name.
 func memorySlug(key string) string {
@@ -119,7 +132,7 @@ func (m *MemoryStore) noteFile(e MemoryEntry) string {
 	}
 	dir := m.path
 	if e.Type == memTypeThinking || e.Type == memTypeToolResult {
-		dir = filepath.Join(m.path, knowledge.Layout().Project.Auto)
+		dir = filepath.Join(m.path, memoryAutoFolder)
 	}
 	f := filepath.Join(dir, memorySlug(e.Key)+".md")
 	for other, of := range m.files {
@@ -141,7 +154,7 @@ func (m *MemoryStore) renderNote(e MemoryEntry) string {
 	}
 	for _, ref := range e.References {
 		if f, ok := m.files[ref]; ok {
-			n.Links = append(n.Links, knowledge.WikiLink(m.vaultRoot(), f))
+			n.Links = append(n.Links, memoryWikiLink(m.noteRoot(), f))
 		}
 	}
 	head, _ := yaml.Marshal(n)
@@ -268,8 +281,8 @@ func (m *MemoryStore) saveNotes(entries []MemoryEntry) error {
 	return nil
 }
 
-// migrateLegacy moves the old database's entries into the vault once: they
-// become notes, and the database is renamed so it is never read again.
+// migrateLegacy copies the old database's entries into markdown notes once.
+// The database is renamed so it is never read again.
 func (m *MemoryStore) migrateLegacy() error {
 	if m.legacy == "" {
 		return nil

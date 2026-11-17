@@ -17,7 +17,7 @@ AQ_DIR=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$AQ_DIR"' EXIT
 native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$AQ_DIR/home/.kdeps" "$AQ_DIR/work"
-printf 'knowledge:\n  enabled: false\n' > "$AQ_DIR/home/.kdeps/config.yaml"
+: > "$AQ_DIR/home/.kdeps/config.yaml"
 
 before=$(wc -c < "$E2E_MOCK_LLM_LOG")
 OUT=$(cd "$AQ_DIR/work" && printf '%s\n' \
