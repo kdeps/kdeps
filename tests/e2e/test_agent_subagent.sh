@@ -18,7 +18,7 @@ SA_DIR=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$SA_DIR"' EXIT
 native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$SA_DIR/home/.kdeps" "$SA_DIR/work"
-printf 'knowledge:\n  enabled: false\n' > "$SA_DIR/home/.kdeps/config.yaml"
+: > "$SA_DIR/home/.kdeps/config.yaml"
 
 # run_turn sends one line to a fresh session and prints the mock requests it made.
 run_turn() {

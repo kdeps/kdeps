@@ -17,7 +17,7 @@ AP_DIR=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$AP_DIR"' EXIT
 native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$AP_DIR/home/.kdeps" "$AP_DIR/work"
-printf 'knowledge:\n  enabled: false\n' > "$AP_DIR/home/.kdeps/config.yaml"
+: > "$AP_DIR/home/.kdeps/config.yaml"
 
 OUT=$(cd "$AP_DIR/work" && printf '%s\n' \
     'CALL approval_request {"tool_name":"bash_exec","action":"e2e-approve-marker"}' \

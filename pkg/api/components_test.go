@@ -189,8 +189,7 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 // API reaches each through the session_ops tool operation, whose asset names
 // them.
 var sessionOpsTools = []string{ //nolint:gochecknoglobals // fixed list
-	"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
-	"knowledge_note_save", "knowledge_recall", "load_skill", "load_tools",
+	"identity_get", "judge_verdict", "load_skill", "load_tools",
 	"subagent", "ask_question",
 }
 

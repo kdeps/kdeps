@@ -83,7 +83,6 @@ kdeps --agent-loop [path] [flags]
 | `--prompt` | (none) | Path to a prompt templates directory (repeatable) |
 | `--resume` | (none) | Session ID to resume directly (skips the picker) |
 | `--new` | false | Start clean, skipping this folder's resume picker |
-| `--index` | (none) | Search a folder outside the project with it (repeatable): added to the card and indexed first. See [search folders](/agent/knowledge#search-folders) |
 | `--theme` | `normal` | REPL palette. Only `normal` applies. |
 | `--debug` | false | Enable debug logging |
 
@@ -131,7 +130,7 @@ kdeps --agent-loop --resume abc123def456                      # resume a session
 | Built-in tool catalog, permission modes, lean mode | [Built-in tools](/agent/tools) |
 | Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
 | Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
-| Subagents: the `subagent` tool and knowledge extraction | [Subagents](/agent/subagent) |
+| Subagents: the `subagent` tool | [Subagents](/agent/subagent) |
 | Review of a workflow chat answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |

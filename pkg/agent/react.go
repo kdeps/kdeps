@@ -121,7 +121,6 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 
 	l.session.Append(input, finalAnswer)
 	l.resumeNote = ""
-	l.UpdateSessionNote()
 
 	// Auto-extract facts from the turn into persistent memory.
 	if l.memoryStore != nil {

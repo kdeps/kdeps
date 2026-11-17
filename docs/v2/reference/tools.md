@@ -344,7 +344,6 @@ These tools read or change the state of the active agent session. The tools rout
 
 - `judge_verdict` - judge verdict state
 - `identity_get`, `load_skill`, `load_tools` - agent identity, skill loading, and loading tool definitions on demand ([details](/agent/repl-context#tool-definitions-on-demand))
-- `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
 - `session_ops` - read, clear, or compact the live session. Get or set session settings. Run the tools that exist only in the session (`tool` operation). `/clear`, `/compact`, `/history`, `/copy`, and all setting commands use it (kdeps API only; the model cannot call it)
 
 A call with no agent session running returns `<tool>: no active agent session (agent-mode tool)`. They have no workflow component, so they are not in `components/`.

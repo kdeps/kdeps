@@ -94,7 +94,7 @@ func NewGenerator() (*Generator, error) {
 
 // GenerateProject creates a new project from a Jinja2 template.
 //
-//kdeps:flow templates: kdeps new, or the knowledge vault's first use > [the template is rendered] > the project or vault files are written
+//kdeps:flow templates: kdeps new > [the template is rendered] > the project files are written
 func (g *Generator) GenerateProject(
 	templateName string,
 	outputDir string,

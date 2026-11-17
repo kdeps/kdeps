@@ -40,7 +40,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/searchrules"
 )
 
 //nolint:gochecknoglobals // enables test injection for filesystem and output
@@ -78,7 +78,7 @@ func QueryIndex(dir, query string, limit int) []Hit {
 	if !fileExists(dbPath) || limit <= 0 {
 		return nil
 	}
-	tok, tokErr := knowledge.SearchTokenizer()
+	tok, tokErr := searchrules.SearchTokenizer()
 	if tokErr != nil {
 		return nil
 	}
@@ -118,42 +118,32 @@ func graphDBPath(dir string) string {
 
 // graphBoostFactor multiplies the score of a result linked from, or sharing a
 // topic with, a top-ranked seed result (search.yaml limits.graph_boost).
-func graphBoostFactor() float64 { return knowledge.SearchLimitsNow().GraphBoost }
+func graphBoostFactor() float64 { return searchrules.SearchLimitsNow().GraphBoost }
 
 // graphBoostSeedCount is how many top-ranked results seed the graph lookup
 // (search.yaml limits.graph_boost_seeds).
-func graphBoostSeedCount() int { return knowledge.SearchLimitsNow().GraphBoostSeeds }
+func graphBoostSeedCount() int { return searchrules.SearchLimitsNow().GraphBoostSeeds }
 
 // maxFileSize is the largest file (bytes) read and indexed (limits.max_file_size).
-func maxFileSize() int64 { return knowledge.SearchLimitsNow().MaxFileSize }
+func maxFileSize() int64 { return searchrules.SearchLimitsNow().MaxFileSize }
 
 // previewMax is how many characters of a file its index preview keeps (limits.preview_chars).
-func previewMax() int { return knowledge.SearchLimitsNow().PreviewChars }
+func previewMax() int { return searchrules.SearchLimitsNow().PreviewChars }
 
 // snippetContext is the characters of context around a match (limits.snippet_context).
-func snippetContext() int { return knowledge.SearchLimitsNow().SnippetContext }
+func snippetContext() int { return searchrules.SearchLimitsNow().SnippetContext }
 
-// boostByGraph re-ranks results before the final sort. When config.Path is
-// inside the knowledge vault, the structural graph is brought current (no
-// model call) and the boost reads those edges. It does not build graph.db:
-// an extracted reference multiplies the score by graphBoostFactor(), and a
-// weaker edge multiplies by less (search.Boost scales by its weight). Any other folder, or
-// a vault graph that cannot be built, uses a kartographer reference/topic
-// graph, and every connected document gets the full factor. Never returns
-// an error -- graph boosting is a ranking enhancement, not a correctness
-// requirement, so any graph failure just leaves the TF-IDF ranking untouched.
+// boostByGraph re-ranks results before the final sort. A kartographer
+// reference or topic graph links documents, and every connected document
+// gets graphBoostFactor(). A graph failure leaves the TF-IDF ranking as it is.
 func boostByGraph(
-	ctx context.Context,
+	_ context.Context,
 	config *domain.SearchLocalConfig,
 	results []kgsearch.SearchResult,
 ) []kgsearch.SearchResult {
 	if len(results) == 0 {
 		return results
 	}
-	if boosted, ok := boostByKnowledge(ctx, config, results); ok {
-		return boosted
-	}
-
 	dbPath := graphDBPath(config.Path)
 	if err := AppFS.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
 		return results
@@ -177,45 +167,6 @@ func boostByGraph(
 		return 0
 	})
 	return results
-}
-
-// boostByKnowledge re-ranks results from the vault graph. ok is false when
-// this folder is outside the vault or the structural graph cannot be built,
-// so the caller falls back to kartographer.
-func boostByKnowledge(
-	ctx context.Context,
-	config *domain.SearchLocalConfig,
-	results []kgsearch.SearchResult,
-) ([]kgsearch.SearchResult, bool) {
-	vault, _ := knowledge.Configured()
-	if !knowledge.PathInVault(vault, config.Path) {
-		return nil, false
-	}
-	if err := knowledge.Ensure(ctx, vault); err != nil {
-		return nil, false
-	}
-	ix := knowledge.SharedIndex(knowledge.GraphDir(vault))
-	if ix == nil {
-		return nil, false
-	}
-	seedCount := graphBoostSeedCount()
-	if seedCount > len(results) {
-		seedCount = len(results)
-	}
-	weight := map[string]float64{}
-	for _, seed := range results[:seedCount] {
-		for _, link := range knowledge.LinksFrom(ix, vault, seed.Document.Path) {
-			if link.Weight > weight[link.Path] {
-				weight[link.Path] = link.Weight
-			}
-		}
-	}
-	// A tag edge (weight 0.3) or a low-confidence inferred edge moves the score
-	// less than an extracted reference (weight 1).
-	kgsearch.Boost(results, graphBoostFactor(), func(path string) float64 {
-		return weight[filepath.Clean(path)]
-	})
-	return results, true
 }
 
 // graphConnectedSet returns every document path linked from, or sharing a
@@ -247,14 +198,14 @@ func graphConnectedSet(ig *graph.IndexedGraph, results []kgsearch.SearchResult) 
 // skipWalkEntry returns true if the walk entry should be skipped (search.yaml's
 // skip rules). Without the rules nothing is walked.
 func skipWalkEntry(d os.DirEntry) bool {
-	f, err := knowledge.SearchFilter()
+	f, err := searchrules.SearchFilter()
 	return err != nil || f.SkipEntry(d.Name())
 }
 
 // isIndexableExt returns true if a file is indexed (search.yaml's extensions,
 // never a secret). Without the rules nothing is.
 func isIndexableExt(name string) bool {
-	f, err := knowledge.SearchFilter()
+	f, err := searchrules.SearchFilter()
 	return err == nil && f.Indexable(name)
 }
 
@@ -263,14 +214,14 @@ func isIndexableExt(name string) bool {
 // reaches a prompt through search_local or recall. Without the rules every
 // file counts as one.
 func IsSecretFile(path string) bool {
-	f, err := knowledge.SearchFilter()
+	f, err := searchrules.SearchFilter()
 	return err != nil || f.Secret(path)
 }
 
 // docOptions is how a file becomes a search document: search.yaml's tokenizer,
 // size limit and preview; kartographer reads PDF and office documents as text.
 func docOptions() (kgsearch.DocOptions, error) {
-	tok, err := knowledge.SearchTokenizer()
+	tok, err := searchrules.SearchTokenizer()
 	if err != nil {
 		return kgsearch.DocOptions{}, err
 	}
@@ -300,7 +251,7 @@ func (e *Executor) walkIndex(root string, glob string, idx *kgsearch.InvertedInd
 	if err != nil {
 		return 0, err
 	}
-	filter, err := knowledge.SearchFilter()
+	filter, err := searchrules.SearchFilter()
 	if err != nil {
 		return 0, err
 	}
@@ -396,7 +347,7 @@ func generateSnippet(filePath, query string) string {
 	defer f.Close()
 
 	// Read up to 512 KiB — enough to find the query in any text file.
-	buf := make([]byte, knowledge.SearchLimitsNow().SnippetReadBytes)
+	buf := make([]byte, searchrules.SearchLimitsNow().SnippetReadBytes)
 	n, _ := io.ReadFull(f, buf)
 	if n == 0 {
 		return ""
@@ -446,7 +397,7 @@ func (e *Executor) indexInto(root string, paths []string, inRootOnly bool) {
 	if err != nil {
 		return
 	}
-	filter, err := knowledge.SearchFilter()
+	filter, err := searchrules.SearchFilter()
 	if err != nil {
 		return
 	}
@@ -553,7 +504,7 @@ func (e *Executor) executeIndexed(
 		}), nil
 	}
 
-	tok, tokErr := knowledge.SearchTokenizer()
+	tok, tokErr := searchrules.SearchTokenizer()
 	if tokErr != nil {
 		return nil, tokErr
 	}

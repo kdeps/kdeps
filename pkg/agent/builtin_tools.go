@@ -693,7 +693,7 @@ func registerMemoryTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerMemoryDeleteTool(ctx, reg)
 }
 
-// memoryAPIStore is the agent vault as the API memory interface.
+// memoryAPIStore is the agent memory store as the API memory interface.
 type memoryAPIStore struct{ store *MemoryStore }
 
 func (m memoryAPIStore) Set(key, value string) error { return m.store.Set(key, value) }

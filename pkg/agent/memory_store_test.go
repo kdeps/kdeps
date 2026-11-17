@@ -30,8 +30,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
@@ -42,8 +40,7 @@ import (
 func TestNewMemoryStore_Defaults(t *testing.T) {
 	store := NewMemoryStore("")
 	require.NotNil(t, store)
-	// basePath is the knowledge vault; each project keeps its memory/ folder.
-	assert.Equal(t, knowledge.DefaultVault(), store.basePath)
+	assert.Equal(t, defaultMemoryRoot(), store.basePath)
 	assert.True(t, store.migrate, "the default root moves the old database in once")
 
 	// empty basePath with no home

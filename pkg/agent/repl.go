@@ -1576,7 +1576,6 @@ func historyPath() string {
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
 	defer r.loopCancel()
-	defer r.writeSessionNoteOnExit()
 	defer r.autoSaveOnExit()
 	defer resetTerminal()
 
@@ -3324,36 +3323,11 @@ func (r *REPL) autoSaveOnExit() {
 			"(--resume "+id+")."))
 }
 
-// writeSessionNoteOnExit writes the knowledge vault's note for the turns
-// since the last one. The loop context may already be cancelled by /exit;
-// the note is still written, bounded by its own timeout.
-//
-// Only an interactive terminal session pays for it: a piped or scripted
-// session exits at once (its compactions still write notes, which cost no
-// extra model call).
-func (r *REPL) writeSessionNoteOnExit() {
-	if !r.loop.SessionNoteDue() || !stdinIsTerminal() {
-		return
-	}
-	// The note and the extract each get their own clock. One shared budget
-	// let the note and the background pass use it up, then the extract's
-	// calls died as "context deadline exceeded" and were counted as failed notes.
-	noteCtx, noteCancel := context.WithTimeout(context.WithoutCancel(r.loopCtx), sessionNoteTimeout)
-	fmt.Fprintln(os.Stdout, styleReplDim.Render("Writing the session note to the knowledge vault..."))
-	r.loop.WriteSessionNoteNow(noteCtx, os.Stdout)
-	noteCancel()
-	r.loop.ExtractKnowledge(context.WithoutCancel(r.loopCtx), os.Stdout, false)
-}
-
 // stdinIsTerminal reports whether the session reads a real terminal
 // (test-replaceable).
 //
 //nolint:gochecknoglobals // test-replaceable
 var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
-
-// sessionNoteTimeout bounds the session-end note. Extraction has its own
-// timeout, applied after the note and after any background pass still running.
-const sessionNoteTimeout = 2 * time.Minute
 
 // cmdEditor opens $EDITOR (fallback: $VISUAL, then vi) with a temp file so the
 // user can compose a multi-line prompt. On save+quit the file content is

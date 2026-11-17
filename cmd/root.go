@@ -175,11 +175,6 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 		&flags.Theme, "theme", "",
 		"REPL theme: normal (default), black, linux, vim, emacs, or a custom name from ~/.kdeps/themes/",
 	)
-	rootCmd.Flags().StringArrayVar(
-		&flags.Index, "index", nil,
-		"Search a folder with this project: add it to the project card and index it before "+
-			"the session starts (can be specified multiple times)",
-	)
 	rootCmd.Flags().StringVar(
 		&flags.Konfig, "konfig", "",
 		"Import a konfig file (tuning, harness, themes, skills) before starting, "+
@@ -224,7 +219,7 @@ const agentLoopFlag = "agent-loop"
 
 //nolint:gochecknoglobals // fixed list
 var agentLoopOnlyFlags = []string{
-	"model", "backend", "base-url", "system", "skill", "resume", "new", "theme", "index", "konfig",
+	"model", "backend", "base-url", "system", "skill", "resume", "new", "theme", "konfig",
 }
 
 // changedAgentLoopFlag names an agent-REPL flag set without --agent-loop.
@@ -283,7 +278,6 @@ var commandSets = map[string][]string{
 	"llamafile": {"models"},
 	"chat":      append(slices.Clone(assets.BaseSets), assets.AgentSets...),
 	"konfig":    append(slices.Clone(assets.BaseSets), assets.AgentSets...),
-	"knowledge": {"templates"},
 }
 
 // setsFor returns the sets cmd loads, and false for a command that loads none.
@@ -449,7 +443,6 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newKonfigCmd())
-	addCommandToGroup(rootCmd, groupDevelop, newKnowledgeCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newInstrumentCmd())
 }
 

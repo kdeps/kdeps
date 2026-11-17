@@ -102,32 +102,6 @@ func TestHarnessCommand_ThroughTheAPI(t *testing.T) {
 	require.ErrorContains(t, err, "unknown preset")
 }
 
-// /recall and /knowledge are YAML commands: with the vault disabled in config
-// both report why through the commands API.
-func TestKnowledgeCommands_ThroughTheAPI(t *testing.T) {
-	t.Cleanup(agent.ReloadAssets)
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	agent.ReloadAssets()
-
-	loop := agent.New(
-		t.Context(),
-		executor.NewEngine(context.Background(), nil),
-		nil,
-		kdepstools.NewRegistry(),
-		agent.Config{Model: "m"},
-	)
-	repl := agent.NewREPL(t.Context(), loop)
-	repl.RegisterCommandAPI()
-	t.Cleanup(func() { api.SetSessionOps(nil) })
-
-	for _, name := range []string{"recall", "knowledge"} {
-		_, err := api.CallCommand(t.Context(), name, map[string]any{"args": []string{}})
-		require.ErrorContains(t, err, "knowledge.enabled: false", name)
-	}
-}
-
 // /prompt and /context are YAML commands: before any LLM call /prompt says
 // so, and a cloud backend refuses /context with the reason.
 func TestPromptAndContextCommands_ThroughTheAPI(t *testing.T) {

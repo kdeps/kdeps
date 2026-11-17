@@ -293,31 +293,6 @@ chat:
     contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
 ```
 
-## Knowledge recall
-
-Every `chat` call adds [knowledge vault](/agent/knowledge) notes related to its prompt by default. kdeps refreshes the structural graph (links, tags, frontmatter; no model call).
-
-kdeps follows the graph from the words of the prompt. Then it puts the best note paths and summaries in a system message after the system prompt. The recall token budget sets the limit. kdeps adds nothing when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/agent/knowledge#workflow-mode)).
-
-<div v-pre>
-
-```yaml
-# resources/answer.yaml
-actionId: answer
-name: Answer
-chat:
-  model:
-    name: llama3.2:1b
-  context:
-    prompt: "{{ get('q') }}"
-  rag:
-    knowledge: false     # skip recall for this call; default true
-```
-
-</div>
-
-`knowledge.enabled: false` in `~/.kdeps/config.yaml` turns recall off for every call.
-
 ## Scenario (conversation history)
 
 Build multi-turn conversations:
@@ -602,7 +577,7 @@ chat:
 
 An unknown name, or a tool that needs a live agent session (`session_ops`), fails the resource.
 
-The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the memory store of the run. For this reason, start the workflow with `kdeps run --memory`. Without it, they answer that no store is configured. `knowledge_recall` reads the [knowledge vault](/agent/knowledge) notes related to a query, as in agent mode.
+The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the memory store of the run. For this reason, start the workflow with `kdeps run --memory`. Without it, they answer that no store is configured.
 
 A chat can use an OpenRouter free model (`backend: openrouter`, an id ending in `:free`). If the provider rate-limits or refuses the request, the chat moves to the next free id, as in agent mode (`openrouter-provider-limit`, `openrouter-refusal` events). It stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue with agent mode.
 

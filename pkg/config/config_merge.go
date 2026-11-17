@@ -33,9 +33,6 @@ func mergeConfig(dst *Config, src *Config) {
 	if src.Identity != nil {
 		dst.Identity = src.Identity
 	}
-	if src.Knowledge != nil {
-		dst.Knowledge = src.Knowledge
-	}
 }
 
 // setStrIfNotEmpty copies src to *dst when src is non-empty.

@@ -45,7 +45,7 @@ func SetSessionToolBackend(backend SessionToolBackend) {
 }
 
 // callSessionTool runs a tool that exists only in the active agent session
-// (judge_verdict, knowledge_*, load_skill, load_tools, identity_get,
+// (judge_verdict, load_skill, load_tools, identity_get,
 // subagent, ask_question):
 // the session_ops tool operation. A tool the kdeps API serves on its own
 // route is refused, so session_ops reaches nothing else.

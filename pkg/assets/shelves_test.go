@@ -56,7 +56,6 @@ func TestCategory_Overrides(t *testing.T) {
 		"tools/bash_exec":           ShelfTools,
 		"tools/web_search":          ShelfTools,
 		"tools/memory_save":         ShelfMemory,
-		"tools/knowledge_recall":    ShelfMemory,
 		"harness/memory":            ShelfMemory,
 		"events/memory-keys-limit":  ShelfMemory,
 		"tools/embedding_search":    ShelfRag,

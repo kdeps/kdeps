@@ -27,7 +27,7 @@ import (
 	kgsearch "github.com/kdeps/kartographer/search"
 	kgtext "github.com/kdeps/kartographer/text"
 
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
+	"github.com/kdeps/kdeps/v3/pkg/searchrules"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
@@ -112,7 +112,7 @@ func (e *Executor) delete(ctx context.Context, db *sql.DB, collection, text stri
 // at most limit of them. Words are split by search.yaml's tokenizer, so word
 // forms meet by stem the way the local search index matches them.
 func searchTexts(ctx context.Context, db *sql.DB, collection, query string, limit int) ([]string, error) {
-	tok, err := knowledge.SearchTokenizer()
+	tok, err := searchrules.SearchTokenizer()
 	if err != nil {
 		return nil, fmt.Errorf("embedding: search rules: %w", err)
 	}

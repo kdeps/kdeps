@@ -18,7 +18,7 @@ TS_DIR=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$TS_DIR"' EXIT
 native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$TS_DIR/home/.kdeps" "$TS_DIR/work"
-printf 'knowledge:\n  enabled: false\n' > "$TS_DIR/home/.kdeps/config.yaml"
+: > "$TS_DIR/home/.kdeps/config.yaml"
 
 before=$(wc -c < "$E2E_MOCK_LLM_LOG")
 (cd "$TS_DIR/work" && printf 'CALL load_tools {"names":"git_ops"}\n/quit\n' \

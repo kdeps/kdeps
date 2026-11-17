@@ -6,7 +6,7 @@ Each directory where you start `kdeps --agent-loop` has its own conversation his
 
 kdeps keeps conversations and agent memory **separately for each directory where
 you start `kdeps --agent-loop`**. Conversations go in `~/.kdeps/sessions/<folder>/`. Memory
-goes as notes in `Memory/<project>/` of the knowledge vault (see
+goes as notes in `~/.kdeps/notes/projects/<name>/memory/` (see
 [Persistent memory](/agent/memory)). When you `cd` into a project, `kdeps` sees
 the history of that folder. A different folder starts with no history. kdeps
 writes nothing into the project directory.
