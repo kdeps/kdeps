@@ -211,7 +211,7 @@ func TestSetHarnessEnabled_PreservesSummary(t *testing.T) {
 
 func TestSetHarnessEnabled_DisableThenEnableRoundTrips(t *testing.T) {
 	isolateHarnessHome(t)
-	const name = "handshake"
+	const name = "branch-summary"
 	require.True(t, HarnessEnabled(name))
 
 	require.NoError(t, SetHarnessEnabled(name, false))

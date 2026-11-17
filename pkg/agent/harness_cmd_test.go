@@ -70,11 +70,11 @@ func TestCmdHarness_EnableDisableRoundTrip(t *testing.T) {
 	isolateHarnessAndEventsHome(t)
 	repl := newHarnessTestREPL(t)
 
-	require.NoError(t, repl.dispatchCommand("/harness disable handshake"))
-	assert.False(t, HarnessEnabled("handshake"))
+	require.NoError(t, repl.dispatchCommand("/harness disable branch-summary"))
+	assert.False(t, HarnessEnabled("branch-summary"))
 
-	require.NoError(t, repl.dispatchCommand("/harness enable handshake"))
-	assert.True(t, HarnessEnabled("handshake"))
+	require.NoError(t, repl.dispatchCommand("/harness enable branch-summary"))
+	assert.True(t, HarnessEnabled("branch-summary"))
 }
 
 func TestCmdHarness_DisableUnknownSectionReportsError(t *testing.T) {
