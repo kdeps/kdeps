@@ -18,7 +18,7 @@
 
         <a href="/deploy/binaries" class="kd-stagger card" style="--i: 1">
           <h3>Edge &amp; air-gapped AI</h3>
-          <p>Ship the model and workflow as a bootable ISO or one binary. It runs on a disconnected edge device. It needs no external AI service and no network at inference time.</p>
+          <p>Ship the model and the workflow as a bootable ISO or one binary. Write the ISO to a USB stick. It runs on a disconnected device, with no network at inference time.</p>
           <span class="tag">edge &middot; offline</span>
         </a>
 

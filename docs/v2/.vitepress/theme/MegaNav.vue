@@ -66,18 +66,17 @@ const categories: MenuCategory[] = [
   },
   {
     key: 'agent',
-    label: 'AI Code Agents',
+    label: 'Agents',
     link: '/agent/',
     groups: [{
       items: [
         { title: 'Overview', desc: 'A chat with loop: in a workflow; kdeps --agent-loop opens it as a REPL', link: '/agent/' },
         { title: 'Quickstart', desc: 'Run your first agent', link: '/agent/quickstart' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools that the LLM can call', link: '/agent/tools' },
-        { title: 'Subagents', desc: 'A fresh loop for one task. Knowledge extraction uses the same model', link: '/agent/subagent' },
+        { title: 'Subagents', desc: 'A fresh loop for one task. It sees only that task', link: '/agent/subagent' },
         { title: 'Judge panel', desc: 'Reviews a workflow chat answer before the resource finishes', link: '/agent/judges' },
         { title: 'Persistent memory', desc: 'Facts and decisions that stay across sessions', link: '/agent/memory' },
-        { title: 'Knowledge vault', desc: 'Opt-in recall of your notes; knowledge.index searches your docs', link: '/agent/knowledge' },
-        { title: 'Skills & prompt templates', desc: 'Reusable instructions that the agent loads when necessary', link: '/agent/skills' },
+        { title: 'Skills and prompt templates', desc: 'Reusable instructions that the agent loads when necessary', link: '/agent/skills' },
       ],
     }],
   },

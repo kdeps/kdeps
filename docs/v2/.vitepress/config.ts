@@ -152,7 +152,6 @@ export default defineConfig({
           items: [
             { text: 'Persistent memory', link: '/agent/memory' },
             { text: 'Memory internals', link: '/agent/memory-internals' },
-            { text: 'Knowledge vault', link: '/agent/knowledge' },
             { text: 'Skills and prompt templates', link: '/agent/skills' },
             { text: 'Reactive LLM events', link: '/agent/events' },
             { text: 'Event guards', link: '/agent/events-guards' },
