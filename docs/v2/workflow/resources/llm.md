@@ -4,7 +4,7 @@ The `chat:` resource sends a prompt to a language model and stores the response 
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+The workflow runs this resource as a step. In the REPL, the workflow that contains it is one tool.
 
 ## Key groups
 
@@ -220,7 +220,7 @@ chat:
     maxLength: 0               # maximum response length in tokens (alias for maxTokens)
     thinking:
       mode: high               # none | minimal | low | medium | high | xhigh | auto
-      # budgetTokens: 8000     # omit to use the thinking-budget-high event (16000), as agent mode's /thinking does
+      # budgetTokens: 8000     # omit to use the thinking-budget-high event (16000), as the REPL /thinking command does
   context:
     fewShot:
       embeddingModel: ""  # embedding model for semantic few-shot selection (requires selectK)
@@ -413,7 +413,7 @@ An unknown preset, or one with no judges, fails the resource.
 
 ## Harness sections
 
-`harness.sections` adds agent mode's system-prompt sections to the chat, in the order listed, ahead of its other instructions:
+`harness.sections` adds the REPL system-prompt sections to the chat, in the order listed, ahead of its other instructions:
 
 ```yaml
 chat:
@@ -427,7 +427,7 @@ Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `s
 
 ## Skills
 
-`tools.skills` gives the chat the skills of agent mode. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
+`tools.skills` gives the chat the skills of the REPL. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
 
 ```yaml
 chat:
@@ -539,13 +539,13 @@ To run calls in batches again, set `KDEPS_ALLOW_MULTI_TOOL=1`.
 `tools.maxRounds` on the `chat:` resource sets the maximum number of rounds.
 Without it (or with `auto`), the `chat-max-rounds` event sets the maximum (25).
 
-Agent mode's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new different calls to its tools when the budget is empty. If the model repeats a call, it gets the first result again, and the tool does not run again. If a call repeats more than `identical-tool-calls` (3) times, the chat answers. kdeps cuts a tool result to the `tool-result-truncate` event (8192 bytes, and keeps the start and the end). It cuts a tool error to `tool-error-truncate` (500).
+The REPL's call guard applies per chat call: a [call-budget event](/agent/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new different calls to its tools when the budget is empty. If the model repeats a call, it gets the first result again, and the tool does not run again. If a call repeats more than `identical-tool-calls` (3) times, the chat answers. kdeps cuts a tool result to the `tool-result-truncate` event (8192 bytes, and keeps the start and the end). It cuts a tool error to `tool-error-truncate` (500).
 
-A model can write a tool call as text, not as a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call). kdeps parses and runs this call, as in [agent mode](/agent/tools-fenced). A call in a markdown fence is an example and does not run. kdeps ignores a call to a tool that the chat does not list.
+A model can write a tool call as text, not as a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call). kdeps parses and runs this call, the same way the [REPL](/agent/tools-fenced) does. A call in a markdown fence is an example and does not run. kdeps ignores a call to a tool that the chat does not list.
 
-kdeps cleans the answer of a chat with tools, as in agent mode. It removes `[MEMORY: ...]` markers, tool-call markup, a `<tool_response>` that the model wrote, and `<File>` wrappers. For a `harness.output.json` chat, the JSON parser does this work.
+kdeps cleans the answer of a chat with tools, as in the REPL. It removes `[MEMORY: ...]` markers, tool-call markup, a `<tool_response>` that the model wrote, and `<File>` wrappers. For a `harness.output.json` chat, the JSON parser does this work.
 
-As in agent mode, kdeps does not always accept a text answer that ends the tool loop:
+As in the REPL, kdeps does not always accept a text answer that ends the tool loop:
 
 - A failed call that the model reports as done gets `nudge-unresolved-failure`.
 - A limit that the model invents ("I can't access the files") gets `nudge-self-limit`.
@@ -557,11 +557,11 @@ First, kdeps checks each model call against the [request body limit](/reference/
 
 A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `efficiency-failures` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop does not attach this brief. A failed tool result there ends with `[TOOL FAILED]`. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
 
-If a call is larger than the context of the model, kdeps compacts it and tries again one time, as in agent mode. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
+If a call is larger than the context of the model, kdeps compacts it and tries again one time, as in the REPL. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
 
 ### kdeps tools (by name)
 
-A tool with no `script` or `mcp` is the kdeps tool of that name, the same one agent mode uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
+A tool with no `script` or `mcp` is the kdeps tool of that name, the same one the REPL uses. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
 
 ```yaml
 # resources/research.yaml
@@ -580,7 +580,7 @@ An unknown name, or a tool that needs a live agent session (`session_ops`), fail
 
 The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the memory store of the run. For this reason, start the workflow with `kdeps run --memory`. Without it, they answer that no store is configured.
 
-A chat can use an OpenRouter free model (`backend: openrouter`, an id ending in `:free`). If the provider rate-limits or refuses the request, the chat moves to the next free id, as in agent mode (`openrouter-provider-limit`, `openrouter-refusal` events). It stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue with agent mode.
+A chat can use an OpenRouter free model (`backend: openrouter`, an id ending in `:free`). If the provider rate-limits or refuses the request, the chat moves to the next free id, as in the REPL (`openrouter-provider-limit`, `openrouter-refusal` events). It stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue with the REPL.
 
 `subagent` hands a task to a fresh chat call on the same model. It has not seen this chat and gets only the chat's read-only tools (`read_file`, `web_search`, `calculator`, ...), never a write tool or another subagent. It returns a plain-text report as the tool result.
 
@@ -595,7 +595,7 @@ chat:
       - name: write_file   # not read-only: only this chat may use it
 ```
 
-Its prompt is the `subagent-system` harness. Its tool rounds are the `subagent-max-rounds` event, as in agent mode.
+Its prompt is the `subagent-system` harness. Its tool rounds are the `subagent-max-rounds` event, as in the REPL.
 
 ### Component tools (opt-in allowlist)
 

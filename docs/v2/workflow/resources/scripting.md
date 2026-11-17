@@ -3,8 +3,6 @@
 Two resources that run code that kdeps has no native resource for. Each has its
 own reference page.
 
-Works in workflow and agent mode.
-
 | Resource | Runs | Output | Reference |
 | :--- | :--- | :--- | :--- |
 | `component: python` | A Python script | stdout, parsed as JSON | [Python](/workflow/resources/python) |

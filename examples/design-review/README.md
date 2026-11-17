@@ -19,4 +19,4 @@ curl -s -c ck -b ck -H 'Content-Type: application/json' \
 
 - The reviewers only read the request, so kdeps runs them in parallel (up to the `parallel` cap, 4 by default).
 - The session keeps the reviewed doc and findings under their own keys (`reviewed_doc`, `review_findings`): `get('doc')` also reads the session, so reusing the request's name would shadow the next doc.
-- The agent-mode version is the `design-review` judge preset: `/harness preset design-review`.
+- The same checks are the `design-review` judge preset: `/harness preset design-review`.

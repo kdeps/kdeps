@@ -22,7 +22,7 @@ skeleton from [Contributing to docs](./contributing-docs).
 | Troubleshooting | "Something broke. Fix it." | `reference/troubleshooting` |
 | Glossary | "Define this term." | `reference/glossary` |
 
-## One workflow mode
+## One workflow
 
 A workflow is the one way to run kdeps. Requests reach it through an input
 source (`api`, `bot`, `file`, `interactive`). The agent loop is a `chat` with
@@ -117,9 +117,8 @@ Replace these words with their STE alternatives:
   thing does.
 - No audience lines ("this page is for..."), learning objectives, "you will be
   able to", or end-of-page summaries of what the reader did.
-- State the mode only if the section does not make it clear. A page under
-  `agent/` is agent mode. A page under `workflow/`, `deploy/`, or `examples/`
-  is workflow mode. A shared page states the mode in its first sentence.
+- Do not name a second mode. `agent/` is the REPL. `workflow/`, `deploy/`,
+  and `examples/` are the workflow file. A shared page says that in its first sentence.
 - Every non-obvious YAML field gets an inline comment explaining purpose and
   behavior: `timeout: 30s  # hard stop - returns error, does not retry`.
 - No dot-notation for config (`deploy.apiServer.auth`). Show the real YAML block.

@@ -2,8 +2,6 @@
 
 Three components search: `web_search` finds pages on the web, `search_local` walks files on disk, and `embedding` ranks text by keyword in a local SQLite store. Each has its own reference page.
 
-Works in workflow and agent mode.
-
 | Resource | Does | Reference |
 | :--- | :--- | :--- |
 | `component: web_search` | Query the web via DuckDuckGo, return titles, URLs, and snippets - a kdeps component, YAML only. | [web_search](#web_search) |
@@ -41,7 +39,7 @@ URL: https://go.dev/doc/tutorial/generics
 
 The search is the `web_search` tool, a `python:` block in `tools/web_search.yaml` that reads DuckDuckGo's lite HTML page (`lite.duckduckgo.com`). Set `KDEPS_WEB_SEARCH_URL` to point it at another endpoint that serves the same page.
 
-In agent mode the same tool is the `web_search` built-in, and the loop caps `web_search`/`web_scraper` calls per user request (20 by default; `/model tool set web-limit <n>` changes it).
+In the REPL the same tool is `web_search`. The loop caps `web_search` and `web_scraper` calls per user request (20 by default; `/model tool set web-limit <n>` changes it).
 
 ## See also
 

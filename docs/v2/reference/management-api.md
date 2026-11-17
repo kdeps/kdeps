@@ -2,7 +2,7 @@
 
 The management API updates a running kdeps server's workflow. You do not rebuild or redeploy the container. Every kdeps server exposes six endpoints under `/_kdeps/` alongside your normal agent routes. The [kdeps API](/reference/glossary#kdeps-api) is a different listener.
 
-Workflow mode only.
+These routes belong to a running workflow server.
 
 ## Endpoints
 

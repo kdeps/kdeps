@@ -94,7 +94,7 @@ When you have a workflow directory, give it as an argument to `kdeps`:
 kdeps --agent-loop ./my-workflow/
 ```
 
-The REPL starts with your workflow registered as a callable tool. The LLM decides when to invoke it. This is [agent mode](/agent/) - the LLM drives, your workflows execute on demand.
+The REPL starts with your workflow registered as a callable tool. The LLM decides when to invoke it. The model drives. The workflow runs when the model calls it.
 
 ## Next steps
 

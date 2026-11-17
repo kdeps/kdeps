@@ -1,6 +1,6 @@
 # Jinja2 templates
 
-kdeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (with [gonja](https://github.com/nikolalohinski/gonja)). This is the one template system for project scaffolding and for runtime YAML preprocessing. Preprocessing runs for every workflow and resource file in both modes.
+kdeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (with [gonja](https://github.com/nikolalohinski/gonja)). This is the one template system for project scaffolding and for runtime YAML preprocessing. Preprocessing runs for every workflow file and every resource file.
 
 ## YAML preprocessing
 

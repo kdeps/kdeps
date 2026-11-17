@@ -4,16 +4,13 @@ A kdeps workflow is a deterministic YAML pipeline. A request arrives, resources 
 dependency order, and kdeps returns the result. The same input always has the
 same execution path. For this reason, the workflow is auditable and testable, and it can
 run safely without supervision. Serve it as an HTTP
-API, a bot, or a file processor.
+API, a bot, a file processor, or an interactive prompt.
 
 ```bash
 kdeps run ./my-agent/      # run once / serve on :16395
 ```
 
-**Not this?** For an autonomous agent that decides what to do next, use
-[kdeps agent](/agent/). To run several workflows/agents as one system,
-[kdeps agencies](/agencies/). To ship this pipeline as an appliance,
-[kdeps deploy](/deploy/docker).
+A `chat` with `loop:` in this file is an agent. `kdeps --agent-loop` opens that chat as a REPL. To run several workflows as one system, see [Agencies](/agencies/). To ship the file, see [Deploy](/deploy/).
 
 ---
 
@@ -39,23 +36,9 @@ E -> F
 
 A resource runs only after everything in its `requires:` has produced output. Resources with no shared dependency path run concurrently.
 
-## When to use workflow mode
+## One file
 
-- You need a deterministic, auditable pipeline.
-- You are building a REST API, bot, or file-processing service.
-- You want full control over which resources run and in what order.
-- You need validation, early-exit, and explicit error handling.
-
-## Comparison with agent mode
-
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps --agent-loop [path]`) |
-|---|---|---|
-| Execution | DAG, deterministic | LLM loop, tool-driven |
-| Entry point | `metadata.targetActionId` | User prompt |
-| Unit of work | Individual resources | Whole workflows |
-| Tools | Functions in `chat.tools` | One per workflow + one per component + built-ins |
-| Input | One workflow path | Optional file or folder |
-| Conversation | Single run | Multi-turn, persistent JSONL |
+The same `workflow.yaml` runs as an HTTP API, a bot, a file processor, or an interactive prompt. A failed check returns 400 before any model call. A `chat` with `loop:` is one step. `maxRounds` stops that step.
 
 ## Minimal example
 
@@ -63,7 +46,7 @@ The two-resource chat API, the auth token, and the curl are on the [workflow qui
 
 ## Input sources
 
-Workflow mode supports three input sources configured in `deploy`:
+A workflow has four input sources. Set them in `deploy`:
 
 ```yaml
 # API (default) - starts an HTTP server
@@ -89,13 +72,18 @@ deploy:
     sources: [file]
     file:
       path: /data/input.txt
+
+# Interactive - each line runs the workflow
+deploy:
+  input:
+    sources: [interactive]
 ```
 
 See [Input sources](/workflow/input-sources) for full configuration.
 
 ## Agent memory (`--memory`)
 
-Workflow mode can use the same persistent memory facilities as agent mode. Pass `--memory` to enable:
+A workflow can use the same memory notes as the agent REPL. Pass `--memory` to enable:
 
 ```bash
 kdeps run workflow.yaml --memory
@@ -150,4 +138,4 @@ kdeps automatically links memory entries into a relationship graph. The graph sh
 
 - [Workflow configuration](/workflow/configuration) - Full `workflow.yaml` reference
 - [Resources overview](/workflow/resources) - Resource types and fields
-- [Agent mode](/agent/) - Autonomous LLM loop
+- [Agent REPL](/agent/) - a chat with `loop:`

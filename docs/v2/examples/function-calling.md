@@ -4,7 +4,7 @@ Build an API where the LLM can call your own resources during a response. When
 the model needs a calculation or a database lookup, it calls a tool. kdeps runs
 the target resource and gives the result back. Then the model continues.
 
-A tool is a function that the LLM can call. In workflow mode, you declare tools
+A tool is a function that the LLM can call. You declare tools
 in `tools:` on a `chat:` resource. Each tool has these parts:
 
 - A name.
@@ -201,4 +201,4 @@ both results.
 - [Function calling](/workflow/tools) - MCP tools, multiple tools, parameter types
 - [Function calling](/reference/tools) - tool chaining, debugging
 - [python component](/workflow/resources/python) - building tool scripts
-- [Agent mode](/agent/) - tools that are whole workflows
+- [Agent REPL](/agent/) - tools that are whole workflows

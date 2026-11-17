@@ -2,8 +2,6 @@
 
 Install the `kdeps` CLI to start building agents locally. Docker is optional - only needed if you want to build container images for deployment.
 
-Works in workflow and agent mode.
-
 Already installed? [Quickstart](/workflow/quickstart) or [Run locally](/agent/quickstart).
 
 ## Installing the kdeps CLI

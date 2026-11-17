@@ -3,8 +3,6 @@
 Two resources that pull text out of a media file. Each has its own reference
 page. OCR and offline transcription need no API key and no network.
 
-Works in workflow and agent mode.
-
 | Resource | Extracts text from | Reference |
 | :--- | :--- | :--- |
 | `component: transcribe_audio` | Audio (speech to text via a Whisper API) | [Transcribe](/workflow/resources/transcribe) |

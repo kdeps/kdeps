@@ -2,7 +2,7 @@
 
 `items:` runs a resource one time for each list entry. Each iteration is a full resource execution with its own output.
 
-In workflow mode it is a DAG step. In agent mode it runs inside the workflow when the LLM calls that workflow as a tool.
+It is a workflow step. In the REPL, it runs inside the workflow when the model calls that workflow as a tool.
 
 ## Basic usage
 

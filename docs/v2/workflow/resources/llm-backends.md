@@ -2,8 +2,6 @@
 
 kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). As a result, you can switch backends with no change to your workflow.
 
-Works in workflow and agent mode.
-
 kdeps calls each backend through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1`. kdeps appends `/chat/completions`. Without `/v1`, requests go to the wrong path and fail.
 
 | Backend | Default `baseUrl` | Set it to |
@@ -91,7 +89,7 @@ See [Ollama: native options](#ollama-native-options) below for resource-level fi
 
 ## Where it runs
 
-Backend configuration applies to both [workflow mode](/workflow/) and [agent mode](/agent/). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
+Backend configuration applies to every `chat:` resource. Each one reads its backend from `~/.kdeps/config.yaml`.
 
 ## Model configuration
 

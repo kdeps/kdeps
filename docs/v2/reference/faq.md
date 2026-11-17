@@ -6,13 +6,11 @@ Common questions about kdeps installation, usage, and architecture.
 
 Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all resources are free to use.
 
-## What is the difference between workflow mode and agent mode?
+## What runs a workflow?
 
-[Workflow mode](/workflow/) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
+`kdeps` runs `./workflow.yaml`. Requests come from an HTTP API, a bot, a file, or an interactive prompt. Resources run in the order that [`requires`](/reference/glossary#requires) sets.
 
-[Agent mode](/agent/) (`kdeps --agent-loop [path]`) registers full workflows and components as tools. An LLM then selects the tools to call for user prompts. Workflow tools run as a complete pipeline, so all `requires:` dependencies resolve. Component tools run one reusable component in isolation. Give one file or a folder. In folder mode, kdeps finds all workflows and agencies recursively and gives them and their components as tools.
-
-Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
+An agent is a `chat` with `loop:` in that file. `kdeps --agent-loop` opens that chat as a REPL. The model calls tools. A workflow tool runs the full pipeline, so every `requires:` dependency resolves.
 
 ## Do I need to know go to use kdeps?
 
@@ -60,7 +58,7 @@ Yes, with [agencies](/reference/glossary#agency). Use the `agent:` action type t
 
 ## Can I deploy kdeps as an API server?
 
-Yes. `kdeps run workflow.yaml` starts the HTTP API in workflow mode. `kdeps --agent-loop ./my-agent/` starts the interactive REPL in agent mode - it is not an HTTP server. See [Web server mode](/deploy/webserver).
+Yes. `kdeps run workflow.yaml` starts the HTTP API. `kdeps --agent-loop ./my-agent/` opens the REPL. The REPL is not an HTTP server. See [Web server](/deploy/webserver).
 
 For production, use the [Docker](/deploy/docker) or [Kubernetes](/deploy/kubernetes) deployment options.
 
@@ -94,13 +92,13 @@ Yes. The `kdeps run` command is for one-shot runs. Send input through stdin, giv
 
 ## Does kdeps support streaming?
 
-Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-by-token. This works in both workflow mode and agent mode.
+Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-by-token. This works in the workflow and in the REPL.
 
 ## Where does kdeps store session data?
 
 HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured under `settings:` `session:`. See [Session configuration](/workflow/sessions).
 
-Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
+REPL conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
 ## Does kdeps write into my project folder?
 
@@ -124,7 +122,7 @@ export KDEPS_DATA_DIR=/fast-disk/kdeps-projects   # moves ~/.kdeps/projects (ind
 
 - [Quickstart](/workflow/quickstart) - build your first workflow API
 - [Run locally](/agent/quickstart) - agent REPL in 30 seconds
-- [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
+- [Load a workflow as a tool](/workflow/as-a-tool) - the same file, called by the model
 - [Execution flow](/workflow/execution-flow) - how the engine runs resources
 - [Troubleshooting](/reference/troubleshooting) - common errors and fixes
 - [Glossary](/reference/glossary) - all kdeps terms defined

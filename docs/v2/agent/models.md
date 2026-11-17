@@ -86,7 +86,7 @@ This does not change unique names, which are almost all aliases. You need the
 
 ## `--model auto`: route across your configured models
 
-`--model auto` (or `KDEPS_AGENT_MODEL=auto`) uses [`llmfit`](https://github.com/AlexsJones/llmfit) to pick the best hardware fit from the `models:` list under `llm:` in `~/.kdeps/config.yaml`. The [workflow-mode router](/workflow/resources/llm-routing) uses the same `auto` strategy, so one config drives both modes:
+`--model auto` (or `KDEPS_AGENT_MODEL=auto`) uses [`llmfit`](https://github.com/AlexsJones/llmfit) to pick the best hardware fit from the `models:` list under `llm:` in `~/.kdeps/config.yaml`. The [model router](/workflow/resources/llm-routing) uses the same `auto` strategy, so one config drives the REPL and every chat:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -117,7 +117,7 @@ kdeps --agent-loop --model auto-router
 2. **Cloud fallback** - the first provider that has an API key env var and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
 3. **Fixed tiers** - if the two steps above find nothing, kdeps uses the fixed order below.
 
-Workflow mode has the same sentinel with `model: auto-router` on a chat resource - see [LLM backends](/workflow/resources/llm-routing).
+A chat resource has the same sentinel with `model: auto-router` - see [LLM backends](/workflow/resources/llm-routing).
 
 ## How a model is picked when none is configured
 
@@ -212,6 +212,6 @@ PID      PORT   BACKEND      MODEL                                STATUS
 
 ## See also
 
-- [Agent mode](/agent/) - overview and starting the REPL
-- [LLM backends & routing](/workflow/resources/llm-backends) - the workflow-mode equivalent of `auto`/`auto-router`
+- [Agent REPL](/agent/) - start the REPL
+- [LLM backends and routing](/workflow/resources/llm-backends) - the chat-resource form of `auto` and `auto-router`
 - [REPL slash commands](/agent/commands) - full command reference

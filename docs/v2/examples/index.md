@@ -2,10 +2,9 @@
 
 Complete, runnable projects. Copy the files on the page and run the command there. A local model needs no API key. Add a key only when that example calls a cloud provider.
 
-The examples are in groups, by [product](/start/). Pick the one
-closest to what you are building.
+The examples are in groups. Pick the one closest to what you are building.
 
-### kdeps workflow
+### Workflow file
 
 | Example | What it demonstrates |
 |---|---|
@@ -31,14 +30,14 @@ closest to what you are building.
 | [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Complex agents in ~20 lines of YAML - multiple real-world patterns |
 
-### kdeps agent
+### Agent REPL
 
 | Example | What it demonstrates |
 |---|---|
 | [Read a file in the REPL](/examples/agent-repl) | `kdeps --agent-loop` with no YAML and no API key: `read_file`, then `write_file` |
 | [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps --agent-loop [path]` registers the workflow as one LLM tool, named by `name:` under `metadata:` |
 
-### kdeps agencies
+### Agencies
 
 | Example | What it demonstrates |
 |---|---|
@@ -294,7 +293,7 @@ the workflow's `name:` under `metadata:`. kdeps runs the full DAG.
 
 Best for:
 - Turning an API you already wrote into a REPL tool
-- Seeing agent mode without a new YAML kind
+- Opening the REPL on a workflow you already wrote
 
 [Build it step by step](/workflow/as-a-tool)
 
@@ -336,5 +335,5 @@ Best for:
 ## See also
 
 - [Quickstart](/workflow/quickstart) - build your first workflow in 5 minutes
-- [Workflow mode](/workflow/) - deterministic DAG execution
-- [Agent mode](/agent/) - interactive LLM-driven tool calling
+- [Workflow](/workflow/) - the YAML pipeline
+- [Agent REPL](/agent/) - the model calls tools

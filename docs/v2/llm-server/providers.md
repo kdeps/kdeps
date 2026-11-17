@@ -2,11 +2,9 @@
 
 Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing, allowlists, and streaming.
 
-Works in workflow and agent mode.
-
 These OpenAI-compatible providers are YAML files in the `providers` asset set, not code: OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie. `kdeps update providers` refreshes their endpoints. To add a provider, add a file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
 
-Every model here is probabilistic: the same prompt can return different text each call. Determinism comes from [workflow mode](/workflow/) wrapping the model, not the model. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
+Every model here is probabilistic: the same prompt can return different text each call. Determinism comes from the [workflow](/workflow/) around the model, not from the model. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 
 ## Local backends
 

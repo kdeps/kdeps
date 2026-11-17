@@ -435,4 +435,4 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer
 - [REPL slash commands](/agent/commands) - full command reference
 - [Tool execution monitoring](/agent/monitoring) - status lines and stall detection
-- [Agent mode](/agent/) - overview and starting the REPL
+- [Agent REPL](/agent/) - start the REPL

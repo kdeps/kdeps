@@ -2,7 +2,7 @@
 
 Best practices and examples for the [`validations:` block](/workflow/validation).
 
-Workflow mode only.
+These examples are for a workflow `validations:` block.
 
 ## Best practices
 

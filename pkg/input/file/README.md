@@ -134,6 +134,6 @@ stdin (raw text or JSON)
 
 ## See also
 
-- [docs/v2/modes/workflow-mode.md](../../../../docs/v2/modes/workflow-mode.md) — step-by-step tutorial
-- [docs/v2/resources/overview.md](../../../../docs/v2/resources/overview.md) — full input sources reference
+- [Input sources](../../../docs/v2/workflow/input-sources.md) - file, API, bot, and interactive
+- [File resource](../../../docs/v2/workflow/resources/file.md) - the file step
 - `pkg/input/bot/stateless.go` — similar single-shot execution pattern for bot input

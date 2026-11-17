@@ -4,7 +4,7 @@ Two kdeps components turn audio into text. `transcribe_audio` calls a Whisper AP
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the same jobs are the built-in tools `transcribe_audio` (a [declared HTTP tool](/agent/tools#declared-http-tools)) and `transcribe_audio_offline` (a [declared exec tool](/agent/tools#declared-exec-tools)). The components call the same two routes.
+The workflow runs these components as steps. In the REPL, the same jobs are the tools `transcribe_audio` (a [declared HTTP tool](/agent/tools#declared-http-tools)) and `transcribe_audio_offline` (a [declared exec tool](/agent/tools#declared-exec-tools)). The components call the same two routes.
 
 ## How it runs
 

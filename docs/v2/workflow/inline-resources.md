@@ -2,7 +2,7 @@
 
 Inline resources are full resource actions (chat, component, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
-In workflow mode they are a DAG feature. In agent mode they run inside the workflow when the LLM calls that workflow as a tool.
+They are a workflow feature. In the REPL, they run inside the workflow when the model calls that workflow as a tool.
 
 ## Basic syntax
 

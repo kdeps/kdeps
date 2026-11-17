@@ -2,8 +2,6 @@
 
 The `vector_store` component adds documents to, and runs similarity search against, an external vector database - Qdrant, Chroma, Pinecone, pgvector, and more - for production-scale RAG. The kdeps API tool does the embedding and store work. The component only passes the inputs through.
 
-Works in workflow and agent mode.
-
 ```text
 component: vector_store
   -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/vector_store/call

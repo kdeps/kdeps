@@ -1,6 +1,6 @@
 # kdeps API
 
-The kdeps API is the control listener for agent mode (the REPL) and workflow mode (`kdeps run`). It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
+The kdeps API is the control listener for the REPL and for `kdeps run`. It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
 
 ```text
 caller -> bearer check -> handler
@@ -72,7 +72,7 @@ loop -> cmdasset: "config data, not served"
 
 Chains by asset set:
 
-- **Tools**: the declared runner serves `tools/` assets with `http:`, `exec:`, `sql:`, or `python:`. Go-backed tools have a `ToolSpec`. `session_ops` reads and changes the active agent session. Its `tool` operation runs the session-only tools (`judge_verdict`, `load_skill`, `load_tools`, `identity_get`, `subagent`, `ask_question`), which have no route of their own. The tool list marks `session_ops` `"agentOnly": true`. In workflow mode, with no agent session, a call fails.
+- **Tools**: the declared runner serves `tools/` assets with `http:`, `exec:`, `sql:`, or `python:`. Go-backed tools have a `ToolSpec`. `session_ops` reads and changes the active agent session. Its `tool` operation runs the session-only tools (`judge_verdict`, `load_skill`, `load_tools`, `identity_get`, `subagent`, `ask_question`), which have no route of their own. The tool list marks `session_ops` `"agentOnly": true`. With no agent session, a call fails.
 - **Components**: each `components/` asset declares `requires:` and calls `kdeps.api`. The component invariant tests enforce this for workflow tools.
 - **Commands**: builtin commands name their operation in `api:`. kdeps publishes declared prompt commands under their own name.
 - **Loop data**: configuration only, see [Loop data sets](#loop-data-sets).

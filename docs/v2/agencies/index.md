@@ -9,10 +9,7 @@ kdeps run ./my-agency/     # run the entry-point agent's pipeline
 kdeps --agent-loop ./my-agency/         # register the agency as one LLM tool in the REPL
 ```
 
-**Not this?** For a single deterministic pipeline, use [kdeps workflow](/workflow/).
-For an autonomous agent that decides what to do next, [kdeps agent](/agent/). To
-reuse one bundle of resources across projects, that is a
-[component](/agencies/components), not an agency.
+**Not this?** For one pipeline, start with the [workflow](/workflow/). A `chat` with `loop:` is the [agent REPL](/agent/). To reuse one bundle of resources, use a [component](/agencies/components).
 
 ---
 

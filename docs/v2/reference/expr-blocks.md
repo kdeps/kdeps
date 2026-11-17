@@ -2,8 +2,6 @@
 
 `before:` and `after:` are expression lists that run around the main action of a resource. `before:` prepares data before the action runs. `after:` processes the output after the action completes.
 
-Works in workflow and agent mode.
-
 - `before:` runs before the main action (chat, component, or a different action)
 - `after:` runs after the main action
 

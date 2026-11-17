@@ -3,8 +3,6 @@
 Two resources that call another unit of work and return its output. Each has
 its own reference page.
 
-Works in workflow and agent mode.
-
 | Resource | Calls | Inputs | Reference |
 | :--- | :--- | :--- | :--- |
 | `agent:` | A full sibling agent's workflow (same agency) | `params:` | [Agent](/agencies/agent-resource) |

@@ -2,8 +2,6 @@
 
 Example queries for the [`sql` component](/workflow/resources/sql). All examples use parameterized queries to prevent SQL injection.
 
-Works in workflow and agent mode.
-
 ## User lookup
 
 ```yaml

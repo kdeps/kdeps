@@ -1,6 +1,6 @@
 # Expressions
 
-Expressions pass data between resources, validate inputs and run conditional logic, using [expr-lang](https://expr-lang.org/). They work in workflow mode across resources, and in agent mode inside any workflow the LLM calls as a tool.
+Expressions pass data between resources, validate inputs, and run conditional logic, using [expr-lang](https://expr-lang.org/). They run across workflow resources, and inside any workflow the REPL calls as a tool.
 
 ## Where expressions are used
 

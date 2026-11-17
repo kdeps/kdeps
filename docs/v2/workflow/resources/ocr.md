@@ -6,7 +6,7 @@ It is a kdeps component from the `components` asset set. Call it with a `compone
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the same tool is the `ocr_image` built-in, a [declared exec tool](/agent/tools#declared-exec-tools). The component and the agent both use it through the kdeps API.
+The workflow runs this component as a step. In the REPL, the same tool is `ocr_image`, a [declared exec tool](/agent/tools#declared-exec-tools). The component and the REPL call the same route.
 
 ## Requirements
 

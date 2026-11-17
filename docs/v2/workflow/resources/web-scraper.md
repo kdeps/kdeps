@@ -6,7 +6,7 @@ It comes from the `components` asset set. Call it with a `component:` resource. 
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). In agent mode, the same tool is the `web_scraper` built-in, with the aliases `fetch`, `web_fetch`, `fetch_url`, and `read_url`. The component and the agent call the same route.
+The workflow runs this component as a step. In the REPL, the same tool is `web_scraper`, with the aliases `fetch`, `web_fetch`, `fetch_url`, and `read_url`. The component and the REPL call the same route.
 
 ## Basic usage
 

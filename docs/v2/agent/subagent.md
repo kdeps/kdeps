@@ -1,6 +1,6 @@
 # Subagents
 
-A subagent is a fresh agent loop. It starts without the conversation and sees only its task. Knowledge-graph extraction runs as a subagent. The model can start one with the `subagent` tool. Both use the subagent channel's model. The turn, compaction, and branch summaries stay on the session model.
+A subagent is a fresh agent loop. It starts without the conversation and sees only its task. The model starts one with the `subagent` tool. It uses the subagent channel's model. The turn, compaction, and branch summaries stay on the session model.
 
 ```text
 turn -> subagent {task, instructions, tools}
@@ -13,12 +13,7 @@ turn -> subagent {task, instructions, tools}
         report -> tool result of the turn
 ```
 
-Each runs beside the turn where it can:
-
-| Subagent | When it runs |
-|---|---|
-| Knowledge-graph extraction | in the background. Recall never waits for it |
-| `subagent` calls a reply opens with | in parallel, in one round. Each call gets its own report |
+The model can start several `subagent` calls in one round. Each call gets its own report. They run in parallel.
 
 Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at the same time).
 
