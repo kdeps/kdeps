@@ -84,24 +84,6 @@ func TestCloseToolCallLineAndCompletion(t *testing.T) {
 	}
 }
 
-func TestTuroReduceCachedAndReduceToolOutput(t *testing.T) {
-	ctx := context.Background()
-	if got := turoReduceCached(ctx, "hello"); got != "hello" {
-		t.Fatalf("inactive: %q", got)
-	}
-	if got := turoReduceCached(ctx, ""); got != "" {
-		t.Fatal("empty")
-	}
-	msgs := []AgentMessage{
-		{Role: RoleUser, Content: "hi"},
-		{Role: RoleToolResult, ResultContent: "tool-out"},
-	}
-	out := reduceToolOutputForLLM(ctx, msgs)
-	if len(out) != 2 || out[1].ResultContent != "tool-out" {
-		t.Fatalf("%+v", out)
-	}
-}
-
 // captureOutput redirects the given *os.File pointer (os.Stdout or
 // os.Stderr) for the duration of fn and returns what it wrote.
 func captureOutput(t *testing.T, target **os.File, fn func()) string {
@@ -257,21 +239,4 @@ func TestPageLinesNonInteractive(t *testing.T) {
 	if !strings.Contains(string(out), "a") || !strings.Contains(string(out), "c") {
 		t.Fatalf("got %q", out)
 	}
-}
-
-func TestTuroCommandUnavailable(t *testing.T) {
-	r := NewREPL(context.Background(), makeTestLoop(nil))
-	defer r.cancel()
-	oldOut, oldErr := os.Stdout, os.Stderr
-	rd, wr, pipeErr := os.Pipe()
-	if pipeErr != nil {
-		t.Fatal(pipeErr)
-	}
-	os.Stdout = wr
-	os.Stderr = wr
-	_ = r.dispatchCommand("/turo")
-	_ = r.dispatchCommand("/turo not-a-valid-flag-xyz")
-	_ = wr.Close()
-	os.Stdout, os.Stderr = oldOut, oldErr
-	_, _ = io.ReadAll(rd)
 }

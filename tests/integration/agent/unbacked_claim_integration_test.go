@@ -62,8 +62,6 @@ func (s *claimThenActStreamer) StreamChat(
 // the real call, on any backend: the tool runs and the turn ends on the real
 // result.
 func TestUnbackedClaim_DrawsARealToolCall(t *testing.T) {
-	// SetEfficiencyEnabled persists an event override: keep it in a temp home,
-	// and reload once the real home is back.
 	t.Cleanup(agent.ReloadAssets)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -79,7 +77,6 @@ func TestUnbackedClaim_DrawsARealToolCall(t *testing.T) {
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
-	require.NoError(t, agent.SetEfficiencyEnabled(false))
 	loop := agent.New(
 		t.Context(),
 		executor.NewEngine(context.Background(), nil),
@@ -114,7 +111,6 @@ func TestModelRecord_RefusalReachesSlashModelRecord(t *testing.T) {
 		APIVersion: "kdeps.io/v1", Kind: "Workflow",
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
-	require.NoError(t, agent.SetEfficiencyEnabled(false))
 	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), wf, reg,
 		agent.Config{Model: "itmodel", Backend: "openai", Streamer: &claimThenActStreamer{}, MaxToolRounds: 10})
 	var buf bytes.Buffer

@@ -48,7 +48,7 @@ kdeps verify .
 kdeps install tools/bash_exec      # one asset, with what it requires; prints ~tokens it adds to the LLM context
 kdeps update                       # every installed asset to its newest version
 kdeps update --check               # what would change
-kdeps uninstall themes/vim
+kdeps uninstall presets/frugal
 kdeps list --assets                # version, state, shelf, ~context tokens
 kdeps list rag                     # one shelf; the id stays tools/embedding_search
 kdeps profile agent                # install the agent profile

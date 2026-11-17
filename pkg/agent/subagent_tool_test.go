@@ -14,6 +14,7 @@ import (
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
 	"github.com/kdeps/kdeps/v3/pkg/subagent"
 	"github.com/kdeps/kdeps/v3/pkg/tools"
 )
@@ -64,6 +65,9 @@ func (s *subagentStreamer) StreamChat(
 
 func newSubagentTestLoop(t *testing.T, streamer Streamer) *Loop {
 	t.Helper()
+	// New walks the real skill folders. A large library makes each subagent
+	// start slower than the overlap window this file measures.
+	isolateSkillDirs(t)
 	eng := executor.NewEngine(context.Background(), nil)
 	reg := tools.NewRegistry()
 	reg.Register(&tools.Tool{Name: "read_file", Execute: func(map[string]any) (string, error) { return "x", nil }})
@@ -196,6 +200,9 @@ func (s *slowSubagentStreamer) StreamChat(
 // TestSubagent_CallsInOneRoundRunInParallel checks reviewers asked for in
 // the same reply run at the same time, and each call gets its own report.
 func TestSubagent_CallsInOneRoundRunInParallel(t *testing.T) {
+	prev := parallel.Limit()
+	parallel.SetLimit(4)
+	t.Cleanup(func() { parallel.SetLimit(prev) })
 	s := &slowSubagentStreamer{}
 	l := newSubagentTestLoop(t, s)
 	calls := []domain.StreamedToolCall{

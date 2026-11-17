@@ -55,7 +55,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "config.GetDefaults"},
 	},
 	"docker": {
@@ -152,7 +152,7 @@ var generatedFlows = map[string]SetInfo{
 	"presets": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "/harness preset or /efficiency preset"},
+			{Label: "/harness preset"},
 			{Label: "the preset rewrites events and harness sections", Here: true},
 			{Label: "every later turn uses them"},
 		},
@@ -204,12 +204,12 @@ var generatedFlows = map[string]SetInfo{
 	"themes": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "kdeps starts, or /theme"},
-			{Label: "the theme colors the terminal", Here: true},
+			{Label: "kdeps starts"},
+			{Label: "the normal palette colors the terminal", Here: true},
 			{Label: "every reply and prompt"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall"},
-		Code:   []string{"kdeps (agent loop)", "agent.SetTheme"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
+		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.loadBuiltinThemes"},
 	},
 	"tools": {
 		Mode: "both",

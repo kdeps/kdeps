@@ -84,7 +84,7 @@ kdeps --agent-loop [path] [flags]
 | `--resume` | (none) | Session ID to resume directly (skips the picker) |
 | `--new` | false | Start clean, skipping this folder's resume picker |
 | `--index` | (none) | Search a folder outside the project with it (repeatable): added to the card and indexed first. See [search folders](/agent/knowledge#search-folders) |
-| `--theme` | `normal` | REPL theme: `normal`, `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` |
+| `--theme` | `normal` | REPL palette. Only `normal` applies. |
 | `--debug` | false | Enable debug logging |
 
 ```bash
@@ -92,7 +92,7 @@ kdeps --agent-loop [path] [flags]
 KDEPS_AGENT_MODEL=llama3.2:1b
 KDEPS_AGENT_BACKEND=file              # default: local llamafile
 KDEPS_AGENT_BASE_URL=http://localhost:11434/v1
-KDEPS_THEME=black                     # same as --theme
+KDEPS_THEME=normal                    # only normal applies
 ```
 
 ### Settings from the workflow
@@ -131,13 +131,10 @@ kdeps --agent-loop --resume abc123def456                      # resume a session
 | Built-in tool catalog, permission modes, lean mode | [Built-in tools](/agent/tools) |
 | Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
 | Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
-| Rewriting each prompt for clarity before the turn | [Prompt refinement](/agent/refine) |
-| A council's plan before the turn, and the progress file | [Planning council](/agent/plan) |
-| Subagents: the `subagent` tool, and the model judges, extraction and refinement use | [Subagents](/agent/subagent) |
-| Independent review of the final answer | [Judge panel](/agent/judges) |
+| Subagents: the `subagent` tool and knowledge extraction | [Subagents](/agent/subagent) |
+| Review of a workflow chat answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
-| Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
 | Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
 | Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |

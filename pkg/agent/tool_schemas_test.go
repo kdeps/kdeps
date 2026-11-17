@@ -132,7 +132,7 @@ func TestCoreToolSet_ShippedPolicyKeepsTheBasics(t *testing.T) {
 	t.Setenv("HOME", t.TempDir()) // no user override
 	core := coreToolSet()
 	require.NotNil(t, core, "the policy asset ships")
-	for _, n := range []string{"bash_exec", "read_file", "edit_file", toolNameLoadTools, "load_skill", "session_handshake"} {
+	for _, n := range []string{"bash_exec", "read_file", "edit_file", toolNameLoadTools, "load_skill", "judge_verdict"} {
 		assert.True(t, core[n], n)
 	}
 }

@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 1.1.1
 name: tool-schemas
 # Which tool definitions go on every model request. Each definition is
 # re-sent on every tool round, so 70+ definitions cost ~12k tokens a round.
@@ -23,6 +23,5 @@ core:
   - web_scraper
   - load_skill
   - load_tools
-  - session_handshake
   - judge_verdict
   - subagent       # skill packs that start reviewers look for it by role

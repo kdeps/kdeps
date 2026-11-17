@@ -114,8 +114,8 @@ else
     test_failed "update item@version" "$OUT"
 fi
 
-OUT=$(upd --remove themes/vim)
-if output_grep "themes/vim +remove" "$OUT" && output_grep "themes/vim +1\.0\.0 +removed" "$(upd --list)"; then
+OUT=$(upd --remove presets/frugal)
+if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.2\.2 +removed" "$(upd --list)"; then
     test_passed "update --remove removes an item"
 else
     test_failed "update --remove" "$OUT"
@@ -129,8 +129,8 @@ else
     test_failed "update --remove required message" "$OUT"
 fi
 
-OUT=$(upd themes/vim)
-if output_grep "themes/vim +1\.0\.0 +source" "$(upd --list)"; then
+OUT=$(upd presets/frugal)
+if output_grep "presets/frugal +1\.2\.2 +source" "$(upd --list)"; then
     test_passed "update <item> restores a removed item"
 else
     test_failed "update <item> restore" "$OUT"

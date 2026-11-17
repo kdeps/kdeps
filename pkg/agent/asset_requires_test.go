@@ -76,9 +76,6 @@ func TestAssetRequires_CoverReferences(t *testing.T) {
 				continue
 			}
 			assert.Contains(t, req, "commands/"+fields[0], "commands/%s", name)
-			if len(fields) > 2 && fields[0] == "efficiency" && fields[1] == "preset" {
-				assert.Contains(t, req, "presets/"+fields[2], "commands/%s", name)
-			}
 		}
 	})
 }

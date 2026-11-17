@@ -218,9 +218,9 @@ func (g *callGuard) remember(name, args string, result interface{}) {
 }
 
 // failed is a failed call's result. Within the efficiency-failures budget it
-// carries a brief (pkg/failbrief, as in agent mode): the folder of a missing
-// path or the lines around a failed edit, and the instruction to fix the
-// cause and call again.
+// carries a brief: the folder of a missing path or the lines around a failed
+// edit, and the instruction to fix the cause and call again. The agent loop
+// does not attach this brief. A failed tool result there ends with [TOOL FAILED].
 func (g *callGuard) failed(name, args string, id interface{}, err error) map[string]interface{} {
 	result := map[string]interface{}{"tool_call_id": id, fieldName: name, fieldError: err.Error()}
 	if g != nil {

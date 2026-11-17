@@ -20,10 +20,8 @@ package agent
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestRestoreSessionConfig(t *testing.T) {
@@ -98,7 +96,7 @@ func TestREPL_LlamaFitAndTuning(t *testing.T) {
 		t.Fatal("maps")
 	}
 
-	r.SetPersistedTuning(ToolTuning{MaxToolRounds: 3, TuroOff: true})
+	r.SetPersistedTuning(ToolTuning{MaxToolRounds: 3})
 	if r.persistedTuning == nil || r.persistedTuning.MaxToolRounds != 3 {
 		t.Fatal("persisted tuning")
 	}
@@ -113,31 +111,4 @@ func TestREPL_LlamaFitAndTuning(t *testing.T) {
 	}
 	r.SetSaveTuningFn(nil)
 	r.persistTuning() // no-op
-}
-
-func TestTuroGainPathAndSavings(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("TURO_HOME", dir)
-	p := turoGainPath()
-	if filepath.Dir(p) != dir {
-		t.Fatalf("path %q", p)
-	}
-	if totalTuroSavings() != 0 {
-		t.Fatal("missing file should be 0")
-	}
-	gain := filepath.Join(dir, "gain.jsonl")
-	content := "{\"before\":100,\"after\":40}\n{\"before\":50,\"after\":30}\nnot-json\n"
-	if err := os.WriteFile(gain, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if totalTuroSavings() != 80 {
-		t.Fatalf("savings %d", totalTuroSavings())
-	}
-	turoSavingsMu.Lock()
-	turoSessionStartSet = false
-	turoSavingsAt = time.Time{}
-	turoSavingsMu.Unlock()
-	if n := TuroTokensSaved(); n < 0 {
-		t.Fatalf("session savings %d", n)
-	}
 }

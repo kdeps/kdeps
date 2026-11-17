@@ -35,37 +35,21 @@ import (
 
 // --- loadBuiltinThemes ---
 
-func TestLoadBuiltinThemes_HasExactlyFiveNames(t *testing.T) {
+func TestLoadBuiltinThemes_HasTheNormalPalette(t *testing.T) {
 	built := loadBuiltinThemes()
-	want := []string{"normal", "black", "linux", "vim", "emacs"}
-	assert.Len(t, built, len(want))
-	for _, name := range want {
-		assert.Contains(t, built, name)
-	}
+	assert.Len(t, built, 1)
+	assert.Contains(t, built, "normal")
 }
 
 func TestLoadBuiltinThemes_PromptTextMatchesExpected(t *testing.T) {
 	built := loadBuiltinThemes()
-	cases := map[string]string{
-		"normal": "> ",
-		"black":  "> ",
-		"linux":  "$ ",
-		"vim":    ": ",
-		"emacs":  "M-x ",
-	}
-	for name, want := range cases {
-		require.Contains(t, built, name)
-		assert.Equal(t, want, built[name].promptText, "theme %q prompt", name)
-	}
+	require.Contains(t, built, "normal")
+	assert.Equal(t, "> ", built["normal"].promptText)
 }
 
-func TestLoadBuiltinThemes_BlackIsFlatGray_NormalIsBright(t *testing.T) {
+func TestLoadBuiltinThemes_NormalIsBright(t *testing.T) {
 	built := loadBuiltinThemes()
-	require.Contains(t, built, "black")
 	require.Contains(t, built, "normal")
-	assert.Equal(t, "#767676", built["black"].palette.modelName)
-	assert.Equal(t, "#767676", built["black"].palette.heading, "black is monochrome: every field shares one color")
-	assert.False(t, built["black"].palette.bold)
 	assert.Equal(t, "#00E5FF", built["normal"].palette.modelName)
 	assert.True(t, built["normal"].palette.bold)
 }
@@ -531,11 +515,11 @@ func TestInitThemes_UserLoadErrorsPrintedButDoesNotPanic(t *testing.T) {
 
 	w.Close()
 	os.Stderr = origErr
-	data, _ := io.ReadAll(r)
+	_, _ = io.ReadAll(r)
 	r.Close()
 
-	assert.Contains(t, string(data), "theme:", "the load error must be printed to stderr")
-	assert.Equal(t, defaultThemeName, CurrentThemeName(), "a broken user theme must not stop the default from applying")
+	assert.Equal(t, defaultThemeName, CurrentThemeName(), "a user theme file must not change the palette")
+	assert.NotContains(t, ThemeNames(), "broken")
 }
 
 func TestInitThemes_UserThemeAvailableAfterInit(t *testing.T) {
@@ -554,14 +538,12 @@ palette:
 
 	initThemes()
 
-	assert.Contains(t, themes, "custominit")
-	assert.Contains(t, ThemeNames(), "custominit")
-	assert.Equal(t, defaultThemeName, CurrentThemeName(), "initThemes must select the default theme")
-	assert.True(t, SetTheme("custominit"))
-	assert.Equal(t, "?? ", activePromptText)
-	assert.Equal(t, []string{"custominit"}, CustomThemeNames())
-	assert.Equal(t, []string{"normal", "black", "linux", "vim", "emacs"}, BuiltinThemeNames(),
-		"BuiltinThemeNames must stay fixed regardless of what user themes are loaded")
+	assert.NotContains(t, themes, "custominit")
+	assert.NotContains(t, ThemeNames(), "custominit")
+	assert.Equal(t, defaultThemeName, CurrentThemeName())
+	assert.False(t, SetTheme("custominit"))
+	assert.Empty(t, CustomThemeNames())
+	assert.Equal(t, []string{"normal"}, BuiltinThemeNames())
 }
 
 // TestInitThemes_CustomThemeOverridingBuiltinStillListedAsCustom covers the
@@ -584,6 +566,7 @@ palette:
 
 	initThemes()
 
-	assert.Equal(t, []string{"vim"}, CustomThemeNames())
-	assert.Equal(t, "custom-vim> ", themes["vim"].promptText, "the user file must override the built-in vim theme")
+	assert.Empty(t, CustomThemeNames())
+	_, ok := themes["vim"]
+	assert.False(t, ok, "a user theme file is not loaded")
 }

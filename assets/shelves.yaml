@@ -48,7 +48,6 @@ items:
   "harness/compaction-update-user": context
   "harness/compaction-user": context
   "harness/internals": context
-  "harness/refine-system": context
   "events/auto-compact": context
   "events/fold": context
   "events/force-answer-digest": context
@@ -56,7 +55,6 @@ items:
   "events/memory-prompt-limit": context
   "events/knowledge-recall-files": rag
   "events/bug-capture-max-errors": evals
-  "events/side-call-max-tokens": context
   "events/thinking-budget-auto": model
   "events/thinking-budget-high": model
   "events/thinking-budget-low": model
@@ -102,27 +100,12 @@ items:
   "tools/identity_get": agent
   "tools/instruct": agent
   "tools/load_skill": agent
-  "tools/plan_update": agent
-  "harness/plan-council-draft": agent
-  "harness/plan-council-members": agent
-  "harness/plan-council-plan": agent
-  "harness/plan-council-prioritize": agent
-  "harness/plan-council-revise": agent
-  "events/plan-council-max-orders": agent
-  "events/plan-council-rounds": agent
-  "events/plan-council-size": agent
   "actions/force_answer": agent
-  "harness/handshake": guardrails
-  "harness/handshake-ack": guardrails
-  "harness/handshake-evidence": guardrails
-  "harness/handshake-evidence-praise": guardrails
-  "harness/handshake-evidence-retry": guardrails
   "harness/safety": guardrails
   "tools/approval_grant": guardrails
   "tools/approval_list": guardrails
   "tools/approval_request": guardrails
   "tools/approval_revoke": guardrails
-  "tools/session_handshake": guardrails
   "harness/judge-roster-system": evals
   "harness/judge-system": evals
   "tools/judge_verdict": evals
@@ -130,5 +113,3 @@ items:
   "events/judge-max-rounds": evals
   "actions/accept_last": evals
   "events/context-segment-cap": context
-  "events/handshake-evidence-attempts": harness
-  "events/handshake-history": harness

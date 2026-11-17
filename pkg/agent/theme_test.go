@@ -19,8 +19,6 @@
 package agent
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -29,92 +27,23 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/tui"
 )
 
-// parseChannels returns the R,G,B values of a "#rrggbb" hex string.
-func parseChannels(t *testing.T, hex string) [3]int64 {
-	t.Helper()
-	if len(hex) != 7 || hex[0] != '#' {
-		t.Fatalf("not a #rrggbb color: %q", hex)
-	}
-	var out [3]int64
-	for i, span := range [][2]int{{1, 3}, {3, 5}, {5, 7}} {
-		v, err := strconv.ParseInt(hex[span[0]:span[1]], 16, 0)
-		if err != nil {
-			t.Fatalf("bad channel in %q: %v", hex, err)
-		}
-		out[i] = v
-	}
-	return out
-}
-
-func TestSetTheme_TogglesActivePalette(t *testing.T) {
+func TestSetTheme_KeepsTheNormalPalette(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
 
-	if stealthEnabled() {
-		t.Fatal("normal should not be a disguise")
+	if stealthEnabled() || StealthActive() {
+		t.Fatal("normal is the only palette")
 	}
-	if !SetTheme("black") {
-		t.Fatal("SetTheme(\"black\") should succeed")
+	if SetTheme("black") {
+		t.Fatal("SetTheme(\"black\") must not switch palettes")
 	}
-	if !stealthEnabled() || !StealthActive() {
-		t.Fatal("SetTheme(\"black\") did not enable the disguise")
+	if CurrentThemeName() != "normal" {
+		t.Fatalf("CurrentThemeName() = %q, want normal", CurrentThemeName())
 	}
-	if activePalette != themes["black"].palette {
-		t.Fatal("activePalette is not the black theme's palette")
-	}
-	if !SetTheme("normal") {
-		t.Fatal("SetTheme(\"normal\") should succeed")
-	}
-	if stealthEnabled() {
-		t.Fatal("SetTheme(\"normal\") did not disable the disguise")
+	if !SetTheme("normal") || !SetTheme("") {
+		t.Fatal("SetTheme must accept normal and the empty name")
 	}
 	if activePalette != themes["normal"].palette {
-		t.Fatal("activePalette did not return to the normal theme's palette")
-	}
-}
-
-func TestBlackTheme_IsMonochromeLegibleGray(t *testing.T) {
-	// Every field in the black theme must share one legible dark-gray color
-	// (r == g == b, roughly mid-range) -- a single flat hue rather than a
-	// near-invisible near-black palette.
-	p := themes["black"].palette
-	fields := map[string]string{
-		"heading": p.heading, "link": p.link,
-		"code": p.code, "codeBlock": p.codeBlock,
-		"text": p.text, "thinking": p.thinking,
-		"muted": p.muted, "bullet": p.bullet,
-		"quote": p.quote, "borderHr": p.borderHr,
-		"synKeyword": p.synKeyword, "synFunc": p.synFunc,
-		"synStr": p.synStr, "synComment": p.synComment,
-		"synNum": p.synNum, "synType": p.synType,
-		"synOp":     p.synOp,
-		"replError": p.replError, "replMeta": p.replMeta,
-		"replHeading": p.replHeading, "replSuccess": p.replSuccess,
-		"replPrompt": p.replPrompt, "replInfo": p.replInfo,
-		"replDim": p.replDim, "bannerText": p.bannerText,
-		"bannerBorder": p.bannerBorder, "modelsReady": p.modelsReady,
-		"modelsNoKey": p.modelsNoKey, "modelsCurrent": p.modelsCurrent,
-		"modelName": p.modelName,
-	}
-	want := p.heading
-	for name, hex := range fields {
-		if hex != want {
-			t.Errorf("black.%s = %s, want the same color as heading (%s) -- black is monochrome", name, hex, want)
-		}
-	}
-	c := parseChannels(t, want)
-	if c[0] != c[1] || c[1] != c[2] {
-		t.Errorf("black theme color %s is not grayscale (r=%d g=%d b=%d)", want, c[0], c[1], c[2])
-	}
-	const (
-		minChannel = 0x40 // dark enough to still read as "muted"
-		maxChannel = 0xA0 // light enough to be legible on a dark background
-	)
-	if c[0] < minChannel || c[0] > maxChannel {
-		t.Errorf("black theme color %s channel %d is outside the legible-gray range [%#x, %#x]",
-			want, c[0], minChannel, maxChannel)
-	}
-	if p.bold {
-		t.Error("black.bold must be false - keeps the flat gray from reading as a second, brighter color")
+		t.Fatal("activePalette is not the normal palette")
 	}
 }
 
@@ -130,7 +59,7 @@ func TestSetTheme_InvalidatesRenderers(t *testing.T) {
 	if !primed {
 		t.Skip("renderer cache not populated in this environment")
 	}
-	_ = SetTheme("black")
+	_ = SetTheme("normal")
 	rendererMu.Lock()
 	defer rendererMu.Unlock()
 	if cachedRenderer != nil || cachedThinkingRenderer != nil {
@@ -138,50 +67,29 @@ func TestSetTheme_InvalidatesRenderers(t *testing.T) {
 	}
 }
 
-func TestApplyReplStyles_BlackThemeUsesModelNameColor(t *testing.T) {
+func TestSetTheme_UnknownNameLeavesNormal(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
-	_ = SetTheme("black")
-	got := styleModelName.Render("llama3.2")
-	// Under `go test` there is no TTY so lipgloss may strip color; only assert
-	// when the environment actually renders SGR codes.
-	if strings.Contains(got, "\x1b[") {
-		c := parseChannels(t, themes["black"].palette.modelName)
-		sgr := fmt.Sprintf("38;2;%d;%d;%d", c[0], c[1], c[2])
-		if !strings.Contains(got, sgr) {
-			t.Fatalf("styleModelName render %q missing %q", got, sgr)
-		}
-		if strings.Contains(got, "\x1b[1m") || strings.Contains(got, ";1m") {
-			t.Fatalf("styleModelName is bold under the black theme: %q", got)
-		}
+	if SetTheme("vim") || SetTheme("bogus") {
+		t.Fatal("only normal is a theme name")
+	}
+	if CurrentThemeName() != "normal" {
+		t.Fatalf("CurrentThemeName() = %q, want normal", CurrentThemeName())
 	}
 }
 
-// --- Theme selection ---
-
-func TestSetTheme_UnknownNameLeavesCurrentThemeUnchanged(t *testing.T) {
+func TestSetTheme_AppliesNormalImmediately(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
-	SetTheme("vim")
-	if ok := SetTheme("bogus"); ok {
-		t.Fatal("SetTheme(\"bogus\") should return false")
+	if ok := SetTheme("normal"); !ok {
+		t.Fatal("SetTheme(\"normal\") should succeed")
 	}
-	if CurrentThemeName() != "vim" {
-		t.Fatalf("CurrentThemeName() = %q, want unchanged \"vim\"", CurrentThemeName())
+	if stealthEnabled() {
+		t.Fatal("normal is not a disguise")
 	}
-}
-
-func TestSetTheme_TakesEffectImmediately(t *testing.T) {
-	t.Cleanup(func() { _ = SetTheme("normal") })
-	if ok := SetTheme("vim"); !ok {
-		t.Fatal("SetTheme(\"vim\") should succeed")
+	if activePalette != themes["normal"].palette {
+		t.Fatal("activePalette is not the normal palette")
 	}
-	if !stealthEnabled() {
-		t.Fatal("a non-normal theme must be immediately active - there is no separate on/off layer")
-	}
-	if activePalette != themes["vim"].palette {
-		t.Fatal("activePalette did not switch to the vim theme")
-	}
-	if activePromptText != themes["vim"].promptText {
-		t.Fatalf("activePromptText = %q, want %q", activePromptText, themes["vim"].promptText)
+	if activePromptText != themes["normal"].promptText {
+		t.Fatalf("activePromptText = %q, want %q", activePromptText, themes["normal"].promptText)
 	}
 }
 
@@ -192,7 +100,7 @@ func TestSetTheme_TakesEffectImmediately(t *testing.T) {
 func TestSetTheme_SyncsPickerColors(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
 
-	for _, name := range []string{"normal", "black", "linux", "vim", "emacs"} {
+	for _, name := range []string{"normal"} {
 		t.Run(name, func(t *testing.T) {
 			if ok := SetTheme(name); !ok {
 				t.Fatalf("SetTheme(%q) failed", name)
@@ -215,7 +123,7 @@ func TestSetTheme_SyncsPickerColors(t *testing.T) {
 
 func TestThemes_PromptTextAndPaletteApplied(t *testing.T) {
 	t.Cleanup(func() { _ = SetTheme("normal") })
-	for _, name := range []string{"normal", "black", "linux", "vim", "emacs"} {
+	for _, name := range []string{"normal"} {
 		t.Run(name, func(t *testing.T) {
 			if ok := SetTheme(name); !ok {
 				t.Fatalf("SetTheme(%q) failed", name)
@@ -244,7 +152,7 @@ func TestThemeNames_MatchesRegisteredThemes(t *testing.T) {
 
 func TestThemeNames_IncludesAllBuiltins(t *testing.T) {
 	names := ThemeNames()
-	for _, want := range []string{"normal", "black", "linux", "vim", "emacs"} {
+	for _, want := range []string{"normal"} {
 		found := false
 		for _, n := range names {
 			if n == want {
@@ -258,9 +166,9 @@ func TestThemeNames_IncludesAllBuiltins(t *testing.T) {
 	}
 }
 
-func TestBuiltinThemeNames_ListsExactlyTheFiveShipped(t *testing.T) {
+func TestBuiltinThemeNames_ListsTheShippedPalette(t *testing.T) {
 	got := BuiltinThemeNames()
-	want := []string{"normal", "black", "linux", "vim", "emacs"}
+	want := []string{"normal"}
 	if len(got) != len(want) {
 		t.Fatalf("BuiltinThemeNames() = %v, want %v", got, want)
 	}
@@ -287,15 +195,13 @@ func TestCustomThemeNames_EmptyWithNoUserThemes(t *testing.T) {
 }
 
 func TestResolveThemeEnv(t *testing.T) {
-	for _, v := range []string{"vim", "VIM", " emacs ", "linux", "black", "normal"} {
+	for _, v := range []string{"normal", " NORMAL "} {
 		t.Setenv("KDEPS_THEME", v)
-		got := ResolveThemeEnv()
-		want := strings.ToLower(strings.TrimSpace(v))
-		if got != want {
-			t.Errorf("ResolveThemeEnv() for KDEPS_THEME=%q = %q, want %q", v, got, want)
+		if got := ResolveThemeEnv(); got != "normal" {
+			t.Errorf("ResolveThemeEnv() for KDEPS_THEME=%q = %q, want normal", v, got)
 		}
 	}
-	for _, v := range []string{"", "not-a-theme"} {
+	for _, v := range []string{"", "not-a-theme", "vim", "black"} {
 		t.Setenv("KDEPS_THEME", v)
 		if got := ResolveThemeEnv(); got != "" {
 			t.Errorf("ResolveThemeEnv() for KDEPS_THEME=%q = %q, want \"\"", v, got)
@@ -332,16 +238,11 @@ func TestDisplayModelName_TheGivenAwayConcern(t *testing.T) {
 	if got := DisplayModelName(raw); got != raw {
 		t.Errorf("normal theme: DisplayModelName(%q) = %q, want verbatim", raw, got)
 	}
-
-	for _, name := range []string{"black", "linux", "vim", "emacs"} {
-		_ = SetTheme(name)
-		got := DisplayModelName(raw)
-		if got == raw {
-			t.Errorf("theme %q: DisplayModelName(%q) returned the literal name, giving the disguise away", name, raw)
-		}
-		if strings.Contains(strings.ToLower(got), "claude") {
-			t.Errorf("theme %q: abbreviation %q still spells out the vendor name", name, got)
-		}
+	if SetTheme("vim") {
+		t.Fatal("a disguise theme is not installed")
+	}
+	if got := DisplayModelName(raw); got != raw {
+		t.Errorf("rejected theme must leave the name verbatim, got %q", got)
 	}
 }
 
@@ -376,8 +277,6 @@ func TestDisplayModelName_OverrideWinsRegardlessOfTheme(t *testing.T) {
 		_ = SetTheme("normal")
 	})
 	const raw = "claude-sonnet-5"
-
-	_ = SetTheme("vim") // a disguise theme -- would abbreviate by default
 
 	if !SetModelNameDisplay("show") {
 		t.Fatal("SetModelNameDisplay(\"show\") should succeed")
@@ -436,7 +335,7 @@ func TestRenderStealthSample(t *testing.T) {
 
 func TestInstalledThemeOrder(t *testing.T) {
 	loaded := map[string]*theme{"vim": {}, "normal": {}, "zeta": {}, "alpha": {}}
-	assert.Equal(t, []string{"normal", "vim", "alpha", "zeta"}, installedThemeOrder(loaded),
+	assert.Equal(t, []string{"normal", "alpha", "vim", "zeta"}, installedThemeOrder(loaded),
 		"the shipped themes that are installed, in order, then the others published, sorted")
 	assert.Empty(t, installedThemeOrder(map[string]*theme{}))
 }

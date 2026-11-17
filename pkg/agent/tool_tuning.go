@@ -44,25 +44,12 @@ type ToolTuning struct {
 	BashLimit            int // max bash_exec calls per request (0=event default 50, <0=unlimited)
 	FileLimit            int // max read_file/list_files calls per request (0=event default 80, <0=unlimited)
 	CodeLimit            int // max search_local calls per request (0=event default 30, <0=unlimited)
-	// turo reducer state (empty TuroLevel means turo was never configured).
-	TuroLevel    string
-	TuroOff      bool
-	TuroFiller   bool
-	TuroSynonyms bool
-	TuroGloss    bool
-	TuroDefmatch bool
-	TuroArrows   bool
 	// ToolsFullMode persists the /tools full|lean choice (default: full).
 	ToolsFullMode bool
-	// AutoJudges persists the /judges auto choice (default: on). /judges off
-	// writes false. A settings file that never set the key stays on: the YAML
-	// field has no omitempty, and a missing key unmarshals as true.
-	AutoJudges bool
 	// ToolsConfigured is the "was this section ever saved" sentinel for
-	// ToolsFullMode/AutoJudges/AutoContextDetect, the same role TuroLevel !=
-	// "" plays for the turo fields above -- without it, a snapshot saved
-	// before this feature existed would carry zero values and silently
-	// override the defaults Run() set on every subsequent restore.
+	// ToolsFullMode/AutoContextDetect. Without it, a snapshot saved before
+	// this feature existed would carry zero values and silently override the
+	// defaults Run() set on every subsequent restore.
 	ToolsConfigured bool
 	// AutoContextDetect persists the /autocontext choice (default: on).
 	AutoContextDetect bool
@@ -72,29 +59,15 @@ type ToolTuning struct {
 	// no separate sentinel.
 	PermissionMode string
 	// ThinkingMode persists the /thinking choice ("off", "low", "auto", ...).
-	// Empty means never configured -- leave the auto-thinking default NewREPL
-	// already set, the same way TuroLevel == "" leaves the turo defaults.
+	// Empty means never configured. Leave the auto-thinking default NewREPL
+	// already set.
 	ThinkingMode string
 	// ContextSize persists the /context <size> choice. 0 means never
 	// configured.
 	ContextSize int
-	// RefineOff persists the /refine off|on choice; RefineConfigured is its
-	// "was this ever set" sentinel. The REPL default is off. An old snapshot
-	// that never set RefineConfigured leaves PromptRefine alone, so the
-	// default stays off. A snapshot that stored refine-on (RefineConfigured
-	// true, RefineOff false) restores on.
-	RefineOff        bool
-	RefineConfigured bool
-	// HandshakeOn persists the /handshake on|off choice (default: off). No
-	// "configured" sentinel needed -- off is also the zero value, so a
-	// snapshot from before this field existed (unmarshals to false) already
-	// restores the correct default.
-	HandshakeOn bool
 	// KnowledgeOff persists /knowledge off (default on; off is not the zero
 	// value, so an older snapshot restores on).
 	KnowledgeOff bool
-	// PlanCouncil persists /plan on (default off).
-	PlanCouncil bool
 	// FoldThreshold persists the /fold threshold <n> choice (token delta
 	// since the last checkpoint that triggers an automatic fold). 0 means
 	// never configured -- applyConfigDefaults' default (2000) applies.
@@ -105,7 +78,7 @@ type ToolTuning struct {
 	FoldContextItems int
 	// FoldAuto persists the /fold auto|off choice (default: on).
 	// FoldConfigured is its "was this ever set" sentinel -- same role as
-	// GoalConfigured/RefineConfigured above, so a snapshot saved before this
+	// GoalConfigured above, so a snapshot saved before this
 	// feature existed (FoldAuto unmarshals to false) still restores the
 	// on-by-default behavior instead of silently disabling it.
 	FoldAuto       bool
@@ -119,7 +92,7 @@ type ToolTuning struct {
 	// InstructReminders persists the /instruct topics forced onto every
 	// prompt and tool result via /harness reminders instruct:<topic> on.
 	InstructReminders []string
-	// PromptMode persists /efficiency prompt (auto, full, or summary).
+	// PromptMode persists the harness prompt mode (auto, full, or summary).
 	// Empty means auto, which is also the zero value.
 	PromptMode string
 	// Subagent persists /subagent. Empty means current. SubagentSet is the sentinel: a
@@ -157,25 +130,13 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		BashLimit:            c.BashLimit,
 		FileLimit:            c.FileLimit,
 		CodeLimit:            c.CodeLimit,
-		TuroLevel:            TuroLevel(),
-		TuroOff:              TuroRuntimeOff(),
-		TuroFiller:           TuroStage("filler"),
-		TuroSynonyms:         TuroStage("synonyms"),
-		TuroGloss:            TuroStage("gloss"),
-		TuroDefmatch:         TuroStage("defmatch"),
-		TuroArrows:           TuroStage("arrows"),
 		ToolsFullMode:        r.toolsFullMode,
-		AutoJudges:           c.AutoJudges,
 		ToolsConfigured:      true,
 		AutoContextDetect:    r.autoContextDetect,
 		PermissionMode:       string(c.PermissionMode),
 		ThinkingMode:         thinkingMode,
 		ContextSize:          r.contextSize,
-		RefineOff:            !c.PromptRefine,
-		RefineConfigured:     true,
-		HandshakeOn:          c.HandshakeEnabled,
 		KnowledgeOff:         r.loop.knowledgeOff,
-		PlanCouncil:          c.PlanCouncil,
 		FoldThreshold:        c.FoldThreshold,
 		FoldContextItems:     c.FoldContextItems,
 		FoldAuto:             !c.FoldOff,
@@ -235,44 +196,24 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 	c.BashLimit = t.BashLimit
 	c.FileLimit = t.FileLimit
 	c.CodeLimit = t.CodeLimit
-	// Restore turo state only when it was persisted (level set); otherwise keep
-	// the built-in defaults so the stage flags are not clobbered to off.
-	if t.TuroLevel != "" {
-		SetTuroLevel(t.TuroLevel)
-		SetTuroRuntimeOff(t.TuroOff)
-		SetTuroStage("filler", t.TuroFiller)
-		SetTuroStage("synonyms", t.TuroSynonyms)
-		SetTuroStage("gloss", t.TuroGloss)
-		SetTuroStage("defmatch", t.TuroDefmatch)
-		SetTuroStage("arrows", t.TuroArrows)
-	}
 	r.applyToolTuningExtras(t)
 }
 
-// applyToolTuningExtras restores the tools/judges/auto-context/permission/
+// applyToolTuningExtras restores the tools/auto-context/permission/
 // thinking/context-size settings, split out of applyToolTuning to keep it
 // under the function-length lint limit.
 func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 	c := &r.loop.config
-	// Restore the tools/judges/auto-context toggles only when this section was
-	// actually saved; otherwise keep whatever wireREPL/NewREPL already set
-	// (full tools, auto-judges on, auto-context on) instead of a stale
-	// snapshot's zero values. AutoJudges false in a configured snapshot is
-	// an explicit /judges off.
+	// Restore the tools/auto-context toggles only when this section was
+	// actually saved; otherwise keep whatever wireREPL/NewREPL already set.
 	if t.ToolsConfigured {
 		if r.toolsFilterFn != nil && t.ToolsFullMode != r.toolsFullMode {
 			r.toolsCount = r.toolsFilterFn(t.ToolsFullMode)
 			r.toolsFullMode = t.ToolsFullMode
 		}
-		c.AutoJudges = t.AutoJudges
 		r.autoContextDetect = t.AutoContextDetect
 	}
-	if t.RefineConfigured {
-		r.loop.SetPromptRefine(!t.RefineOff)
-	}
-	r.loop.SetHandshakeEnabled(t.HandshakeOn)
 	r.loop.knowledgeOff = t.KnowledgeOff
-	c.PlanCouncil = t.PlanCouncil
 	if t.FoldThreshold > 0 {
 		c.FoldThreshold = t.FoldThreshold
 	}
@@ -335,17 +276,7 @@ func (r *REPL) SetPersistedTuning(t ToolTuning) {
 	r.persistedTuning = &t
 }
 
-// SetAutoJudges sets the panel default for a session that does not go through
-// Run (the desktop loop). Run itself turns the panel on, then applyToolTuning
-// restores a saved off.
-func (r *REPL) SetAutoJudges(enabled bool) {
-	if r == nil || r.loop == nil {
-		return
-	}
-	r.loop.SetAutoJudges(enabled)
-}
-
-// persistTuning saves the current tool + turo settings so they survive across
+// persistTuning saves the current tool settings so they survive across
 // sessions. A no-op when no save function is wired (non-interactive use).
 func (r *REPL) persistTuning() {
 	if r.saveTuningFn == nil {

@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
@@ -101,7 +102,7 @@ func (l *Loop) SummarizeBranch(ctx context.Context) (string, error) {
 
 	conversationText := serializeConversation(msgs, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" +
-		turoReduce(ctx, harnessText("branch-summary"))
+		harnessText("branch-summary")
 
 	const branchActionID = "agent_loop_branch_summary"
 	chatCfg := &domain.ChatConfig{
@@ -118,7 +119,7 @@ func (l *Loop) SummarizeBranch(ctx context.Context) (string, error) {
 	chatCfg.MaxTokens = syntheticCallMaxTokens(l.config.Backend, l.config.Model)
 	synthetic := l.buildSyntheticWorkflow(branchActionID, chatCfg)
 
-	result, err := l.engine.Execute(synthetic, nil)
+	result, err := l.engine.Execute(synthetic, &executor.RequestContext{Ctx: ctx})
 	if err != nil {
 		return "", fmt.Errorf("branch summary LLM call failed: %w", err)
 	}

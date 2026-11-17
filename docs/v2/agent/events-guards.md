@@ -18,7 +18,6 @@ run: force_answer
 |---|---|---|
 | `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their allocated budget instead (`/model tool set <category>-limit <n>`; `0` = unlimited = never stops) | ends the turn as a stuck loop |
 | `convergence-block` | this many consecutive rounds end in a convergence-blocked tool call (the model kept trying once a web/bash/file/code budget ran out) | strips every tool and forces a text answer |
-| `handshake-timeout` | a session-handshake grounding challenge (see [session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)) spends this many tool rounds without resolving | fails the handshake |
 | `judge-max-rounds` | a single [judge](./judges.md)'s review spends this many tool rounds | ends that judge's review and forces its verdict |
 | `agent-max-rounds` | an agent-loop turn spends this many tool rounds (200) when `/model tool set rounds` sets none | forces a text answer |
 | `chat-max-rounds` | a workflow chat with no `tools.maxRounds` (or `auto`) spends this many tool rounds (25) | forces a text answer |

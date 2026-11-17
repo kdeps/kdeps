@@ -49,20 +49,17 @@ var (
 		"tools-reminder", "skills-preamble",
 		"compaction-system", "compaction-user", "compaction-update-user",
 		"judge-roster-system",
-		"judge-system", "subagent-system", "skill-folder", "ask-question", "refine-system",
-		"plan-council-members", "plan-council-draft", "plan-council-revise",
-		"plan-council-prioritize", "plan-council-plan",
-		"branch-summary", "handshake",
+		"judge-system", "subagent-system", "skill-folder", "ask-question",
+		"branch-summary",
 		"knowledge-extract-system",
-		"handshake-ack", "invoke-example", "repeat-offense-note",
+		"invoke-example", "repeat-offense-note",
 		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
 		"nudge-sandbox-hallucination-qualifier", "nudge-unbacked-claim", "model-refusal-record",
 		"nudge-unresolved-failure",
 		"nudge-continue", "nudge-self-limit",
 		"nudge-edit-unchanged", "session-resumed",
 		"tool-call-early-praise", "tool-call-recovery-praise",
-		"tool-call-sandbox-recovery-praise", "handshake-evidence",
-		"handshake-evidence-retry", "handshake-evidence-praise", "handshake-grounding",
+		"tool-call-sandbox-recovery-praise",
 	}
 )
 
@@ -143,7 +140,7 @@ func TestLoadBuiltinHarness_KnownSubstringsSurviveVerbatim(t *testing.T) {
 func TestLoadBuiltinHarness_SaysKdepsParsesInvoke(t *testing.T) {
 	built := loadBuiltinHarness()
 	for _, name := range []string{
-		"use-kdeps-tools", "tools", "invoke-example", "handshake", "tools-reminder",
+		"use-kdeps-tools", "tools", "invoke-example", "tools-reminder",
 	} {
 		require.Contains(t, built, name)
 		assert.Contains(t, built[name].body, "kdeps is a parser", "entry %q", name)
@@ -164,7 +161,7 @@ func TestLoadBuiltinHarness_SaysKdepsParsesInvoke(t *testing.T) {
 func TestLoadBuiltinHarness_ForbidsMarkdownFenceOnInvoke(t *testing.T) {
 	built := loadBuiltinHarness()
 	for _, name := range []string{
-		"use-kdeps-tools", "handshake", "handshake-evidence", "handshake-evidence-retry",
+		"use-kdeps-tools",
 	} {
 		require.Contains(t, built, name)
 		assert.Contains(

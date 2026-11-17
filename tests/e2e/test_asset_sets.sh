@@ -117,7 +117,7 @@ write("events/e2e-marker.yaml", "version: 1.0.0\nrequires:\n  actions/e2e_marker
 write("presets/e2e-preset.yaml", "version: 1.0.0\nrequires:\n  events/e2e-marker: \"\"\n"
       "name: e2e-preset\ndescription: E2E-PRESET-MARKER\nevents:\n"
       "  - name: e2e-marker\n    on:\n      rounds: 55\n    run: e2e_marker_action\n")
-theme = open(p("themes", "vim.yaml")).read().replace("name: vim", "name: e2e-theme")
+theme = open(p("themes", "normal.yaml")).read().replace("name: normal", "name: e2e-theme")
 write("themes/e2e-theme.yaml", re.sub(r"(?m)^prompt: .*$", 'prompt: "E2E-THEME> "', theme))
 s = bump("tools/read_file.yaml")
 s = re.sub(r"(?m)^description: (.*)$", lambda m: "description: " + json.dumps("E2E-TOOL-MARKER " + m.group(1).strip("'\"")), s, count=1)
@@ -325,7 +325,7 @@ else
     test_failed "asset sets - memory: rule type" "$OUT"
 fi
 
-OUT=$(sa_loop '/help\nsay hi\n/e2e-cmd from the e2e\n/harness\n/harness events\n/harness preset list\n/harness preset e2e-preset\n/harness events\n/theme list\n/theme e2e-theme\n/quit\n')
+OUT=$(sa_loop '/help\nsay hi\n/e2e-cmd from the e2e\n/harness\n/harness events\n/harness preset list\n/harness preset e2e-preset\n/harness events\n/quit\n')
 if output_grep_fixed "MOCK REPLY" "$OUT" && [ -n "$(requests_with "say hi")" ]; then
     test_passed "asset sets - providers: the agent loop talks to a provider that exists only as an asset"
 else
@@ -362,8 +362,8 @@ if output_grep "e2e-preset +E2E-PRESET-MARKER" "$OUT" && output_grep "Applied pr
 else
     test_failed "asset sets - presets" "$OUT"
 fi
-if output_grep "Built-in: .*e2e-theme" "$OUT" && ! output_grep -i "unknown theme" "$OUT"; then
-    test_passed "asset sets - themes: a published theme is listed and can be switched to"
+if [ -f "$SA_HOME/store/themes/e2e-theme.yaml" ] && [ -f "$SA_HOME/store/themes/normal.yaml" ] && ! output_grep "E2E-THEME>" "$OUT"; then
+    test_passed "asset sets - themes: a published theme file installs; only the normal palette applies"
 else
     test_failed "asset sets - themes" "$OUT"
 fi

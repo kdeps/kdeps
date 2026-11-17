@@ -59,7 +59,7 @@ func TestLoadBuiltinEvents_HasRoundCountCluster(t *testing.T) {
 	}{
 		{eventIdenticalToolCalls, 3, "force_answer"},
 		{eventConvergenceBlock, 1, "force_answer"},
-		{eventHandshakeTimeout, 2, "fail_handshake"},
+		{eventEfficiencyFailures, 5, "block"},
 	}
 	for _, c := range cases {
 		require.Contains(t, built, c.name)
@@ -76,7 +76,7 @@ func TestEffectiveRounds_FallsBackToOneWhenEventUnset(t *testing.T) {
 func TestEffectiveRounds_UsesEventValueWhenSet(t *testing.T) {
 	assert.Equal(t, 3, effectiveRounds(eventIdenticalToolCalls))
 	assert.Equal(t, 1, effectiveRounds(eventConvergenceBlock))
-	assert.Equal(t, 2, effectiveRounds(eventHandshakeTimeout))
+	assert.Equal(t, 5, effectiveRounds(eventEfficiencyFailures))
 }
 
 func TestLoadBuiltinEvents_HasTruncationCluster(t *testing.T) {
@@ -171,16 +171,6 @@ func TestMemoryPromptLimit_ReadsEvent(t *testing.T) {
 	isolateEventsHome(t)
 	initEvents()
 	assert.Equal(t, 500, memoryPromptLimit())
-}
-
-func TestLoadBuiltinEvents_HasSideCallMaxTokens(t *testing.T) {
-	built := loadBuiltinEvents()
-	require.Contains(t, built, eventSideCallMaxTokens)
-	assert.Equal(t, 512, built[eventSideCallMaxTokens].On.Tokens)
-	assert.Equal(t, "truncate", built[eventSideCallMaxTokens].Run)
-	got := sideCallMaxTokens("openai", "totally-custom-unlisted-model")
-	require.NotNil(t, got)
-	assert.Equal(t, 512, *got)
 }
 
 func TestMemoryKeysLimit_ReadsEvent(t *testing.T) {

@@ -82,7 +82,7 @@ cp "$AD_DIR/lock.good" "$H/store/lock.json"
 # --- a server returning garbage or errors ----------------------------------------------
 for mode in badjson 500; do
     serve "$mode"
-    OUT=$(ad "$H" "$KDEPS_BIN" install themes/vim)
+    OUT=$(ad "$H" "$KDEPS_BIN" install presets/frugal)
     OUT2=$(ad "$H" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
     if nopanic "$OUT" && ! output_grep "Installed|install +- -> " "$OUT" && output_grep_i "index|500|server|download|fetch" "$OUT" &&
         output_grep "Schema validation passed" "$OUT2"; then
@@ -139,7 +139,7 @@ fi
 
 # Former built-ins that are now YAML commands stay in the minimum profile: their
 # files are required.
-OUT3=$(printf '/fold\n/memory\n/skills\n/prompts\n/reload\n/judges\n/harness\n/efficiency\n/quit\n' | (cd "$H/work" && env HOME="$H" USERPROFILE="$H" KDEPS_ASSETS_SRC='' \
+OUT3=$(printf '/fold\n/memory\n/skills\n/prompts\n/reload\n/harness\n/quit\n' | (cd "$H/work" && env HOME="$H" USERPROFILE="$H" KDEPS_ASSETS_SRC='' \
     KDEPS_ASSETS_DIR="$H/store" KDEPS_ASSETS_URL=off KDEPS_CONFIG_PATH="$H/config.yaml" timeout 120 "$KDEPS_BIN" --agent-loop --new 2>&1))
 if nopanic "$OUT3" && ! output_grep_fixed "Unknown command" "$OUT3" && output_grep_fixed "threshold:" "$OUT3" \
     && output_grep_fixed "Reloaded skills" "$OUT3"; then

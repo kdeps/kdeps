@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/parallel"
 )
 
 // scriptedCallStreamer answers the main loop's first round with calls, and
@@ -101,6 +102,9 @@ func TestOptionList_ListOrLines(t *testing.T) {
 // TestRound_RunsLeadingSubagentCallsTogether checks a reply that opens with
 // several subagent calls runs them all in one round, in parallel.
 func TestRound_RunsLeadingSubagentCallsTogether(t *testing.T) {
+	prev := parallel.Limit()
+	parallel.SetLimit(4)
+	t.Cleanup(func() { parallel.SetLimit(prev) })
 	s := &scriptedCallStreamer{calls: []domain.StreamedToolCall{
 		call("1", toolNameSubagent, map[string]any{"task": "review A"}),
 		call("2", toolNameSubagent, map[string]any{"task": "review B"}),

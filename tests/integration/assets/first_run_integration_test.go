@@ -124,13 +124,12 @@ func TestInstall_NamedItemBringsItsRequires(t *testing.T) {
 	assert.Equal(t, []string{"schemas/v1", "tools/web_search", "components/web_search"}, ids(changes))
 	assert.Equal(t, "required by components/web_search", changes[0].Note)
 
-	changes, err = assets.Update(t.Context(), root, assets.NewClient(), []string{"commands/frugal"}, false)
+	changes, err = assets.Update(t.Context(), root, assets.NewClient(), []string{"presets/frugal"}, false)
 	require.NoError(t, err)
 	got := ids(changes)
-	assert.Contains(t, got, "presets/frugal")
 	assert.Contains(t, got, "events/auto-compact")
 	assert.Contains(t, got, "actions/compact")
-	assert.Equal(t, "commands/frugal", got[len(got)-1], "the command installs after what it requires")
+	assert.Equal(t, "presets/frugal", got[len(got)-1], "the preset installs after what it requires")
 	assert.Less(t, slices.Index(got, "actions/compact"), slices.Index(got, "events/auto-compact"))
 	assert.Less(t, slices.Index(got, "events/auto-compact"), slices.Index(got, "presets/frugal"))
 }

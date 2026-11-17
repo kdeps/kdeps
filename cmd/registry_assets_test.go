@@ -95,9 +95,9 @@ func TestRegistryAssetCommands(t *testing.T) {
 	require.NoError(t, err)
 	assert.Regexp(t, `tools/tail_file\s+9\.1\.0\s+pinned`, out)
 
-	out, err = run("uninstall", "themes/vim,themes/linux")
+	out, err = run("uninstall", "presets/frugal,presets/balanced")
 	require.NoError(t, err)
-	assert.Contains(t, out, "themes/linux")
+	assert.Contains(t, out, "presets/balanced")
 
 	out, err = run("update", "tools/tail_file")
 	require.NoError(t, err)

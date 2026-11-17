@@ -330,20 +330,19 @@ func TestCommandSubcommands_DispatchAndNest(t *testing.T) {
 usage: [{help: h}]
 subcommands:
   "":
-    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "bare {{.value}}"}]
+    run: [{tool: session_ops, args: {operation: get, key: autocontext}, print: "bare {{.value}}"}]
   show:
-    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "show {{.value}}"}]
+    run: [{tool: session_ops, args: {operation: get, key: autocontext}, print: "show {{.value}}"}]
   deep:
     subcommands:
       one:
         run:
-          - {tool: session_ops, args: {operation: get, key: refine}, as: first}
-          - {tool: session_ops, args: {operation: get, key: refine}, print: "deep {{.steps.first.value}}"}
+          - {tool: session_ops, args: {operation: get, key: autocontext}, as: first}
+          - {tool: session_ops, args: {operation: get, key: autocontext}, print: "deep {{.steps.first.value}}"}
 `,
 	})
 	r := NewREPL(t.Context(), makeTestLoop(nil))
 	defer r.cancel()
-	r.loop.SetPromptRefine(true)
 
 	run := func(line string) (string, error) {
 		var err error
@@ -392,11 +391,11 @@ func TestCommandSubcommands_AnyWord(t *testing.T) {
 usage: [{help: h}]
 subcommands:
   "":
-    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "bare"}]
+    run: [{tool: session_ops, args: {operation: get, key: autocontext}, print: "bare"}]
   list:
-    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "listed"}]
+    run: [{tool: session_ops, args: {operation: get, key: autocontext}, print: "listed"}]
   "*":
-    run: [{tool: session_ops, args: {operation: get, key: refine}, print: "picked $1"}]
+    run: [{tool: session_ops, args: {operation: get, key: autocontext}, print: "picked $1"}]
 `,
 	})
 	r := NewREPL(t.Context(), makeTestLoop(nil))

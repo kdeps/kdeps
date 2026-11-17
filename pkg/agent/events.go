@@ -52,10 +52,9 @@ import (
 // override one by dropping a same-named file in ~/.kdeps/events/ -- no Go
 // code or recompilation required.
 
-// Built-in event names, referenced from loop.go/compact.go/repl.go/
-// handshake.go/tool_history_window.go/builtin_tools.go/
-// context_detect.go/builtin_resource_tools.go instead of a literal string at
-// every call site.
+// Built-in event names, referenced from loop.go, compact.go, repl.go,
+// tool_history_window.go, builtin_tools.go, context_detect.go, and
+// builtin_resource_tools.go instead of a literal string at every call site.
 
 // EventTrigger is an event's "on:" clause. Every field is a distinct trigger
 // kind; an event sets only the ones it uses -- zero means "not this kind".
@@ -66,9 +65,7 @@ type EventTrigger struct {
 	// is unknown); "memory-prompt-limit" caps how many tokens of memory
 	// content are injected into the system preamble (converted to an
 	// approximate byte budget internally, same charsPerToken ratio the
-	// truncation cluster's Bytes fields use directly);
-	// "side-call-max-tokens" caps refine, the judge roster, and a
-	// verdict-only judge.
+	// truncation cluster's Bytes fields use directly).
 	Tokens int `yaml:"tokens,omitempty"`
 	// CtxWindowFraction fires when the session's estimated token count
 	// exceeds this fraction of the model's known context window --
@@ -83,10 +80,10 @@ type EventTrigger struct {
 	// Rounds fires once a round/repeat counter reaches this value. What it
 	// counts is defined by which event it's on: consecutive identical tool
 	// calls ("identical-tool-calls"), consecutive convergence-blocked rounds
-	// ("convergence-block"), a handshake's own round budget
-	// ("handshake-timeout"), a single judge's tool-round budget
-	// ("judge-max-rounds"), or the revise-and-rejudge loop's iteration budget
-	// ("judge-iterations") -- each reads this same field for its own counter.
+	// ("convergence-block"), a single judge's tool-round budget
+	// ("judge-max-rounds"), the revise-and-rejudge loop's iteration budget
+	// ("judge-iterations"), or failure briefs ("efficiency-failures").
+	// Each event reads this same field for its own counter.
 	Rounds int `yaml:"rounds,omitempty"`
 	// Bytes fires once a measured byte length reaches this value. What it
 	// measures is defined by which event it's on: a single tool result
@@ -317,7 +314,6 @@ func initEvents() {
 	configureToolBudget()
 	configureBodyLimit()
 	configureChatHarness()
-	configureRefine()
 	configureSkills()
 	configureNudges()
 	setFreeModelQueueCap()
@@ -428,9 +424,9 @@ func eventMinTurns(name string) int {
 }
 
 // eventRounds reads a registered event's rounds trigger, or 0 for an
-// unregistered name. Called with three distinct event names across the
-// round/count cluster (identical-tool-calls, convergence-block,
-// handshake-timeout), so unlike
+// unregistered name. Called with more than one event name across the
+// round/count cluster (identical-tool-calls, convergence-block, and the
+// judge and failure-brief events), so unlike
 // autoCompactTokens/foldTokensSinceCheckpoint/foldItems it stays
 // parameterized rather than hardcoding one name.
 func eventRounds(name string) int {
@@ -578,23 +574,8 @@ func memoryPromptLimit() int {
 	return fallback
 }
 
-// sideCallMaxTokens is the output cap for refine, the judge roster, and a
-// verdict-only judge. The side-call-max-tokens event supplies it. A disabled
-// event or a zero tokens field falls back to the model ceiling. Compaction,
-// the main turn, branch summaries, plan, confirm, and handshake do not use
-// this helper.
-func sideCallMaxTokens(backend, model string) *int {
-	if !EventEnabled(eventSideCallMaxTokens) {
-		return syntheticCallMaxTokens(backend, model)
-	}
-	if n := tokensField(eventSideCallMaxTokens); n > 0 {
-		return &n
-	}
-	return syntheticCallMaxTokens(backend, model)
-}
-
-// tokensField reads the "Tokens" field. auto-compact, memory-prompt-limit,
-// and side-call-max-tokens use it.
+// tokensField reads the "Tokens" field. auto-compact and memory-prompt-limit
+// use it.
 func tokensField(name string) int {
 	e, _ := EventByName(name)
 	return e.On.Tokens

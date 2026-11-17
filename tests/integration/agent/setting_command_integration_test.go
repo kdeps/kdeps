@@ -41,15 +41,15 @@ func TestUserSettingCommand_NarrowsTheShippedOne(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	dir := filepath.Join(home, ".kdeps", "commands")
 	require.NoError(t, os.MkdirAll(dir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "refine.yaml"), []byte(`version: 9.0.0
-name: refine
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "autocontext.yaml"), []byte(`version: 9.0.0
+name: autocontext
 usage:
-  - help: Turn prompt refinement off
+  - help: Turn auto-context off
 setting:
-  key: refine
+  key: autocontext
   values: [off]
-  show: "refine is {{.value}}"
-  set: "refine is now {{.value}}"
+  show: "autocontext is {{.value}}"
+  set: "autocontext is now {{.value}}"
   invalid: "only off is allowed"
 `), 0o600))
 	agent.ReloadAssets()
@@ -63,46 +63,16 @@ setting:
 	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
+	t.Cleanup(func() { api.SetSessionOps(nil) })
 
-	_, err := api.CallCommand(t.Context(), "refine", map[string]any{"args": []string{"off"}})
+	_, err := api.CallCommand(t.Context(), "autocontext", map[string]any{"args": []string{"off"}})
 	require.NoError(t, err)
-	require.False(t, loop.PromptRefineEnabled())
-	loop.SetPromptRefine(true)
-	_, err = api.CallCommand(t.Context(), "refine", map[string]any{"args": []string{"on"}})
+	out, err := api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "autocontext"})
 	require.NoError(t, err)
-	require.True(t, loop.PromptRefineEnabled(), "on is not in this file's values, so nothing changes")
-}
-
-// /theme takes its names from the setting (built-in plus ~/.kdeps/themes),
-// so a custom theme file is accepted through the commands API.
-func TestThemeSettingCommand_AcceptsACustomTheme(t *testing.T) {
-	t.Cleanup(agent.ReloadAssets)
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	dir := filepath.Join(home, ".kdeps", "themes")
-	require.NoError(t, os.MkdirAll(dir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "mine.yaml"), []byte("name: mine\n"), 0o600))
-	agent.ReloadAssets()
-	t.Cleanup(func() { agent.SetTheme("normal") })
-
-	loop := agent.New(
-		t.Context(),
-		executor.NewEngine(context.Background(), nil),
-		nil,
-		kdepstools.NewRegistry(),
-		agent.Config{Model: "m"},
-	)
-	repl := agent.NewREPL(t.Context(), loop)
-	var saved []string
-	repl.SetSaveThemeFn(func(name string) error { saved = append(saved, name); return nil })
-	repl.RegisterCommandAPI()
-
-	_, err := api.CallCommand(t.Context(), "theme", map[string]any{"args": []string{"mine"}})
+	require.JSONEq(t, `{"value":"off"}`, out)
+	_, err = api.CallCommand(t.Context(), "autocontext", map[string]any{"args": []string{"on"}})
 	require.NoError(t, err)
-	require.Equal(t, "mine", agent.CurrentThemeName())
-	require.Equal(t, []string{"mine"}, saved)
-	_, err = api.CallCommand(t.Context(), "theme", map[string]any{"args": []string{"nope"}})
+	out, err = api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "autocontext"})
 	require.NoError(t, err)
-	require.Equal(t, "mine", agent.CurrentThemeName(), "an unknown name changes nothing")
+	require.JSONEq(t, `{"value":"off"}`, out, "on is not in this file's values, so nothing changes")
 }

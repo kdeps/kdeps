@@ -45,15 +45,14 @@ import (
 // Built-in action names, referenced from every file that dispatches one
 // instead of a literal string at the call site.
 const (
-	actionCompact       = "compact"
-	actionTruncate      = "truncate"
-	actionReject        = "reject"
-	actionBlock         = "block"
-	actionDropOldest    = "drop_oldest"
-	actionCap           = "cap"
-	actionForceAnswer   = "force_answer"
-	actionFailHandshake = "fail_handshake"
-	actionAcceptLast    = "accept_last"
+	actionCompact     = "compact"
+	actionTruncate    = "truncate"
+	actionReject      = "reject"
+	actionBlock       = "block"
+	actionDropOldest  = "drop_oldest"
+	actionCap         = "cap"
+	actionForceAnswer = "force_answer"
+	actionAcceptLast  = "accept_last"
 )
 
 // Action is one on-disk actions/<name>.yaml document.
@@ -165,10 +164,9 @@ func exportActionEntries() []Action {
 // about every registered event whose declared "run:" name is not a known
 // action -- a typo or a bad override must be loud, not a silent no-op. Does
 // not check that the action's Kind matches the event's trigger shape; that
-// is documentation, not an enforced constraint, since a few events
-// (handshake-timeout, judge-max-rounds) legitimately reuse "force_answer"
-// (kind: rounds) at call sites that don't carry a distinct dispatchable
-// action of their own -- see docs/v2/agent/events.md.
+// is documentation, not an enforced constraint, since judge-max-rounds
+// reuses "force_answer" (kind: rounds) at a call site that does not carry
+// a distinct dispatchable action of its own. See docs/v2/agent/events.md.
 func validateEventActions() {
 	for name, e := range eventRegistry {
 		if e.Run == "" {

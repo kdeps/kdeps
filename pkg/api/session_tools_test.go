@@ -86,7 +86,7 @@ func TestListToolItems_OnlySessionOpsAgentOnly(t *testing.T) {
 	if !maps.Equal(flagged, map[string]bool{"session_ops": true}) {
 		t.Fatalf("agentOnly %v", flagged)
 	}
-	for _, name := range []string{"identity_get", "judge_verdict", "load_skill", "session_handshake"} {
+	for _, name := range []string{"identity_get", "judge_verdict", "load_skill", "ask_question"} {
 		_, ok := LookupTool(name)
 		assert.False(t, ok, name)
 	}

@@ -183,30 +183,26 @@ func TestParseYAMLPreset_JudgeNeedsNameAndCriteria(t *testing.T) {
 	assert.Contains(t, err.Error(), "judge 1")
 }
 
-// TestApplyPreset_DesignReviewSetsTheJudgePanel checks the shipped
-// design-review preset replaces the session's judges and changes no events.
-func TestApplyPreset_DesignReviewSetsTheJudgePanel(t *testing.T) {
+// TestApplyPreset_DesignReviewKeepsItsJudgePanel checks the shipped
+// design-review preset still names its four judges and changes no events.
+func TestApplyPreset_DesignReviewKeepsItsJudgePanel(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	p, ok := PresetByName("design-review")
 	require.True(t, ok, "design-review ships")
 	assert.Empty(t, p.Events, "it changes no events")
-
-	l := newJudgeTestLoop(nil)
-	l.SetJudges([]domain.Judge{{Name: "old", Criteria: "x"}})
-	require.NoError(t, ApplyPreset("design-review", l))
 	names := []string{}
-	for _, j := range l.Judges() {
+	for _, j := range p.Judges {
 		names = append(names, j.Name)
 		assert.Equal(t, []string{"read_file", "list_files", "search_local"}, j.Tools, j.Name)
 	}
 	assert.Equal(t, []string{"scope", "clarity", "failure-modes", "readiness"}, names)
+	require.NoError(t, ApplyPreset("design-review", nil))
 }
 
-func TestApplyPreset_WithoutJudgesKeepsThePanel(t *testing.T) {
+func TestApplyPreset_WithoutJudgesStillApplies(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	l := newJudgeTestLoop(nil)
-	l.SetJudges([]domain.Judge{{Name: "keep", Criteria: "x"}})
-	require.NoError(t, ApplyPreset("balanced", l))
-	require.Len(t, l.Judges(), 1)
-	assert.Equal(t, "keep", l.Judges()[0].Name)
+	p, ok := PresetByName("balanced")
+	require.True(t, ok)
+	assert.Empty(t, p.Judges)
+	require.NoError(t, ApplyPreset("balanced", nil))
 }

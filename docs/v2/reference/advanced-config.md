@@ -346,7 +346,7 @@ warning for agent profiles under `agents:` that do not match the `name:` under
 
 ## Subagent model
 
-The subagent channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the session model.
+The subagent channel is the model for knowledge-graph extraction. Empty or `current` uses the session model.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -354,7 +354,7 @@ llm:
   subagent: current    # current | free | a model id
 ```
 
-`free` chooses a large OpenRouter free model for each of those calls. Any other id pins that model. See [Subagent channel](/agent/subagent).
+`free` chooses a large OpenRouter free model for each extraction call. Any other id pins that model. See [Subagent channel](/agent/subagent).
 
 ## Knowledge vault
 

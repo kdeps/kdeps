@@ -185,6 +185,21 @@ func (l *Loop) subagentRegistry(names []string) (*kdepstools.Registry, error) {
 	return scopedRegistry(l.registry, picked), nil
 }
 
+// scopedRegistry returns a new registry containing only the named tools from
+// parent. An empty names list copies nothing.
+func scopedRegistry(parent *kdepstools.Registry, names []string) *kdepstools.Registry {
+	reg := kdepstools.NewRegistry()
+	if parent == nil || len(names) == 0 {
+		return reg
+	}
+	for _, n := range names {
+		if t := parent.Get(n); t != nil {
+			reg.Register(t)
+		}
+	}
+	return reg
+}
+
 // configureSubagent installs the subagent settings both modes read: the
 // subagent-max-rounds event, the subagent-system harness, the permission
 // policy and the subagent tool asset.
