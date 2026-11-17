@@ -370,7 +370,7 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	// The workspace's workflow defines the session when its target is a chat
 	// with loop:: model and backend (unless given as flags), round cap, tools.
 	// A workflow that does not parse, or names unknown tools, is reported and
-	// the session starts with its own settings, as the desktop app does.
+	// the session starts with its own settings.
 	if loopChat, loopErr := agentLoopChat(path, hostWorkflow); loopErr != nil {
 		fmt.Fprintf(os.Stderr, "agent loop: workflow.yaml not applied: %v\n", loopErr)
 	} else if unknown := agent.UnknownLoopTools(registry, loopChat); len(unknown) > 0 {
@@ -419,8 +419,6 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	excludedTools := leanExcludedTools(registry)
 
 	loop := agent.New(ctx, eng, hostWorkflow, registry, cfg)
-	// The terminal is one front end on the agent runtime; the desktop app is
-	// another (pkg/desktop).
 	repl := agent.NewRuntime(rootCtx, loop, agent.RuntimeOptions{}).REPL()
 	defer llm.ShutdownLocalServers()
 

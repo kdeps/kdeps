@@ -29,8 +29,8 @@ import (
 	"sync"
 )
 
-// Headless REPL: lets a non-terminal front end (the desktop app) drive the same
-// command dispatcher and completer the CLI REPL uses, so both behave alike.
+// Headless REPL: a caller without a terminal drives the same command
+// dispatcher and completer the CLI REPL uses.
 
 //nolint:gochecknoglobals // os.Stdout is process-global; one command may capture it at a time
 var headlessStdoutMu sync.Mutex
@@ -40,8 +40,8 @@ var (
 	ansiOSCRe = regexp.MustCompile(`\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)`)
 )
 
-// SetHeadless marks the REPL as driven by a GUI: no spinner or cursor control
-// is written, since there is no terminal to redraw.
+// SetHeadless marks the REPL as driven without a terminal. No spinner or
+// cursor control is written, since there is no terminal to redraw.
 func (r *REPL) SetHeadless() { r.headless = true }
 
 // SetRunFn replaces the function that runs an agent turn for commands that

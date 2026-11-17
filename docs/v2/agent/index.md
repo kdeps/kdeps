@@ -18,7 +18,7 @@ llm:
     - llama3.2                            # one model, or several
 ```
 
-The [desktop app](/desktop/) reads the same file. The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
+The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
 
 **Not this?** If you want a deterministic request->response pipeline (same input,
 same execution path, safe to run unattended), that is [kdeps workflow](/workflow/).
@@ -97,7 +97,7 @@ KDEPS_THEME=normal                    # only normal applies
 
 ### Settings from the workflow
 
-When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session, in the terminal and the [desktop app](/agent/desktop) alike:
+When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session:
 
 ```yaml
 # resources/assistant.yaml

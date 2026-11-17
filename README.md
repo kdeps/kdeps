@@ -114,7 +114,7 @@ chat:
 
 File tools stay inside the working directory. In the REPL, a path outside it asks you first; `~/.kdeps` and `/tmp` are exceptions.
 
-For more data, see the [agent docs](https://kdeps.com/agent/) and the [desktop app](https://kdeps.com/agent/desktop#install).
+For more data, see the [agent docs](https://kdeps.com/agent/).
 
 ## 3. Deploy on your infrastructure
 
