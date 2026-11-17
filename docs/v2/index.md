@@ -3,10 +3,10 @@ layout: home
 
 hero:
   name: kdeps
-  text: Build git-native AI appliances
-  tagline: "Your agent is YAML in your repository. You review it as a pull request. kdeps ships it with an open-source model to machines that you control: cloud, on-prem, edge, or air-gapped."
-  announcement: Make kdeps YAML with Claude Code, Cursor, or Grok
-  announcementLink: /agent/ai-assisted-authoring
+  text: One YAML file, offline
+  tagline: "kdeps turns one workflow.yaml into an offline API, a binary, an image, or an ISO. You review the YAML as a pull request, and kdeps test runs the evals. A check returns 400 before any model call. A chat with loop: is a bounded step in that file."
+  announcement: Your AI on a USB stick
+  announcementLink: /deploy/cli#kdeps-bundle-prepackage
   actions:
     - theme: brand
       text: What is kdeps?
@@ -15,20 +15,20 @@ hero:
       text: Build a workflow
       link: /workflow/quickstart
     - theme: alt
-      text: Run locally
-      link: /agent/quickstart
+      text: Ship it offline
+      link: /deploy/
 
 features:
-  - title: kdeps workflow
-    details: A YAML pipeline is the one way to run kdeps. Feed it from an HTTP API, a bot, a file, or an interactive prompt.
-    link: /workflow/
-    linkText: Build a workflow
-  - title: kdeps agent
-    details: A chat with loop is an agent inside the workflow - tools, memory, one conversation per session. kdeps --agent-loop opens it as a REPL.
-    link: /agent/
-    linkText: Explore the agent
-  - title: kdeps deploy
-    details: Ship the tested workflow as a Docker image, Kubernetes manifests, a bootable ISO, or one binary.
+  - title: One file, four outputs
+    details: The same workflow.yaml runs as an HTTP API, one binary, a container image, or a bootable ISO.
     link: /deploy/
-    linkText: Ship it
+    linkText: Ship the file
+  - title: Behavior you can review
+    details: A YAML change is a pull request. kdeps test runs the evals before you tag a release.
+    link: /workflow/testing
+    linkText: Run the evals
+  - title: Checks, then a bounded agent
+    details: A failed check returns 400 before any model call. A chat with loop is one step in that file, and maxRounds stops it.
+    link: /workflow/resources/llm
+    linkText: See the step
 ---

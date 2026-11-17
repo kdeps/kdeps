@@ -11,7 +11,7 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-kdeps builds git-native AI appliances. Your AI agent is YAML in your repository. You build it one time and run it where you need it.
+kdeps turns one workflow.yaml into an offline API, a binary, an image, or an ISO. You review that file as a pull request. kdeps test runs its evals.
 
 1. **Workflows** - a YAML pipeline is the one way to run kdeps. Feed it from an HTTP API, a bot, a file, or an interactive prompt.
 2. **Agents** - a `chat` with `loop:` is an AI agent with tools and memory, inside the same workflow. `kdeps new helper --template assistant` starts one.
@@ -119,10 +119,11 @@ For more data, see the [agent docs](https://kdeps.com/agent/).
 ## 3. Deploy on your infrastructure
 
 ```bash
-kdeps bundle build .        # Docker image
-kdeps export k8s            # Kubernetes manifests
-kdeps export iso            # bootable ISO
-kdeps bundle prepackage     # standalone binary
+kdeps bundle build .                                          # container image
+kdeps export k8s .                                            # Kubernetes manifests
+kdeps export iso .                                            # bootable ISO
+kdeps bundle package .                                        # my-agent-1.0.0.kdeps
+kdeps bundle prepackage my-agent-1.0.0.kdeps --include-models # binary with the model
 ```
 
 Connect agents to an LLM server that you host. Then prompts and data stay on your network:

@@ -38,31 +38,31 @@ onUnmounted(() => io?.disconnect())
             </div>
           </div>
           <h3>One file, any input</h3>
-          <p><code>kdeps</code> runs it. Requests come from an API, a bot, a file or an <code>interactive</code> prompt.</p>
+          <p><code>kdeps</code> runs it. A request comes from an API, a bot, a file, or an interactive prompt.</p>
         </div>
 
         <div class="box">
           <div class="scene tools" aria-hidden="true">
-            <div class="line prompt">&gt; fix the failing test</div>
-            <div class="line step s1"><span class="tool">read_file</span> handler_test.go<span class="ok">✓</span></div>
-            <div class="line step s2"><span class="tool">edit_file</span> line 41<span class="ok">✓</span></div>
-            <div class="line step s3"><span class="tool">bash_exec</span> go test<span class="ok">PASS</span></div>
+            <div class="line prompt">&gt; loop, maxRounds 5</div>
+            <div class="line step s1"><span class="tool">read_file</span> policy.yaml<span class="ok">1</span></div>
+            <div class="line step s2"><span class="tool">read_file</span> order.json<span class="ok">2</span></div>
+            <div class="line step s3"><span class="tool">maxRounds</span> 5<span class="ok">stop</span></div>
           </div>
-          <h3>An agent with tools</h3>
-          <p>A <code>chat</code> with <code>loop:</code> reads, edits and runs commands through the tools you list.</p>
+          <h3>A bounded loop</h3>
+          <p>A <code>chat</code> with <code>loop:</code> calls only the tools you name. <code>maxRounds</code> stops that step.</p>
         </div>
 
         <div class="box">
           <div class="scene models" aria-hidden="true">
-            <div class="line prompt">&gt; /model</div>
+            <div class="line prompt">&gt; prepackage --include-models</div>
             <div class="swap">
-              <span class="chip strong m1">llama3.2 - local</span>
-              <span class="chip strong m2">claude-sonnet - Anthropic</span>
-              <span class="chip strong m3">free model - OpenRouter</span>
+              <span class="chip strong m1">workflow.yaml</span>
+              <span class="chip strong m2">+ llamafile</span>
+              <span class="chip strong m3">one binary</span>
             </div>
           </div>
-          <h3>Any model, any time</h3>
-          <p>Name a model per chat or let <code>model: auto</code> pick one. Switch mid-session with <code>/model</code>.</p>
+          <h3>The model in the binary</h3>
+          <p>Pass <code>--include-models</code> to <code>kdeps bundle prepackage</code>. The llamafile stays in the executable, and the machine needs no network.</p>
         </div>
 
         <div class="box">
@@ -78,8 +78,8 @@ onUnmounted(() => io?.disconnect())
             </div>
             <span class="chip strong approved">approved</span>
           </div>
-          <h3>Judges, when you want them</h3>
-          <p>Opt in with <code>judges: auto</code>: a panel reviews the answer and sends it back for a revision on a reject.</p>
+          <h3>Evals on the pull request</h3>
+          <p><code>kdeps test</code> runs the <code>evals:</code> in the process. The same judges review the answer before the resource finishes.</p>
         </div>
 
         <div class="box">
@@ -106,7 +106,7 @@ onUnmounted(() => io?.disconnect())
             </div>
           </div>
           <h3>Ship it anywhere</h3>
-          <p>Export the same workflow as a Docker image, Kubernetes manifests, an ISO or one binary.</p>
+          <p>Ship the same file as a Docker image, Kubernetes manifests, a bootable ISO, or one binary. Write the ISO to a USB stick.</p>
         </div>
       </div>
     </div>
@@ -221,7 +221,7 @@ onUnmounted(() => io?.disconnect())
 
 /* Scene animations are declared under .grid.play, so they run only on screen. */
 
-/* ---- two modes: a dot runs down each branch ---- */
+/* ---- inputs: a dot runs down each branch ---- */
 .tracks { display: flex; gap: 64px; }
 .track {
   position: relative;

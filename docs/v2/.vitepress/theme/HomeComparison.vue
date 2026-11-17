@@ -38,6 +38,14 @@
               <td>Agent chains that you write manually</td>
               <td><code>agent:</code> resource. One agent calls a different agent declaratively</td>
             </tr>
+            <tr style="--i: 5">
+              <td>A test server that you write</td>
+              <td><code>kdeps test</code> runs <code>evals:</code> in the process</td>
+            </tr>
+            <tr style="--i: 6">
+              <td>Handler code that checks the body after the model call</td>
+              <td><code>validations.check</code> returns 400 before any model call</td>
+            </tr>
           </tbody>
         </table>
       </div>

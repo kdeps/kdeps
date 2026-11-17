@@ -21,7 +21,7 @@ models. For this reason, it has no per-token cost and does not depend on an exte
 service. It operates the same on your laptop and in an air-gapped network.
 
 This is [data sovereignty](/start/data-sovereignty). You run your own LLM and
-coding agent on servers that you control, in the region that you select. No
+the workflow on servers that you control, in the region that you select. No
 prompts or data go to a third-party AI provider.
 
 ## The problem it solves

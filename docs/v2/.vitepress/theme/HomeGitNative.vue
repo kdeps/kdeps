@@ -10,7 +10,7 @@
       <p class="section-sub">The YAML in your repository fully defines what the appliance does: the model, the validation, the step order, and the response shape. When you change the YAML and commit it, the behavior changes. Your git history is the changelog of the agent behavior. Only the model binding is outside the repository. As a result, the same commit runs with a local model on a laptop and with a cloud model in production.</p>
 
       <div class="diff-block kd-play">
-        <div class="diff-head">git show HEAD &mdash; resources/llm.yaml</div>
+        <div class="diff-head">git show HEAD - resources/llm.yaml</div>
         <pre class="diff"><code><span class="ctx" style="--i: 0">validations:</span>
 <span class="ctx" style="--i: 1">  check:</span>
 <span class="ctx" style="--i: 2">    - get('q') != ''</span>
@@ -31,11 +31,11 @@
         </div>
         <div class="kd-stagger card" style="--i: 1">
           <h3>Versioned</h3>
-          <p>A git tag is a release. <code>kdeps validate</code> and <code>kdeps bundle build</code> run on all checkouts and tags. The built appliance also pins the runtime and the model.</p>
+          <p>A git tag is a release. <code>kdeps test</code> runs the evals on that tag. The built appliance also pins the runtime and the model.</p>
         </div>
         <div class="kd-stagger card" style="--i: 2">
           <h3>Reproducible</h3>
-          <p>In CI, check out a tag, run <code>kdeps validate</code> and <code>kdeps bundle build</code>, and push the image. The same commit always makes the same appliance.</p>
+          <p>In CI, check out a tag and run <code>kdeps test</code>. Then run <code>kdeps validate</code> and <code>kdeps bundle build</code>. The same commit always makes the same appliance.</p>
         </div>
         <div class="kd-stagger card" style="--i: 3">
           <h3>Shareable (optional)</h3>
