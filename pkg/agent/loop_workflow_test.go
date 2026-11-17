@@ -135,3 +135,21 @@ func TestRequestTools_AllowedToolsLimitTheBuiltins(t *testing.T) {
 	assert.ElementsMatch(t, []string{"read_file", "bash_exec", "my-workflow"}, got,
 		"listed built-ins and project tools; no other built-in and no load_tools")
 }
+
+func TestApplyLoopChat_SystemScenario(t *testing.T) {
+	chat := &domain.ChatConfig{
+		Loop: &domain.ChatLoopConfig{},
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: "You review Go code."},
+			{Role: "user", Prompt: "hi"},
+			{Role: "system", Prompt: "Answer briefly."},
+		},
+	}
+	cfg := Config{}
+	ApplyLoopChat(&cfg, chat, false)
+	assert.Equal(t, "You review Go code.\n\nAnswer briefly.", cfg.SystemPrompt)
+
+	cfg = Config{SystemPrompt: "from --system"}
+	ApplyLoopChat(&cfg, chat, false)
+	assert.Equal(t, "from --system", cfg.SystemPrompt, "an explicit --system wins")
+}

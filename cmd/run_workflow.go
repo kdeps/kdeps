@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
@@ -233,6 +234,9 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 		eng := setupEngine(workflow, debugMode)
 		if flags.Memory {
 			eng = setupEngineWithMemory(eng, workflow, debugMode)
+		}
+		if agent.LoopChat(workflow) != nil {
+			return startAgentREPLMode(cmd.Context(), eng, workflow, workflowPath, flags, debugMode)
 		}
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}
