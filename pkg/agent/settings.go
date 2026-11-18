@@ -137,6 +137,25 @@ var sessionSettings = map[string]sessionSetting{
 		set:     func(r *REPL, v string) error { return r.setContextSize(parseTokenCount(v)) },
 		accepts: func(v string) bool { return parseTokenCount(v) > 0 },
 	},
+	// /knowledge on|off: per-turn recall, session notes and the knowledge tools.
+	"knowledge": {
+		get: func(r *REPL) map[string]any { return onOffState(r.loop.knowledgeOn()) },
+		set: func(r *REPL, v string) error {
+			if r.loop.knowledge == nil {
+				return errors.New("the knowledge vault is disabled in ~/.kdeps/config.yaml (knowledge.enabled: false)")
+			}
+			r.loop.SetKnowledge(v == toggleOn)
+			if v == toggleOn {
+				r.loop.knowledge.buildAsync()
+			}
+			return nil
+		},
+	},
+	// /knowledge build: the model pass that adds inferred edges.
+	"knowledge-build": {
+		get: func(r *REPL) map[string]any { return map[string]any{"value": r.loop.knowledgeBuildMode()} },
+		set: func(r *REPL, v string) error { return r.loop.SetKnowledgeBuild(v) },
+	},
 	// /model name: how the modeline shows the model name.
 	"model-name": {
 		get: func(_ *REPL) map[string]any {
@@ -226,6 +245,13 @@ func (r *REPL) foldState() map[string]any {
 		"value": onOffState(!cfg.FoldOff)["value"], "threshold": threshold, "items": items, "last": last,
 		"accumulated": tokensSinceCheckpoint(r.loop.Session().RawMessages(), sinceNanos, cfg.Model),
 	}
+}
+
+func onOffWord(on bool) string {
+	if on {
+		return toggleOn
+	}
+	return toggleOff
 }
 
 func onOffState(on bool) map[string]any {

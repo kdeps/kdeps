@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
@@ -70,6 +71,20 @@ func (e *Executor) buildMessages(
 				jsonFieldContent: systemPrompt,
 			},
 		}, messages...)
+	}
+
+	var recallCtx context.Context
+	if ctx != nil {
+		recallCtx = ctx.Ctx
+	}
+	if recall := knowledgeRecall(recallCtx, config, promptStr); recall != "" {
+		at := 0
+		if systemPrompt != "" {
+			at = 1
+		}
+		messages = append(messages[:at], append([]map[string]interface{}{
+			{jsonFieldRole: roleSystem, jsonFieldContent: recall},
+		}, messages[at:]...)...)
 	}
 
 	beforeUser, afterUser, scenarioErr := e.buildScenarioMessages(evaluator, ctx, config.Scenario)

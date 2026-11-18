@@ -1,5 +1,5 @@
-version: 1.3.2
-# How the local search index splits
+version: 1.4.0
+# How the local search indexes (a project's folders and search folders) split
 # files and queries into terms. An index keeps the terms it was built with:
 # after changing these, rebuild the index so queries and files match again.
 
@@ -32,11 +32,11 @@ secret_prefixes: [.env.]
 secret_extensions: [.pem, .key, .p12, .pfx, .keystore, .jks]
 secret_dirs: [.ssh, .gnupg, .aws]
 
-limits:  # how much of a file the local search reads and shows, and how a linked file is re-ranked
+limits:  # how much of a file the local search reads and shows, and how the knowledge graph re-ranks
   max_file_size: 1048576  # bytes; larger files are not indexed or read (1 MiB)
   preview_chars: 240  # characters of a file kept as its preview in the index
   snippet_context: 120  # characters shown on each side of a match
   snippet_read_bytes: 524288  # bytes read from a file to find a match's snippet (512 KiB)
   graph_boost: 1.25  # score multiplier of a result linked from a top result
   graph_boost_seeds: 5  # top results whose graph links boost the others
-  recall_match_share: 0.5  # share of the request's words (rounded up) a file must contain to count as a match
+  recall_match_share: 0.5  # a project search index file joins recall when at least this share of the request's words (rounded up) are in it

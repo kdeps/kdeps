@@ -1,0 +1,42 @@
+version: 1.0.0
+# Reads a file with the matching kdeps tool and saves its text as a knowledge
+# note. Run /knowledge extract afterwards to pull facts out of the notes.
+requires:
+  tools/ocr_image: ""
+  tools/transcribe_audio: ""
+  tools/load_document: ""
+  tools/knowledge_note_save: ""
+name: ingest
+order: 73
+usage:
+  - args: "image <file> <title>"
+    help: Read the text of an image (OCR) and save it as a knowledge note titled <title>
+  - args: "audio <file> <title>"
+    help: Transcribe an audio or video file and save the transcript as a knowledge note titled <title>
+  - args: "document <file> <title>"
+    help: Load a document (PDF, DOCX, HTML, CSV, text) and save its content as a knowledge note titled <title>
+subcommands:
+  image:
+    run:
+      - tool: ocr_image
+        args: {file: "$1"}
+        as: text
+      - tool: knowledge_note_save
+        args: {title: "$2", summary: "Text read from the image $1", body: "{{.steps.text.output}}"}
+        print: "saved note $2"
+  audio:
+    run:
+      - tool: transcribe_audio
+        args: {file: "$1"}
+        as: text
+      - tool: knowledge_note_save
+        args: {title: "$2", summary: "Transcript of $1", body: "{{.steps.text.output}}"}
+        print: "saved note $2"
+  document:
+    run:
+      - tool: load_document
+        args: {source: "$1"}
+        as: text
+      - tool: knowledge_note_save
+        args: {title: "$2", summary: "Content of $1", body: "{{.steps.text.output}}"}
+        print: "saved note $2"

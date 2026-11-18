@@ -20,12 +20,13 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // contextOps are the session_ops operations behind /prompt and /search; the
@@ -33,8 +34,10 @@ import (
 //
 //nolint:gochecknoglobals // fixed operation table
 var contextOps = map[string]func(r *REPL, args map[string]any) (map[string]any, error){
-	"last_request": (*REPL).lastRequestOp,
-	"search_index": (*REPL).searchIndexOp,
+	"last_request":   (*REPL).lastRequestOp,
+	"search_index":   (*REPL).searchIndexOp,
+	"search_folders": (*REPL).searchFoldersOp,
+	"search_folder":  (*REPL).searchFolderOp,
 }
 
 // lastRequestOp is the last request sent to the LLM: each message and tool
@@ -76,16 +79,54 @@ func (r *REPL) lastRequestOp(args map[string]any) (map[string]any, error) {
 	}, nil
 }
 
-// searchIndexOp builds or updates the search index of the working directory.
+// searchIndexOp brings the working project's folder indexes up to date.
 func (r *REPL) searchIndexOp(_ map[string]any) (map[string]any, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("search: getwd failed: %w", err)
 	}
-	n := searchlocal.NewExecutor().StartIndex(wd)
-	msg := fmt.Sprintf("search: index of %s is up to date", wd)
-	if n > 0 {
-		msg = fmt.Sprintf("search: indexed %d files in %s", n, wd)
+	var out strings.Builder
+	indexProjectFolders(&out, r.loop.knowledge, wd)
+	return map[string]any{"output": strings.TrimSpace(out.String())}, nil
+}
+
+// searchFoldersOp lists the folders the working project searches: its own
+// places and its search folders, each with whether it is indexed yet.
+func (r *REPL) searchFoldersOp(_ map[string]any) (map[string]any, error) {
+	k := r.loop.knowledge
+	if k == nil {
+		return nil, errNoVault
 	}
-	return map[string]any{"output": msg}, nil
+	card, err := k.project()
+	if err != nil {
+		return nil, err
+	}
+	row := func(p string) map[string]any {
+		return map[string]any{"path": p, "indexed": indexNote(knowledge.ExpandPath(p, k.vault.Root)) == ""}
+	}
+	places, folders := []map[string]any{}, []map[string]any{}
+	for _, p := range card.Places() {
+		places = append(places, row(p))
+	}
+	for _, p := range card.SearchFolders() {
+		folders = append(folders, row(p))
+	}
+	return map[string]any{"project": card.Name, "places": places, "folders": folders}, nil
+}
+
+// searchFolderOp adds a folder to the working project's search folders, or
+// removes one (args.action add or remove).
+func (r *REPL) searchFolderOp(args map[string]any) (map[string]any, error) {
+	action, folder := stringArgValue(args, "action"), strings.TrimSpace(stringArgValue(args, "folder"))
+	if folder == "" {
+		return nil, fmt.Errorf("give a folder: /search %s <folder>", action)
+	}
+	if action != "add" && action != "remove" {
+		return nil, errors.New("action is add or remove")
+	}
+	var out strings.Builder
+	if err := changeProjectFolders(&out, r.loop.knowledge, action, folder); err != nil {
+		return nil, err
+	}
+	return map[string]any{"output": strings.TrimSpace(out.String())}, nil
 }

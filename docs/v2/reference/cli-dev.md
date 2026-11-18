@@ -75,6 +75,7 @@ kdeps --agent-loop [path] [flags]
 | `--system` | (none) | System prompt injected at conversation start |
 | `--skill` | (none) | Load a skill file or directory (repeatable) |
 | `--resume` | (none) | Resume a saved session by ID |
+| `--index` | (none) | Search a folder with this project: add it to the project card and index it before the session starts (repeatable; see [search folders](/agent/knowledge#search-folders)) |
 | `--debug` | false | Enable debug logging |
 
 **Examples:**
@@ -353,6 +354,36 @@ kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps
 kdeps finds Ollama models in the local `ollama list` output.
 
 The free text models of OpenRouter are a separate registry, `models/openrouter`. `tools/openrouter-harvester/harvest.py` (`make harvest-openrouter`) collects them each day from the public models API. Install them with `kdeps update models/openrouter`.
+
+---
+
+## `kdeps knowledge`
+
+Manages the [knowledge vault](/agent/knowledge): markdown notes that the agent recalls on each turn, with no full read. On by default in `~/.kdeps/notes`, set up by the first agent session. The structural graph refreshes at session start, before recall, on a workflow chat call, on a vault search with `graphBoost`, and on skill linking. `kdeps knowledge build` runs that build by hand. `--extract` adds the model step and is off unless set.
+
+```bash
+kdeps knowledge init [folder]       # scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
+kdeps knowledge build               # graph under ~/.kdeps/knowledge/<vault-id>; changed notes only
+kdeps knowledge build --extract     # the subagent model reads changed notes first: inferred edges with confidence
+kdeps knowledge build --export      # also copy GRAPH_REPORT.md and graph.html into the vault
+kdeps knowledge check-update        # rebuild only when notes changed outside kdeps
+kdeps knowledge check               # structural one-home: duplicate summaries, canonical ids, dangling links
+kdeps knowledge recall "why monthly billing"   # what recall would hand the agent, with the relation chain
+kdeps knowledge explain "billing"   # matching edges, with the file and line each one came from
+kdeps knowledge report              # print GRAPH_REPORT.md (deterministic communities)
+```
+
+kdeps writes the graph, `GRAPH_REPORT.md`, and `graph.html` under `~/.kdeps/knowledge/<vault-id>/`. `<vault-id>` is a hash of the vault path.
+
+| Flag | Description | Default |
+|---|---|---|
+| `--vault` | Vault folder | `knowledge.vault` in `~/.kdeps/config.yaml`, else `~/.kdeps/notes` |
+| `--extract` (build) | Have the subagent model read changed notes first | `false` |
+| `--export` (build) | Copy the report and the explorer page into the vault | `false` |
+| `--model` (build) | Model for `--extract` | `llm.subagent` when it names a model, else `knowledge.extract.model`, else the current model |
+| `--limit` (build) | Most notes `--extract` reads | `0` (all changed) |
+
+`check` exits non-zero when it reports anything. It reports structural duplicates. It does not decide that two different wordings are the same fact.
 
 ---
 

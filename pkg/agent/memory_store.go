@@ -39,6 +39,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 const (
@@ -116,13 +117,13 @@ const (
 	memTypeNote       = "note"
 )
 
-// MemoryStore persists per-project memory as markdown notes
-// (see memory_notes.go). Entries are cached in memory and
+// MemoryStore persists per-project memory as markdown notes in the
+// knowledge vault (see memory_notes.go). Entries are cached in memory and
 // written through on mutation; only changed notes are rewritten.
 type MemoryStore struct {
 	mu       sync.RWMutex
 	saveMu   sync.Mutex             // serializes note writes, held independently of mu
-	basePath string                 // ~/.kdeps/notes, or a test root
+	basePath string                 // the vault (or a test root)
 	path     string                 // this project's memory folder (empty until SetCwd)
 	cwd      string                 // the working directory SetCwd was given ("" when global)
 	migrate  bool                   // move the old database in once (default root only)
@@ -133,7 +134,7 @@ type MemoryStore struct {
 }
 
 // NewMemoryStore creates a memory store rooted at basePath. If basePath is
-// empty, uses ~/.kdeps/notes.
+// empty, uses <vault>/Memory of the configured knowledge vault.
 func NewMemoryStore(basePath string) *MemoryStore {
 	defaulted := basePath == ""
 	if defaulted {
@@ -149,7 +150,7 @@ func NewMemoryStore(basePath string) *MemoryStore {
 }
 
 // SetCwd configures per-directory memory isolation: memory is stored in
-// the memory/ folder of cwd's project under basePath. Call with
+// the memory/ folder of cwd's project in the vault at basePath. Call with
 // os.Getwd() at startup.
 func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()
@@ -163,12 +164,12 @@ func (m *MemoryStore) SetCwd(cwd string) {
 
 // SetGlobal configures memory to be shared across every project/session
 // instead of isolated per working directory (see SetCwd) -- stored under
-// <root>/shared/memory/. Call instead of SetCwd, never both.
+// <vault>/shared/memory/. Call instead of SetCwd, never both.
 func (m *MemoryStore) SetGlobal() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cwd = ""
-	m.path = filepath.Join(m.basePath, memoryShared, memoryFolder)
+	m.path = filepath.Join(m.basePath, knowledge.Layout().Folders.Shared, knowledge.Layout().Project.Memory)
 	if m.migrate {
 		m.legacy = legacyMemoryPath(memoryGlobalName)
 	}

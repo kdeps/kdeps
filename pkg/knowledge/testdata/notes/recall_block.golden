@@ -1,0 +1,6 @@
+<knowledge-recall>
+Notes in the knowledge vault related to this request, from its link graph (best first). Read only the ones you need with read_file; status lives in the project card, the story in these notes.
+- /vault/projects/app/decisions/Billing.md - bill monthly (seed.md --references--> projects/app/decisions/Billing.md)
+- /vault/shared/Pricing.md (linked from Billing)
+- /vault/shared/Plain.md
+</knowledge-recall>

@@ -16,15 +16,15 @@
 # E2E: chat.refine rewrites a workflow chat's prompt with the refine-system
 # harness before the real call, which then answers the rewrite. A chat
 
-# E2E: a workflow chat calls the memory tools by name
-# (memory_save, memory_search), with no script or mcp of its own.
+# E2E: a workflow chat calls agent mode's memory and knowledge tools by name
+# (memory_save, knowledge_recall), with no script or mcp of its own.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing workflow chat memory tools..."
+echo "Testing workflow chat memory and knowledge tools..."
 
 if ! command -v python3 &> /dev/null; then
     test_skipped "Workflow chat memory tools - python3 not available"
@@ -69,9 +69,9 @@ chat:
       - name: memory_save
 YAML
 
-cat > "$TEST_DIR/resources/find.yaml" <<'YAML'
-actionId: find
-name: Find
+cat > "$TEST_DIR/resources/recall.yaml" <<'YAML'
+actionId: recall
+name: Recall
 validations:
   routes: [/ask]
 flow:
@@ -80,22 +80,22 @@ chat:
   model:
     name: fake
   context:
-    prompt: 'CALLJSON memory_search {"query": "e2e-color"}'
+    prompt: 'CALLJSON knowledge_recall {"query": "billing decision"}'
   tools:
     list:
-      - name: memory_search
+      - name: knowledge_recall
 YAML
 
 cat > "$TEST_DIR/resources/response.yaml" <<'YAML'
 actionId: response
 name: Response
 flow:
-  requires: [save, find]
+  requires: [save, recall]
 apiResponse:
   success: true
   response:
     saved: "{{ output('save') }}"
-    found: "{{ output('find') }}"
+    recalled: "{{ output('recall') }}"
 YAML
 
 "$KDEPS_BIN" run --memory "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
@@ -113,8 +113,8 @@ if echo "$RESP" | grep -q 'TOOL RESULT Saved' || echo "$RESP" | grep -q 'TOOL RE
 else
     test_failed "Workflow chat memory tools - memory_save writes the run's memory store" "resp=$RESP"
 fi
-if echo "$RESP" | grep -q 'e2e-color: teal'; then
-    test_passed "Workflow chat memory tools - memory_search reads the run's memory store"
+if echo "$RESP" | grep -q 'TOOL RESULT No notes in the knowledge vault'; then
+    test_passed "Workflow chat memory tools - knowledge_recall answers from the vault"
 else
-    test_failed "Workflow chat memory tools - memory_search reads the run's memory store" "resp=$RESP"
+    test_failed "Workflow chat memory tools - knowledge_recall answers from the vault" "resp=$RESP"
 fi

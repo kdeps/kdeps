@@ -26,6 +26,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/api"
 	execEmbedding "github.com/kdeps/kdeps/v3/pkg/executor/embedding"
 	_ "github.com/kdeps/kdeps/v3/pkg/executor/http" // wires http_request; that package imports pkg/api
+	execSearch "github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
@@ -93,11 +94,35 @@ func registerEmbeddingTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerAPITool(ctx, reg, "embedding_vectorize", api.EmbeddingVectorize)
 }
 
-// projectSearchRoots is the extra folders a search with no path covers.
-// None are set, so that search uses the working directory.
+// projectSearchRoots returns the folders the working project's searches
+// cover (its places, then its search folders), or nil with no project. The
+// knowledge vault sets it.
 //
-//nolint:gochecknoglobals // tests replace it; search_local reads it
+//nolint:gochecknoglobals // set once by the knowledge vault, read by search_local
 var projectSearchRoots = func() []string { return nil }
+
+// executeSearchLocal runs a search_local tool execution. With no path it
+// searches every folder of the working project, else the working directory.
+func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string, error) {
+	query, _ := args[toolParamQuery].(string)
+	out, err := api.SearchLocalWith(api.SearchOpts{
+		Roots: projectSearchRoots(),
+		Exec:  exec,
+		Index: func(root string, paths []string) {
+			indexInBackground(func() { exec.IndexFiles(root, paths) })
+		},
+	}, args)
+	if err != nil {
+		return "", err
+	}
+	return finishSearchLocal(out, query)
+}
+
+// interleaveResults takes the first result of each list, then the second
+// of each, and so on, up to limit, dropping a path seen already.
+func interleaveResults(lists [][]map[string]interface{}, limit int) []map[string]interface{} {
+	return api.InterleaveSearchResults(lists, limit)
+}
 
 // makeEmbeddingExecute builds an Execute closure for embedding tools.
 func makeEmbeddingExecute(

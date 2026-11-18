@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v3/pkg/config"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
@@ -171,6 +172,26 @@ func TestApplyToolTuning_AuxSetWins(t *testing.T) {
 	snap := r.toolTuningSnapshot()
 	assert.Equal(t, subagentCurrent, snap.Subagent)
 	assert.True(t, snap.SubagentSet)
+}
+
+func TestExtractModel_AuxBeatsTheExtractPin(t *testing.T) {
+	stubFreeIDs(t, []string{"big/70b:free"})
+	l := &Loop{
+		config: Config{Model: "local", Backend: "file", Subagent: subagentFree},
+		knowledge: &knowledgeState{cfg: config.KnowledgeConfig{
+			Extract: config.KnowledgeExtractConfig{Model: "qwen", Backend: "ollama"},
+		}},
+	}
+	m, b, u := l.extractModel()
+	assert.Equal(t, "big/70b:free", m)
+	assert.Equal(t, openrouterBackend, b)
+	assert.Empty(t, u)
+
+	l.config.Subagent = subagentCurrent
+	m, b, u = l.extractModel()
+	assert.Equal(t, "qwen", m)
+	assert.Equal(t, "ollama", b)
+	assert.Empty(t, u)
 }
 
 func TestSessionOps_Aux(t *testing.T) {

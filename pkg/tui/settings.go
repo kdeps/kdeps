@@ -78,6 +78,7 @@ type AgentLoopTuning struct {
 	PermissionMode       string   `yaml:"permission_mode,omitempty"`
 	ThinkingMode         string   `yaml:"thinking_mode,omitempty"`
 	ContextSize          int      `yaml:"context_size,omitempty"`
+	KnowledgeOff         bool     `yaml:"knowledge_off,omitempty"`
 	FoldThreshold        int      `yaml:"fold_threshold,omitempty"`
 	FoldContextItems     int      `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool     `yaml:"fold_auto,omitempty"`
@@ -88,6 +89,8 @@ type AgentLoopTuning struct {
 	PromptMode           string   `yaml:"prompt_mode,omitempty"`
 	Subagent             string   `yaml:"subagent,omitempty"`
 	SubagentSet          bool     `yaml:"subagent_set,omitempty"`
+	KnowledgeBuild       string   `yaml:"knowledge_build,omitempty"`
+	KnowledgeBuildSet    bool     `yaml:"knowledge_build_set,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

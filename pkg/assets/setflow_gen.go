@@ -90,7 +90,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
 		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
 	},
 	"k8s": {
@@ -107,13 +107,14 @@ var generatedFlows = map[string]SetInfo{
 	"knowledge": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "a local search starts"},
-			{Label: "the search rules split words and skip secret files", Here: true},
-			{Label: "matching files are scored"},
-			{Label: "the best lines come back"},
+			{Label: "a knowledge-graph recall query arrives"},
+			{Label: "its words are split and stemmed"},
+			{Label: "the recall rules set the word lengths and stopwords", Here: true},
+			{Label: "matching nodes are scored"},
+			{Label: "the best notes fill the budget"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/editor", "kdeps run"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "api.CallTool", "agent.memorySearchLocalFileFallback", "searchlocal.(*Executor).Execute", "searchrules.SearchTokenizer"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge folders remove", "kdeps knowledge build", "kdeps knowledge folders", "kdeps knowledge folders add", "kdeps knowledge folders index"},
+		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.(*Topic).Add", "knowledge.recallRules"},
 	},
 	"memory": {
 		Mode: "agent",
@@ -191,13 +192,13 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkflowFile", "validator.NewSchemaValidator", "validator.schemaFS"},
 	},
 	"templates": {
-		Mode: "workflow",
+		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "kdeps new"},
+			{Label: "kdeps new, or the knowledge vault's first use"},
 			{Label: "the template is rendered", Here: true},
-			{Label: "the project files are written"},
+			{Label: "the project or vault files are written"},
 		},
-		UsedBy: []string{"kdeps new"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps new", "kdeps run", "kdeps knowledge build"},
 		Code:   []string{"kdeps new", "templates.(*Generator).GenerateProject"},
 	},
 	"themes": {

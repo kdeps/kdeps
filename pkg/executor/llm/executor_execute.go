@@ -143,6 +143,9 @@ func (e *Executor) executeChat(
 	}
 
 	result, err := e.formatExecuteResult(response, resolvedConfig, maxOutputBytes)
+	if err == nil {
+		logWorkflowRun(ctx, resolvedConfig, promptStr, result)
+	}
 	return result, chatRun{cfg: resolvedConfig, prompt: promptStr, call: raw}, err
 }
 

@@ -1,0 +1,37 @@
+---
+type: session
+status: done
+project: my app
+session: s-1
+created: 2026-10-15
+summary: "billing: monthly"
+tags: [session, my app]
+links: ["[[my app]]"]
+branch: main
+commits: def5678
+---
+
+## Focus
+
+bill monthly
+
+## What was built
+
+- invoices
+- receipts
+
+## Mistakes
+
+(none)
+
+## Decisions
+
+- **Monthly**: fewer charges
+
+## Wins
+
+fast
+
+## Git
+
+On branch `main` at `def5678`; no commits in this session yet.

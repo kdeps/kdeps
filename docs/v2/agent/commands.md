@@ -24,6 +24,8 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
+| `/knowledge [on\|off\|build\|extract]` | Show whether the knowledge vault is on and where it is. `build` sets model graph building to `auto`, `manual`, or `off`. `extract` reads changed notes with the subagent model now. `on` and `off` turn per-turn recall, session notes and the knowledge tools on or off (remembered). See [Knowledge vault](/agent/knowledge) |
+| `/recall [words]` | Show the knowledge vault notes recalled for the last turn and why (score, hops, linked from); with words, recall for those instead. See [Knowledge vault](/agent/knowledge) |
 | `/compact` | Summarize older turns now, keeping the last few verbatim. Unlike auto-compaction it runs regardless of how large the session is; it only shrinks the saved conversation, not a single turn's own tool output |
 | `/history` | Show conversation history |
 | `/thinking [off\|minimal\|low\|medium\|high\|xhigh\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it); persists across sessions |
@@ -38,7 +40,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/auto-improve` | In the kdeps repo, record a session, jump across OpenRouter free models, report product bugs the event log shows, and file one GitHub issue as each report arrives |
 | `/approve [<token_id>]` | List approval tokens, or grant a pending one. Only you can grant; the agent cannot (see [Approval tokens](/agent/approvals)) |
-| `/subagent` | Show the model the `subagent` tool uses (see [Subagents](/agent/subagent)) |
+| `/subagent` | Show the model subagents use: knowledge extraction and the `subagent` tool (see [Subagents](/agent/subagent)) |
 | `/subagent current\|free\|<model>` | Use the session model, a large OpenRouter free model chosen per call, or any model. The session model is the default. Persists, and wins over `llm.subagent` |
 | `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
@@ -306,8 +308,13 @@ run:
 | `preset_apply` | `name` | `name`, `harness`, `events` (override counts) |
 | `harness_reminders` | - | `reminders` (`name`, `on`), harness sections and `instruct:<topic>` |
 | `reminder_set` | `name`, `enabled` | `name`, `enabled` |
+| `recall` | `query` (optional: the last turn's recall without it) | `seeds`, `hits` (`path`, `score`, `hops`, `via`, `summary`), `tokens`: behind `/recall` |
+| `knowledge` | - | `value` (on/off), `vault`, `graph`, `build` (`manual`, `auto`, or `off`): behind `/knowledge` |
+| `knowledge_extract` | - | `output`: the local model reads the changed notes and the graph is rebuilt |
 | `last_request` | `raw` (`true` for the request as JSON) | `messages` (`index`, `role`, `tokens`, `content`), `tools` (`name`, `tokens`, `description`), `tool_tokens`, `tokens`; or `raw`: behind `/prompt` |
-| `search_index` | - | `output`: the working directory's search index, built or updated |
+| `search_index` | - | `output`: the working project's folder indexes brought up to date |
+| `search_folders` | - | `project`, `places`, `folders` (`path`, `indexed`) |
+| `search_folder` | `action` (`add` or `remove`), `folder` | `output` |
 | `commands_help` | - | `commands` (`usage`, `help`): every installed command's usage lines, behind `/help` |
 | `konfig_export` | `path` | `path` and the `harness`, `themes`, `events`, `actions`, `skills` counts written |
 | `konfig_import` | `path` | the same counts, read and applied |
@@ -323,7 +330,7 @@ run:
 | `servers` | - | `servers` (`pid`, `port`, `backend`, `model`, `status`) |
 | `server_kill` | `model` | `model` |
 | `hf_download` | `repo`, `file` | `path`, `alias` |
-| `tool` | `tool`: a tool that lives only in the agent session (`judge_verdict`, `load_skill`, `load_tools`, `identity_get`, `subagent`, `ask_question`); `args`: its arguments | that tool's answer. A tool with its own route (`bash_exec`, `read_file`, ...) is refused |
+| `tool` | `tool`: a tool that lives only in the agent session (`judge_verdict`, `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `load_skill`, `load_tools`, `identity_get`, `subagent`, `ask_question`); `args`: its arguments | that tool's answer. A tool with its own route (`bash_exec`, `read_file`, ...) is refused |
 
 A tool step's `as:` names its result for the steps after it. Their string `args` and `print:` templates read it as `{{.steps.<as>.<field>}}`. `/copy` hands the last reply to the clipboard this way:
 
@@ -387,7 +394,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle auto-detecting command/file mentions in chat input
 setting:
-  key: autocontext   # session settings: autocontext, permission, tools, thinking, fold, fold-threshold, fold-items, model-name, context, subagent
+  key: autocontext   # session settings: autocontext, permission, tools, thinking, fold, fold-threshold, fold-items, model-name, knowledge, knowledge-build, context, subagent
   values: [on, off]
   show: "Auto-context detection: {{.value}}"
   set: "Auto-context detection {{if eq .value \"on\"}}enabled{{else}}disabled{{end}}."
@@ -399,6 +406,7 @@ setting:
 | Shipped setting command | Setting | Values | Extra template fields |
 |---|---|---|---|
 | `/subagent` | `subagent` | `current`, `free`, or any model id | `.model` (the session model, the pinned API id, or empty while the value is `free`), `.backend` |
+| `/knowledge build` | `knowledge-build` | `manual`, `auto`, `off` | - |
 | `/autocontext` | `autocontext` | `on`, `off` | - |
 | `/permission` (alias `/permissions`) | `permission` | `read-only`, `workspace-write`, `danger-full-access`, `ask` | - |
 | `/tools` | `tools` | `full`, `lean` | `.count` (tools in the set), `.available` (false when lean mode trimmed nothing) |

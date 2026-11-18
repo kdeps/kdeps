@@ -1,4 +1,4 @@
-version: 2.1.0
+version: 2.2.0
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -7,16 +7,42 @@ name: search
 order: 320
 usage:
   - args: "<term>"
-    help: Search the working directory and feed the results to the model
+    help: Search the indexed directory and feed the results to the model
   - args: index
-    help: Build or update the search index of the working directory
+    help: Build or update the search index of every folder the project searches
+  - args: folders
+    help: List the folders the project searches (its own and the ones added)
+  - args: "add <folder>"
+    help: Search a folder outside the project with it (docs, a shared library); indexes it now
+  - args: "remove <folder>"
+    help: Stop searching a folder with the project
 subcommands:
   index:
     run:
       - tool: session_ops
         args: {operation: search_index}
         print: "{{.output}}"
-  "*":                    # /search <term>: the search_local tool over the working directory
+  folders:
+    run:
+      - tool: session_ops
+        args: {operation: search_folders}
+        print: |-
+          Project {{.project}} searches:
+          {{range .places}}
+          - {{.path}} (project){{if not .indexed}} - not indexed yet: `/search index`{{end}}{{end}}{{range .folders}}
+          - {{.path}}{{if not .indexed}} - not indexed yet: `/search index`{{end}}{{end}}{{if not .folders}}
+          - (no other folders: `/search add <folder>`, or `kdeps --agent-loop --index <folder>`){{end}}
+  add:
+    run:
+      - tool: session_ops
+        args: {operation: search_folder, action: add, folder: "$@"}
+        print: "{{.output}}"
+  remove:
+    run:
+      - tool: session_ops
+        args: {operation: search_folder, action: remove, folder: "$@"}
+        print: "{{.output}}"
+  "*":                    # /search <term>: the search_local tool over every folder the project searches
     run:
       - tool: search_local
         args: {query: "$@", index: true, limit: 20}

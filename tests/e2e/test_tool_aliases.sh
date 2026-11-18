@@ -19,7 +19,7 @@ TA_DIR=$(cd "$(mktemp -d)" && pwd -P)
 trap '[ -n "${TA_KEEP:-}" ] || rm -rf "$TA_DIR"' EXIT
 native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$TA_DIR/home/.kdeps" "$TA_DIR/work"
-: > "$TA_DIR/home/.kdeps/config.yaml"
+printf 'knowledge:\n  enabled: false\n' > "$TA_DIR/home/.kdeps/config.yaml"
 printf 'the alias-file-marker line\n' > "$TA_DIR/work/notes.txt"
 
 # ta_call starts a session in which the mock calls $1 with JSON args $2, and
