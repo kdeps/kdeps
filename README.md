@@ -11,6 +11,10 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
+# What kdeps is overall:
+- kdeps (short for **"Knowledge Dependencies"**) formalizes AI workflows not as fragile ad-hoc scripts, but as a Directed Acyclic Graph (DAG) of typed knowledge and compute dependencies. It enforces data contracts between prompts, tools, and code at runtime—if required upstream data is missing, execution is halted before costly LLM calls.
+- **Local-First & Offline-First Philosophy:** Engineered for organizations that require zero-cloud-dependency AI. Eliminates vendor lock-in, recurring per-token fees, and external API latency. Operates fully air-gapped using local LLMs (Ollama, local GGUF/llamafile) and local embeddings, satisfying strict GDPR, HIPAA, and enterprise data-residency compliance.
+
 kdeps turns one workflow.yaml into an offline API, a binary, an image, or an ISO. You review that file as a pull request. kdeps test runs its evals.
 
 1. **Workflows** - a YAML pipeline is the one way to run kdeps. Feed it from an HTTP API, a bot, a file, or an interactive prompt.
