@@ -52,3 +52,11 @@ llm:
   subagent: current    # current | free | a model id
 ```
 
+`kdeps knowledge build --extract` uses the same order: `--model`, then `subagent:` under `llm:` when it names a model, then `model:` under `knowledge:` `extract:`, then the current model. `/knowledge build` chooses when that pass runs: `manual` (when you ask), `auto` (also at session end and before a background build), or `off`. In an agent session the automatic pass does not hold the prompt. The link graph still rebuilds without a model.
+
+```bash
+kdeps knowledge build --extract
+kdeps knowledge build --extract --model google/gemma-4-31b-it:free
+```
+
+An unserved local session model still skips extraction. Point the channel at another provider to run that call without the local server.

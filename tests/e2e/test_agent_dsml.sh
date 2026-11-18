@@ -19,7 +19,7 @@ DS_DIR=$(cd "$(mktemp -d)" && pwd -P)
 trap '[ -n "${DS_KEEP:-}" ] || rm -rf "$DS_DIR"' EXIT
 native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$DS_DIR/home/.kdeps" "$DS_DIR/work"
-: > "$DS_DIR/home/.kdeps/config.yaml"
+printf 'knowledge:\n  enabled: false\n' > "$DS_DIR/home/.kdeps/config.yaml"
 
 before=$(wc -c < "$E2E_MOCK_LLM_LOG")
 OUT=$( (cd "$DS_DIR/work" && printf 'CALLDSML bash_exec {"command":"echo $((6*7))dsmlout"}\n/quit\n' \

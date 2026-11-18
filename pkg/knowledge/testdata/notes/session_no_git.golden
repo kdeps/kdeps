@@ -1,0 +1,31 @@
+---
+type: session
+status: done
+project: my app
+session: s-1
+created: 2026-10-15
+summary: "billing: monthly"
+tags: [session, my app]
+links: ["[[my app]]"]
+---
+
+## Focus
+
+bill monthly
+
+## What was built
+
+- invoices
+- receipts
+
+## Mistakes
+
+(none)
+
+## Decisions
+
+- **Monthly**: fewer charges
+
+## Wins
+
+fast

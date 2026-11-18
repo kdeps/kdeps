@@ -159,7 +159,8 @@ type LLMKeys struct {
 	// Serialized to KDEPS_LLM_BASE_URL.
 	BaseURL string `yaml:"base_url,omitempty"`
 
-	// Subagent is the model for subagent calls. Empty or "current" uses the session
+	// Subagent is the model for subagent calls (knowledge-graph extraction,
+	// prompt refinement, judges). Empty or "current" uses the session
 	// model. "free" picks a large OpenRouter free model for each call.
 	// Any other value is a model name. A saved /subagent stores a catalog model's
 	// model_id instead of that name.
@@ -267,6 +268,41 @@ type IdentityConfig struct {
 	Accounts map[string]AccountConfig `yaml:"accounts,omitempty"`
 }
 
+// KnowledgeConfig points the agent loop at a knowledge vault: a folder of
+// markdown notes it recalls from each turn and writes session notes into.
+type KnowledgeConfig struct {
+	// Enabled turns the vault on for agent sessions; nil means on.
+	Enabled *bool `yaml:"enabled,omitempty"`
+	// Vault is the notes folder; empty means ~/.kdeps/notes.
+	Vault string `yaml:"vault,omitempty"`
+	// SessionNotes writes a note per agent session; nil means on.
+	SessionNotes *bool `yaml:"session_notes,omitempty"`
+	// WorkflowNotes logs each workflow chat call to its project's run note
+	// for the day; nil means off (workflows only recall).
+	WorkflowNotes *bool                  `yaml:"workflow_notes,omitempty"`
+	Recall        KnowledgeRecallConfig  `yaml:"recall,omitempty"`
+	Extract       KnowledgeExtractConfig `yaml:"extract,omitempty"`
+	// Build is the model pass that adds inferred edges: manual (the default),
+	// auto, or off. manual runs only when asked. auto also runs at session
+	// end and before a background graph build. off does not run.
+	Build string `yaml:"build,omitempty"`
+}
+
+// KnowledgeExtractConfig tunes the model pass that finds what notes are
+// about. The model is the subagent channel.
+type KnowledgeExtractConfig struct {
+	Model      string `yaml:"model,omitempty"`
+	Backend    string `yaml:"backend,omitempty"`
+	Workers    int    `yaml:"workers,omitempty"`     // parallel model calls (default 2)
+	PerSession int    `yaml:"per_session,omitempty"` // notes per automatic run (default 20)
+}
+
+// KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.
+type KnowledgeRecallConfig struct {
+	Hops         int `yaml:"hops,omitempty"`
+	BudgetTokens int `yaml:"budget_tokens,omitempty"`
+}
+
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
 	LLM               LLMKeys                           `yaml:"llm"`
@@ -278,5 +314,6 @@ type Config struct {
 	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
 	Identity          *IdentityConfig                   `yaml:"identity,omitempty"`
+	Knowledge         *KnowledgeConfig                  `yaml:"knowledge,omitempty"`
 	Agents            map[string]Config                 `yaml:"agents,omitempty"`
 }

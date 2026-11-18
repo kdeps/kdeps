@@ -275,7 +275,7 @@ elif kind == "tools":
         "bash_job_list", "bash_job_wait", "calculator", "clipboard_copy", "cohere_rerank", "e2e_py_tool", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "google_cache_create",
         "google_cache_delete", "google_cache_list", "hf_repo_files", "hf_search", "http_request",
-        "instruct", "jina_rerank", "list_files", "load_document",
+        "instruct", "jina_rerank", "knowledge_recall", "list_files", "load_document",
         "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "ocr_image", "python", "read_file", "retrieve_context", "search_local",
         "session_ops", "sql_describe_table", "sql_list_tables", "sql_ops",

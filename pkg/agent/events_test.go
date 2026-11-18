@@ -479,6 +479,14 @@ func TestThinkingBudget_ReadsEvents(t *testing.T) {
 	assert.Equal(t, 10000, thinkingBudget("no-such-mode"), "a missing event falls back")
 }
 
+func TestLiveNoteLimits_ReadEvents(t *testing.T) {
+	isolateEventsHome(t)
+	initEvents()
+	assert.Equal(t, 8, liveNotePrompts())
+	assert.Equal(t, 15, liveNoteItems())
+	assert.Equal(t, 160, liveNoteLineChars())
+}
+
 func TestParallelEvent_SetsCap(t *testing.T) {
 	isolateEventsHome(t)
 	assert.Equal(t, 4, parallel.Limit())

@@ -113,11 +113,11 @@ What will you use kdeps for? (change it later with kdeps profile)
 Choice [5]:
 ```
 
-If a later command needs more, kdeps installs only the parts that its loader needs. A small profile stays small and does not stop you. With `minimum`, the agent loop adds 19 core commands and these core tools:
+If a later command needs more, kdeps installs only the parts that its loader needs. A small profile stays small and does not stop you. With `minimum`, the agent loop adds 23 core commands and these core tools:
 
 - Files: `read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`.
 - Shell: `bash_exec` and its job tools.
-- `search_local` and memory.
+- `search_local`, memory, and knowledge.
 
 - Web and search tools: `kdeps install tools`, or one at a time (`kdeps install tools/web_search`).
 - `kdeps install <set>` adds a set. `kdeps profile <name>` switches profile and prunes the rest.

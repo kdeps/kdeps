@@ -157,6 +157,11 @@ scenario test_assets.sh
 scenario test_asset_profiles.sh
 scenario test_asset_sets.sh
 scenario test_assets_defensive.sh
+scenario test_knowledge.sh
+scenario test_knowledge_session.sh
+scenario test_knowledge_defensive.sh
+scenario test_knowledge_folders.sh
+scenario test_knowledge_git.sh
 scenario test_declared_tools.sh
 scenario test_agent_self_limit.sh
 scenario test_agent_unbacked_claim.sh

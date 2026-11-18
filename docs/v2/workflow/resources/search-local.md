@@ -42,14 +42,14 @@ component:
 | Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `query` | string | query or glob | - | Case-insensitive keyword or regex to find in file contents |
-| `path` | string | no | working directory | Directory to search recursively. An absolute path is recommended |
+| `path` | string | no | working project | Directory to search recursively. An absolute path is recommended |
 | `glob` | string | no | - | Filename glob pattern (e.g. `*.md`, `report_*.csv`) |
 | `limit` | number | no | `3` | Max results |
 | `index` | bool | no | `false` | Build/use a persistent TF-IDF index instead of walking every search |
 | `fuzzy` | bool | no | `false` | Levenshtein fuzzy term matching (requires `index: true`) |
 | `maxDistance` | integer | no | `2` | Max edit distance for fuzzy matching |
 | `indexDBPath` | string | no | `~/.kdeps/projects/<folder>-<hash>/index.db` | Where the index is stored |
-| `graphBoost` | bool | no | `false` | Re-rank indexed results from the folder's link and topic graph (requires `index: true`) |
+| `graphBoost` | bool | no | `false` | Re-rank indexed results from the vault graph when the folder is inside it, otherwise from the folder's link/topic graph (requires `index: true`) |
 
 If you set `query` and `glob`, a file must match both.
 
@@ -160,7 +160,7 @@ component:
     fuzzy: true                   # optional: Levenshtein fuzzy matching (requires index: true)
     maxDistance: 2                # optional: max edit distance for fuzzy matching, default 2
     indexDBPath: "/custom/index.db"  # optional: override the default ~/.kdeps/projects/<folder>-<hash>/index.db
-    graphBoost: true              # optional: re-rank from the folder's link and topic graph (requires index: true)
+    graphBoost: true              # optional: re-rank from the vault graph, or the folder's link/topic graph outside it (requires index: true)
 ```
 
 </div>
@@ -169,7 +169,9 @@ component:
 
 Indexed search already ranks by TF-IDF. `graphBoost` then moves a document up when one of the top 5 matches connects to it.
 
-kdeps builds a link and topic graph of the folder at `~/.kdeps/projects/<folder>-<hash>/graph.db`. The graph uses markdown links and shared `topics:` or `tags:` front matter. Each connected document gets the full 25% boost.
+If `path` is the knowledge vault, or a folder in it, kdeps updates the structural graph of that vault (links, tags, and frontmatter; no model call). Then it reads those edges. It does not write `graph.db`. An extracted reference gets a boost of 25%. A weaker edge gets a smaller boost: an inferred edge by its confidence, an ambiguous edge by 0.3 times its confidence, and a shared tag by 0.3 of that.
+
+For a folder outside the vault, kdeps builds a link and topic graph of the folder at `~/.kdeps/projects/<folder>-<hash>/graph.db`. The graph uses markdown links and shared `topics:` / `tags:` frontmatter. Each connected document gets the full 25%.
 
 A lower-scoring connected document can outrank a higher-scoring isolated one. That matters when the top match is a short index page.
 
@@ -210,3 +212,4 @@ Indexed-mode output rows add three fields on top of the base result shape:
 ## See also
 
 - [Search resources](/workflow/resources/search) - overview and `web_search`
+- [Knowledge](/agent/knowledge) - the vault graph `graphBoost` reads when `path` is inside the vault

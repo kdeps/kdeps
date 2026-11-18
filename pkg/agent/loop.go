@@ -242,7 +242,7 @@ type Config struct {
 	// (a workflow chat's loop.tools). Project, component and MCP tools stay;
 	// load_tools is not offered, so nothing outside the list can be loaded.
 	AllowedTools []string
-	// Subagent is the model for subagent calls.
+	// Subagent is the model for subagent calls: knowledge-graph extraction.
 	// Empty or "current" uses this loop's model. "free" picks a large
 	// OpenRouter free model for each call.
 	// Any other value is a model name, or the catalog model_id stored for one.
@@ -271,10 +271,14 @@ type Config struct {
 	// (commit trailers, outbound email) falls back to its existing synthetic
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
-	// Ctx is the parent context for model resolution.
-	Ctx context.Context
+	// Knowledge is the knowledge vault (config.yaml knowledge:). Nil means
+	// none: no recall, no session notes, no knowledge tools.
+	Knowledge *config.KnowledgeConfig
+	// KnowledgeCtx is the parent context of the vault's background graph
+	// builds; the vault stays off without it.
+	KnowledgeCtx context.Context
 	// SubagentEngine makes an engine for one subagent call that runs beside
-	// the turn. A fresh one each, because
+	// the turn: knowledge extraction. A fresh one each, because
 	// Engine.Execute keeps per-run state and two calls must not share an
 	// engine. Nil: no model extraction.
 	SubagentEngine func() *executor.Engine
@@ -300,21 +304,26 @@ var activeLoop *Loop
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
-	ctx           context.Context
-	engine        *executor.Engine
-	registry      *tools.Registry
-	workflow      *domain.Workflow
-	config        Config
-	session       SessionReadWriter
-	skills        string              // pre-formatted skill XML block for the system prompt
-	skillList     []Skill             // raw skill structs for name lookup (/skill-name invocation)
-	relatedSkills map[string][]string // skill name -> related skill names (kartographer)
-	prompts       []PromptTemplate    // loaded prompt templates
-	onAutoCompact func(summary string)
-	store         *SessionStore // optional persistence
-	sessionID     string        // store id for the current session (continuity across turns/exit)
-	memoryStore   *MemoryStore  // optional memory persistence
-	streamer      Streamer      // optional streaming LLM caller
+	ctx               context.Context
+	knowledge         *knowledgeState // nil when no vault is configured
+	knowledgeOff      bool            // /knowledge off
+	knowledgeBuild    string          // /knowledge build; empty until that command is saved
+	knowledgeBuildSet bool
+	noteID            string // session note id before the session is saved
+	engine            *executor.Engine
+	registry          *tools.Registry
+	workflow          *domain.Workflow
+	config            Config
+	session           SessionReadWriter
+	skills            string              // pre-formatted skill XML block for the system prompt
+	skillList         []Skill             // raw skill structs for name lookup (/skill-name invocation)
+	relatedSkills     map[string][]string // skill name -> related skill names (vault graph, else kartographer)
+	prompts           []PromptTemplate    // loaded prompt templates
+	onAutoCompact     func(summary string)
+	store             *SessionStore // optional persistence
+	sessionID         string        // store id for the current session (continuity across turns/exit)
+	memoryStore       *MemoryStore  // optional memory persistence
+	streamer          Streamer      // optional streaming LLM caller
 	// modelNotes are loop-generated notices (goal transitions, budget changes,
 	// forced task failures) queued to be injected into the model's next request
 	// as a [kdeps] system message. The human sees them on the terminal; the
@@ -522,6 +531,17 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 	l.registerSkillLoader()
 	if !cfg.Nested {
 		l.becomeSessionLoop()
+	}
+	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
+		// A project folder that moves (archived, or back) takes its memory along.
+		l.knowledge.moved = func() {
+			if l.memoryStore != nil {
+				l.memoryStore.Rebase()
+			}
+		}
+		l.registerKnowledgeTools()
+		l.knowledge.beforeBuild = func() { l.extractBackground() }
+		l.knowledge.buildAsync()
 	}
 
 	if cfg.MemoryStore != nil {
@@ -941,7 +961,7 @@ func detectDefaultModelAndBackend() (string, string) {
 }
 
 func applyConfigDefaults(cfg Config) Config {
-	cfg.Model, cfg.Backend = resolveModelAndBackend(cfg.Ctx, cfg.Model, cfg.Backend)
+	cfg.Model, cfg.Backend = resolveModelAndBackend(cfg.KnowledgeCtx, cfg.Model, cfg.Backend)
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
 	}
@@ -1087,6 +1107,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// Preserve conversation history
 	l.session.Append(input, response)
 	l.resumeNote = ""
+	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -1163,6 +1184,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 
 	l.session.Append(input, response)
 	l.resumeNote = ""
+	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -3156,47 +3178,6 @@ func (l *Loop) buildSystemPreamble() string {
 	return l.composeSystemPreamble(renderAssembledPreamble(l.preambleData()))
 }
 
-// instructionParts are the discovered instruction files.
-func (l *Loop) instructionParts() []string {
-	if instructions := discoverInstructions(""); instructions != "" {
-		return []string{instructions}
-	}
-	return nil
-}
-
-// turnStateBlock is the memory graph focused on this request, with the
-// recent keys. Rebuilt every turn, so memory saved mid-session is seen
-// on the next turn.
-func (l *Loop) turnStateBlock(focus string) string {
-	block := l.memoryTurnBlock(focus)
-	l.memorySegmentTokens = EstimateTokenCountFromStrings(block)
-	recordContextSegmentTokens("memory", l.memorySegmentTokens)
-	return block
-}
-
-// memoryTurnBlock is the memory graph focused on focus and the most recent
-// keys (capped: memory_query finds the rest).
-func (l *Loop) memoryTurnBlock(focus string) string {
-	if l.memoryStore == nil {
-		return ""
-	}
-	var parts []string
-	if memPrompt := l.memoryStore.FormatForPromptCapped(
-		memoryPromptLimit(), focus, l.config.FoldContextItems, l.config.MaxLeafNodes, l.config.MaxLeafChars,
-	); memPrompt != "" {
-		parts = append(parts, memPrompt)
-	}
-	if keyNames, total := l.memoryStore.RecentKeys(memoryKeysLimit()); len(keyNames) > 0 {
-		block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
-		if total > len(keyNames) {
-			block += fmt.Sprintf("\n... and %d more (use memory_query to find older entries)", total-len(keyNames))
-		}
-		block += "\n</memory-keys>"
-		parts = append(parts, block)
-	}
-	return strings.Join(parts, "\n\n")
-}
-
 // composeSystemPreamble builds the cached system prompt. harness is the
 // assembled preamble sections: the full text, or one summary line each.
 //
@@ -3556,10 +3537,14 @@ func (l *Loop) buildChatConfig(
 			domain.ScenarioItem{Role: "system", Prompt: reminders})
 	}
 
-	// Memory goes on every turn, never into the cached preamble: it changes
-	// during the session and depends on this request.
+	// Memory, the cards' status and knowledge recall go on every turn, never
+	// into the cached preamble: they change during the session and depend on
+	// this request.
 	if state := l.turnStateBlock(input); state != "" {
 		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: state})
+	}
+	if item := l.knowledgeRecallItem(input, l.config.ProgressWriter); item != nil {
+		chatCfg.Scenario = append(chatCfg.Scenario, *item)
 	}
 	if l.resumeNote != "" {
 		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: l.resumeNote})
@@ -3652,6 +3637,10 @@ func (l *Loop) buildSyntheticWorkflow(
 	// matching the pattern) that must reach the model unchanged rather than
 	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
 	chatCfg.LiteralPrompt = true
+	// The loop adds knowledge recall to user turns itself (knowledgeRecallItem);
+	// its internal calls (compaction, refine) must get none.
+	off := false
+	chatCfg.Knowledge = &off
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
@@ -3888,6 +3877,7 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 	if l.memoryStore != nil {
 		l.memoryStore.AutoCapture(summary)
 	}
+	l.writeSessionNote(summary, l.config.ProgressWriter)
 
 	// The cumulative sent/generated totals still describe the conversation
 	// that was just folded away. Replace them with the context that remains.

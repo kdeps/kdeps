@@ -1,0 +1,35 @@
+version: 1.2.0
+# Limits and thresholds of the knowledge graph: how much of a note, a repo or a
+# report is read, kept or shown. The code holds none of these values.
+
+max_code_files: 20000  # Go files read per repo; the rest are left out.
+max_card_body: 3  # Body paragraphs of a card kept as its summary.
+chunk_chars: 6000  # Characters of a note sent to the extraction model per request.
+max_entities: 12  # Entities kept from one extraction.
+max_name_len: 120  # Longest entity name kept.
+mention_confidence: 0.9  # Confidence of an entity the note states outright.
+ambiguous_below: 0.5  # An extracted link under this confidence is marked ambiguous.
+default_workers: 2  # Concurrent extraction requests when none is configured.
+max_note_size: 2097152  # Notes larger than this many bytes are skipped (2 MiB).
+max_summary: 120  # Characters of a session note's summary line.
+max_slug: 60  # Longest file name slug of a session note.
+title_words: 8  # Words of a session's first message used as its title.
+follow_up_words: 3  # Words of a topic's follow-up question kept.
+related_share: 0.2  # Share of a topic's related notes shown.
+report_top: 10  # Entries of each top list in the graph report.
+community_top: 5  # Communities listed in the graph report.
+missing_top: 20  # Missing links listed in the graph report.
+marker_window: 512  # Bytes read around a report marker.
+tag_edge_weight: 0.3  # weight of a tag edge in recall, against 1 for a link
+ambiguous_weight: 0.3  # weight of an ambiguous edge in recall, times its confidence
+recall_max_hops: 2  # hops a recall walk takes from a matched note; a larger request is clamped to it
+recall_budget: 1500  # tokens of recalled paths and summaries when a request gives none
+recall_max_seeds: 5  # best-matching notes a recall starts from
+recall_max_hits: 8  # notes a recall returns at most
+recall_hop_decay: 0.5  # score kept per hop, before the edge weight and the node's fan-out
+label_match_boost: 2.0  # multiplier of a query word that is in a note's label
+full_label_boost: 3.0  # multiplier when a note's whole label appears in the query
+session_note_weight: 0.4  # weight of a session note in recall, against 1 for a curated note
+memory_note_weight: 0.6  # weight of a project memory note in recall, against 1 for a curated note
+bytes_per_token: 4  # bytes per token when a recalled note's cost is estimated
+community_method: louvain  # how the graph is grouped: louvain, or leiden (its communities are always connected)

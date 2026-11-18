@@ -19,7 +19,9 @@
 package searchlocal
 
 import (
+	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,8 +31,10 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kartographer/graph"
+	kgknowledge "github.com/kdeps/kartographer/knowledge"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // failOpenFs wraps an afero.Fs and fails Open for one specific path, letting
@@ -226,6 +230,141 @@ func TestBoostByGraph_TopicBoost(t *testing.T) {
 	}
 }
 
+func TestBoostByGraph_VaultGraphWeightsAndSkipsKartographer(t *testing.T) {
+	t.Setenv("KDEPS_CONFIG_PATH", "")
+	vault := knowledge.DefaultVault()
+	if err := os.MkdirAll(vault, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	hub := filepath.Join(vault, "hub.md")
+	extracted := filepath.Join(vault, "extracted.md")
+	inferred := filepath.Join(vault, "inferred.md")
+	tagged := filepath.Join(vault, "tagged.md")
+	unrelated := filepath.Join(vault, "unrelated.md")
+
+	g := knowledge.Graph{
+		Vault: vault,
+		Graph: kgknowledge.Graph{
+			Nodes: []*knowledge.Node{
+				{ID: "note:hub.md", Kind: "note", Note: "hub.md"},
+				{ID: "note:extracted.md", Kind: "note", Note: "extracted.md"},
+				{ID: "note:inferred.md", Kind: "note", Note: "inferred.md"},
+				{ID: "note:tagged.md", Kind: "note", Note: "tagged.md"},
+				{ID: "tag:billing", Kind: "tag", Label: "#billing"},
+			},
+			Edges: []*knowledge.Edge{
+				{
+					From: "note:hub.md", To: "note:extracted.md", Relation: "references",
+					Provenance: "extracted", Confidence: 1,
+				},
+				{
+					From: "note:hub.md", To: "note:inferred.md", Relation: "mentions",
+					Provenance: "inferred", Confidence: 0.4,
+				},
+				{
+					From: "note:hub.md", To: "tag:billing", Relation: "tagged",
+					Provenance: "extracted", Confidence: 1,
+				},
+				{
+					From: "note:tagged.md", To: "tag:billing", Relation: "tagged",
+					Provenance: "extracted", Confidence: 1,
+				},
+			},
+		},
+	}
+	dir := knowledge.GraphDir(vault)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(knowledge.GraphPath(dir), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The vault has no notes. A matching manifest keeps CheckUpdate from
+	// replacing this planted graph.
+	if err = os.WriteFile(filepath.Join(dir, "manifest.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: hub}, Score: 10, MatchCount: 2},
+		{Document: &kgsearch.Document{Path: unrelated}, Score: 1, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: extracted}, Score: 0.95, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: inferred}, Score: 0.9, MatchCount: 1},
+		{Document: &kgsearch.Document{Path: tagged}, Score: 0.8, MatchCount: 1},
+	}
+	boosted := boostByGraph(t.Context(), &domain.SearchLocalConfig{Path: vault}, results)
+	if _, statErr := os.Stat(graphDBPath(vault)); !os.IsNotExist(statErr) {
+		t.Fatalf("vault graphBoost must not build graph.db, stat err=%v", statErr)
+	}
+	score := map[string]float64{}
+	var order []string
+	for _, r := range boosted {
+		score[r.Document.Path] = r.Score
+		order = append(order, filepath.Base(r.Document.Path))
+	}
+	if math.Abs(score[extracted]-0.95*edgeBoost(1)) > 0.0001 {
+		t.Fatalf("extracted score = %f", score[extracted])
+	}
+	if math.Abs(score[inferred]-0.9*edgeBoost(0.4)) > 0.0001 {
+		t.Fatalf("inferred score = %f", score[inferred])
+	}
+	if math.Abs(score[tagged]-0.8*edgeBoost(0.3)) > 0.0001 {
+		t.Fatalf("tagged score = %f", score[tagged])
+	}
+	want := []string{"hub.md", "extracted.md", "unrelated.md", "inferred.md", "tagged.md"}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("order = %v, want %v", order, want)
+		}
+	}
+}
+
+func TestBoostByGraph_VaultGraphBuiltOnSearch(t *testing.T) {
+	vault := t.TempDir()
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("knowledge:\n  vault: "+vault+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
+	hub := filepath.Join(vault, "hub.md")
+	extracted := filepath.Join(vault, "extracted.md")
+	if err := os.WriteFile(hub, []byte("See [extracted](extracted.md).\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(extracted, []byte("Extracted content.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	graphPath := knowledge.GraphPath(knowledge.GraphDir(vault))
+	if _, err := os.Stat(graphPath); !os.IsNotExist(err) {
+		t.Fatalf("graph must not exist before the search, stat err=%v", err)
+	}
+
+	results := []kgsearch.SearchResult{
+		{Document: &kgsearch.Document{Path: hub}, Score: 10, MatchCount: 2},
+		{Document: &kgsearch.Document{Path: extracted}, Score: 0.95, MatchCount: 1},
+	}
+	boosted := boostByGraph(t.Context(), &domain.SearchLocalConfig{Path: vault}, results)
+	if _, statErr := os.Stat(graphDBPath(vault)); !os.IsNotExist(statErr) {
+		t.Fatalf("vault graphBoost must not build graph.db, stat err=%v", statErr)
+	}
+	if _, err := os.Stat(graphPath); err != nil {
+		t.Fatalf("search should build the vault graph: %v", err)
+	}
+	var got float64
+	for _, r := range boosted {
+		if r.Document.Path == extracted {
+			got = r.Score
+		}
+	}
+	if math.Abs(got-0.95*edgeBoost(1)) > 0.0001 {
+		t.Fatalf("extracted score = %f", got)
+	}
+}
+
 func TestExecute_GraphBoostRequiresIndex(t *testing.T) {
 	e := NewExecutor()
 	_, err := e.Execute(nil, &domain.SearchLocalConfig{
@@ -261,3 +400,6 @@ func TestExecuteIndexed_GraphBoost(t *testing.T) {
 		t.Fatal("nil result")
 	}
 }
+
+// edgeBoost is the multiplier search.Boost applies for an edge of weight w.
+func edgeBoost(w float64) float64 { return 1 + (graphBoostFactor()-1)*w }

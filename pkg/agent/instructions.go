@@ -58,7 +58,10 @@ const kdepsDirName = ".kdeps"
 // prepends a note telling the model KDEPS.md wins any conflict.
 //
 // Files are deduplicated by content hash and capped at maxTotalChars total.
-func discoverInstructions(startDir string) string {
+//
+// extraDirs are read after the ancestors, for their KDEPS.md only (the
+// knowledge workspace's routing table, wherever kdeps runs).
+func discoverInstructions(startDir string, extraDirs ...string) string {
 	if startDir == "" {
 		var err error
 		startDir, err = os.Getwd()
@@ -106,6 +109,7 @@ func discoverInstructions(startDir string) string {
 		}
 		dir = parent
 	}
+	files = appendExtraKDEPS(files, extraDirs, seen, totalChars)
 
 	if len(files) == 0 {
 		return ""
@@ -182,4 +186,21 @@ func formatInstructions(files []instructionFile) string {
 		fmt.Fprintf(&sb, "## %s (scope: %s)\n\n%s\n\n", f.Name, f.Path, f.Content)
 	}
 	return strings.TrimSpace(sb.String())
+}
+
+// appendExtraKDEPS adds the KDEPS.md of each extra dir within the remaining
+// character budget.
+func appendExtraKDEPS(files []instructionFile, dirs []string, seen map[string]bool, total int) []instructionFile {
+	for _, dir := range dirs {
+		f, ok := readInstructionFile(dir, "KDEPS.md", seen)
+		if !ok || total >= maxTotalChars {
+			continue
+		}
+		if total+len(f.Content) > maxTotalChars {
+			f.Content = f.Content[:maxTotalChars-total]
+		}
+		files = append(files, f)
+		total += len(f.Content)
+	}
+	return files
 }

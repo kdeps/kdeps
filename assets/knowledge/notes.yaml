@@ -1,0 +1,217 @@
+version: 1.6.0
+# The notes kdeps writes into the vault: a project's card, a session note, a
+# decision note and a workflow's daily run log. Section names are a compaction
+# summary's headings, lowercased; they must match the compaction prompt.
+
+summary:
+  focus: [goal, focus]  # the session's focus, the first one set; a summary without one writes no session note
+  next: next steps  # its first item becomes the card's next step
+  decisions: key decisions  # each item becomes one decision note
+  progress: progress  # when empty, filled from progress_from
+  progress_from: [done, in progress]
+
+none: "(none)"  # the text of an empty section; a summary item of only this is no item
+
+session:  # what the session and run log templates write, and kdeps reads back
+  kind: session  # their type; recall ranks this kind below the notes people curate
+  id_key: session  # front matter key of the session id; a rewrite finds its note by it
+  commits_key: commits  # front matter key of the commit range ("from..to", or one commit)
+  untitled: session  # a note's file name when its title has no usable characters
+  file_time: "2006-01-02 1504"  # how a new session note's file name starts: its start time, as a Go time layout
+
+saved_note:  # a note the model saves with knowledge_note_save (its default type is the tool's type default)
+  decision_type: decision  # this type is filed in the project's decisions folder, the rest in its notes folder
+
+session_sections:  # a session note's headings in order, each filled by the first summary section that is set
+  - heading: Focus
+    from: [goal]
+  - heading: What was built
+    from: [done, progress]
+  - heading: Mistakes
+    from: [mistakes]
+  - heading: Decisions
+    from: [key decisions]
+  - heading: Wins
+    from: [wins]
+
+# Go templates. scalar quotes a YAML scalar only when it needs it; quote is a
+# double-quoted string. The fields each template gets are listed beside it.
+templates:
+  # .Type, .Title, .Summary, .Body, .Created, .Tags, .Links: a note the agent
+  # saves with knowledge_note_save
+  note: |
+    ---
+    type: {{.Type}}
+    status: draft
+    created: {{.Created}}
+    summary: {{quote .Summary}}
+    {{- if .Tags}}
+    tags: [{{join .Tags ", "}}]
+    {{- end}}
+    {{- if .Links}}
+    links: [{{range $i, $l := .Links}}{{if $i}}, {{end}}{{quote $l}}{{end}}]
+    {{- end}}
+    ---
+
+    # {{.Title}}
+
+    {{.Body}}
+
+  # .Keys (the card keys of vault.yaml), .None, .Updated, .Source, .Place
+  card: |
+    ---
+    {{.Keys.Type}}: project
+    {{.Keys.Status}}: active
+    {{.Keys.Next}}: {{scalar .None}}
+    {{.Keys.Updated}}: {{.Updated}}
+    ---
+    | {{index .Keys.LinksHeader 0}} | {{index .Keys.LinksHeader 1}} |
+    |---|---|
+    | {{.Source}} | {{.Place}} |
+
+  # .Session (the session block above), .ID, .Project, .Created, .Summary, .CardLink, .Commits,
+  # .Git (.Branch, .From, .To), .Sections (.Heading, .Text)
+  session: |-
+    ---
+    type: {{.Session.Kind}}
+    status: done
+    project: {{scalar .Project}}
+    {{.Session.IDKey}}: {{scalar .ID}}
+    created: {{.Created}}
+    summary: {{scalar .Summary}}
+    tags: [session, {{scalar .Project}}]
+    links: [{{quote .CardLink}}]
+    {{- if .Git.To}}
+    {{- if .Git.Branch}}
+    branch: {{scalar .Git.Branch}}
+    {{- end}}
+    {{.Session.CommitsKey}}: {{scalar .Commits}}
+    {{- end}}
+    ---
+    {{range .Sections}}
+    ## {{.Heading}}
+
+    {{.Text}}
+    {{end}}
+    {{- if .Git.To}}
+    ## Git
+
+    On {{if .Git.Branch}}branch `{{.Git.Branch}}`{{else}}detached HEAD{{end}}
+    {{- if or (eq .Git.From "") (eq .Git.From .Git.To)}} at `{{.Git.To}}`; no commits in this session yet.
+    {{- else}}, commits `{{.Git.From}}..{{.Git.To}}`: `git log {{.Git.From}}..{{.Git.To}}` shows them (`git diff {{.Git.From}}..{{.Git.To}}` the change).
+    {{- end}}
+    {{end}}
+
+  # .Project, .Created, .Summary, .SessionLink, .CardLink, .Title, .Body
+  decision: |
+    ---
+    type: decision
+    status: done
+    project: {{scalar .Project}}
+    created: {{.Created}}
+    summary: {{scalar .Summary}}
+    links: [{{quote .SessionLink}}, {{quote .CardLink}}]
+    ---
+
+    # {{.Title}}
+
+    {{.Body}}
+
+  # .Session, .Project, .Created, .CardLink: the top of a workflow's run log for the day
+  runs_head: |
+    ---
+    type: {{.Session.Kind}}
+    status: done
+    project: {{scalar .Project}}
+    {{.Session.IDKey}}: {{scalar (printf "runs-%s" .Created)}}
+    created: {{.Created}}
+    summary: {{scalar (printf "%s workflow runs on %s" .Project .Created)}}
+    tags: [session, workflow, {{scalar .Project}}]
+    links: [{{quote .CardLink}}]
+    ---
+
+    ## Runs
+    {{""}}
+  # .Time, .Prompt, .Reply: one workflow chat call
+  run_entry: |
+    - {{.Time}} {{.Prompt}} -> {{.Reply}}
+  # .Created, .Project: the run log's file name, without .md
+  runs_file: "{{.Created}} {{.Project}} runs"
+
+  # GRAPH_REPORT.md, written next to the graph. .Marker (its first line, how kdeps
+  # knows the file is its own), .Vault, .Pct (share of extracted edges), .Method
+  # (the community method), .AmbiguousBelow, .R (the report: .Notes .Nodes .Edges
+  # .Communities .Modularity .GodNodes .Groups .Surprising .Review .Missing).
+  # ref is a node's [[link]] or `label`, refs joins several, evidence is an edge's source.
+  report: |-
+    {{.Marker}}
+
+    Vault: {{.Vault}}
+
+    ## Summary
+
+    | Notes | Nodes | Edges | Extracted edges | Communities | Modularity |
+    |---|---|---|---|---|---|
+    | {{.R.Notes}} | {{.R.Nodes}} | {{.R.Edges}} | {{.Pct}}% | {{.R.Communities}} | {{printf "%.2f" .R.Modularity}} |
+
+    Extracted edges are written in the notes (links, tags) or in code (imports); the rest are guesses.
+
+    ## God nodes
+
+    The most connected notes and packages: changing them touches the most.
+
+    | Node | Kind | Links | Community |
+    |---|---|---|---|
+    {{range .R.GodNodes}}| {{ref .Node}} | {{.Node.Kind}} | {{.Degree}} | {{.Node.Community}} |
+    {{end}}
+    ## Communities
+
+    Groups of notes that link mostly among themselves ({{.Method}}).
+
+    {{range .R.Groups}}- **Community {{.ID}}** ({{.Size}} nodes): {{refs .Top}}{{if .Summary}} - {{.Summary}}{{end}}
+    {{end}}
+    ## Surprising connections
+
+    A single link between two communities that otherwise never touch.
+
+    {{if not .R.Surprising}}(none)
+    {{end}}{{range .R.Surprising}}- {{ref .From}} (community {{.FromGroup}}, {{.FromSize}} nodes) -[{{.Edge.Relation}}, {{.Edge.Provenance}}]-> {{ref .To}} (community {{.ToGroup}}, {{.ToSize}} nodes){{evidence .Edge}}
+    {{end}}
+    ## Edges to review
+
+    Guesses a model could not settle (confidence below {{.AmbiguousBelow}}): confirm with a [[link]] or ignore.
+
+    {{if not .R.Review}}(none)
+    {{end}}{{range .R.Review}}- {{.From}} -[{{.Relation}}, {{printf "%.2f" .Confidence}}]-> {{.To}}{{evidence .}}
+    {{end}}
+    ## Links to notes that do not exist
+
+    {{if not .R.Missing}}(none)
+    {{end}}{{range .R.Missing}}- [[{{.}}]]
+    {{end}}
+
+  # .Edges (each .From .Relation .Provenance .Confidence .To): kdeps knowledge
+  # explain, one edge per line with the file and line it came from
+  explain: |-
+    {{range .Edges}}{{.From}} -[{{.Relation}}, {{.Provenance}}, {{printf "%.2f" .Confidence}}]-> {{.To}}{{evidence .}}
+    {{end}}
+
+  # .Base (the last model summary's sections, by lower-cased heading), .Prompts
+  # (the requests since), .Files (files modified since), .Decisions (decisions
+  # saved to memory since), .Failed (tool calls that failed since), .None: the
+  # session so far in the compaction summary's format, built without a model.
+  # lines joins a first text and more lines, trimmed.
+  live_summary: |
+    ## Goal
+    {{lines (index .Base "goal") .Prompts}}
+    ## Progress
+    ### Done
+    {{lines (index .Base "done") .Files}}
+    ## Key Decisions
+    {{or (lines (index .Base "key decisions") .Decisions) .None}}
+    ## Mistakes
+    {{or (lines (index .Base "mistakes") .Failed) .None}}
+    ## Wins
+    {{or (lines (index .Base "wins") nil) .None}}
+    ## Next Steps
+    {{or (lines (index .Base "next steps") nil) .None}}

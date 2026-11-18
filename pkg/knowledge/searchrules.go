@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package searchrules
+package knowledge
 
 import (
 	"errors"
@@ -26,15 +26,10 @@ import (
 
 	kgsearch "github.com/kdeps/kartographer/search"
 	"gopkg.in/yaml.v3"
-
-	"github.com/kdeps/kdeps/v3/pkg/assets"
 )
 
-// searchItem is the local search word rules item (assets/knowledge/search.yaml).
-const (
-	searchSet  = "knowledge"
-	searchItem = "search"
-)
+// searchItem is the local search word rules item of the knowledge asset set (search.yaml).
+const searchItem = "search"
 
 // searchRules is search.yaml: how the local search indexes split text into terms.
 type searchRules struct {
@@ -55,7 +50,7 @@ type searchRules struct {
 }
 
 // SearchLimits are how much of a file the local search reads and shows, and
-// how a link graph re-ranks its results (search.yaml's limits).
+// how the knowledge graph re-ranks its results (search.yaml's limits).
 type SearchLimits struct {
 	MaxFileSize      int64   `yaml:"max_file_size"`
 	PreviewChars     int     `yaml:"preview_chars"`
@@ -98,15 +93,12 @@ func parseSearchRules(data []byte) (searchRules, error) {
 	return r, nil
 }
 
-//nolint:gochecknoglobals // loaded once from the search rules
+//nolint:gochecknoglobals // loaded once from the knowledge asset set
 var searchRulesItem = &yamlItem[searchRules]{name: searchItem, parse: parseSearchRules}
 
 // SearchTokenizer is the local search tokenizer with search.yaml's word rules.
-//
 // A missing or broken file is an error: guessing other rules would split text
 // differently from the indexes already built.
-//
-//kdeps:flow knowledge: a local search starts > [the search rules split words and skip secret files] > matching files are scored > the best lines come back
 func SearchTokenizer() (*kgsearch.Tokenizer, error) {
 	r, err := searchRulesItem.get()
 	if err != nil {
@@ -142,7 +134,7 @@ func SearchFilter() (*kgsearch.Filter, error) {
 // searchFilterCache keeps the filter once its rules load; a walk asks for it
 // on every entry.
 //
-//nolint:gochecknoglobals // built once from the search rules
+//nolint:gochecknoglobals // built once from the knowledge asset set
 var searchFilterCache struct {
 	sync.Mutex
 	f *kgsearch.Filter
@@ -156,43 +148,4 @@ func SearchLimitsNow() SearchLimits {
 		return SearchLimits{}
 	}
 	return r.Limits
-}
-
-// yamlItem is search.yaml, parsed on first use. A successful load is kept.
-type yamlItem[T any] struct {
-	name  string
-	parse func([]byte) (T, error)
-	mu    sync.Mutex
-	cache *T
-}
-
-func (it *yamlItem[T]) get() (T, error) {
-	it.mu.Lock()
-	defer it.mu.Unlock()
-	if it.cache != nil {
-		return *it.cache, nil
-	}
-	var v T
-	data, err := assets.Open(searchSet).ReadFile(searchSet + "/" + it.name + ".yaml")
-	if err != nil {
-		return v, err
-	}
-	if v, err = it.parse(data); err != nil {
-		return v, err
-	}
-	it.cache = &v
-	return v, nil
-}
-
-func init() { //nolint:gochecknoinits // registers the search rules asset
-	assets.Register(searchSet, assets.Spec{
-		Validate: func(data []byte, name string) error {
-			if name != searchItem {
-				return fmt.Errorf("unknown search rules item %q", name)
-			}
-			_, err := parseSearchRules(data)
-			return err
-		},
-		Required: []string{searchItem},
-	})
 }

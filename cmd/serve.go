@@ -225,6 +225,7 @@ type agentLoopFlags struct {
 	// an interactive workflow whose target is a chat with loop:). It is not
 	// registered as a tool.
 	Workflow string
+	Index    []string
 }
 
 // processRootCtx is the process's one root context; context.Background is
@@ -332,10 +333,16 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	// ~/.kdeps/config.yaml agents.<name> profile. Non-fatal: an unconfigured or
 	// unreadable config.yaml just means no identity, not a startup failure.
 	var identity *config.IdentityConfig
+	var knowledgeCfg *config.KnowledgeConfig
 	var subagentSpec string
 	if identityCfg, identityErr := config.LoadStructWithAgent(hostWorkflow.Metadata.Name); identityErr == nil {
 		identity = identityCfg.Identity
+		knowledgeCfg = identityCfg.Knowledge
 		subagentSpec = identityCfg.LLM.Subagent
+	}
+	if knowledgeCfg == nil {
+		// The knowledge vault is on by default for agent sessions.
+		knowledgeCfg = &config.KnowledgeConfig{}
 	}
 
 	cfg := agent.Config{
@@ -349,7 +356,8 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 		Store:        store,
 		MemoryStore:  memStore,
 		Identity:     identity,
-		Ctx:          rootCtx,
+		Knowledge:    knowledgeCfg,
+		KnowledgeCtx: rootCtx,
 		// Warn, same as the loop engine: an automatic extract keeps running
 		// after the prompt returns, and its "LLM resource configuration"
 		// lines must not print over the conversation.
@@ -1082,7 +1090,10 @@ func applySettingsToRegistry(settings tui.Settings, registry *tools.Registry, fl
 	}
 }
 
-// applyStartFlags does what --konfig asks before the session starts.
+// applyStartFlags does what --konfig and --index ask before the session starts.
 func applyStartFlags(flags *agentLoopFlags) error {
-	return importKonfigFlag(flags.Konfig)
+	if err := importKonfigFlag(flags.Konfig); err != nil {
+		return err
+	}
+	return indexFoldersFlag(flags.Index)
 }

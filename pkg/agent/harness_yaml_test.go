@@ -51,6 +51,7 @@ var (
 		"judge-roster-system",
 		"judge-system", "subagent-system", "skill-folder", "ask-question",
 		"branch-summary",
+		"knowledge-extract-system",
 		"invoke-example", "repeat-offense-note",
 		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
 		"nudge-sandbox-hallucination-qualifier", "nudge-unbacked-claim", "model-refusal-record",

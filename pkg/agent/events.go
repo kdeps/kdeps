@@ -669,15 +669,6 @@ func effectiveItems(name string, fallback int) int {
 	return positiveOrFallback(e.Items, fallback)
 }
 
-// itemsOr is effectiveItems, except a disabled or empty event keeps fallback.
-func itemsOr(name string, fallback int) int {
-	n := effectiveItems(name, fallback)
-	if n == disabledSentinel || n < 1 {
-		return fallback
-	}
-	return n
-}
-
 // autoCompactThresholdForCtxWindow returns the "auto-compact" event's token
 // threshold, scaled to ctxWindow's configured fraction when ctxWindow is
 // known (> 0), or the event's flat fallback otherwise. Single source for a

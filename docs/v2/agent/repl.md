@@ -30,8 +30,9 @@ stage -> model: "@paste:<id> expands\nback to the text"
 The REPL inserts a **small** single-line paste as usual editable text on the input line.
 
 The REPL saves all other pastes to memory with an id like `paste:3f9a1c2e`. The
-note is written in `~/.kdeps/notes/projects/<name>/memory/`. A multi-line paste
-with a maximum of 4 lines, 20 words, and 240 characters shows on the edit line.
+memory is the folder memory: a note in the `memory/` folder of the project in
+the knowledge vault. A multi-line paste with a maximum of 4 lines, 20 words, and
+240 characters shows exactly on the edit line.
 
 A larger paste shows as
 `@paste:3f9a1c2e`, so that the prompt and your scrollback stay easy to read.

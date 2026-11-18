@@ -25,8 +25,9 @@ import (
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
-// Subagent channel: the model for the subagent tool. The session model stays
-// on its own calls (the turn, compaction, branch summaries).
+// Subagent channel: knowledge-graph extraction, prompt refinement, and
+// judges. The session model stays on its own calls (the turn, compaction,
+// handshake, branch summaries).
 
 const (
 	subagentCurrent = "current"
@@ -129,6 +130,23 @@ func localModelSpec(spec string) bool {
 	return strings.HasSuffix(lower, ".gguf") || strings.HasSuffix(lower, ".llamafile")
 }
 
+// subagentOverrides reports whether spec will leave the session model, without
+// picking a random id.
+func (l *Loop) subagentOverrides() bool {
+	if l == nil {
+		return false
+	}
+	switch normalizeSubagent(l.config.Subagent) {
+	case "", subagentCurrent:
+		return false
+	case subagentFree:
+		return len(preferLargeFreeModels(freeModelIDs())) > 0
+	default:
+		id, _ := resolvePinnedSubagent(l.config.Subagent)
+		return id != ""
+	}
+}
+
 // subagentChat is the model this subagent call should use.
 func (l *Loop) subagentChat() (string, string, string) {
 	if l == nil {
@@ -225,4 +243,13 @@ func pickLargeFreeModel() string {
 		n = 0
 	}
 	return ids[n%len(ids)]
+}
+
+// localExtractUnserved reports a local backend that has no server URL yet.
+// Ollama is called without one. A cloud backend is never unserved here.
+func localExtractUnserved(backend, baseURL string) bool {
+	if baseURL != "" || backend == "ollama" {
+		return false
+	}
+	return backend == "" || backend == "file" || backend == "gguf"
 }

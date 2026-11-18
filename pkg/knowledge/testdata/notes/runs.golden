@@ -1,0 +1,14 @@
+---
+type: session
+status: done
+project: invoices
+session: runs-2026-10-15
+created: 2026-10-15
+summary: invoices workflow runs on 2026-10-15
+tags: [session, workflow, invoices]
+links: ["[[projects/invoices/invoices]]"]
+---
+
+## Runs
+
+- 09:00:00 summarize -> a summary
