@@ -1,4 +1,4 @@
-version: 1.20.0
+version: 1.22.0
 category: agent
 # Served on the kdeps API for slash commands (commands/clear, compact,
 # history, copy) and for the tools that live only in an agent session
