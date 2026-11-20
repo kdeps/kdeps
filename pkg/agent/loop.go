@@ -2890,6 +2890,9 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 		return blocked
 	}
 
+	if strings.TrimSpace(tc.Arguments) == "" {
+		tc.Arguments = "{}" // a call with no parameters
+	}
 	var args map[string]any
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
 		if errMsg := summarizeToolArgs(tc.Arguments); errMsg != "" {

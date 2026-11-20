@@ -14,6 +14,8 @@ read_file (line numbers) -> edit_file {file_path, line | match, text | append} -
 
 Line 12 becomes `    timeout = 30`. `text` can have several lines. They replace the one line.
 
+If `text` has no indentation, the tool adds the indentation of line 12 to each line. `"text": "timeout = 30"` gives the same result.
+
 ## Replace words on a line
 
 ```json
