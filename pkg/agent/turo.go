@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // turo (Tagalog: "point") — stream editor that converts prose to compact
@@ -208,10 +210,30 @@ func turoAvailable(context.Context) bool {
 	return turoEnabled
 }
 
-// turoActive reports whether reduction should run: the binary is installed AND
-// the runtime /turo off override is not set.
+// turoActive reports whether reduction should run: the binary is installed,
+// and the workflow chat's harness.turo (or else the REPL's /turo) is on.
 func turoActive(ctx context.Context) bool {
+	if on, set := ctx.Value(turoCtxKey{}).(bool); set {
+		return on && turoAvailable(ctx)
+	}
 	return turoAvailable(ctx) && !TuroRuntimeOff()
+}
+
+// turoCtxKey marks a context whose turo choice comes from a workflow chat's
+// harness.turo instead of the REPL's /turo.
+type turoCtxKey struct{}
+
+// withTuro returns ctx with the workflow chat's turo choice.
+func withTuro(ctx context.Context, on bool) context.Context {
+	return context.WithValue(ctx, turoCtxKey{}, on)
+}
+
+// configureChatTuro installs turo as the reducer for workflow chats with
+// harness.turo: true. The REPL's /turo off does not apply to them.
+func configureChatTuro() {
+	executorLLM.SetPromptReducer(func(ctx context.Context, text string) string {
+		return turoReduceCached(withTuro(ctx, true), text)
+	})
 }
 
 func probeTuro() (bool, string) {

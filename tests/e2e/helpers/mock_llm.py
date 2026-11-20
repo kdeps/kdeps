@@ -9,6 +9,8 @@ os.kill(pid, 0) would terminate the process, so the pid is ignored there).
 Every request body is appended to the log. The reply to the last user
 message:
   - prompt refinement: the request itself
+  - "PLANCHECK": "PLANNED" when council job orders are in the request
+  - "TUROCHECK" (upper case, as turo wrote it): "TURO REDUCED"
   - a compaction request (<conversation>): a fixed summary
   - "CALL <tool> <json args>": that tool call, written as an <invoke> block
   - "CALLDSML <tool> <json args>": the same call wrapped in DeepSeek DSML markup
@@ -54,6 +56,12 @@ def reply_for(msgs):
             ids = [int(i) for i in re.findall(r"^#(\d+) ", last, re.M)]
             return json.dumps({"order": list(reversed(ids))})
         return json.dumps({"answer": name + " plan", "job_orders": [{"title": "COUNCILJOB " + name}]})
+    if "PLANCHECK" in last:
+        # chat harness.plan: the council's job orders reach the system prompt.
+        return "PLANNED" if "COUNCILJOB" in everything else "UNPLANNED"
+    if "TUROCHECK" in last:
+        # chat harness.turo: the e2e turo stand-in uppercases the prompt.
+        return "TURO REDUCED"
     if "You rewrite a user's request" in everything:
         # chat refine: / agent /refine: REFINEME marks a prompt to rewrite.
         return last.split("Request:\n", 1)[-1].replace("REFINEME", "REFINEDCHECK")

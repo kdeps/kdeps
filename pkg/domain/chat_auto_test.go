@@ -37,14 +37,17 @@ model:
 context:
   prompt: hi
   contextLength: auto
+harness:
+  refine: true
+  plan: true
+  turo: true
 tools:
   list: auto
   maxRounds: auto
 guardrails:
   judges: auto
 loop:
-  plan: false
-  judges: false
+  maxRounds: 3
 `), &c))
 	assert.Equal(t, "auto", c.Model, "model: auto is resolved at run time")
 	assert.Nil(t, c.Retries)
@@ -54,10 +57,9 @@ loop:
 	assert.Empty(t, c.Tools)
 	assert.True(t, c.JudgesAuto)
 	require.NotNil(t, c.Loop)
-	require.NotNil(t, c.Loop.Plan)
-	assert.False(t, *c.Loop.Plan)
-	require.NotNil(t, c.Loop.Judges)
-	assert.False(t, *c.Loop.Judges)
+	assert.True(t, c.Refine)
+	assert.True(t, c.Plan)
+	assert.True(t, c.Turo)
 }
 
 func TestChatAuto_FixedValuesAndRoundTrip(t *testing.T) {

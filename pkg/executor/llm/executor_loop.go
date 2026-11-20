@@ -41,11 +41,14 @@ type LoopRequest struct {
 	Tools     []string
 	MaxRounds int
 	Session   string
-	// Plan runs the planning council, Judges reviews with an automatic
-	// roster, Refine rewrites the prompt first. All are opt-in.
+	// Plan runs the planning council (harness.plan), Judges reviews with an
+	// automatic roster (guardrails.judges: auto), Refine rewrites the prompt
+	// first (harness.refine), Turo reduces the requests (harness.turo). All
+	// are opt-in.
 	Plan   bool
 	Judges bool
 	Refine bool
+	Turo   bool
 	// Thinking is the chat's thinking setting, after its default.
 	Thinking *domain.ThinkingConfig
 }
@@ -113,11 +116,11 @@ func (e *Executor) executeLoop(
 		Tools:     resolved.Loop.Tools,
 		MaxRounds: resolved.Loop.MaxRounds,
 		Session:   session,
-		Plan:      resolved.Loop.Plan != nil && *resolved.Loop.Plan,
+		Plan:      resolved.Plan,
 		// Judges listed under guardrails review the reply already.
-		Judges: resolved.Loop.Judges != nil && *resolved.Loop.Judges &&
-			len(resolved.Judges) == 0 && resolved.JudgePreset == "",
+		Judges:   resolved.JudgesAuto && len(resolved.Judges) == 0 && resolved.JudgePreset == "",
 		Refine:   resolved.Refine,
+		Turo:     resolved.Turo,
 		Thinking: resolved.Thinking,
 	})
 	if err != nil {

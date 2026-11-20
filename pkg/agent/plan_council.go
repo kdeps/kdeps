@@ -109,7 +109,7 @@ func (l *Loop) applyPlanCouncil(ctx context.Context, input string, w io.Writer) 
 	if pw != nil {
 		fmt.Fprintf(pw, "[plan] %d job orders -> %s\n", len(plan.Orders), path)
 	}
-	return harnessRender("plan-council-plan", struct{ Path, Plan string }{path, planList(plan.Orders)})
+	return harnessRender("plan-council-plan", struct{ Path, Plan string }{path, plancouncil.List(plan.Orders)})
 }
 
 // councilCall is one member's JSON reply for a phase.
@@ -192,17 +192,6 @@ func boardList(board []plancouncil.JobOrder) string {
 	return b.String()
 }
 
-func planList(orders []plancouncil.JobOrder) string {
-	var b strings.Builder
-	for i, o := range orders {
-		fmt.Fprintf(&b, "%d. #%d %s", i+1, o.ID, o.Title)
-		if o.Detail != "" {
-			fmt.Fprintf(&b, " - %s", o.Detail)
-		}
-		b.WriteString("\n")
-	}
-	return b.String()
-}
 
 // writePlan writes the progress file under the project's data folder and
 // records where it is in memory, so a later session can find it.
@@ -357,4 +346,21 @@ func intArg(v any) int {
 		return i
 	}
 	return 0
+}
+
+// configureCouncil installs the council's harness prompts and events for
+// workflow chats (harness.plan).
+func configureCouncil() {
+	plancouncil.Configure(plancouncil.Settings{
+		Members: func() []plancouncil.Member {
+			return councilMembers(harnessText("plan-council-members"),
+				effectiveItems(eventPlanCouncilSize, defaultCouncilSize))
+		},
+		Rounds:    func() int { return effectiveItems(eventPlanCouncilRounds, defaultCouncilRounds) },
+		MaxOrders: func() int { return effectiveItems(eventPlanCouncilMaxOrders, defaultCouncilOrders) },
+		Prompts:   councilPrompts(),
+		Note: func(plan string) string {
+			return harnessRender("plan-council-note", struct{ Plan string }{plan})
+		},
+	})
 }

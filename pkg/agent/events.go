@@ -317,6 +317,8 @@ func initEvents() {
 	configureBodyLimit()
 	configureChatHarness()
 	configureRefine()
+	configureCouncil()
+	configureChatTuro()
 	configureSkills()
 	configureNudges()
 	setFreeModelQueueCap()

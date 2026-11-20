@@ -549,7 +549,7 @@
         },
         "harness": {
           "type": "object",
-          "description": "System sections, prompt refine, and output format.",
+          "description": "System sections, prompt refine, planning council, turo, and output format.",
           "properties": {
             "output": {
               "type": "object",
@@ -581,7 +581,16 @@
               "uniqueItems": true
             },
             "refine": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Rewrite the prompt into a clearer, self-contained request before the call (default false)."
+            },
+            "plan": {
+              "type": "boolean",
+              "description": "Run the planning council before the call and put the sorted plan in the system prompt (default false)."
+            },
+            "turo": {
+              "type": "boolean",
+              "description": "Reduce the system prompt and the prompt to fewer tokens with turo before the call (default false)."
             },
             "chainOfThought": {
               "type": "boolean"
@@ -784,14 +793,6 @@
             "session": {
               "type": "string",
               "description": "Conversation id, usually an expression such as {{ get('session') }}. Requests with the same id continue one stored conversation."
-            },
-            "plan": {
-              "type": "boolean",
-              "description": "Run the planning council before a task (default false)."
-            },
-            "judges": {
-              "type": "boolean",
-              "description": "Review each answer with an automatic judge roster (default false; guardrails.judges replace it)."
             }
           }
         }

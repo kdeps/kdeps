@@ -163,3 +163,31 @@ func TestMarkdown(t *testing.T) {
 	assert.Contains(t, md, "2. [ ] #1 read (by b)")
 	assert.Contains(t, md, "## Progress")
 }
+
+func TestList(t *testing.T) {
+	got := plancouncil.List([]plancouncil.JobOrder{{ID: 2, Title: "b", Detail: "why"}, {ID: 1, Title: "a"}})
+	assert.Equal(t, "1. #2 b - why\n2. #1 a\n", got)
+}
+
+func TestHold(t *testing.T) {
+	t.Cleanup(func() { plancouncil.Configure(plancouncil.Settings{}) })
+	call := func(_ plancouncil.Member, phase plancouncil.Phase, _ string) (string, error) {
+		if phase == plancouncil.PhasePrioritize {
+			return `{"order":[1]}`, nil
+		}
+		return `{"answer":"x","job_orders":[{"title":"step"}]}`, nil
+	}
+	assert.Empty(t, plancouncil.Hold("task", call), "nothing configured")
+
+	plancouncil.Configure(plancouncil.Settings{
+		Members:   func() []plancouncil.Member { return []plancouncil.Member{{Name: "a"}} },
+		Rounds:    func() int { return 1 },
+		MaxOrders: func() int { return 3 },
+		Prompts:   prompts(),
+		Note:      func(plan string) string { return "NOTE " + plan },
+	})
+	assert.Equal(t, "NOTE 1. #1 step\n", plancouncil.Hold("task", call))
+	assert.Empty(t, plancouncil.Hold("task", func(plancouncil.Member, plancouncil.Phase, string) (string, error) {
+		return "", errors.New("down")
+	}), "no job order, no note")
+}

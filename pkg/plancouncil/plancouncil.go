@@ -267,3 +267,70 @@ func Markdown(task string, orders []JobOrder) string {
 	b.WriteString("\n## Progress\n\n")
 	return b.String()
 }
+
+// List renders orders in priority order, one numbered line each.
+func List(orders []JobOrder) string {
+	var b strings.Builder
+	for i, o := range orders {
+		fmt.Fprintf(&b, "%d. #%d %s", i+1, o.ID, o.Title)
+		if o.Detail != "" {
+			fmt.Fprintf(&b, " - %s", o.Detail)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// Settings are the council's members, bounds and prompts. Agent mode installs
+// them at startup from the plan-council harness entries and events, so a
+// workflow chat and the agent loop hold the same council.
+type Settings struct {
+	Members   func() []Member
+	Rounds    func() int
+	MaxOrders func() int
+	Prompts   Prompts
+	// Note renders the plan a workflow chat adds to its system prompt.
+	Note func(plan string) string
+}
+
+//nolint:gochecknoglobals // process-wide settings, installed once at startup
+var (
+	settingsMu sync.RWMutex
+	settings   Settings
+)
+
+// Configure installs the council settings for both modes.
+func Configure(s Settings) {
+	settingsMu.Lock()
+	settings = s
+	settingsMu.Unlock()
+}
+
+// Configured is the installed settings.
+func Configured() Settings {
+	settingsMu.RLock()
+	defer settingsMu.RUnlock()
+	return settings
+}
+
+// Hold runs the configured council on task with call and returns the plan
+// note for the system prompt. It returns "" when no council is configured,
+// or when the council produced no job order.
+func Hold(task string, call Call) string {
+	s := Configured()
+	if s.Members == nil || s.Note == nil || s.Prompts.Draft == nil || call == nil {
+		return ""
+	}
+	cfg := Config{Task: task, Members: s.Members(), Prompts: s.Prompts, Call: call}
+	if s.Rounds != nil {
+		cfg.Rounds = s.Rounds()
+	}
+	if s.MaxOrders != nil {
+		cfg.MaxOrders = s.MaxOrders()
+	}
+	plan, err := Run(cfg)
+	if err != nil {
+		return ""
+	}
+	return s.Note(List(plan.Orders))
+}

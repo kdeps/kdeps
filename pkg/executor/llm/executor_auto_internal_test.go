@@ -177,22 +177,24 @@ func TestModelAuto_UsesThePick(t *testing.T) {
 	assert.False(t, got.Plan, "the council is opt-in")
 	assert.False(t, got.Judges, "auto judges are opt-in")
 	assert.False(t, got.Refine, "refine is opt-in")
+	assert.False(t, got.Turo, "turo is opt-in")
 }
 
 func TestLoopDefaults_OptIn(t *testing.T) {
 	var got LoopRequest
 	withLoopRunner(t, func(req LoopRequest) (string, error) { got = req; return "ok", nil })
-	yes := true
 	_, err := NewExecutor("").Execute(loopExecCtx(t), &domain.ChatConfig{
-		Model: "m", Prompt: "p", Refine: true, Loop: &domain.ChatLoopConfig{Plan: &yes, Judges: &yes},
+		Model: "m", Prompt: "p", Refine: true, Plan: true, Turo: true, JudgesAuto: true,
+		Loop: &domain.ChatLoopConfig{},
 	})
 	require.NoError(t, err)
-	assert.True(t, got.Plan)
-	assert.True(t, got.Judges)
+	assert.True(t, got.Plan, "harness.plan reaches the loop")
+	assert.True(t, got.Judges, "guardrails.judges: auto reaches the loop")
 	assert.True(t, got.Refine, "harness.refine reaches the loop")
+	assert.True(t, got.Turo, "harness.turo reaches the loop")
 
 	_, err = NewExecutor("").Execute(loopExecCtx(t), &domain.ChatConfig{
-		Model: "m", Prompt: "p", Loop: &domain.ChatLoopConfig{Judges: &yes},
+		Model: "m", Prompt: "p", Loop: &domain.ChatLoopConfig{}, JudgesAuto: true,
 		Judges: []domain.Judge{{Name: "x", Criteria: "y"}},
 	})
 	require.NoError(t, err)

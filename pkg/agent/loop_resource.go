@@ -55,7 +55,7 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 			// narration have no terminal to land on.
 			ToolOutputWriter: io.Discard,
 			StreamFinalOnly:  true,
-			// Opt-in, as in the REPL: loop.plan, loop.judges, harness.refine.
+			// Opt-in: harness.plan, guardrails.judges: auto, harness.refine.
 			PlanCouncil:  req.Plan,
 			AutoJudges:   req.Judges,
 			PromptRefine: req.Refine,
@@ -77,8 +77,10 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 		if wf == nil {
 			wf = &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "agent"}}
 		}
-		loop := New(req.Ctx, newEngine(), wf, reg, cfg)
-		reply, err := loop.RunStreaming(req.Ctx, req.Prompt, io.Discard)
+		// harness.turo decides turo for this chat, not the REPL's /turo.
+		ctx := withTuro(req.Ctx, req.Turo)
+		loop := New(ctx, newEngine(), wf, reg, cfg)
+		reply, err := loop.RunStreaming(ctx, req.Prompt, io.Discard)
 		if key != "" && loop.Session().TurnCount() > 0 {
 			if _, saveErr := store.Upsert(key, loop.Session(), "", req.Model); saveErr != nil && err == nil {
 				err = fmt.Errorf("save session %q: %w", req.Session, saveErr)

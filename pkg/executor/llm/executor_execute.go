@@ -118,6 +118,12 @@ func (e *Executor) executeChat(
 	if resolvedConfig.Refine {
 		promptStr = refineChat(raw, messages, promptStr, requestConfig.ContextLength)
 	}
+	if resolvedConfig.Plan {
+		messages = councilChat(raw, messages, promptStr, requestConfig.ContextLength)
+	}
+	if resolvedConfig.Turo {
+		promptStr = turoChat(ctx.Ctx, messages, promptStr)
+	}
 	call := compactOnOverflow(raw, promptStr)
 	recordWorkflowRequest(resolvedConfig, backendName, modelStr, messages, allTools)
 	started := time.Now()
