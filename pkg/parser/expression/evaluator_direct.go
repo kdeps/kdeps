@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/ast"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 )
@@ -40,7 +41,7 @@ func (e *Evaluator) evaluateDirect(
 	evalEnv := e.buildEnvironment(env)
 
 	// Compile and run expression.
-	program, err := expr.Compile(exprStr, expr.Env(evalEnv))
+	program, err := expr.Compile(exprStr, expr.Env(evalEnv), expr.Patch(emptyStringCompare{}))
 	if err != nil {
 		return nil, fmt.Errorf("expression compilation failed: %w", err)
 	}
@@ -187,3 +188,25 @@ func (e *Evaluator) evaluateAndFormatExpression(
 }
 
 // formatValue converts a value to string representation.
+
+// emptyStringCompare makes a missing value equal to ''. It rewrites
+// x == '' and x != '' to (x ?? '') == '', so get('q') != '' fails when q is absent.
+type emptyStringCompare struct{}
+
+func (emptyStringCompare) Visit(node *ast.Node) {
+	b, ok := (*node).(*ast.BinaryNode)
+	if !ok || (b.Operator != "==" && b.Operator != "!=") {
+		return
+	}
+	switch {
+	case isEmptyString(b.Right):
+		b.Left = &ast.BinaryNode{Operator: "??", Left: b.Left, Right: &ast.StringNode{}}
+	case isEmptyString(b.Left):
+		b.Right = &ast.BinaryNode{Operator: "??", Left: b.Right, Right: &ast.StringNode{}}
+	}
+}
+
+func isEmptyString(n ast.Node) bool {
+	s, ok := n.(*ast.StringNode)
+	return ok && s.Value == ""
+}

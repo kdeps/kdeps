@@ -14,7 +14,7 @@ validations:
   skip:
     - get('mode') == 'dry-run'  # skip silently (no error)
   check:
-    - get('q') != ''            # fail with error below if false
+    - get('q') != ''            # fail with error below if false; a missing q equals ''
   error:
     code: 400
     message: "q is required"

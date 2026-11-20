@@ -175,5 +175,16 @@ else
     test_failed "search-local-files - /search returns empty results gracefully" "resp=$EMPTY_RESP"
 fi
 
+# a missing query fails the check: get('query') != '' is false for an absent key
+MISSING_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/search" \
+    -H "Content-Type: application/json" \
+    -d '{}' 2>&1)
+
+if [ "$MISSING_CODE" = "400" ]; then
+    test_passed "search-local-files - /search without query returns 400"
+else
+    test_failed "search-local-files - /search without query returns 400" "code=$MISSING_CODE"
+fi
+
 echo ""
 echo "search-local-files example tests complete."

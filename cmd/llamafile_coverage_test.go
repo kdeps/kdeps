@@ -84,6 +84,9 @@ func TestNeedsLlamafileWarmup_NoChatOrEmptyModel(t *testing.T) {
 	assert.True(t, needsLlamafileWarmup(&domain.Workflow{
 		Resources: []*domain.Resource{{Chat: &domain.ChatConfig{Model: "llama3.2:1b"}}},
 	}))
+	assert.False(t, needsLlamafileWarmup(&domain.Workflow{
+		Resources: []*domain.Resource{{Chat: &domain.ChatConfig{Backend: "openrouter", Model: "x/y:free"}}},
+	}), "a cloud backend has no local model to cache")
 }
 
 func TestEnsureLLMBackendStep_WarmupPaths(t *testing.T) {
