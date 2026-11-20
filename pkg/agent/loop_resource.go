@@ -60,6 +60,9 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 			AutoJudges:   req.Judges,
 			PromptRefine: req.Refine,
 			Thinking:     req.Thinking,
+			// harness.efficiency is opt-in; harness.promptMode defaults to full.
+			NoEfficiency: !req.Efficiency,
+			PromptMode:   loopPromptMode(req.PromptMode),
 		}
 		key := ""
 		if req.Session != "" {
@@ -131,4 +134,13 @@ func loopResourceTools(req executorLLM.LoopRequest) (*kdepstools.Registry, error
 			strings.Join(unknown, ", "), strings.Join(names, ", "))
 	}
 	return reg, nil
+}
+
+// loopPromptMode is a workflow loop chat's harness.promptMode. Unset is full,
+// as on a workflow chat without loop.
+func loopPromptMode(mode string) string {
+	if mode == "" {
+		return promptModeFull
+	}
+	return mode
 }

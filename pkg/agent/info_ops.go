@@ -52,7 +52,7 @@ func konfigCounts(k *Konfig, path string) map[string]any {
 	}
 }
 
-// konfigExportOp writes the tuning, harness, themes, events, actions and
+// konfigExportOp writes the tuning, harness, events, actions and
 // skills to one YAML file (args.path).
 func (r *REPL) konfigExportOp(args map[string]any) (map[string]any, error) {
 	path := strings.TrimSpace(stringArgValue(args, "path"))

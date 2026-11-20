@@ -101,7 +101,7 @@ func (s *Service) SetInstructions(text string) error {
 	return nil
 }
 
-// ExportProfile writes the work profile (harness, themes, tuning, skills,
+// ExportProfile writes the work profile (harness, tuning, skills,
 // registry settings) to a konfig file at path.
 func (s *Service) ExportProfile(path string) error {
 	tuning, tuneErr := agent.PersistedOrDefaultTuning()

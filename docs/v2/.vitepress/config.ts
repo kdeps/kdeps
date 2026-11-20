@@ -151,6 +151,7 @@ export default defineConfig({
             { text: 'Approval tokens', link: '/agent/approvals' },
             { text: 'Tool execution monitoring', link: '/agent/monitoring' },
             { text: 'Prompt reduction (turo)', link: '/agent/turo' },
+            { text: 'Efficiency', link: '/agent/efficiency' },
           ]
         },
         {
@@ -519,7 +520,6 @@ export default defineConfig({
       'modes/agent-loop-monitoring': '/agent/monitoring',
       'modes/agent-loop-shell': '/agent/shell',
       'modes/agent-loop-turo': '/agent/turo',
-      'agent/efficiency': '/agent/events-presets',
       'agent/tools-handshake': '/agent/tools-fenced',
       'agent/repl-themes': '/agent/repl-status',
       'getting-started/local-agent': '/agent/quickstart',

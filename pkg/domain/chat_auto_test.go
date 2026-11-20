@@ -41,6 +41,8 @@ harness:
   refine: true
   plan: true
   turo: true
+  efficiency: true
+  promptMode: summary
 tools:
   list: auto
   maxRounds: auto
@@ -60,6 +62,8 @@ loop:
 	assert.True(t, c.Refine)
 	assert.True(t, c.Plan)
 	assert.True(t, c.Turo)
+	assert.True(t, c.Efficiency)
+	assert.Equal(t, "summary", c.PromptMode)
 }
 
 func TestChatAuto_FixedValuesAndRoundTrip(t *testing.T) {

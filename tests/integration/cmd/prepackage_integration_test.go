@@ -183,7 +183,7 @@ func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 		assert.Contains(t, payload, name)
 	}
 	assert.Contains(t, payload, cmd.BundledAssetsDir+"/lock.json")
-	assert.Contains(t, payload, cmd.BundledAssetsDir+"/themes/normal.yaml")
+	assert.Contains(t, payload, cmd.BundledAssetsDir+"/commands/help.yaml")
 }
 
 // tarGzNames lists the entry names of a tar.gz archive.

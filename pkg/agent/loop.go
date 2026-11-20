@@ -54,6 +54,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/harness"
 	"github.com/kdeps/kdeps/v3/pkg/nudge"
 	"github.com/kdeps/kdeps/v3/pkg/overflow"
 	"github.com/kdeps/kdeps/v3/pkg/reply"
@@ -250,6 +251,9 @@ type Config struct {
 	// PlanCouncil runs the planning council before a task (after refine).
 	// Off by default: /plan on, or loop.plan: true on a workflow chat.
 	PlanCouncil bool
+	// NoEfficiency turns the efficiency governor off for this loop: a
+	// workflow loop chat without harness.efficiency.
+	NoEfficiency bool
 	// Subagent is the model for subagent calls: knowledge-graph extraction,
 	// prompt refinement, the planning council, and judges. Empty or "current" uses this loop's
 	// model. "free" picks a large OpenRouter free model for each call.
@@ -432,6 +436,8 @@ type Loop struct {
 	// (e.g. folding system-role messages for chat templates that reject
 	// them). Read by the REPL's /prompt command; overwritten on every call.
 	lastSentMessages []map[string]interface{}
+	// eff is the efficiency-enforcement ledger (efficiency.go).
+	eff effLedger
 	// lastSentTools holds the exact tool definitions included in the most
 	// recent outgoing LLM request. Tools are a separate top-level request
 	// field, not part of lastSentMessages. Read by the REPL's /prompt command.
@@ -1408,7 +1414,7 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 
 // runToolRounds drives the tool-call loop, returning the final content string.
 //
-//nolint:gocognit,funlen // the tool-round loop owns the turn
+//nolint:gocognit,funlen // the tool-round loop owns the turn and the efficiency gate
 func (l *Loop) runToolRounds(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
@@ -1422,6 +1428,7 @@ func (l *Loop) runToolRounds(
 	l.lastWorkFailure = nil
 	l.pendingEdit = nil
 	l.toolBudgets.reset()
+	l.efficiencyBeginTurn(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1434,6 +1441,9 @@ func (l *Loop) runToolRounds(
 	identicalRepeats := 0
 	convergenceBlocks := 0
 	forcedFinal := false
+	// llmErr is the last soft-stopped LLM-call error; if the rounds run out
+	// before a call succeeds, the turn reports it instead of ending silently.
+	var llmErr error
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -1445,10 +1455,17 @@ func (l *Loop) runToolRounds(
 		}
 
 		var roundBuf strings.Builder
-		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
+		content, toolCalls, err := l.streamChatWithRetry(ctx, l.efficiencyConfig(chatCfg, w), &roundBuf)
 		if err != nil {
+			// A failed call the model may be able to avoid is soft-stopped: the
+			// error goes to the model on the hidden channel and the round reruns.
+			if ctx.Err() == nil && l.efficiencyLLMErrorStop(err) {
+				llmErr = err
+				continue
+			}
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
+		llmErr = nil
 		finalContent = content
 
 		if len(toolCalls) == 0 {
@@ -1464,11 +1481,25 @@ func (l *Loop) runToolRounds(
 			}
 		}
 
+		// Efficiency governor: a refused call is discarded before it runs, so it
+		// leaves nothing in history, events or the terminal.
+		switch l.efficiencyAdmit(toolCalls[0]) {
+		case effDrop:
+			continue
+		case effEnd:
+			chatCfg = forceAnswerConfig(ctx, chatCfg)
+			continue
+		case effAbort:
+			return l.ensureNonSilentFinal(stripContentToolCalls(finalContent), capped, w), nil
+		case effAdmit:
+		}
+
 		if l.config.OnRoundComplete != nil {
 			l.config.OnRoundComplete()
 		}
 
 		var outcome roundOutcome
+		workBefore := l.successfulWorkToolCalls
 		// Only the first call in a multi-call round runs (see the slice below),
 		// so tell the model the rest were not executed -- otherwise they vanish
 		// from the transcript and the model has no way to know it must re-issue
@@ -1479,6 +1510,7 @@ func (l *Loop) runToolRounds(
 		}
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, run, w)
 		nudges.acted = true
+		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
@@ -1497,11 +1529,19 @@ func (l *Loop) runToolRounds(
 		identicalRepeats, lastToolSig = trackRepeat(
 			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
 		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
-			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-			break
+			// The efficiency manager briefs the model (hidden channel) and lets it
+			// retry while it has soft stops left; only then does the turn end.
+			if !l.efficiencyRepeatStop(toolCalls[0], outcome.result, identicalRepeats) {
+				finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+				break
+			}
+			identicalRepeats, lastToolSig = 0, ""
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			ctx, chatCfg, outcome, convergenceBlocks, forcedFinal, w)
+	}
+	if llmErr != nil {
+		return "", fmt.Errorf("agent loop stream: %w", llmErr)
 	}
 	return l.ensureNonSilentFinal(finalContent, capped, w), nil
 }
@@ -2099,7 +2139,10 @@ func (l *Loop) captureCallOutputs(cfg *domain.ChatConfig) {
 // most recent call, or nil if no call has completed yet. Used by the REPL's
 // /prompt command.
 func (l *Loop) LastSentMessages() []map[string]interface{} {
-	return l.lastSentMessages
+	if EfficiencyVerbose() {
+		return l.lastSentMessages
+	}
+	return scrubEfficiency(l.lastSentMessages)
 }
 
 // LastSentTools returns the exact tool definitions sent to the LLM on the
@@ -2506,9 +2549,15 @@ func (l *Loop) executeToolCalls(
 			outcome.blocked = true
 		}
 		content := l.toolResultMessage(ctx, tc, result)
+		briefed := l.takeBriefedFailure()
 		note := ""
 		if ctx.Err() == nil {
 			note = l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
+			if briefed {
+				// Soft-stopped failure: the status note rides the hidden brief.
+				l.attachToFailureBrief(note)
+				note = ""
+			}
 			content += note
 		}
 		l.emit(LoopEvent{
@@ -2551,7 +2600,7 @@ func (l *Loop) toolResultMessage(
 // passes through the single appendReminders call in toolResultMessage
 // rather than needing its own.
 func (l *Loop) buildToolResultMessage(
-	_ context.Context,
+	ctx context.Context,
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
@@ -2559,6 +2608,11 @@ func (l *Loop) buildToolResultMessage(
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
 		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
+		// Soft stop: the error and the context to fix it reach the model on the
+		// hidden channel, so history keeps only the raw error.
+		if ctx.Err() == nil && l.efficiencyFailureStop(tc, result) {
+			return capToolResult(result)
+		}
 		return capToolResult(result) + "\n\n[TOOL FAILED] " + tc.Name +
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed. Do NOT report it as done."
@@ -3217,39 +3271,17 @@ func (l *Loop) SetPromptMode(mode string) error {
 }
 
 const (
-	promptModeAuto    = "auto"
-	promptModeFull    = "full"
-	promptModeSummary = "summary"
+	promptModeAuto    = harness.ModeAuto
+	promptModeFull    = harness.ModeFull
+	promptModeSummary = harness.ModeSummary
 )
 
 // normalizePromptMode accepts auto, full, and summary. Empty is auto.
-// The bool is false for anything else.
-func normalizePromptMode(mode string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "", promptModeAuto:
-		return promptModeAuto, true
-	case promptModeFull:
-		return promptModeFull, true
-	case promptModeSummary:
-		return promptModeSummary, true
-	default:
-		return "", false
-	}
-}
+func normalizePromptMode(mode string) (string, bool) { return harness.NormalizeMode(mode) }
 
 // backendCachesPrompt reports whether a stable system prefix is cheap after
-// the first request. Anthropic caches an ephemeral system block. OpenAI
-// caches a stable prefix on its own. Every other backend bills the full
-// prompt on every request. Changing the prompt between requests drops the
-// cache, so auto mode leaves those two on the full text.
-func backendCachesPrompt(backend string) bool {
-	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case backendAnthropic, "openai":
-		return true
-	default:
-		return false
-	}
-}
+// the first request.
+func backendCachesPrompt(backend string) bool { return harness.CachesPrompt(backend) }
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.

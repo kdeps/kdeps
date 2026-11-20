@@ -343,6 +343,13 @@ type ChatConfig struct {
 	// Turo reduces the system prompt and the prompt to fewer tokens with the
 	// turo binary before the call. It does nothing when turo is not installed.
 	Turo bool `yaml:"turo,omitempty"`
+	// Efficiency runs the efficiency governor on the chat's tool loop: read-only
+	// runs, repeated calls and failed model calls get a hidden soft stop.
+	Efficiency bool `yaml:"efficiency,omitempty"`
+	// PromptMode is how the harness sections go on requests after the first:
+	// full (the default), summary, or auto (summary on a backend that does not
+	// cache prompts).
+	PromptMode string `yaml:"promptMode,omitempty"`
 	// Skills lists skill folders or SKILL.md files; relative paths resolve
 	// against the run's working folder, as a python scriptFile does. Their
 	// names go in the system prompt and the model reads one in full with the

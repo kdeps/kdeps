@@ -178,7 +178,7 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 	)
 	rootCmd.Flags().StringVar(
 		&flags.Konfig, "konfig", "",
-		"Import a konfig file (tuning, harness, themes, skills) before starting, "+
+		"Import a konfig file (tuning, harness, skills) before starting, "+
 			"materializing it to ~/.kdeps (see kdeps konfig)",
 	)
 

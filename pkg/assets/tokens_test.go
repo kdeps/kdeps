@@ -63,7 +63,7 @@ func TestContextTokensAndLocal(t *testing.T) {
 
 	bodyContext(t)
 	assert.True(t, InContext("harness"))
-	assert.False(t, InContext("themes"))
+	assert.False(t, InContext("policy"))
 	assert.Equal(t, 1, ContextTokens("harness", "safety", []byte("body: abcd")))
 	assert.Equal(t, map[string]int{"harness/safety": 10}, LocalTokens())
 }

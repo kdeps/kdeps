@@ -51,7 +51,7 @@ parameters:
 
 	assert.True(t, assets.InContext("harness"))
 	assert.True(t, assets.InContext("tools"))
-	assert.False(t, assets.InContext("themes"))
+	assert.False(t, assets.InContext("policy"))
 }
 
 func TestFormatTokens(t *testing.T) {
@@ -67,7 +67,7 @@ func TestPrintChanges_Tokens(t *testing.T) {
 	printChanges(&out, []assets.Change{
 		{ID: "tools/a", From: "", To: "1.0.0", Action: assets.ActionInstall, Tokens: 900},
 		{ID: "harness/b", To: "1.0.0", Action: assets.ActionPin, Tokens: 300},
-		{ID: "themes/c", To: "1.0.0", Action: assets.ActionInstall},
+		{ID: "policy/c", To: "1.0.0", Action: assets.ActionInstall},
 		{ID: "tools/d", To: "1.0.0", Action: assets.ActionFailed, Tokens: 50, Note: "boom"},
 	}, false)
 	assert.Regexp(t, `tools/a\s+install\s+- -> 1\.0\.0\s+~900 tok`, out.String())
@@ -83,7 +83,7 @@ func TestListAssets_Tokens(t *testing.T) {
 	var out bytes.Buffer
 	require.NoError(t, listAssets(&out, assets.Root(), ""))
 	assert.Regexp(t, `tools/bash_exec\s+\S+\s+source\s+tools\s+~\d+ tok`, out.String())
-	assert.Regexp(t, `themes/normal\s+\S+\s+source\s+agent\n`, out.String(), "themes never reach the model")
+	assert.Regexp(t, `actions/block\s+\S+\s+source\s+guardrails\n`, out.String(), "actions never reach the model")
 	assert.Contains(t, out.String(), "LLM context: installed prompts and tool definitions total about")
 }
 

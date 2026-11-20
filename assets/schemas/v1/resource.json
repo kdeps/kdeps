@@ -592,6 +592,15 @@
               "type": "boolean",
               "description": "Reduce the system prompt and the prompt to fewer tokens with turo before the call (default false)."
             },
+            "efficiency": {
+              "type": "boolean",
+              "description": "Soft-stop read-only runs, repeated calls and failed model calls in the tool loop (default false)."
+            },
+            "promptMode": {
+              "type": "string",
+              "enum": ["auto", "full", "summary"],
+              "description": "How the harness sections go on requests after the first: full (default), summary, or auto."
+            },
             "chainOfThought": {
               "type": "boolean"
             }

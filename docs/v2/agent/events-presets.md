@@ -53,7 +53,7 @@ A preset is a named set of event overrides for the full token-economy cluster. I
 | `thorough` | long research sessions where lost history costs more than tokens: compacts and folds less, more memory, larger call budgets |
 | `design-review` | stores a four-judge panel a workflow chat names with `judgePreset`. It tunes no events. |
 
-`frugal`, `balanced` and `thorough` tune the same events: `auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `memory-search-limit`, `memory-value-limit`, `memory-capture-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `history-window-old-result`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, and `efficiency-failures`.
+`frugal`, `balanced` and `thorough` tune the same events: `auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `memory-search-limit`, `memory-value-limit`, `memory-capture-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `history-window-old-result`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`, and the `efficiency` events (`efficiency`, `efficiency-reads`, `efficiency-actions`, `efficiency-stops`, `efficiency-failures`, `efficiency-tighten`, `efficiency-web`, `efficiency-bash`, `efficiency-file`, `efficiency-code`, `efficiency-verbose`).
 
 Each preset requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps update` installs them with the preset. Each calls its tool through the kdeps API. Loop-wide events (compaction, truncation, history, stop rules) need no component.
 
@@ -67,7 +67,7 @@ Presets merge built-ins with `~/.kdeps/presets/` by name. `~/.kdeps/presets/frug
 
 ## Status
 
-Shipped events are the files in `assets/events`. `efficiency-failures` caps how many failure briefs a workflow chat attaches per turn. The agent loop does not fire that action.
+Shipped events are the files in `assets/events`. The `efficiency-*` events are read by the [efficiency governor](/agent/efficiency), not fired as actions.
 
 Eight actions ship. `/harness events` lists and toggles every event. There is no REPL command for a trigger's numeric threshold. Edit the YAML file.
 

@@ -14,7 +14,7 @@ A chat's keys sit in six groups:
 |---|---|
 | `model` | `name`, `backend`, `timeout`, `streaming`, `thinking`, caching, sampling (`temperature`, `maxTokens`, ...), provider fields (`ollama*`, `google*`, ...) |
 | `context` | `prompt`, `role`, `messages`, `scenario`, `files`, `promptVars`, `goTemplate`, `contextLength`, `fewShot` |
-| `harness` | `sections`, `refine`, `plan`, `turo`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
+| `harness` | `sections`, `refine`, `plan`, `turo`, `efficiency`, `promptMode`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
 | `tools` | `list`, `components`, `choice`, `maxRounds`, `skills` |
 | `rag` | `knowledge`, `retriever` (`passages`, `topK`, `maxTokens`), `chunk` |
 | `guardrails` | `judges`, `judgePreset` |
@@ -496,6 +496,37 @@ chat:
 
 On a local model the prompt is most of the cost of each request, so a shorter prompt answers faster.
 
+## Efficiency
+
+`efficiency: true` runs the [efficiency governor](/agent/efficiency) on the chat's tool loop. A run of read-only calls gets a soft stop: kdeps drops the call, removes the read tools, and sends the model a hidden note. A repeated call and a failed model call also get a hidden brief:
+
+```yaml
+chat:
+  context:
+    prompt: "Fix the failing test in {{ get('path') }}."
+  harness:
+    efficiency: true             # limits come from the efficiency-* events (reads 6, stops 3 by default)
+  tools:
+    list:
+      - name: read_file
+      - name: edit_file          # the governor applies only when the chat has an output tool
+```
+
+The note goes on the request only. It never goes into the chat's output.
+
+## Prompt mode
+
+`promptMode` sets how the `harness.sections` text goes on the requests after the first in a tool loop:
+
+```yaml
+chat:
+  harness:
+    sections: [accuracy, honesty]
+    promptMode: summary          # full (default): every request; summary: one line per section; auto: summary except on anthropic and openai
+```
+
+The first request always sends the full sections. A summary line is the section's `summary:` field.
+
 ## Skills
 
 `tools.skills` gives the chat the skills of the REPL. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
@@ -528,6 +559,8 @@ chat:
   harness:
     plan: true                                 # opt-in: planning council before a task (default false)
     refine: true                               # opt-in: rewrite the prompt first (default false)
+    efficiency: true                           # opt-in: the efficiency governor (default false)
+    promptMode: auto                           # harness text after the first request (default full)
   guardrails:
     judges: auto                               # opt-in: automatic judge roster; a listed roster replaces it
 ```
@@ -631,7 +664,7 @@ Each nudge occurs a maximum of `maxOccurrences` times (from its harness entry). 
 
 First, kdeps checks each model call against the [request body limit](/reference/security#request-body-size-preflight) of the backend. A request above the limit fails with a clear error. It never goes to the model.
 
-A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `efficiency-failures` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop does not attach this brief. A failed tool result there ends with `[TOOL FAILED]`. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
+A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `efficiency-failures` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop sends the same brief on its hidden channel. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
 
 If a call is larger than the context of the model, kdeps compacts it and tries again one time, as in the REPL. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
 

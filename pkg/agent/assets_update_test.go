@@ -115,10 +115,10 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 	out.Reset()
 	require.NoError(t, RunAssetUpdate(ctx, &out, UpdateOptions{List: true}))
 	assert.Regexp(t, `tools/md5_file\s+2\.1\.0\s+downloaded\s+tools`, out.String())
-	assert.Regexp(t, `presets/frugal\s+1\.2\.2\s+removed\s+context`, out.String())
+	assert.Regexp(t, `presets/frugal\s+1\.3\.0\s+removed\s+context`, out.String())
 	assert.Regexp(t, `harness/safety\s+1\.1\.0\s+source\s+guardrails`, out.String())
 
-	err := RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"themes/normal"}})
+	err := RunAssetUpdate(ctx, &out, UpdateOptions{Remove: []string{"commands/help"}})
 	assert.ErrorContains(t, err, "required")
 	err = RunAssetUpdate(ctx, &out, UpdateOptions{Items: []string{"tools/md5_file@9.9.9"}})
 	assert.ErrorContains(t, err, "not published")
@@ -127,18 +127,19 @@ func TestRunAssetUpdate_CheckUpdateListRemove(t *testing.T) {
 }
 
 func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
+	fixtureRequired(t)
 	// A release binary: no source directory, nothing installed.
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
 	root := serveAssets(t, map[string]string{
 		"tools/md5_file@2.1.0": newerMD5Def,
-		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
+		"policy/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
 	})
 	var out bytes.Buffer
 	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"tools"}))
 	assert.Contains(t, out.String(), "Installing tools")
 	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description, "reloaded")
-	assert.Equal(t, []string{"themes"}, assets.MissingOf([]string{"tools", "themes"}), "only the needed set")
+	assert.Equal(t, []string{"policy"}, assets.MissingOf([]string{"tools", "policy"}), "only the needed set")
 	assert.True(t, assets.Initialized(root))
 
 	out.Reset()
@@ -150,12 +151,13 @@ func TestEnsureSets_FirstRunInstallsOnlyNeededThenNoop(t *testing.T) {
 }
 
 func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
+	fixtureRequired(t)
 	emptyAssetSource(t)
 	root := serveAssets(t, map[string]string{
 		"tools/md5_file@2.1.0": newerMD5Def,
-		"themes/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
+		"policy/normal@1.0.0":  "version: 1.0.0\nname: normal\n",
 	})
-	t.Setenv(ProfileEnv, "themes")
+	t.Setenv(ProfileEnv, "policy")
 	var out bytes.Buffer
 	err := EnsureSets(context.Background(), &out, nil, []string{"tools"})
 	require.ErrorContains(t, err, "kdeps update tools",
@@ -165,9 +167,9 @@ func TestEnsureSets_FirstRunProfileFromEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "custom", lock.Profile)
 	assert.NotContains(t, lock.Items, "tools/md5_file", "not required: not installed")
-	assert.Contains(t, lock.Selection, "themes")
+	assert.Contains(t, lock.Selection, "policy")
 	assert.Contains(t, lock.Selection, "schemas", "base sets always")
-	assert.Empty(t, assets.MissingOf([]string{"themes"}))
+	assert.Empty(t, assets.MissingOf([]string{"policy"}))
 	assert.Equal(t, []string{"tools"}, assets.MissingOf([]string{"tools"}),
 		"the chosen profile is respected: a set it leaves out gets only required items (none published here)")
 }
@@ -190,33 +192,35 @@ func TestEnsureSets_FirstRunPicker(t *testing.T) {
 }
 
 func TestEnsureSets_AsksForProfileWhenFilesAlreadyExist(t *testing.T) {
+	fixtureRequired(t)
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
 	root := serveAssets(t, map[string]string{
-		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+		"policy/normal@1.0.0": "version: 1.0.0\nname: normal\n",
 	})
 	var discard bytes.Buffer
-	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"themes"}))
+	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"policy"}))
 	lock, err := assets.ReadLock(root)
 	require.NoError(t, err)
 	lock.Profile = ""
 	require.NoError(t, assets.WriteLock(root, lock))
 
 	var out bytes.Buffer
-	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"themes"}))
+	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"policy"}))
 	assert.Contains(t, out.String(), "What will you use kdeps for?")
 	assert.Contains(t, out.String(), "5) full")
 	assert.Contains(t, out.String(), "every asset set")
 }
 
 func TestEnsureSets_DownloadsOffDoesNotAsk(t *testing.T) {
+	fixtureRequired(t)
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "")
 	root := serveAssets(t, map[string]string{
-		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+		"policy/normal@1.0.0": "version: 1.0.0\nname: normal\n",
 	})
 	var discard bytes.Buffer
-	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"themes"}))
+	require.NoError(t, EnsureSets(context.Background(), &discard, nil, []string{"policy"}))
 	lock, err := assets.ReadLock(root)
 	require.NoError(t, err)
 	lock.Profile = ""
@@ -224,30 +228,31 @@ func TestEnsureSets_DownloadsOffDoesNotAsk(t *testing.T) {
 
 	t.Setenv("KDEPS_ASSETS_URL", "off")
 	var out bytes.Buffer
-	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"themes"}))
+	require.NoError(t, EnsureSets(context.Background(), &out, strings.NewReader("1\n"), []string{"policy"}))
 	assert.Empty(t, out.String(), "downloads off: a ready checkout does not fetch the registry")
 }
 
 func TestEnsureSets_ProfileGetsOnlyRequiredItems(t *testing.T) {
+	fixtureRequired(t)
 	emptyAssetSource(t)
 	t.Setenv(ProfileEnv, "minimum")
 	root := serveAssets(t, map[string]string{
-		"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n",
-		"themes/vim@1.0.0":    "version: 1.0.0\nname: vim\n",
+		"policy/normal@1.0.0": "version: 1.0.0\nname: normal\n",
+		"policy/vim@1.0.0":    "version: 1.0.0\nname: vim\n",
 	})
 	var out bytes.Buffer
-	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"themes", "events"}))
-	assert.Contains(t, out.String(), "Installing themes/normal (needed by this command)")
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"policy", "events"}))
+	assert.Contains(t, out.String(), "Installing policy/normal (needed by this command)")
 	lock, err := assets.ReadLock(root)
 	require.NoError(t, err)
-	assert.Contains(t, lock.Items, "themes/normal", "the required theme")
-	assert.NotContains(t, lock.Items, "themes/vim", "not the rest of the set")
+	assert.Contains(t, lock.Items, "policy/normal", "the required item")
+	assert.NotContains(t, lock.Items, "policy/vim", "not the rest of the set")
 	assert.Equal(t, []string{"events"}, assets.MissingOf([]string{"events"}), "a set with nothing required stays empty")
 	assert.Equal(t, []string{"events"}, lock.Empty, "recorded as empty on purpose")
 
 	t.Setenv("KDEPS_ASSETS_URL", "off")
 	out.Reset()
-	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"themes", "events"}),
+	require.NoError(t, EnsureSets(context.Background(), &out, nil, []string{"policy", "events"}),
 		"offline: an empty-on-purpose set is not missing")
 	assert.Empty(t, out.String())
 }
@@ -259,10 +264,10 @@ func TestResolveProfileChoice(t *testing.T) {
 	assert.Equal(t, "workflows", name)
 	assert.Contains(t, targets, "components")
 
-	name, targets, err = resolveProfileChoice("recipes, themes", idx)
+	name, targets, err = resolveProfileChoice("recipes, policy", idx)
 	require.NoError(t, err)
 	assert.Equal(t, customProfile, name)
-	assert.Equal(t, append(append([]string{}, assets.BaseSets...), "recipes", "themes"), targets)
+	assert.Equal(t, append(append([]string{}, assets.BaseSets...), "recipes", "policy"), targets)
 
 	name, targets, err = resolveProfileChoice("tools/bash_exec,recipes", idx)
 	require.NoError(t, err)
@@ -341,9 +346,9 @@ func TestParseNumbers(t *testing.T) {
 
 func TestSelectProfile(t *testing.T) {
 	emptyAssetSource(t)
-	root := serveAssets(t, map[string]string{"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
+	root := serveAssets(t, map[string]string{"policy/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
 	var out bytes.Buffer
-	require.NoError(t, SelectProfile(context.Background(), &out, nil, "themes"))
+	require.NoError(t, SelectProfile(context.Background(), &out, nil, "policy"))
 	lock, err := assets.ReadLock(root)
 	require.NoError(t, err)
 	assert.Equal(t, customProfile, lock.Profile)
@@ -413,13 +418,14 @@ func TestEnsureSets_DownloadFailureStopsWhenNothingInstalled(t *testing.T) {
 }
 
 func TestInstallComponentOnDemand(t *testing.T) {
+	fixtureRequired(t)
 	emptyAssetSource(t)
-	serveAssets(t, map[string]string{"themes/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
+	serveAssets(t, map[string]string{"policy/normal@1.0.0": "version: 1.0.0\nname: normal\n"})
 	var out bytes.Buffer
 	install := InstallComponentOnDemand(context.Background(), &out)
-	assert.True(t, install("themes/normal"))
-	assert.Contains(t, out.String(), "Installed themes/normal 1.0.0 (first use)")
-	assert.False(t, install("themes/normal"), "already installed")
+	assert.True(t, install("policy/normal"))
+	assert.Contains(t, out.String(), "Installed policy/normal 1.0.0 (first use)")
+	assert.False(t, install("policy/normal"), "already installed")
 	assert.False(t, install("nope/x"))
 }
 
@@ -455,8 +461,16 @@ func TestCmdUpdate(t *testing.T) {
 	serveAssets(t, map[string]string{"tools/md5_file@2.1.0": newerMD5Def})
 	r, _ := newTestMemoryREPL(t)
 	r.loopCtx = context.Background()
-	for _, args := range [][]string{{"check"}, {"--list"}, {"remove"}, {"remove", "tools/md5_file"}, {}, {"nope/x"}} {
+	for _, args := range [][]string{{"check"}, {"--list"}, {"remove"}, {"remove", "presets/frugal"}, {}, {"nope/x"}} {
 		r.cmdUpdate(args)
 	}
 	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description)
+}
+
+// fixtureRequired makes policy/normal the one required item of the policy
+// set, with no validation, for the tests that install it.
+func fixtureRequired(t *testing.T) {
+	t.Helper()
+	assets.Register("policy", assets.Spec{Required: []string{"normal"}})
+	t.Cleanup(func() { assets.Register("policy", assets.Spec{Validate: validatePolicyAsset}) })
 }

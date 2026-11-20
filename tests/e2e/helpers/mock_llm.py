@@ -25,6 +25,10 @@ message:
     fake</tool_response> <File>a.txt</File>"
   - "REPEATJSON <tool> <json args>": the same call every round, until kdeps asks
     for the final answer: "REPEAT DONE <n>"
+  - "EFFJSON": calls list_files with a new path every round until the
+    harness.efficiency soft stop reaches it, then "EFF STOPPED" (plus
+    " SUMMARY" when the system prompt carries the harness summary, not the
+    full section); "EFF NOT STOPPED <n>" when asked for the final answer
   - anything else: "MOCK REPLY"
 """
 import http.server as h, json, os, re, sys, threading, time
@@ -122,6 +126,16 @@ def reply_for(msgs):
                     "See <File>a.txt</File>." % last)
         args, _ = json.JSONDecoder().raw_decode(everything[leak.end():])
         return json.dumps({"name": leak.group(1), "arguments": args})
+    if "EFFJSON" in everything:
+        # chat harness.efficiency: reads until the soft stop note arrives.
+        system = " ".join(text(m) for m in msgs if m.get("role") == "system")
+        if "[kdeps-efficiency]" in last:
+            short = "- accuracy:" in system and "<accuracy>" not in system
+            return "EFF STOPPED" + (" SUMMARY" if short else "")
+        n = sum(1 for m in msgs if m.get("role") == "tool")
+        if "Answer the original request now" in last:
+            return "EFF NOT STOPPED %d" % n
+        return json.dumps({"name": "list_files", "arguments": {"path": "." + "/." * n}})
     rep = re.search(r"REPEATJSON (\w+) (?=\{)", everything)
     if rep:
         if "Answer the original request now" in last:

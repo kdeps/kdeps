@@ -152,7 +152,7 @@ var generatedFlows = map[string]SetInfo{
 	"presets": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "/harness preset"},
+			{Label: "/harness preset or /efficiency preset"},
 			{Label: "the preset rewrites events and harness sections", Here: true},
 			{Label: "every later turn uses them"},
 		},

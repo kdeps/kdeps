@@ -47,7 +47,7 @@ import (
 //	run: compact
 //
 // Same asset-set + ~/.kdeps user-override-merged-by-name pattern as
-// harness/themes (harness_yaml.go/theme_yaml.go), so an event is already
+// harness (harness_yaml.go), so an event is already
 // covered by konfig export/import (konfig.go) for free, and a user can
 // override one by dropping a same-named file in ~/.kdeps/events/ -- no Go
 // code or recompilation required.
@@ -137,7 +137,7 @@ type Event struct {
 	Disabled bool `yaml:"disabled,omitempty"`
 }
 
-//nolint:gochecknoglobals // built-in + user-merged registry, mirrors harnessRegistry/themes
+//nolint:gochecknoglobals // built-in + user-merged registry, mirrors harnessRegistry
 var eventRegistry map[string]*Event
 
 // userEventsDirName is the subdirectory of ~/.kdeps holding user event
@@ -323,6 +323,7 @@ func initEvents() {
 	configureNudges()
 	setFreeModelQueueCap()
 	configureFailureBrief()
+	configureEfficiency()
 	configureCompaction()
 }
 

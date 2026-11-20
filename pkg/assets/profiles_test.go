@@ -60,7 +60,7 @@ func TestSelect_RecordsAndBareUpdateKeepsSelection(t *testing.T) {
 	t.Setenv(SourceEnv, t.TempDir()) // nothing local: a release binary
 	c := publishedServer(t, map[string]map[string]string{
 		"harness/safety": {"1.0.0": "version: 1.0.0\nbody: a\n"},
-		"themes/normal":  {"1.0.0": "version: 1.0.0\nbody: n\n"},
+		"policy/normal":  {"1.0.0": "version: 1.0.0\nbody: n\n"},
 	}, nil)
 	root := t.TempDir()
 	ctx := context.Background()
@@ -76,20 +76,20 @@ func TestSelect_RecordsAndBareUpdateKeepsSelection(t *testing.T) {
 	// A bare update covers the selection, not every set.
 	changes, err = Update(ctx, root, c, nil, true)
 	require.NoError(t, err)
-	assert.NotContains(t, byID(changes), "themes/normal")
+	assert.NotContains(t, byID(changes), "policy/normal")
 
 	// An item installed by name since stays covered.
-	_, err = Update(ctx, root, c, []string{"themes/normal"}, false)
+	_, err = Update(ctx, root, c, []string{"policy/normal"}, false)
 	require.NoError(t, err)
 	changes, err = Update(ctx, root, c, nil, true)
 	require.NoError(t, err)
-	assert.Contains(t, byID(changes), "themes/normal")
+	assert.Contains(t, byID(changes), "policy/normal")
 }
 
 func TestMissingOf(t *testing.T) {
 	withSource(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\n")}})
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
-	assert.Equal(t, []string{"themes"}, MissingOf([]string{"harness", "themes"}))
+	assert.Equal(t, []string{"policy"}, MissingOf([]string{"harness", "policy"}))
 }
 
 func TestInstallOnDemand(t *testing.T) {
@@ -107,31 +107,31 @@ func TestSelect_PrunesWhatTheNewProfileLeavesOut(t *testing.T) {
 	t.Setenv(SourceEnv, t.TempDir())
 	c := publishedServer(t, map[string]map[string]string{
 		"harness/safety": {"1.0.0": "version: 1.0.0\nbody: a\n"},
-		"themes/vim":     {"1.0.0": "version: 1.0.0\nbody: v\n"},
+		"policy/vim":     {"1.0.0": "version: 1.0.0\nbody: v\n"},
 		"events/ping":    {"1.0.0": "version: 1.0.0\nbody: p\n"},
 	}, nil)
 	root := t.TempDir()
 	ctx := context.Background()
-	_, err := Select(ctx, root, c, "full", []string{"harness", "themes", "events"})
+	_, err := Select(ctx, root, c, "full", []string{"harness", "policy", "events"})
 	require.NoError(t, err)
-	assert.FileExists(t, FilePath(root, "themes", "vim"))
+	assert.FileExists(t, FilePath(root, "policy", "vim"))
 
 	changes, err := Select(ctx, root, c, "custom", []string{"harness", "events/ping"})
 	require.NoError(t, err)
 	got := byID(changes)
-	assert.Equal(t, ActionRemove, got["themes/vim"].Action, "a set the new profile leaves out is dropped")
-	assert.Equal(t, "not in the profile", got["themes/vim"].Note)
+	assert.Equal(t, ActionRemove, got["policy/vim"].Action, "a set the new profile leaves out is dropped")
+	assert.Equal(t, "not in the profile", got["policy/vim"].Note)
 	assert.Equal(t, ActionCurrent, got["harness/safety"].Action)
 	assert.Equal(t, ActionCurrent, got["events/ping"].Action, "a selected item stays")
-	assert.NoFileExists(t, FilePath(root, "themes", "vim"))
+	assert.NoFileExists(t, FilePath(root, "policy", "vim"))
 	assert.FileExists(t, FilePath(root, "events", "ping"))
 	lock, err := ReadLock(root)
 	require.NoError(t, err)
-	assert.NotContains(t, lock.Items, "themes/vim", "forgotten: installing the set again brings it back")
+	assert.NotContains(t, lock.Items, "policy/vim", "forgotten: installing the set again brings it back")
 
-	assert.True(t, Covered([]string{"themes"}, "themes/vim"))
-	assert.True(t, Covered([]string{"themes/vim"}, "themes/vim"))
-	assert.False(t, Covered([]string{"themes/normal"}, "themes/vim"))
+	assert.True(t, Covered([]string{"policy"}, "policy/vim"))
+	assert.True(t, Covered([]string{"policy/vim"}, "policy/vim"))
+	assert.False(t, Covered([]string{"policy/normal"}, "policy/vim"))
 }
 
 func TestMissingRequired(t *testing.T) {

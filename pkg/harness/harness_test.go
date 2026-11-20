@@ -53,3 +53,57 @@ func TestSections(t *testing.T) {
 	_, err = harness.Sections([]string{"accuracy", "nope"})
 	require.EqualError(t, err, `chat.harness: no preamble section named "nope"`)
 }
+
+func TestSummaries(t *testing.T) {
+	harness.Configure(harness.Settings{Section: func(name string) (string, bool) {
+		if name == "accuracy" {
+			return "full accuracy text", true
+		}
+		return "", false
+	}})
+	t.Cleanup(func() { harness.Configure(harness.Settings{}) })
+	out, err := harness.Summaries([]string{"accuracy"})
+	require.NoError(t, err)
+	assert.Equal(t, "full accuracy text", out, "no summary lookup: the full sections")
+	out, err = harness.Summaries(nil)
+	require.NoError(t, err)
+	assert.Empty(t, out)
+
+	harness.Configure(harness.Settings{
+		Section: func(string) (string, bool) { return "x", true },
+		Summary: func(name string) (string, bool) {
+			switch name {
+			case "accuracy":
+				return " read first ", true
+			case "off":
+				return "", true
+			}
+			return "", false
+		},
+	})
+	out, err = harness.Summaries([]string{"accuracy", "off"})
+	require.NoError(t, err)
+	assert.Equal(t, "- accuracy: read first", out)
+	_, err = harness.Summaries([]string{"nope"})
+	require.EqualError(t, err, `chat.harness: no preamble section named "nope"`)
+}
+
+func TestPromptModes(t *testing.T) {
+	for in, want := range map[string]string{"": "auto", "AUTO": "auto", "full": "full", "Summary": "summary"} {
+		got, ok := harness.NormalizeMode(in)
+		assert.True(t, ok, in)
+		assert.Equal(t, want, got, in)
+	}
+	_, ok := harness.NormalizeMode("short")
+	assert.False(t, ok)
+
+	assert.True(t, harness.CachesPrompt("Anthropic"))
+	assert.True(t, harness.CachesPrompt("openai"))
+	assert.False(t, harness.CachesPrompt("ollama"))
+
+	assert.True(t, harness.UseSummary("summary", "anthropic"))
+	assert.False(t, harness.UseSummary("full", "ollama"))
+	assert.True(t, harness.UseSummary("auto", "ollama"))
+	assert.False(t, harness.UseSummary("auto", "anthropic"))
+	assert.False(t, harness.UseSummary("bogus", "ollama"))
+}

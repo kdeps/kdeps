@@ -1,4 +1,4 @@
-version: 1.2.2
+version: 1.3.0
 # kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
@@ -20,6 +20,16 @@ requires:
   events/auto-compact: ""
   events/bash-call-budget: ""
   events/code-call-budget: ""
+  events/efficiency: ""
+  events/efficiency-actions: ""
+  events/efficiency-bash: ""
+  events/efficiency-code: ""
+  events/efficiency-file: ""
+  events/efficiency-reads: ""
+  events/efficiency-stops: ""
+  events/efficiency-tighten: ""
+  events/efficiency-verbose: ""
+  events/efficiency-web: ""
   events/efficiency-failures: ""
   events/file-call-budget: ""
   events/fold: ""
@@ -121,6 +131,42 @@ events:
     tools: [search_local]
     on:
       distinctCalls: 30
+    run: block
+  - name: efficiency
+    run: block
+  - name: efficiency-verbose
+    disabled: true
+    run: block
+  - name: efficiency-reads
+    on:
+      rounds: 6
+    run: block
+  - name: efficiency-actions
+    on:
+      rounds: 30
+    run: block
+  - name: efficiency-stops
+    on:
+      rounds: 3
+    run: block
+  - name: efficiency-tighten
+    items: 1
+    run: block
+  - name: efficiency-web
+    on:
+      distinctCalls: 5
+    run: block
+  - name: efficiency-bash
+    on:
+      distinctCalls: 8
+    run: block
+  - name: efficiency-file
+    on:
+      distinctCalls: 10
+    run: block
+  - name: efficiency-code
+    on:
+      distinctCalls: 6
     run: block
   - name: efficiency-failures
     on:

@@ -36,7 +36,7 @@ import (
 // a conversation, truncate a string, refuse a call), but the vocabulary of
 // valid names, what each one conceptually does, and which events use them
 // is data -- so it gets the same asset-set + ~/.kdeps user-override
-// pattern as harness/themes/events. Every event's declared "run:" is
+// pattern as harness/events. Every event's declared "run:" is
 // validated against this registry at load time (validateEventActions,
 // called from initEvents): an unrecognized action name is a loud
 // stderr warning, never a silent no-op or a crash.
@@ -112,7 +112,7 @@ func parseYAMLAction(data []byte, source string) (Action, error) {
 // loadUserActions reads every *.yaml/*.yml file in ~/.kdeps/actions,
 // returning the successfully parsed actions and one error per file that
 // failed to parse (never fatal). A missing or unreadable directory returns
-// no actions and no errors, the same lenient pattern events/harness/themes
+// no actions and no errors, the same lenient pattern events/harness
 // use.
 func loadUserActions() (map[string]*Action, []error) {
 	dir, err := userActionsDir()

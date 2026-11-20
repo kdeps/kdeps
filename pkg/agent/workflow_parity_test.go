@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/efficiency"
 	"github.com/kdeps/kdeps/v3/pkg/plancouncil"
 )
 
@@ -51,4 +53,22 @@ func TestConfigureCouncil_ReadsTheHarness(t *testing.T) {
 	note := s.Note("1. #1 step\n")
 	assert.Contains(t, note, "1. #1 step")
 	assert.NotContains(t, note, "plan_update", "a workflow chat has no progress file")
+}
+
+// A workflow loop chat runs the governor only with harness.efficiency, and its
+// prompt mode is full unless harness.promptMode says otherwise.
+func TestLoopChat_EfficiencyAndPromptMode(t *testing.T) {
+	cfg := &domain.ChatConfig{Tools: []domain.Tool{{Name: toolNameWriteFile}}}
+	on := &Loop{}
+	off := &Loop{config: Config{NoEfficiency: true}}
+	assert.Equal(t, EfficiencyEnabled(), on.effPrimed(cfg))
+	assert.False(t, off.effPrimed(cfg), "no harness.efficiency")
+	assert.Equal(t, promptModeFull, loopPromptMode(""))
+	assert.Equal(t, promptModeSummary, loopPromptMode(promptModeSummary))
+
+	configureEfficiency()
+	assert.Equal(t, EfficiencyEnabled(), efficiency.Enabled(), "agent mode installs the governor's switch")
+	lim := efficiency.CurrentLimits()
+	assert.Equal(t, effectiveRounds(eventEfficiencyReads), lim.Reads)
+	assert.Contains(t, lim.Category, "web")
 }

@@ -146,9 +146,9 @@ const (
 )
 
 // Color palette for markdown rendering. These are package vars, not consts, so
-// stealth mode (see theme.go) can swap them at runtime via applyRenderPalette.
+// stealth mode (see palette.go) sets them via applyRenderPalette.
 // Default values come from normalPalette; applyRenderPalette is called once
-// from theme.go's init and again on every /stealth toggle.
+// from palette.go's init.
 //
 //nolint:gochecknoglobals // runtime-swappable render palette (stealth mode)
 var (
@@ -174,7 +174,7 @@ var (
 )
 
 // applyRenderPalette sets the markdown color vars from the active palette and
-// rebuilds the thinking-block styles. Called by rebuildTheme (theme.go).
+// rebuilds the thinking-block styles. Called by applyPalette (palette.go).
 func applyRenderPalette() {
 	p := activePalette
 	colorHeading = p.heading
@@ -202,7 +202,7 @@ func applyRenderPalette() {
 }
 
 // invalidateRenderers drops the cached glamour renderers so the next render
-// rebuilds them from the current palette. Called by rebuildTheme (theme.go).
+// rebuilds them from the current palette. Called by applyPalette (palette.go).
 func invalidateRenderers() {
 	rendererMu.Lock()
 	defer rendererMu.Unlock()

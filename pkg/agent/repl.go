@@ -108,7 +108,7 @@ var (
 )
 
 // applyReplStyles rebuilds every REPL style from the active palette.
-// Called by rebuildTheme (theme.go).
+// Called by applyPalette (palette.go).
 func applyReplStyles() {
 	p := activePalette
 	fg := func(hex string) lipgloss.Style {

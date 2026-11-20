@@ -227,6 +227,7 @@ var (
 			"fewShotEmbeddingBackend": "context.fewShot.embeddingBackend",
 			"harness":                 "harness.sections", "refine": "harness.refine",
 			"plan": "harness.plan", "turo": "harness.turo",
+			"efficiency": "harness.efficiency", "promptMode": "harness.promptMode",
 			"chainOfThought": "harness.chainOfThought",
 			"jsonResponse":   "harness.output.json", "jsonResponseKeys": "harness.output.keys",
 			"jsonSchema":                "harness.output.schema",

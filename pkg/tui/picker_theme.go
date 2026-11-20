@@ -31,8 +31,8 @@ import (
 //   - Warning: a "Too Tight" fit level, delete-confirmation prompts
 //   - Dim:     help text, disabled rows, a "Marginal" fit level
 //
-// Set via SetPickerColors, normally from pkg/agent (theme.go) whenever the
-// REPL's active theme changes, so these pickers always render with the exact
+// Set via SetPickerColors from pkg/agent (palette.go) at startup, so these
+// pickers always render with the exact
 // same look as the REPL instead of carrying an independent palette.
 type PickerColors struct {
 	Accent  string
@@ -44,7 +44,7 @@ type PickerColors struct {
 
 // defaultPickerColors is the "normal" theme's picker palette -- the kdeps
 // brand accents (cyan/green/pink) at full brightness. Used until the first
-// SetPickerColors call (e.g. a caller that never wires theme.go, such as a
+// SetPickerColors call (e.g. a caller that never wires palette.go, such as a
 // pkg/tui-only test).
 func defaultPickerColors() PickerColors {
 	return PickerColors{

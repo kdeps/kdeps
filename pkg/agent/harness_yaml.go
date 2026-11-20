@@ -36,7 +36,7 @@ import (
 // The harness is every piece of text kdeps sends the LLM to shape its
 // behavior -- not the conversation itself: tool-use rules, sandbox-hallucination
 // reinforcement, and the single-purpose system prompts behind compaction,
-// goal planning, judging, and prompt refinement. Like themes, it is data, not
+// goal planning, judging, and prompt refinement. It is data, not
 // code: every built-in entry is a YAML file in the harness asset set
 // (installed by kdeps update), and users can drop their own into ~/.kdeps/harness/*.yaml to add an entry
 // or override a built-in by reusing its name -- no Go code or recompilation
@@ -102,7 +102,7 @@ type harnessEntry struct {
 }
 
 // userHarnessDirName is the subdirectory of ~/.kdeps holding user harness
-// files, mirroring userThemesDirName.
+// files.
 const userHarnessDirName = "harness"
 
 // userHarnessDir returns ~/.kdeps/harness.
@@ -193,7 +193,7 @@ func harnessNameFromYAML(ye yamlHarnessEntry, filename string) string {
 // returning the successfully parsed entries and one error per file that
 // failed to parse (never fatal -- a bad file is skipped, not a startup
 // failure). A missing or unreadable directory returns no entries and no
-// errors, the same lenient pattern loadUserThemes uses.
+// errors; a bad file is skipped.
 func loadUserHarness() (map[string]*harnessEntry, []error) {
 	dir, err := userHarnessDir()
 	if err != nil {
