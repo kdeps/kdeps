@@ -116,9 +116,10 @@ func parseYAMLAction(data []byte, source string) (Action, error) {
 // use.
 func loadUserActions() (map[string]*Action, []error) {
 	dir, err := userActionsDir()
-	if err != nil {
-		return nil, []error{err}
-	}
+	return layered(dir, err, userActionsDirName, loadActionsDir)
+}
+
+func loadActionsDir(dir string) (map[string]*Action, []error) {
 	return loadUserYAMLDir(dir, "actions", parseYAMLAction, func(a Action) string { return a.Name })
 }
 

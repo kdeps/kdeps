@@ -16,7 +16,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the agent loop continues"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
+		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.ActionByName"},
 	},
 	"codegraph": {
 		Mode: "both",
@@ -117,7 +117,7 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.(*Topic).Add", "knowledge.recallRules"},
 	},
 	"memory": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "the agent saves a memory or a tool returns"},
 			{Label: "kdeps types the entry by its key and links it to its parent type"},
@@ -125,8 +125,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its result is captured"},
 			{Label: "the memory block flags open errors and resumes from unfinished work"},
 		},
-		UsedBy: []string{"/update", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
-		Code:   []string{"/update", "agent.RunAssetUpdate", "agent.initMemoryRules"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec"},
+		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.initMemoryRules"},
 	},
 	"models": {
 		Mode: "both",

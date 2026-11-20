@@ -46,6 +46,8 @@ on:
 run: compact
 ```
 
+A workflow project overrides events the same way with an `events/` folder next to its `resources/`. That layer wins over `~/.kdeps/events/` (see [Answer quality](/workflow/quality#the-workflow-ships-its-own-limits)).
+
 No restart needed for `/konfig import`, `kdeps konfig import`, or `--konfig <path>` -- see [konfig](./konfig.md). A file you drop into `~/.kdeps/events/` by hand takes effect the next time the process starts.
 
 ## Relationship to `/model tool set` and `/fold`

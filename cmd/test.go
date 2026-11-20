@@ -29,6 +29,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
@@ -117,6 +118,9 @@ func runTestCmd(cmd *cobra.Command, args []string, flags *TestFlags) error {
 	}
 	if prepErr := preprocessProjectDir(filepath.Dir(workflowPath)); prepErr != nil {
 		return prepErr
+	}
+	if projErr := agent.UseProjectAssets(filepath.Dir(workflowPath)); projErr != nil {
+		return projErr
 	}
 
 	workflow, err := ParseWorkflowFile(workflowPath)

@@ -48,11 +48,42 @@ chat:
 
 A failed tool call always gets a failure brief: the error and the context to repair it. The `efficiency-failures` event caps the briefs.
 
-## Limits come from events
+## The workflow ships its own limits
 
-The limits are [events](/agent/events): `efficiency-*`, `plan-council-*`, `judge-*`, `chat-max-rounds`. An override in `~/.kdeps/events/` changes them for every chat on that machine. A Docker image or a prepackaged binary carries the build machine's events.
+The limits are [events](/agent/events): `efficiency-*`, `plan-council-*`, `judge-*`, `chat-max-rounds`. The prompts are harness entries: `refine-system`, `plan-council-*`, `judge-system`. A workflow ships its own copies in folders next to `resources/`, in the same format as `~/.kdeps/`:
 
-`kdeps run` installs the harness, events and actions asset sets. A workflow-only install (the `minimum`, `workflows` or `deploy` profile) has every feature.
+```text
+my-agent/
+  workflow.yaml
+  resources/
+  events/       # efficiency-reads.yaml, judge-iterations.yaml, ...
+  harness/      # refine-system.yaml, accuracy.yaml, ...
+  actions/
+  presets/
+```
+
+```yaml
+# my-agent/events/efficiency-reads.yaml
+name: efficiency-reads
+on:
+  rounds: 2        # this workflow allows 2 reads in a row, on every machine
+run: block
+```
+
+| Layer | Wins over |
+|---|---|
+| the workflow's `events/`, `harness/`, `actions/`, `presets/` | everything |
+| `~/.kdeps/<set>/` on the machine | the installed assets |
+| the installed assets | - |
+
+The folders go everywhere the workflow goes:
+
+- `kdeps run`, `kdeps test` and `kdeps exec` load them.
+- `kdeps validate` parses them. A file that does not parse fails `validate` and `run`.
+- `kdeps bundle package` puts them in the `.kdeps` archive. A prepackaged binary embeds that archive.
+- `kdeps build` copies them into the Docker image next to `resources/`. `kdeps export iso` and `kdeps export k8s` use that image.
+
+`kdeps run` also installs the `harness`, `events` and `actions` asset sets. A workflow-only install (the `minimum`, `workflows` or `deploy` profile) has every feature.
 
 ## In a chat with `loop:`
 

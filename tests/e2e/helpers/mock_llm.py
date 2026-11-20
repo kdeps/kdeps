@@ -28,7 +28,8 @@ message:
   - "EFFJSON": calls list_files with a new path every round until the
     harness.efficiency soft stop reaches it, then "EFF STOPPED" (plus
     " SUMMARY" when the system prompt carries the harness summary, not the
-    full section); "EFF NOT STOPPED <n>" when asked for the final answer
+    full section) and " AFTER <reads>"; "EFF NOT STOPPED <n>" when asked
+    for the final answer
   - anything else: "MOCK REPLY"
 """
 import http.server as h, json, os, re, sys, threading, time
@@ -131,7 +132,8 @@ def reply_for(msgs):
         system = " ".join(text(m) for m in msgs if m.get("role") == "system")
         if "[kdeps-efficiency]" in last:
             short = "- accuracy:" in system and "<accuracy>" not in system
-            return "EFF STOPPED" + (" SUMMARY" if short else "")
+            reads = sum(1 for m in msgs if m.get("role") == "tool")
+            return "EFF STOPPED" + (" SUMMARY" if short else "") + " AFTER %d" % reads
         n = sum(1 for m in msgs if m.get("role") == "tool")
         if "Answer the original request now" in last:
             return "EFF NOT STOPPED %d" % n

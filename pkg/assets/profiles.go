@@ -43,6 +43,13 @@ var BaseSets = []string{"schemas", "defaults", "models", "providers"}
 //nolint:gochecknoglobals // fixed list
 var ChatSets = []string{"harness", "events", "actions"}
 
+// ProjectSets are the asset sets a workflow project can ship as folders next
+// to resources/ (events/, harness/, actions/, presets/). They layer over
+// ~/.kdeps, and every package, image and binary of the workflow carries them.
+//
+//nolint:gochecknoglobals // fixed list
+var ProjectSets = []string{"harness", "events", "actions", "presets"}
+
 // RunSets are what kdeps run loads: BaseSets and ChatSets.
 func RunSets() []string { return append(slices.Clone(BaseSets), ChatSets...) }
 

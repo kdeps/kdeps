@@ -110,9 +110,10 @@ func parseYAMLPreset(data []byte, source string) (Preset, error) {
 // use.
 func loadUserPresets() (map[string]*Preset, []error) {
 	dir, err := userPresetsDir()
-	if err != nil {
-		return nil, []error{err}
-	}
+	return layered(dir, err, userPresetsDirName, loadPresetsDir)
+}
+
+func loadPresetsDir(dir string) (map[string]*Preset, []error) {
 	return loadUserYAMLDir(dir, "presets", parseYAMLPreset, func(p Preset) string { return p.Name })
 }
 

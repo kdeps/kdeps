@@ -232,9 +232,10 @@ func parseYAMLEvent(data []byte, source string) (Event, error) {
 // lenient pattern loadUserHarness/loadUserThemes use.
 func loadUserEvents() (map[string]*Event, []error) {
 	dir, err := userEventsDir()
-	if err != nil {
-		return nil, []error{err}
-	}
+	return layered(dir, err, userEventsDirName, loadEventsDir)
+}
+
+func loadEventsDir(dir string) (map[string]*Event, []error) {
 	return loadUserYAMLDir(dir, "events", parseYAMLEvent, func(e Event) string { return e.Name })
 }
 

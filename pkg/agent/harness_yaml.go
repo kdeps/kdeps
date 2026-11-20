@@ -196,9 +196,11 @@ func harnessNameFromYAML(ye yamlHarnessEntry, filename string) string {
 // errors; a bad file is skipped.
 func loadUserHarness() (map[string]*harnessEntry, []error) {
 	dir, err := userHarnessDir()
-	if err != nil {
-		return nil, []error{err}
-	}
+	return layered(dir, err, userHarnessDirName, loadHarnessDir)
+}
+
+// loadHarnessDir reads every harness YAML file in dir.
+func loadHarnessDir(dir string) (map[string]*harnessEntry, []error) {
 	infos, err := afero.ReadDir(AppFS, dir)
 	if err != nil {
 		return nil, nil // missing/unreadable dir is not an error
