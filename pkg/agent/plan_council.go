@@ -192,7 +192,6 @@ func boardList(board []plancouncil.JobOrder) string {
 	return b.String()
 }
 
-
 // writePlan writes the progress file under the project's data folder and
 // records where it is in memory, so a later session can find it.
 func (l *Loop) writePlan(task string, orders []plancouncil.JobOrder) (string, error) {

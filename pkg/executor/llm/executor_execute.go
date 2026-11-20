@@ -115,15 +115,7 @@ func (e *Executor) executeChat(
 	raw := withRetry(ctx.Ctx, limitBody(backendName, freeModelCall(backendName, modelStr, func(model string) chatCall {
 		return langchainChatCall(ctx.Ctx, resolvedConfig, backendName, baseURL, model, timeout)
 	})), retriesFor(resolvedConfig))
-	if resolvedConfig.Refine {
-		promptStr = refineChat(raw, messages, promptStr, requestConfig.ContextLength)
-	}
-	if resolvedConfig.Plan {
-		messages = councilChat(raw, messages, promptStr, requestConfig.ContextLength)
-	}
-	if resolvedConfig.Turo {
-		promptStr = turoChat(ctx.Ctx, messages, promptStr)
-	}
+	messages, promptStr = prepareRequest(ctx.Ctx, raw, resolvedConfig, messages, promptStr, requestConfig.ContextLength)
 	call := compactOnOverflow(raw, promptStr)
 	recordWorkflowRequest(resolvedConfig, backendName, modelStr, messages, allTools)
 	started := time.Now()

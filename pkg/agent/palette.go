@@ -19,8 +19,6 @@
 package agent
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/tui"
@@ -126,33 +124,6 @@ func toUpperASCII(r rune) rune {
 		return r - ('a' - 'A')
 	}
 	return r
-}
-
-// hexDigits is the length of "RRGGBB" once the leading "#" is stripped.
-const hexDigits = 6
-
-// parseHexRGB parses "#RRGGBB" into its components.
-func parseHexRGB(hex string) (uint64, uint64, uint64, bool) {
-	hex = strings.TrimPrefix(hex, "#")
-	if len(hex) != hexDigits {
-		return 0, 0, 0, false
-	}
-	r, err1 := strconv.ParseUint(hex[0:2], 16, 8)
-	g, err2 := strconv.ParseUint(hex[2:4], 16, 8)
-	b, err3 := strconv.ParseUint(hex[4:6], 16, 8)
-	if err1 != nil || err2 != nil || err3 != nil {
-		return 0, 0, 0, false
-	}
-	return r, g, b, true
-}
-
-// hexToSGRForeground converts "#RRGGBB" into a truecolor SGR foreground escape.
-func hexToSGRForeground(hex string) string {
-	r, g, b, ok := parseHexRGB(hex)
-	if !ok {
-		return ""
-	}
-	return fmt.Sprintf("\x1b[38;2;%d;%d;%dm", r, g, b)
 }
 
 // applyPalette applies the palette to every derived style and drops the

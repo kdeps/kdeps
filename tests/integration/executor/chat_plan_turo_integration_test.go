@@ -15,6 +15,7 @@
 // This project is licensed under Apache 2.0.
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
+
 package executor_test
 
 import (
@@ -123,6 +124,7 @@ func TestWorkflowChat_PlanAndTuro(t *testing.T) {
 			system = append(system, m.Content)
 		}
 	}
-	assert.Contains(t, strings.Join(system, "\n"), "PLAN\n1. #1 CHECK THE LOGS", "the plan is in the system prompt, reduced")
+	assert.Contains(t, strings.Join(system, "\n"), "PLAN\n1. #1 CHECK THE LOGS",
+		"the plan is in the system prompt, reduced")
 	assert.Equal(t, "TRIAGE THE OUTAGE", final[len(final)-1].Content, "turo reduced the prompt")
 }

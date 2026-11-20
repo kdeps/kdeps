@@ -15,9 +15,15 @@
 // This project is licensed under Apache 2.0.
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
+
 package llm
 
-import "github.com/kdeps/kdeps/v3/pkg/plancouncil"
+import (
+	"context"
+
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/plancouncil"
+)
 
 // councilChat holds the planning council for prompt, as agent mode's /plan
 // does, and adds the sorted plan to the system prompt: after the existing
@@ -48,4 +54,22 @@ func councilChat(call chatCall, messages []map[string]any, prompt string, contex
 	out = append(out, messages[:at]...)
 	out = append(out, map[string]any{jsonFieldRole: roleSystem, jsonFieldContent: note})
 	return append(out, messages[at:]...)
+}
+
+// prepareRequest runs a chat's opt-in pre-call steps in order: refine
+// rewrites the prompt, the council adds a plan, turo reduces the text.
+func prepareRequest(
+	ctx context.Context, call chatCall, cfg *domain.ChatConfig,
+	messages []map[string]any, prompt string, contextLength int,
+) ([]map[string]any, string) {
+	if cfg.Refine {
+		prompt = refineChat(call, messages, prompt, contextLength)
+	}
+	if cfg.Plan {
+		messages = councilChat(call, messages, prompt, contextLength)
+	}
+	if cfg.Turo {
+		prompt = turoChat(ctx, messages, prompt)
+	}
+	return messages, prompt
 }
