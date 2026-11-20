@@ -189,8 +189,8 @@ func (e *Evaluator) evaluateAndFormatExpression(
 
 // formatValue converts a value to string representation.
 
-// emptyStringCompare makes a missing value equal to ''. It rewrites
-// x == '' and x != '' to (x ?? '') == '', so get('q') != '' fails when q is absent.
+// emptyStringCompare makes a missing value equal to ”. It rewrites
+// x == ” and x != ” to (x ?? ”) == ”, so get('q') != ” fails when q is absent.
 type emptyStringCompare struct{}
 
 func (emptyStringCompare) Visit(node *ast.Node) {
