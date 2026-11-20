@@ -41,6 +41,11 @@ type LoopRequest struct {
 	Tools     []string
 	MaxRounds int
 	Session   string
+	// Plan runs the planning council, Judges reviews with an automatic
+	// roster, Refine rewrites the prompt first. All are opt-in.
+	Plan   bool
+	Judges bool
+	Refine bool
 	// Thinking is the chat's thinking setting, after its default.
 	Thinking *domain.ThinkingConfig
 }
@@ -108,7 +113,12 @@ func (e *Executor) executeLoop(
 		Tools:     resolved.Loop.Tools,
 		MaxRounds: resolved.Loop.MaxRounds,
 		Session:   session,
-		Thinking:  resolved.Thinking,
+		Plan:      resolved.Loop.Plan != nil && *resolved.Loop.Plan,
+		// Judges listed under guardrails review the reply already.
+		Judges: resolved.Loop.Judges != nil && *resolved.Loop.Judges &&
+			len(resolved.Judges) == 0 && resolved.JudgePreset == "",
+		Refine:   resolved.Refine,
+		Thinking: resolved.Thinking,
 	})
 	if err != nil {
 		return nil, chatRun{}, fmt.Errorf("chat loop: %w", err)

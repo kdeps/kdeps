@@ -12,11 +12,12 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
 | Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same tools behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
-| Harness | `instruct` (alias `help`) | [Slash commands](/agent/commands) |
+| Harness | `instruct` (alias `help`) | [Efficiency enforcement](/agent/efficiency#harness-prompt) |
 | Subagents | `subagent`: a task for a fresh, read-only agent loop | [Subagents](/agent/subagent) |
 | Questions | `ask_question`: show the user a question (with numbered options) and end the turn; their next message is the answer | [Asking the user](#asking-the-user) |
+| Planning | `plan_update`: tick a job order, or add one, in the progress file the planning council wrote | [Planning council](/agent/plan) |
 
-Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced) and [Harness reminders](/agent/tools-harness).
+Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced), [Harness reminders](/agent/tools-harness), [Session-integrity handshake](/agent/tools-handshake).
 
 ## Asking the user
 

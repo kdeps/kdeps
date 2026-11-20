@@ -356,6 +356,10 @@ func callChatFn(ctx context.Context, currentCtx *AgentContext, cfg AgentLoopConf
 	} else {
 		messages = defaultConvertToLLM(messages)
 	}
+	// Route tool output through turo (when active) so tool results reach the
+	// LLM reduced like the rest of the prompt. Cached, so only new results
+	// spawn turo; the stored messages are left untouched.
+	messages = reduceToolOutputForLLM(ctx, messages)
 
 	llmCtx := AgentContext{
 		SystemPrompt: currentCtx.SystemPrompt,
@@ -370,6 +374,24 @@ func callChatFn(ctx context.Context, currentCtx *AgentContext, cfg AgentLoopConf
 
 	currentCtx.Messages = append(currentCtx.Messages, msg)
 	return msg
+}
+
+// reduceToolOutputForLLM returns a copy of messages with each tool result's
+// content routed through turo (cached). Returns the input unchanged when turo
+// is inactive. The stored messages are never mutated — only the copy sent to
+// the LLM carries the reduced content.
+func reduceToolOutputForLLM(ctx context.Context, messages []AgentMessage) []AgentMessage {
+	if !turoActive(ctx) {
+		return messages
+	}
+	out := make([]AgentMessage, len(messages))
+	for i, m := range messages {
+		if m.Role == RoleToolResult && m.ResultContent != "" {
+			m.ResultContent = turoReduceCached(ctx, m.ResultContent)
+		}
+		out[i] = m
+	}
+	return out
 }
 
 func defaultConvertToLLM(messages []AgentMessage) []AgentMessage {

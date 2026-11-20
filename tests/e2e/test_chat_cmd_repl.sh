@@ -138,6 +138,15 @@ else
     test_failed "REPL /memory, /reload" "Output: $OUTPUT"
 fi
 
+# /judges: a YAML command with subcommands over session_ops
+OUTPUT=$(_repl '/judges add cites must cite a file' '/judges grade cites contains workflow.yaml' '/judges' '/judges add onlyname')
+if output_grep_fixed 'added judge "cites"' "$OUTPUT" && output_grep_fixed "contains workflow.yaml" "$OUTPUT" \
+    && output_grep_fixed "give a name and criteria" "$OUTPUT"; then
+    test_passed "REPL /judges - add, grade and list print from their YAML"
+else
+    test_failed "REPL /judges - subcommands" "Output: $OUTPUT"
+fi
+
 # /compact (no turns to compact)
 OUTPUT=$(_repl '/compact')
 if output_grep_i "Nothing to compact" "$OUTPUT"; then

@@ -1,0 +1,15 @@
+version: 1.0.0
+name: plan
+order: 222
+usage:
+  - args: "[on|off]"
+    help: Show or toggle the planning council that plans each task (on by default)
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: plan          # live session state; the choice persists across sessions
+  values: [on, off]  # accepted arguments, matched without case
+  show: >-
+    {{if eq .value "on"}}planning council is on - each task is planned by the council before the turn{{else}}planning council is off - /plan on to enable{{end}}
+  set: >-
+    {{if eq .value "on"}}planning council enabled - the next task gets a sorted plan and a progress file{{else}}planning council disabled - tasks start without a plan{{end}}
+  invalid: "Usage: /plan [on|off]"

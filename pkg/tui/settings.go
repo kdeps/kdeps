@@ -72,13 +72,24 @@ type AgentLoopTuning struct {
 	BashLimit            int      `yaml:"bash_limit"`
 	FileLimit            int      `yaml:"file_limit"`
 	CodeLimit            int      `yaml:"code_limit"`
+	TuroLevel            string   `yaml:"turo_level,omitempty"`
+	TuroOff              bool     `yaml:"turo_off,omitempty"`
+	TuroFiller           bool     `yaml:"turo_filler"`
+	TuroSynonyms         bool     `yaml:"turo_synonyms"`
+	TuroGloss            bool     `yaml:"turo_gloss"`
+	TuroDefmatch         bool     `yaml:"turo_defmatch"`
+	TuroArrows           bool     `yaml:"turo_arrows,omitempty"`
 	ToolsFullMode        bool     `yaml:"tools_full_mode,omitempty"`
+	AutoJudges           bool     `yaml:"auto_judges"`
 	ToolsConfigured      bool     `yaml:"tools_configured,omitempty"`
 	AutoContextDetect    bool     `yaml:"auto_context_detect,omitempty"`
 	PermissionMode       string   `yaml:"permission_mode,omitempty"`
 	ThinkingMode         string   `yaml:"thinking_mode,omitempty"`
 	ContextSize          int      `yaml:"context_size,omitempty"`
+	RefineOff            bool     `yaml:"refine_off,omitempty"`
+	RefineConfigured     bool     `yaml:"refine_configured,omitempty"`
 	KnowledgeOff         bool     `yaml:"knowledge_off,omitempty"`
+	PlanCouncil          bool     `yaml:"plan_council,omitempty"`
 	FoldThreshold        int      `yaml:"fold_threshold,omitempty"`
 	FoldContextItems     int      `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool     `yaml:"fold_auto,omitempty"`

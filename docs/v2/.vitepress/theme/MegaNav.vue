@@ -75,6 +75,7 @@ const categories: MenuCategory[] = [
         { title: 'Desktop app', desc: 'The agent in a window. Uses a local model or an LLM server that you run', link: '/desktop/' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools that the LLM can call', link: '/agent/tools' },
         { title: 'Subagents', desc: 'A fresh loop for one task. It sees only that task', link: '/agent/subagent' },
+        { title: 'Planning council', desc: 'Opt-in: agrees on a plan and a progress file before the turn starts', link: '/agent/plan' },
         { title: 'Judge panel', desc: 'Reviews a workflow chat answer before the resource finishes', link: '/agent/judges' },
         { title: 'Persistent memory', desc: 'Facts and decisions that stay across sessions', link: '/agent/memory' },
         { title: 'Skills and prompt templates', desc: 'Reusable instructions that the agent loads when necessary', link: '/agent/skills' },

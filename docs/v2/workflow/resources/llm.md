@@ -42,7 +42,7 @@ chat:
 ```
 
 - On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
-- Opt-in: built-in tools (`tools.list: auto`) and the judge roster (`guardrails.judges: auto`). They add tool access or model calls, so a chat never gets them silently.
+- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`, `loop.judges: true`), the planning council (`loop.plan: true`) and prompt refine (`harness.refine: true`). They add tool access or model calls, so a chat never gets them silently.
 
 ## Where config lives
 
@@ -382,7 +382,7 @@ Output:
 
 ## Judges
 
-`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel. If any rejects, the chat runs again with their feedback, and the panel reviews the revision. `kdeps test` uses the same judges. See [Judge panel](/agent/judges).
+`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel. If any rejects, the chat runs again with their feedback, and the panel reviews the revision. Agent mode's [judge panel](/agent/judges) runs on the same engine.
 
 ```text
 chat -> judges (parallel) -> all approve? -> output
@@ -450,6 +450,20 @@ chat:
 
 Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing. An unknown name fails the resource.
 
+## Prompt refine
+
+`refine: true` rewrites the prompt into a clearer, self-contained request before the call, as agent mode's `/refine` does:
+
+```yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"   # e.g. "fix it" -> "Fix the failing build in ./cmd and report what changed."
+  harness:
+    refine: true                 # one extra model call with the refine-system harness prompt
+```
+
+The chat's history is context for the rewrite. A trivial prompt, a failed refine call or an unusable reply keeps the prompt as written.
+
 ## Skills
 
 `tools.skills` gives the chat the skills of the REPL. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
@@ -479,6 +493,8 @@ chat:
     tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
     maxRounds: 25                              # tool rounds per request; 0 = the agent default
     session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
+    plan: true                                 # opt-in: planning council before a task (default false)
+    judges: true                               # opt-in: automatic judge roster (default false; guardrails.judges replace it)
 ```
 
 ```text

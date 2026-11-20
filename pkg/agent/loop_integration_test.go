@@ -2340,6 +2340,28 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 	)
 }
 
+// When auto-judging is on but the roster call yields nothing (no engine func
+// wired -> Execute errors), RunStreaming tells the user instead of silently
+// skipping the panel.
+func TestRunStreaming_ReportsMissingAutoJudgeRoster(t *testing.T) {
+	ms := &mockStreamer{responses: []mockStreamResponse{{content: "answer", toolCalls: nil}}}
+	loop := newStreamingLoop(ms, 3)
+	loop.config.AutoJudges = true
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(
+		context.Background(),
+		"review the auth module and report findings",
+		&buf,
+	)
+	if err != nil {
+		t.Fatalf("RunStreaming: %v", err)
+	}
+	if !strings.Contains(buf.String(), "no panel this turn") {
+		t.Fatalf("expected the missing-roster notice, got %q", buf.String())
+	}
+}
+
 // The model's narration on a tool-call round reaches the user; without this the
 // streamer writes it to a throwaway buffer.
 func TestRunStreaming_EmitsToolRoundNarration(t *testing.T) {

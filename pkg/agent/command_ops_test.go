@@ -160,17 +160,17 @@ func TestSettingCommands_RunFromTheirAssets(t *testing.T) {
 	var saved []ToolTuning
 	r.SetSaveTuningFn(func(tt ToolTuning) error { saved = append(saved, tt); return nil })
 
-	require.NoError(t, r.dispatchCommand("/autocontext off"))
-	assert.False(t, r.autoContextDetect)
-	require.NoError(t, r.dispatchCommand("/autocontext ON"))
-	assert.True(t, r.autoContextDetect, "values match without case")
+	require.NoError(t, r.dispatchCommand("/refine off"))
+	assert.False(t, loop.PromptRefineEnabled())
+	require.NoError(t, r.dispatchCommand("/refine ON"))
+	assert.True(t, loop.PromptRefineEnabled(), "values match without case")
 	require.NoError(t, r.dispatchCommand("/permissions read-only"))
 	assert.Equal(t, PermissionReadOnly, loop.config.PermissionMode)
 	require.NoError(t, r.dispatchCommand("/permission bogus"))
 	assert.Equal(t, PermissionReadOnly, loop.config.PermissionMode, "an unlisted value changes nothing")
 	assert.Len(t, saved, 3, "each stored value persists")
 
-	c := declaredCommand("autocontext")
+	c := declaredCommand("refine")
 	require.NotNil(t, c)
 	require.NotNil(t, c.Setting)
 }
@@ -201,8 +201,42 @@ func TestThinkingSetting_FromItsAsset(t *testing.T) {
 	assert.Contains(t, out, `Warning: model "no-reasoning-model" may not support extended thinking.`)
 }
 
+func TestTuroSetting_StagesLevelsAndState(t *testing.T) {
+	turoOnce.Do(func() {})
+	oldEnabled := turoEnabled
+	turoEnabled = true
+	t.Cleanup(func() {
+		turoEnabled = oldEnabled
+		SetTuroRuntimeOff(false)
+		SetTuroStage("gloss", true)
+	})
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
+
+	out := captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo off")) })
+	assert.True(t, TuroRuntimeOff())
+	assert.Contains(t, out, "turo off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo ultra")) })
+	assert.False(t, TuroRuntimeOff(), "a level turns turo back on")
+	assert.Equal(t, "ultra", TuroLevel())
+	assert.Contains(t, out, "turo level: ultra")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo gloss  OFF")) })
+	assert.False(t, TuroStage("gloss"))
+	assert.Contains(t, out, "turo gloss off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo")) })
+	assert.Contains(t, out, "level: ultra")
+	assert.Contains(t, out, "gloss: off")
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo gloss")) })
+	assert.Contains(t, out, "Usage: /turo")
+
+	turoEnabled = false
+	out = captureStdout(t, func() { require.NoError(t, r.dispatchCommand("/turo on")) })
+	assert.Contains(t, out, "turo is not installed")
+	assert.False(t, TuroRuntimeOff())
+}
+
 func TestSettingSpec_Validate(t *testing.T) {
-	ok := settingSpec{Key: "permission", Values: []string{"on"}, Show: "s", Set: "x", Invalid: "i"}
+	ok := settingSpec{Key: "refine", Values: []string{"on"}, Show: "s", Set: "x", Invalid: "i"}
 	require.NoError(t, ok.validate())
 	bad := ok
 	bad.Key = "nope"
@@ -217,6 +251,6 @@ func TestSettingSpec_Validate(t *testing.T) {
 	bad.Set = "{{"
 	require.ErrorContains(t, bad.validate(), "setting: set")
 	_, err := parseYAMLCommand([]byte("name: x\nusage: [{help: h}]\nrun: [{prompt: p}]\n"+
-		"setting: {key: permission, values: [on], show: s, set: s, invalid: s}\n"), "x.yaml")
+		"setting: {key: refine, values: [on], show: s, set: s, invalid: s}\n"), "x.yaml")
 	require.ErrorContains(t, err, "exactly one of run, setting or subcommands")
 }

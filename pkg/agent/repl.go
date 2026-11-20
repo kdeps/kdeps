@@ -496,6 +496,15 @@ func (r *REPL) modeline() string {
 			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
 	}
+	if !turoAvailable(r.ctx) || TuroRuntimeOff() {
+		parts = append(parts, dim("turo:off"))
+	} else {
+		label := "turo:" + TuroLevel()
+		if saved := TuroTokensSaved(); saved > 0 {
+			label += " (" + formatCompactCount(int64(saved)) + " saved)"
+		}
+		parts = append(parts, styleReplSuccess.Render(label))
+	}
 	// "reminder:" only appears while at least one /harness reminders <name> on
 	// is active, and disappears the moment the last one is turned off -- same
 	// on-only-when-active convention as mem:.
@@ -1609,6 +1618,14 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
+	// The automatic judge panel is opt-in: /judges auto turns it on and the
+	// choice persists via applyToolTuning below.
+	r.loop.config.AutoJudges = false
+	// Pre-turn prompt refinement is off by default. /refine on turns it on
+	// and the choice persists via applyToolTuning below. A settings file
+	// that already stored refine-on (RefineConfigured, RefineOff false)
+	// stays on.
+	r.loop.config.PromptRefine = false
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}

@@ -174,4 +174,27 @@ func TestModelAuto_UsesThePick(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "picked-model", got.Model)
 	assert.Equal(t, "openai", got.Backend)
+	assert.False(t, got.Plan, "the council is opt-in")
+	assert.False(t, got.Judges, "auto judges are opt-in")
+	assert.False(t, got.Refine, "refine is opt-in")
+}
+
+func TestLoopDefaults_OptIn(t *testing.T) {
+	var got LoopRequest
+	withLoopRunner(t, func(req LoopRequest) (string, error) { got = req; return "ok", nil })
+	yes := true
+	_, err := NewExecutor("").Execute(loopExecCtx(t), &domain.ChatConfig{
+		Model: "m", Prompt: "p", Refine: true, Loop: &domain.ChatLoopConfig{Plan: &yes, Judges: &yes},
+	})
+	require.NoError(t, err)
+	assert.True(t, got.Plan)
+	assert.True(t, got.Judges)
+	assert.True(t, got.Refine, "harness.refine reaches the loop")
+
+	_, err = NewExecutor("").Execute(loopExecCtx(t), &domain.ChatConfig{
+		Model: "m", Prompt: "p", Loop: &domain.ChatLoopConfig{Judges: &yes},
+		Judges: []domain.Judge{{Name: "x", Criteria: "y"}},
+	})
+	require.NoError(t, err)
+	assert.False(t, got.Judges, "listed judges replace the automatic roster")
 }

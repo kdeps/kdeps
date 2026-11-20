@@ -549,7 +549,7 @@
         },
         "harness": {
           "type": "object",
-          "description": "System sections and output format.",
+          "description": "System sections, prompt refine, and output format.",
           "properties": {
             "output": {
               "type": "object",
@@ -579,6 +579,9 @@
                 "minLength": 1
               },
               "uniqueItems": true
+            },
+            "refine": {
+              "type": "boolean"
             },
             "chainOfThought": {
               "type": "boolean"
@@ -781,6 +784,14 @@
             "session": {
               "type": "string",
               "description": "Conversation id, usually an expression such as {{ get('session') }}. Requests with the same id continue one stored conversation."
+            },
+            "plan": {
+              "type": "boolean",
+              "description": "Run the planning council before a task (default false)."
+            },
+            "judges": {
+              "type": "boolean",
+              "description": "Review each answer with an automatic judge roster (default false; guardrails.judges replace it)."
             }
           }
         }

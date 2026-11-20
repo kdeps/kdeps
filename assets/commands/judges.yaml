@@ -1,0 +1,65 @@
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
+name: judges
+order: 250
+usage:
+  - args: ""
+    help: "Show the configured judge panel (reviews each turn's final output)"
+  - args: "add <name> <criteria>"
+    help: Add a judge to the explicit roster
+  - args: "remove <name>"
+    help: Remove a judge from the explicit roster
+  - args: "auto [on|off]"
+    help: Show or toggle a per-turn auto-generated roster; on unless turned off
+  - args: "grade <name> <kind> <pattern>"
+    help: "Attach a grader (exact, contains, not_contains, regex, json, expr) to a judge. It runs before that judge's model review"
+  - args: "off"
+    help: Disable the judge panel and store auto_judges false
+  - args: clear
+    help: Disable the judge panel entirely
+subcommands:
+  "": &status
+    run:
+      - tool: session_ops
+        args: {operation: judges}
+        print: |-
+          {{if and (not .judges) (not .auto)}}no judge panel configured - outputs are not reviewed{{else if not .judges}}{{if .last}}**Last auto-generated panel:**
+          {{range .last}}
+          - {{.name}}: {{.criteria}}{{end}}{{else}}auto-judges enabled - a roster is generated per turn{{end}}{{else}}**Configured judges:**
+          {{range .judges}}
+          - {{.name}}{{if .criteria}}: {{.criteria}}{{end}}{{range .graders}}
+            - {{.kind}}{{if .pattern}} {{.pattern}}{{end}}{{end}}{{end}}
+          {{if .auto}}
+          (auto-judges also enabled, but the explicit roster takes priority){{end}}
+          `/judges add <name> <criteria>` adds · `/judges remove <name>` drops · `/judges clear` disables{{end}}
+  list: *status
+  add:
+    run:
+      - tool: session_ops
+        args: {operation: judge_add, name: "$1", criteria: "${@:2}"}
+        print: 'added judge {{printf "%q" .name}}'
+  remove:
+    run:
+      - tool: session_ops
+        args: {operation: judge_remove, name: "$1"}
+        print: '{{if .removed}}removed judge {{printf "%q" .name}}{{else}}no judge named {{printf "%q" .name}}{{end}}'
+  grade:
+    run:
+      - tool: session_ops
+        args: {operation: judge_grade, name: "$1", kind: "$2", pattern: "${@:3}"}
+        print: 'grader {{.kind}} on {{printf "%q" .name}}'
+  auto:
+    setting:
+      key: auto-judges
+      values: [on, off]
+      show: "auto-judges: {{.value}}"
+      set: "auto-judges {{if eq .value \"on\"}}enabled{{else}}disabled{{end}}"
+      invalid: "Usage: /judges auto [on|off]"
+  clear: &clear
+    run:
+      - tool: session_ops
+        args: {operation: judges_clear}
+        print: judge panel disabled
+  "off": *clear

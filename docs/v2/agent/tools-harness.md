@@ -20,7 +20,7 @@ Use it for a model that needs guidance repeated more often than its normal place
 
 - The setting persists in `~/.kdeps/harness/<name>.yaml`, the file `/harness enable|disable` uses, and is in [konfig](/agent/konfig) export/import.
 - Reminders are independent of enable and disable. You can turn on a disabled section as a reminder.
-- When a reminder is on, the status line shows `reminder:<names>`.
+- When a reminder is on, the status line shows `reminder:<names>` next to `turo:`.
 
 ## Reminders for /instruct topics
 

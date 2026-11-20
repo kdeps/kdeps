@@ -129,10 +129,13 @@ kdeps --agent-loop --resume abc123def456                      # resume a session
 | Built-in tool catalog, permission modes, lean mode | [Built-in tools](/agent/tools) |
 | Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
 | Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
-| Subagents: the `subagent` tool and knowledge extraction | [Subagents](/agent/subagent) |
-| Review of a workflow chat answer | [Judge panel](/agent/judges) |
+| Rewriting each prompt for clarity before the turn | [Prompt refinement](/agent/refine) |
+| A council's plan before the turn, and the progress file | [Planning council](/agent/plan) |
+| Subagents: the `subagent` tool, and the model judges, extraction and refinement use | [Subagents](/agent/subagent) |
+| Independent review of the final answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
+| Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
 | Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
 | Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |

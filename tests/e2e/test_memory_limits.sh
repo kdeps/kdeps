@@ -127,7 +127,7 @@ on:
   bytes: 20     # and 20 bytes of each value
 run: truncate
 EOF
-OUT=$(cd "$ML_DIR/work" && printf 'save three facts about e2eterm, then search memory for e2eterm\n/exit\n' \
+OUT=$(cd "$ML_DIR/work" && printf '/refine off\n/turo off\n/judges auto off\nsave three facts about e2eterm, then search memory for e2eterm\n/exit\n' \
     | HOME="$ML_HOME" USERPROFILE="$(to_native_path "$ML_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$ML_PORT/v1" --model fake 2>&1 || true)
@@ -156,7 +156,7 @@ name: memory-tool-results-limit
 items: 1        # keep one capture per tool
 run: cap
 EOF
-OUT=$(cd "$ML_DIR/work2" && printf 'run three echo commands, then search memory for e2ecap\n/exit\n' \
+OUT=$(cd "$ML_DIR/work2" && printf '/refine off\n/turo off\n/judges auto off\nrun three echo commands, then search memory for e2ecap\n/exit\n' \
     | HOME="$ML_HOME2" USERPROFILE="$(to_native_path "$ML_HOME2")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$ML_PORT/v1" --model fake 2>&1 || true)

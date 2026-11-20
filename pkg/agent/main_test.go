@@ -34,6 +34,7 @@ func TestMain(m *testing.M) {
 		os.Setenv("HOME", home)
 		os.Setenv("USERPROFILE", home)
 	}
+	os.Setenv("KDEPS_TURO", "off")
 	os.Setenv("GIT_CEILING_DIRECTORIES", testCeilings())
 	SetConvergenceLimits(1_000_000, 1_000_000, 1_000_000, 1_000_000)
 	code := m.Run()

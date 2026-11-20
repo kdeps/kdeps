@@ -111,6 +111,7 @@ scenario test_workflow_chat_rounds.sh
 scenario test_workflow_reply_clean.sh
 scenario test_workflow_body_limit.sh
 scenario test_workflow_chat_harness.sh
+scenario test_workflow_chat_refine.sh
 scenario test_workflow_chat_skills.sh
 scenario test_workflow_chat_nudges.sh
 scenario test_workflow_chat_memory_tools.sh
@@ -165,6 +166,7 @@ scenario test_knowledge_git.sh
 scenario test_declared_tools.sh
 scenario test_agent_self_limit.sh
 scenario test_agent_unbacked_claim.sh
+scenario test_agent_judge_roster.sh
 scenario test_agent_workflow_tool_params.sh
 scenario test_workflow_stdin_repl.sh
 scenario test_agent_tool_budget.sh
@@ -175,8 +177,12 @@ scenario test_agent_tool_schemas.sh
 scenario test_agent_subagent.sh
 scenario test_agent_approve.sh
 scenario test_agent_ask_question.sh
+scenario test_agent_plan_council.sh
 scenario test_providers.sh
 scenario test_publish_resources.sh
+scenario test_agent_refine.sh
+scenario test_agent_efficiency.sh
+scenario test_agent_prompt_summary.sh
 scenario test_agent_instruct.sh
 scenario test_agent_commands.sh
 scenario test_agent_edit_md5.sh

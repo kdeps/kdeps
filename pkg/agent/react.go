@@ -107,6 +107,9 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 			break
 		}
 
+		// Execute the tool and add the observation. The user sees the raw tool
+		// output; the copy fed back to the LLM is routed through turo (when
+		// active) so tool output is reduced like everything else in the prompt.
 		observation := l.dispatchReactTool(toolName, toolInput)
 		fmt.Fprintf(w, "\nObservation: %s\n", observation)
 

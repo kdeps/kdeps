@@ -240,3 +240,20 @@ func TestPageLinesNonInteractive(t *testing.T) {
 		t.Fatalf("got %q", out)
 	}
 }
+
+func TestTuroCommandUnavailable(t *testing.T) {
+	r := NewREPL(context.Background(), makeTestLoop(nil))
+	defer r.cancel()
+	oldOut, oldErr := os.Stdout, os.Stderr
+	rd, wr, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		t.Fatal(pipeErr)
+	}
+	os.Stdout = wr
+	os.Stderr = wr
+	_ = r.dispatchCommand("/turo")
+	_ = r.dispatchCommand("/turo not-a-valid-flag-xyz")
+	_ = wr.Close()
+	os.Stdout, os.Stderr = oldOut, oldErr
+	_, _ = io.ReadAll(rd)
+}

@@ -180,10 +180,10 @@ kdeps gives the name of an item that fails for a different reason. If other item
 - Sets with no necessary items (`events`, `actions`, `presets`) stay empty. kdeps records them as empty in `lock.json`, so the next start makes no network call.
 - If a necessary item is not installed when code reads it, kdeps installs it one time, on first use. The terminal shows its name: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).
 - A Go built-in command (`builtin: true`) runs without its file. The file only adds it to `/help`.
-- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/review`) exists only when installed. `kdeps install commands/review` adds `/review`. `kdeps install commands` adds all.
+- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/refine` or `/review`) exists only when installed: `kdeps install commands/refine` adds `/refine`, `kdeps install commands` adds all.
 - You cannot uninstall a necessary item.
 
-A switch to a smaller profile prunes items. `kdeps profile minimum` after `agent` or `full` deletes all items that are not in the new profile (`docker/image  remove  not in the profile`). A set that is not in the profile also loses its necessary items. The base sets and the sets of the agent loop are exceptions. If you install an item by name later, `kdeps update` keeps it.
+A switch to a smaller profile prunes items. `kdeps profile minimum` after `agent` or `full` deletes all items that are not in the new profile (`commands/efficiency  remove  not in the profile`). A set that is not in the profile also loses its necessary items. The base sets and the sets of the agent loop are exceptions. If you install an item by name later, `kdeps update` keeps it.
 
 With no profile chosen (no terminal, no `KDEPS_PROFILE`), a command installs each set it loads in full on first need (`kdeps export` installs `docker` and `k8s`). Either way, a workflow that calls a missing component downloads it on that call:
 
@@ -246,8 +246,8 @@ In the REPL, `/update`, `/update check`, `/update list` and `/update remove <ite
 A removed item stays hidden until you update it by name. The model does not see a removed tool. kdeps does not send a removed harness section. kdeps does not list a removed theme or template. You cannot remove these items:
 
 - `themes/normal`
-- the internal harness prompts: compaction, judges, and branch summaries
-- the loop's control tools: `judge_verdict` and `session_ops`
+- the internal harness prompts: compaction, judges, prompt refinement, session handshake
+- the loop's control tools: `judge_verdict`, `session_handshake`, `session_ops`
 - the model registries: `models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`
 
 `/harness disable <name>` turns off a harness section. It does not remove the section.

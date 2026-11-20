@@ -79,6 +79,9 @@ func sessionOpTable() map[string]sessionOp {
 	for op, fn := range harnessOps {
 		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
 	}
+	for op, fn := range judgesOps {
+		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
+	}
 	for op, fn := range modelOps {
 		ops[op] = func(r *REPL, _ context.Context, args map[string]any) (map[string]any, error) { return fn(r, args) }
 	}

@@ -62,4 +62,7 @@ func DesktopWireREPL(repl *agent.REPL) {
 	repl.SetSaveTuningFn(func(t agent.ToolTuning) error {
 		return tui.SaveAgentLoopTuning(tui.AgentLoopTuning(t))
 	})
+	if s, err := tui.LoadSettings(); err == nil && s.AgentLoop != nil {
+		repl.SetAutoJudges(s.AgentLoop.AutoJudges)
+	}
 }

@@ -56,7 +56,8 @@ type Preset struct {
 	Description string             `yaml:"description"`
 	Harness     []yamlHarnessEntry `yaml:"harness,omitempty"`
 	Events      []Event            `yaml:"events,omitempty"`
-	// Judges is the panel a workflow chat names with judgePreset.
+	// Judges, when set, replaces the session's judge panel (same shape as a
+	// workflow chat's judges:, graders included).
 	Judges []domain.Judge `yaml:"judges,omitempty"`
 }
 
@@ -170,8 +171,9 @@ func exportPresetEntries() []Preset {
 // both registries immediately. Scoped narrowly: unlike ApplyKonfig, it
 // never touches tuning/registry/theme/skills/actions, so switching presets
 // can never clobber a persisted setting the preset doesn't mention. A preset
-// Errors if name isn't a registered preset. The loop argument is unused.
-func ApplyPreset(name string, _ *Loop) error {
+// Errors if name isn't a registered preset. A preset with judges sets them
+// on l when l is not nil.
+func ApplyPreset(name string, l *Loop) error {
 	p, ok := PresetByName(name)
 	if !ok {
 		return fmt.Errorf("presets: unknown preset %q", name)
@@ -184,5 +186,8 @@ func ApplyPreset(name string, _ *Loop) error {
 	}
 	initHarness()
 	initEvents()
+	if l != nil && len(p.Judges) > 0 {
+		l.SetJudges(p.Judges)
+	}
 	return nil
 }

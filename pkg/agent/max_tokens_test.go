@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -157,8 +158,9 @@ func TestBuildChatConfig_OutputTokenCapWins(t *testing.T) {
 }
 
 // Compaction and branch summary stay on syntheticCallMaxTokens (the model
-// ceiling). Each path below captures the real *domain.Workflow passed to
-// engine.Execute.
+// ceiling). Refine and
+// the judge roster use sideCallMaxTokens. Each path below captures the real
+// *domain.Workflow passed to engine.Execute.
 
 func TestCompactWithLLM_MaxTokens_LocalBackend(t *testing.T) {
 	orig := executorLLM.LocalContextSize()
@@ -278,4 +280,86 @@ func TestSummarizeBranch_MaxTokens_UnknownCloudModel(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, captured, "branch summary workflow was not captured")
 	assert.Nil(t, captured.Resources[0].Chat.MaxTokens)
+}
+
+func TestGenerateJudgeRoster_MaxTokens_LocalBackend(t *testing.T) {
+	orig := executorLLM.LocalContextSize()
+	executorLLM.SetLocalContextSize(16384)
+	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
+
+	var captured *domain.Workflow
+	eng := executor.NewEngine(context.Background(), nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		captured = wf
+		return `{"judges":[{"persona":"reviewer","criteria":"checks correctness"}]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{
+		Model: "test-gguf", Backend: executorLLM.BackendGGUF, BaseURL: "http://127.0.0.1:9",
+	}}
+
+	generateJudgeRoster(l, "review this PR")
+	require.NotNil(t, captured, "judge-roster workflow was not captured")
+	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
+}
+
+func TestGenerateJudgeRoster_MaxTokens_UnknownCloudModel(t *testing.T) {
+	var captured *domain.Workflow
+	eng := executor.NewEngine(context.Background(), nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		captured = wf
+		return `{"judges":[{"persona":"reviewer","criteria":"checks correctness"}]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{
+		Model: "totally-custom-unlisted-model", Backend: "openai",
+	}}
+
+	generateJudgeRoster(l, "review this PR")
+	require.NotNil(t, captured, "judge-roster workflow was not captured")
+	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
+}
+
+func TestRefinePrompt_MaxTokens_KnownCloudModel(t *testing.T) {
+	var captured *domain.Workflow
+	eng := executor.NewEngine(context.Background(), nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		captured = wf
+		return "Add a --dry-run flag to the sync command and cover it with a unit test.", nil
+	})
+	l := &Loop{
+		engine:   eng,
+		workflow: newTestWorkflowForSession(),
+		config:   Config{Model: "gpt-4o", Backend: "openai"},
+	}
+	refinePrompt(context.Background(), l, "add a dry-run flag to the sync command and cover it with a unit test")
+	require.NotNil(t, captured, "refine workflow was not captured")
+	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
+	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
+}
+
+func TestSideCallMaxTokens_DisabledOrZeroFallsBack(t *testing.T) {
+	orig := eventRegistry
+	t.Cleanup(func() { eventRegistry = orig })
+
+	disabled := *orig[eventSideCallMaxTokens]
+	disabled.Disabled = true
+	reg := maps.Clone(orig)
+	reg[eventSideCallMaxTokens] = &disabled
+	eventRegistry = reg
+	assert.Nil(t, sideCallMaxTokens("openai", "totally-custom-unlisted-model"))
+
+	zero := *orig[eventSideCallMaxTokens]
+	zero.On.Tokens = 0
+	reg = maps.Clone(orig)
+	reg[eventSideCallMaxTokens] = &zero
+	eventRegistry = reg
+	assert.Nil(t, sideCallMaxTokens("openai", "totally-custom-unlisted-model"))
+
+	origSize := executorLLM.LocalContextSize()
+	executorLLM.SetLocalContextSize(16384)
+	t.Cleanup(func() { executorLLM.SetLocalContextSize(origSize) })
+	got := sideCallMaxTokens(executorLLM.BackendGGUF, "x")
+	require.NotNil(t, got)
+	assert.Equal(t, 16384, *got)
 }

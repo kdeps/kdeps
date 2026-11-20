@@ -334,6 +334,9 @@ type ChatConfig struct {
 	// Harness names agent mode's preamble sections (accuracy, honesty,
 	// output, ...) to add to the system prompt, in order.
 	Harness []string `yaml:"harness,omitempty"`
+	// Refine rewrites the prompt into a clearer, self-contained request
+	// before the call, as agent mode's /refine does (refine-system harness).
+	Refine bool `yaml:"refine,omitempty"`
 	// Skills lists skill folders or SKILL.md files; relative paths resolve
 	// against the run's working folder, as a python scriptFile does. Their
 	// names go in the system prompt and the model reads one in full with the
@@ -438,6 +441,11 @@ type ChatLoopConfig struct {
 	Tools []string `yaml:"tools,omitempty"`
 	// MaxRounds caps tool rounds per request. 0 uses the agent default.
 	MaxRounds int `yaml:"maxRounds,omitempty"`
+	// Plan runs the planning council before a task. Opt-in: true turns it on.
+	Plan *bool `yaml:"plan,omitempty"`
+	// Judges reviews each answer with an automatic judge roster. Opt-in:
+	// true turns it on; listed guardrails.judges replace it.
+	Judges *bool `yaml:"judges,omitempty"`
 	// Session is the conversation id, usually an expression such as
 	// "{{ get('session') }}". Requests with the same id continue one stored
 	// conversation; empty starts a new one every request.

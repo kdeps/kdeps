@@ -1,0 +1,8 @@
+version: 1.0.0
+name: plan-council-members
+kind: standalone
+# One seat per line, "name: focus". The first plan-council-size seats sit.
+body: |-
+  architect: the overall approach, structure, and what to change where
+  implementer: the concrete steps, files, and commands to get it done
+  reviewer: risks, edge cases, tests, and how to verify the result is correct

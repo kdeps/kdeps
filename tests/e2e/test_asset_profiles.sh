@@ -159,7 +159,7 @@ OUT=$(ap "$MN" "$KDEPS_BIN" profile agent)
 HELP=$(ap_loop "$MN" '/help\n/quit\n')
 N=$(help_commands "$HELP" | wc -l | tr -d ' ')
 if [ "$(lock_field "$MN" profile)" = "agent" ] && [ "$(set_count "$MN" commands)" = "$TOTAL_COMMANDS" ] &&
-    help_commands "$HELP" | grep -qx "/recall" && help_commands "$HELP" | grep -qx "/review" && [ "$N" -gt 20 ] &&
+    help_commands "$HELP" | grep -qx "/recall" && help_commands "$HELP" | grep -qx "/refine" && [ "$N" -gt 20 ] &&
     [ -f "$MN/store/tools/web_search.yaml" ] && [ "$(lock_field "$MN" empty)" = "None" ]; then
     test_passed "asset profiles - kdeps profile agent installs every command; /help lists them ($N)"
 else
@@ -168,9 +168,9 @@ fi
 
 # --- back to minimum: pruned -------------------------------------------------
 OUT=$(ap "$MN" "$KDEPS_BIN" profile minimum)
-if output_grep "commands/review" "$OUT" && output_grep "not in the profile" "$OUT" &&
-    [ "$(set_count "$MN" commands)" = "21" ] && [ ! -f "$MN/store/tools/web_search.yaml" ] &&
-    [ -f "$MN/store/tools/session_ops.yaml" ] && [ ! -d "$MN/store/events" ] || [ "$(set_count "$MN" events)" = "0" ]; then
+if output_grep "commands/refine" "$OUT" && output_grep "not in the profile" "$OUT" &&
+    [ "$(set_count "$MN" commands)" = "23" ] && [ ! -f "$MN/store/tools/web_search.yaml" ] &&
+    [ -f "$MN/store/tools/session_handshake.yaml" ] && [ ! -d "$MN/store/events" ] || [ "$(set_count "$MN" events)" = "0" ]; then
     test_passed "asset profiles - kdeps profile minimum prunes what agent added, keeps required items"
 else
     test_failed "asset profiles - prune to minimum" "commands=$(set_count "$MN" commands) $OUT"
@@ -181,31 +181,31 @@ if [ "$(help_commands "$HELP" | tr '\n' ' ' | sed 's/ $//')" = "$CORE" ]; then
 else
     test_failed "asset profiles - /help after pruning" "$(help_commands "$HELP" | tr '\n' ' ')"
 fi
-if ! grep -q '"commands/review"' "$MN/store/lock.json"; then
+if ! grep -q '"commands/refine"' "$MN/store/lock.json"; then
     test_passed "asset profiles - pruned items are forgotten in the lock"
 else
     test_failed "asset profiles - lock after prune" "$(head -c 600 "$MN/store/lock.json")"
 fi
 
 # --- single items -------------------------------------------------------------
-OUT=$(ap "$MN" "$KDEPS_BIN" install commands/review)
+OUT=$(ap "$MN" "$KDEPS_BIN" install commands/refine)
 HELP=$(ap_loop "$MN" '/help\n/quit\n')
-if [ -f "$MN/store/commands/review.yaml" ] && help_commands "$HELP" | grep -qx "/review" &&
-    [ "$(help_commands "$HELP" | wc -l | tr -d ' ')" = "22" ]; then
+if [ -f "$MN/store/commands/refine.yaml" ] && help_commands "$HELP" | grep -qx "/refine" &&
+    [ "$(help_commands "$HELP" | wc -l | tr -d ' ')" = "24" ]; then
     test_passed "asset profiles - installing one command file lists it in /help"
 else
     test_failed "asset profiles - install one command" "$OUT $(help_commands "$HELP" | tr '\n' ' ')"
 fi
 OUT=$(ap "$MN" "$KDEPS_BIN" update)
-if [ -f "$MN/store/commands/review.yaml" ] && [ "$(set_count "$MN" commands)" = "22" ]; then
+if [ -f "$MN/store/commands/refine.yaml" ] && [ "$(set_count "$MN" commands)" = "24" ]; then
     test_passed "asset profiles - a bare update keeps an item installed by name, adds nothing else"
 else
     test_failed "asset profiles - bare update" "commands=$(set_count "$MN" commands) $OUT"
 fi
-OUT=$(ap "$MN" "$KDEPS_BIN" uninstall commands/review)
-HELP=$(ap_loop "$MN" '/help\n/review\n/quit\n')
-# /review is a YAML command, so without its file it does not exist.
-if ! help_commands "$HELP" | grep -qx "/review" && output_grep "Unknown command: /review" "$HELP"; then
+OUT=$(ap "$MN" "$KDEPS_BIN" uninstall commands/refine)
+HELP=$(ap_loop "$MN" '/help\n/refine\n/quit\n')
+# /refine is a YAML setting: command, so without its file it does not exist.
+if ! help_commands "$HELP" | grep -qx "/refine" && output_grep "Unknown command: /refine" "$HELP"; then
     test_passed "asset profiles - uninstalling a YAML command file removes the command"
 else
     test_failed "asset profiles - uninstall one command" "$OUT $HELP"

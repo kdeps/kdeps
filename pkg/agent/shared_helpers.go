@@ -24,6 +24,7 @@ package agent
 
 import (
 	"io"
+	"strings"
 )
 
 // progressWriter picks where a live status notice goes: Config.ProgressWriter
@@ -34,4 +35,65 @@ func (l *Loop) progressWriter(w io.Writer) io.Writer {
 		return l.config.ProgressWriter
 	}
 	return w
+}
+
+// looksTrivial reports whether input is too short and single-line to be worth
+// a judge roster or a prompt-refine call: a question, a greeting, or a one-off
+// task obvious enough that either synthetic call would just restate it.
+func looksTrivial(input string) bool {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return true
+	}
+	if len(input) > trivialLength(eventTrivialPromptMax, defaultTrivialPromptMax) {
+		return false
+	}
+	// Multi-line input is a spec, not a one-liner.
+	if strings.Contains(input, "\n") {
+		return false
+	}
+	lower := strings.ToLower(input)
+	for _, m := range multiStepMarkers {
+		if strings.Contains(lower, m) {
+			return false
+		}
+	}
+	// A very short remark, or any question under the length cap, has nothing to
+	// decompose. A longer imperative one-liner still gets a planning attempt.
+	short := trivialLength(eventTrivialPromptShort, defaultTrivialPromptShort)
+	return len(input) <= short || strings.HasSuffix(input, "?")
+}
+
+// localModelNotServed reports whether the configured backend is a local
+// model that has not been served yet. Attempting a planning/confirmation
+// call in that state would produce a failed engine.Execute instead of a
+// clean degrade, so callers check this before making the call at all.
+func localModelNotServed(l *Loop) bool {
+	if l.config.BaseURL != "" {
+		return false
+	}
+	backend := l.config.Backend
+	return backend == "" || backend == "file" || backend == "gguf"
+}
+
+// Defaults for the trivial-prompt events, used when an event is off.
+const (
+	defaultTrivialPromptMax   = 120
+	defaultTrivialPromptShort = 32
+)
+
+// trivialLength is a trivial-prompt length from its event's items, or the
+// default when the event is off.
+func trivialLength(name string, fallback int) int {
+	n := effectiveItems(name, fallback)
+	if n == disabledSentinel || n < 1 {
+		return fallback
+	}
+	return n
+}
+
+//nolint:gochecknoglobals // fixed list of trivial-prompt markers
+var multiStepMarkers = []string{
+	" then ", " and then ", " after that ", " finally ", ";",
+	"step 1", "step one", " also ", " as well as ",
 }

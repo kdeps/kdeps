@@ -126,6 +126,22 @@ with the output of the last run
 A file that exists has priority over a memory id with the same name. kdeps does
 not change an unknown id in the text.
 
+## Prompt refinement
+
+Before each turn, kdeps can run one low-cost LLM call. This call rewrites a
+short or incomplete prompt into a clearer, self-contained version. The turn
+then runs on the rewrite. It is off by default. `/refine on` turns it on and
+saves the setting. A session that already stored refine-on stays on.
+
+When refinement changes the prompt, the REPL prints
+`[refine] -> <rewritten prompt>` before the work starts. kdeps saves the
+rewrite to the session. To change the setting, use `/refine on|off` (saved to
+`~/.kdeps/agent-loop-settings.yaml`). For more data, see [Prompt refinement](/agent/refine).
+
+## Planning council
+
+Before a task that is worth planning, a council of members drafts an approach, revises it after they read the other drafts, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
+
 ## Response rendering
 
 The REPL renders the model's markdown responses - headings, bold, lists, tables, and syntax-highlighted code blocks - in color. It finds the color depth of the terminal automatically (truecolor, 256-color, or none) and reduces the palette to match. As a result, colors show correctly on terminals without 24-bit color (for example, macOS Terminal.app), and do not become gray. Output that goes to a file has no color.
@@ -134,7 +150,7 @@ With `/thinking` on, streamed reasoning renders as live markdown in muted gray u
 
 ## Custom harness
 
-The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction and judge prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)). Add your own as `~/.kdeps/harness/<name>.yaml`:
+The harness is every text kdeps sends to shape the model's behavior: tool-use rules, the sandbox-hallucination reinforcement, and the compaction, judge and prompt-refinement system prompts. Each is a YAML file. `kdeps update` installs the built-ins (see [Updating assets](/agent/repl-updating#updating-assets)). Add your own as `~/.kdeps/harness/<name>.yaml`:
 
 ```yaml
 # ~/.kdeps/harness/house-style.yaml
@@ -150,13 +166,21 @@ A `preamble-section` entry is part of the system prompt. The first request of a 
 
 `help` is an alias of that tool. `/instruct` stays a slash command. A section with no `summary` falls back to the first sentence of its body. Shipped sections always declare `summary`.
 
-The default mode is `auto`. Later requests send one summary line per section on backends that do not cache the prompt. Anthropic and OpenAI keep the full text. Set `prompt_mode` to `auto`, `full`, or `summary` in `~/.kdeps/agent-loop-settings.yaml`.
+`/efficiency prompt` chooses that later-request behavior and persists it in `~/.kdeps/agent-loop-settings.yaml`:
+
+```text
+/efficiency prompt auto      # summary on backends that bill the whole prompt every request (default)
+/efficiency prompt full      # always the full sections
+/efficiency prompt summary   # summary after the first send, including Anthropic and OpenAI
+```
+
+`auto` keeps the full text on Anthropic and OpenAI. Those backends cache a stable system prefix, so a shorter prompt on the next request saves almost nothing and drops the cache. Ollama, llamafile, GGUF, and the other backends charge for the prompt on each request, so `auto` sends the summaries there.
 
 A file with a built-in's name (e.g. your own `safety.yaml`) replaces that section, including the safety, accuracy and honesty rules.
 
 Built-in `preamble-section` names: `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, `edit-workflow`.
 
-Built-in `standalone` names: `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `branch-summary`. kdeps finds standalone entries by name, so a new standalone name has no effect.
+Built-in `standalone` names: `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)). kdeps finds standalone entries by name, so a new standalone name has no effect.
 
 `/harness list` shows every section. `/harness enable` and `/harness disable` toggle one and persist it, and the next request sends the full sections again.
 

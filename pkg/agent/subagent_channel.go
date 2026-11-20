@@ -156,6 +156,20 @@ func (l *Loop) subagentChat() (string, string, string) {
 	return model, backend, baseURL
 }
 
+// prepareSubagentCall is subagentChat plus the guards a side call already had: an
+// engine, and a served local model when the call stays on the session's
+// local backend. An empty model name on a cloud backend still runs.
+func (l *Loop) prepareSubagentCall() (string, string, string, bool) {
+	if l == nil || l.engine == nil {
+		return "", "", "", false
+	}
+	model, backend, baseURL := l.subagentChat()
+	if !l.subagentOverrides() && localModelNotServed(l) {
+		return "", "", "", false
+	}
+	return model, backend, baseURL, true
+}
+
 // SetSubagent stores the subagent channel. current uses the session model.
 // free picks a large OpenRouter free model per call. A catalog model is
 // stored as its model_id. Any other name is stored as given.
