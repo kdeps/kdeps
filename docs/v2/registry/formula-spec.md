@@ -27,7 +27,7 @@ license: Apache-2.0                    # optional - SPDX identifier
 |---|---|---|
 | `name` | yes | Unique package name. Lowercase, alphanumeric + hyphens. |
 | `version` | yes | Semantic version (`1.2.0`). One formula per version. |
-| `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. The asset types (`harness`, `event`, `action`, `preset`, `theme`, `tool`, `recipe`, `model`, `template`) are reserved for kdeps's own assets. |
+| `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. The asset types (`harness`, `event`, `action`, `preset`, `tool`, `recipe`, `model`, `template`) are reserved for kdeps's own assets. |
 | `github` | yes | `owner/repo` string. The repo containing the tagged release. |
 | `tarball` | yes | Full URL to the release tarball. Use GitHub's `/archive/refs/tags/v{version}.tar.gz` pattern. |
 | `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps submit --tag`. |
@@ -69,13 +69,13 @@ Example: `cv-matcher`, `research-pipeline`
 
 ### kdeps assets
 
-kdeps publishes its own versioned assets through the same registry. The assets are harness sections, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, and providers. CI writes one formula for each item, with the name `kdeps-<set>-<name>`. The `tarball` is the YAML file of the item in `kdeps/packages`, not an archive. `kdeps update` installs and updates them, and the items under `requires:` of each item ([how](/agent/repl-updating)). The formula has those items as `dependencies`. The asset index records each item's [shelf](/reference/glossary#shelf) as `category`.
+kdeps publishes its own versioned assets through the same registry. The assets are harness sections, events, actions, presets, tool definitions, slash commands, LLM server recipes, model registries, project templates, schemas, components, and providers. CI writes one formula for each item, with the name `kdeps-<set>-<name>`. The `tarball` is the YAML file of the item in `kdeps/packages`, not an archive. `kdeps update` installs and updates them, and the items under `requires:` of each item ([how](/agent/repl-updating)). The formula has those items as `dependencies`. The asset index records each item's [shelf](/reference/glossary#shelf) as `category`.
 
 ```yaml
 # formulas/kdeps-components-web_search.yaml  (written by kdeps CI, not by hand)
 name: kdeps-components-web_search
 version: 1.0.1
-type: kdeps-component    # harness | event | action | preset | theme | tool | command | recipe | model | template | ...
+type: kdeps-component    # harness | event | action | preset | tool | command | recipe | model | template | ...
 github: kdeps/packages
 tarball: https://raw.githubusercontent.com/kdeps/packages/main/assets/components/web_search/1.0.1.yaml
 sha256: 5a2844c4...      # SHA256 of that YAML file

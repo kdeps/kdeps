@@ -82,7 +82,6 @@ kdeps --agent-loop [path] [flags]
 | `--resume` | (none) | Session ID to resume directly (skips the picker) |
 | `--new` | false | Start clean, skipping this folder's resume picker |
 | `--index` | (none) | Search a folder outside the project with it (repeatable): added to the card and indexed first. See [search folders](/agent/knowledge#search-folders) |
-| `--theme` | `normal` | REPL palette. Only `normal` applies. |
 | `--debug` | false | Enable debug logging |
 
 ```bash
@@ -90,7 +89,6 @@ kdeps --agent-loop [path] [flags]
 KDEPS_AGENT_MODEL=llama3.2:1b
 KDEPS_AGENT_BACKEND=file              # default: local llamafile
 KDEPS_AGENT_BASE_URL=http://localhost:11434/v1
-KDEPS_THEME=normal                    # only normal applies
 ```
 
 ### Settings from the workflow
@@ -138,7 +136,7 @@ kdeps --agent-loop --resume abc123def456                      # resume a session
 | Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
 | Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
-| Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |
+| Pasting, rendering, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## The same file
 

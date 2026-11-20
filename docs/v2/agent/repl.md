@@ -131,7 +131,7 @@ not change an unknown id in the text.
 Before each turn, kdeps can run one low-cost LLM call. This call rewrites a
 short or incomplete prompt into a clearer, self-contained version. The turn
 then runs on the rewrite. It is off by default. `/refine on` turns it on and
-saves the setting. A session that already stored refine-on stays on.
+saves the setting. A workflow chat uses `harness.refine: true`.
 
 When refinement changes the prompt, the REPL prints
 `[refine] -> <rewritten prompt>` before the work starts. kdeps saves the
@@ -140,7 +140,7 @@ rewrite to the session. To change the setting, use `/refine on|off` (saved to
 
 ## Planning council
 
-Before a task that is worth planning, a council of members drafts an approach, revises it after they read the other drafts, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is on unless `/plan off` (persists to `~/.kdeps/agent-loop-settings.yaml`). Full details: [Planning council](/agent/plan).
+Before a task that is worth planning, a council of members drafts an approach, revises it after they read the other drafts, and ranks the job orders. The turn carries that plan and a progress file. The prompt you typed stays as you typed it. The council is off by default. `/plan on` turns it on and persists to `~/.kdeps/agent-loop-settings.yaml`. A workflow chat uses `harness.plan: true`. Full details: [Planning council](/agent/plan).
 
 ## Response rendering
 
@@ -166,21 +166,13 @@ A `preamble-section` entry is part of the system prompt. The first request of a 
 
 `help` is an alias of that tool. `/instruct` stays a slash command. A section with no `summary` falls back to the first sentence of its body. Shipped sections always declare `summary`.
 
-`/efficiency prompt` chooses that later-request behavior and persists it in `~/.kdeps/agent-loop-settings.yaml`:
-
-```text
-/efficiency prompt auto      # summary on backends that bill the whole prompt every request (default)
-/efficiency prompt full      # always the full sections
-/efficiency prompt summary   # summary after the first send, including Anthropic and OpenAI
-```
-
-`auto` keeps the full text on Anthropic and OpenAI. Those backends cache a stable system prefix, so a shorter prompt on the next request saves almost nothing and drops the cache. Ollama, llamafile, GGUF, and the other backends charge for the prompt on each request, so `auto` sends the summaries there.
+The default mode is `auto`. Later requests send one summary line per section on backends that do not cache the prompt. Anthropic and OpenAI keep the full text. Set `prompt_mode` to `auto`, `full`, or `summary` in `~/.kdeps/agent-loop-settings.yaml`.
 
 A file with a built-in's name (e.g. your own `safety.yaml`) replaces that section, including the safety, accuracy and honesty rules.
 
 Built-in `preamble-section` names: `memory`, `tools`, `narration`, `autonomy`, `safety`, `errors`, `scope`, `accuracy`, `honesty`, `code`, `output`, `internals`, `use-kdeps-tools`, `edit-workflow`.
 
-Built-in `standalone` names: `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `branch-summary`, `handshake` (see [Session-integrity handshake](/agent/tools-handshake#session-integrity-handshake)). kdeps finds standalone entries by name, so a new standalone name has no effect.
+Built-in `standalone` names: `tools-reminder`, `skills-preamble`, `compaction-system`, `compaction-user`, `compaction-update-user`, `judge-roster-system`, `judge-system`, `refine-system`, `plan-council-*`, `branch-summary`. kdeps finds standalone entries by name, so a new standalone name has no effect.
 
 `/harness list` shows every section. `/harness enable` and `/harness disable` toggle one and persist it, and the next request sends the full sections again.
 
@@ -212,7 +204,7 @@ When a tool stalls (no output for the stall-timeout duration), the default is to
 
 | Topic | Page |
 |---|---|
-| Look, the normal palette, the context-path status line | [Themes](/agent/repl-themes) |
+| Model name, spinner, the context-path status line | [Status line](/agent/repl-status) |
 | Token budget, compaction, fold | [Context window](/agent/repl-context) |
 | Per-folder history and the resume picker | [Sessions](/agent/repl-sessions) |
 | `/upgrade`, nightly, and a pinned version | [Updating kdeps](/agent/repl-updating) |

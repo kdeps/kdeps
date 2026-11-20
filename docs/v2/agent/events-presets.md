@@ -59,7 +59,7 @@ Each preset requires the components whose tools its budget events limit: `web_se
 
 ## Applying a preset
 
-A preset writes each tuned event to its `~/.kdeps/events/<name>.yaml` override (the same file `/harness events disable` writes) and reloads the registry. There is no separate preset state to drift. A preset never touches tuning, registry, theme, skills or actions settings.
+A preset writes each tuned event to its `~/.kdeps/events/<name>.yaml` override (the same file `/harness events disable` writes) and reloads the registry. There is no separate preset state to drift. A preset never touches tuning, registry, skills or actions settings.
 
 ## Authoring a preset
 

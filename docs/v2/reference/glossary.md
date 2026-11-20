@@ -50,7 +50,6 @@ a `chat` with `loop:` inside it, and `kdeps --agent-loop` opens it as a REPL.
 | `sql` | A kdeps component (`component: sql`) for SQL against PostgreSQL, MySQL, SQLite, SQL Server or Oracle. Parameterized queries prevent injection. | [SQL](/workflow/resources/sql) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/workflow/resources/llm-backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set as `targetActionId:` under `metadata:`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/workflow/configuration) |
-| <a id="theme"></a>theme | The agent-loop REPL palette. Only `normal` applies. `--theme` and `KDEPS_THEME` accept that name. Prompts, responses, and logs stay the same. | [Themes](/agent/repl-themes) |
 | tools | Functions registered with the LLM. In the REPL, tools are whole workflows and components. On a chat resource, tools are the functions in `tools:`. | [Built-in tools](/agent/tools). [Function calling](/workflow/tools) |
 | <a id="validations"></a>`validations` | A resource-level block with `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. | [Validation and control flow](/workflow/validation) |
 | workflow | The top-level unit of execution: a YAML file defining resources, dependencies, and configuration. Declared as `kind: Workflow`. | [workflow.yaml](/workflow/configuration) |

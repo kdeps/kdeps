@@ -1,8 +1,6 @@
-# Themes
+# Status line
 
-The REPL palette is `normal`. It changes rendering only. Prompts, responses, and logs stay the same. The other REPL behaviors stay on [REPL features](/agent/repl).
-
-`--theme` and `KDEPS_THEME` accept `normal`. Any other name leaves the palette unchanged. A file in `~/.kdeps/themes/` does not change it.
+The REPL status line shows the model, the token counts, and the call budgets. The REPL uses one fixed color palette. The other REPL behaviors are on [REPL features](/agent/repl).
 
 ## Model name
 

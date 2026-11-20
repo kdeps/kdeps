@@ -1,4 +1,4 @@
-version: 2.0.0
+version: 2.1.0
 # kdeps update installs these with this command: what its run steps use
 requires:
   tools/session_ops: ""
@@ -6,7 +6,7 @@ name: konfig
 order: 310
 usage:
   - args: "export [path]"
-    help: "Export tuning, harness, themes, and skills to a self-contained YAML file (default ./konfig.yaml)"
+    help: "Export tuning, harness, and skills to a self-contained YAML file (default ./konfig.yaml)"
   - args: "import [path]"
     help: "Apply a konfig file (default ./konfig.yaml)"
 subcommands:
@@ -14,9 +14,9 @@ subcommands:
     run:
       - tool: session_ops
         args: {operation: konfig_export, path: "${1:-./konfig.yaml}"}
-        print: "Exported {{.harness}} harness section(s), {{.themes}} theme(s), {{.events}} event(s), {{.actions}} action(s), {{.skills}} skill(s) to {{.path}}"
+        print: "Exported {{.harness}} harness section(s), {{.events}} event(s), {{.actions}} action(s), {{.skills}} skill(s) to {{.path}}"
   import:
     run:
       - tool: session_ops
         args: {operation: konfig_import, path: "${1:-./konfig.yaml}"}
-        print: "Imported {{.harness}} harness section(s), {{.themes}} theme(s), {{.events}} event(s), {{.actions}} action(s), {{.skills}} skill(s) from {{.path}}{{if .skills}} (restart to pick up imported skills){{end}}"
+        print: "Imported {{.harness}} harness section(s), {{.events}} event(s), {{.actions}} action(s), {{.skills}} skill(s) from {{.path}}{{if .skills}} (restart to pick up imported skills){{end}}"

@@ -30,7 +30,6 @@ Five YAML sets configure the agent loop. They are configuration data, not callab
 | `events/` | `assets/events/` (names generated into `pkg/agent/events_gen.go`) | Limits that start an action, such as compact, fold, and judge rounds |
 | `actions/` | `pkg/agent/actions.go` | The action names an event can run |
 | `presets/` | `pkg/agent/presets.go` | Named bundles of event and harness settings (`/harness preset`) |
-| `themes/` | `pkg/agent/theme_yaml.go` | The REPL palette. Only `normal` ships |
 
 Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
 
@@ -59,7 +58,7 @@ declared: "assets/tools/X.yaml\nhttp: or exec:" {shape: diamond}
 command: "/name" {shape: oval}
 commands: "POST /apis/commands.kdeps.io/v1/commands/X/call"
 cmdasset: "assets/commands/X.yaml"
-loop: "agent loop reads\nharness, events, actions,\npresets, themes" {shape: oval}
+loop: "agent loop reads\nharness, events, actions,\npresets" {shape: oval}
 
 workflow -> component
 component -> tools: "kdeps.api"

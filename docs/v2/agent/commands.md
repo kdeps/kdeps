@@ -36,7 +36,6 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
-| `/theme [name\|list]` | Show or set the REPL's look - `normal` (default), `black`, `linux`, `vim`, `emacs`, or a custom name from `~/.kdeps/themes/` (see [Themes](/agent/repl-themes#themes)); `list` shows built-in and custom names separately; persists. Also `--theme` / `KDEPS_THEME` at startup |
 | `/context` | Show current context window size |
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
@@ -51,13 +50,6 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/approve [<token_id>]` | List approval tokens, or grant a pending one. Only you can grant; the agent cannot (see [Approval tokens](/agent/approvals)) |
 | `/subagent` | Show the model subagents use: judges, knowledge extraction, prompt refinement, the planning council and the `subagent` tool (see [Subagents](/agent/subagent)) |
 | `/subagent current\|free\|<model>` | Use the session model, a large OpenRouter free model chosen per call, or any model. The session model is the default. Persists, and wins over `llm.subagent` |
-| `/efficiency` | Show efficiency enforcement state and limits (see [Efficiency enforcement](/agent/efficiency)) |
-| `/efficiency on\|off` | Enable or disable soft-stopping read-only exploration loops; on by default, persists |
-| `/efficiency verbose on\|off` | Reveal the hidden model-facing channel for debugging; off by default, persists |
-| `/efficiency <setting> <n\|off>` | Set one limit: `reads`, `actions`, `stops`, `tighten`, `web`, `bash`, `file`, `code`; persists |
-| `/efficiency preset <name>` | Overwrite every efficiency value from `frugal`, `balanced` or `thorough` |
-| `/efficiency reset` | Restore the shipped defaults |
-| `/efficiency prompt [auto\|full\|summary]` | After the first full harness send, keep it (`full`), replace each section with its YAML `summary` (`summary`), or do that only on backends that do not cache prompts (`auto`, the default). Persists |
 | `/instruct` | Print a kdeps briefing (what kdeps is, how to call a tool with worked `<invoke>` examples, the live tool catalog, memory, runtime feedback) and append it to history as a settled turn, so the next prompt is primed with it |
 | `/instruct!` | Same briefing, but sent as a **real turn now** - the model reads it and replies with an acknowledgement on the spot. For models that skim injected context |
 | `/instruct <topic>` / `/instruct! <topic>` | Brief on one topic only: `overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files` |
@@ -81,7 +73,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/agent/tools#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl-updating#updating-kdeps)) |
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl-updating#nightly-builds)) |
-| `/update [item[@version]...]` | Update harness, tool definitions, themes, recipes, model registries and templates; no args updates everything (see [Updating assets](/agent/repl-updating#updating-assets)) |
+| `/update [item[@version]...]` | Update harness, tool definitions, recipes, model registries and templates; no args updates everything (see [Updating assets](/agent/repl-updating#updating-assets)) |
 | `/update check` \| `/update list` | Show available asset updates \| every asset with its version and state |
 | `/update remove <item>...` | Remove assets; restore one with `/update <item>` |
 | `/upgrade <version>` | Install an exact version directly, skipping the update check - older than the running build means a downgrade (see [Installing a specific version](/agent/repl-updating#installing-a-specific-version-including-a-downgrade)) |
@@ -94,7 +86,7 @@ Each builtin command is a `commands/<name>.yaml` asset whose `api:` field names 
 | `/harness reminders [list]` | List every harness section with its reminder on/off state (see [Harness reminders](/agent/tools-harness#harness-reminders)) |
 | `/harness reminders <name> on\|off` | Force that section's text onto every LLM prompt and every tool call result, independent of its own enabled/disabled state or normal trigger; persists to `~/.kdeps/harness/<name>.yaml`. A `reminder:<names>` segment appears in the status line (next to `turo:`) while any are active, and disappears when the last one is turned off |
 | `/harness reminders instruct:<topic> on\|off` | Same, for an `/instruct` topic (`overview`, `modes`, `tools`, `available`, `memory`, `feedback`, `files`); a bare topic name also works unless a harness section shares it (`tools`, `memory`). Persists to `~/.kdeps/agent-loop-settings.yaml` |
-| `/konfig export\|import [path]` | Export or import tuning, harness, themes, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
+| `/konfig export\|import [path]` | Export or import tuning, harness, events, actions, presets, and skills as a self-contained YAML file (default `./konfig.yaml`) - see [konfig](/agent/konfig) |
 
 ## Auto-detected commands and files
 
@@ -148,7 +140,6 @@ kdeps scans only text in `"..."` or `'...'`. `can you check df -h for me` trigge
 | `--index <folder>` | Search a folder outside the project with it: added to the card and indexed before the session starts (repeatable) |
 | `--model` / `--backend` / `--base-url` | Override the model for this run |
 | `--system <text>` | Prepend a system prompt |
-| `--theme <name>` | REPL palette. Only `normal` applies. |
 
 kdeps stores sessions and memory under `~/.kdeps/`, separately for each
 directory where `kdeps --agent-loop` runs. See [Sessions](/agent/repl-sessions#sessions).
@@ -343,7 +334,7 @@ run:
 | `search_folders` | - | `project`, `places`, `folders` (`path`, `indexed`) |
 | `search_folder` | `action` (`add` or `remove`), `folder` | `output` |
 | `commands_help` | - | `commands` (`usage`, `help`): every installed command's usage lines, behind `/help` |
-| `konfig_export` | `path` | `path` and the `harness`, `themes`, `events`, `actions`, `skills` counts written |
+| `konfig_export` | `path` | `path` and the `harness`, `events`, `actions`, `skills` counts written |
 | `konfig_import` | `path` | the same counts, read and applied |
 | `pipelines` | - | `/kartographer`'s live numbers: `sent`, `generated`, `total`, `web`/`bash`/`file`/`code` (`calls`, `limit`, `reached`), `turns`, `threshold`, `memory` |
 | `reload` | - | `skills`, `prompts` (counts): rereads skills and prompt templates from disk; behind `/reload` |
@@ -422,7 +413,7 @@ usage:
   - args: "[on|off]"
     help: Show or toggle pre-turn prompt refinement (off by default)
 setting:
-  key: refine        # the session setting: plan, refine, handshake, autocontext, permission, tools, thinking, theme, turo, fold, fold-threshold, fold-items, model-name, auto-judges, efficiency, efficiency-verbose, efficiency-prompt, knowledge, knowledge-build, context or subagent
+  key: refine        # the session setting: plan, refine, autocontext, permission, tools, thinking, turo, fold, fold-threshold, fold-items, model-name, auto-judges, knowledge, knowledge-build, context or subagent
   values: [on, off]  # accepted arguments, matched without case
   show: >-           # Go template; .value is the current value
     {{if eq .value "on"}}prompt refinement is on{{else}}prompt refinement is off - /refine on to enable{{end}}
@@ -438,12 +429,10 @@ setting:
 | `/plan` | `plan` | `on`, `off` | - |
 | `/subagent` | `subagent` | `current`, `free`, or any model id | `.model` (the session model, the pinned API id, or empty while the value is `free`), `.backend` |
 | `/knowledge build` | `knowledge-build` | `manual`, `auto`, `off` | - |
-| `/handshake` | `handshake` | `on`, `off` | - |
 | `/autocontext` | `autocontext` | `on`, `off` | - |
 | `/permission` (alias `/permissions`) | `permission` | `read-only`, `workspace-write`, `danger-full-access`, `ask` | - |
 | `/tools` | `tools` | `full`, `lean` | `.count` (tools in the set), `.available` (false when lean mode trimmed nothing) |
 | `/thinking` | `thinking` | `off`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `auto` | `.budget` (token budget), `.return`, `.model`, `.supported` (false when the model may not reason) |
-| `/theme` | `theme` | every built-in and `~/.kdeps/themes` name (no `values:` needed) | `.builtin`, `.custom` (name lists) |
 | `/turo` | `turo` | `on`, `off`, `lite`, `full`, `ultra`, `wenyan`, `<stage> on`/`<stage> off` | `.available` (false when turo is not installed), `.level`, one field per stage (`.filler`, `.synonyms`, `.gloss`, `.defmatch`, `.arrows`) |
 
 Two more fields shape what the command accepts:
