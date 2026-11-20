@@ -181,6 +181,7 @@ scenario test_agent_instruct.sh
 scenario test_agent_commands.sh
 scenario test_agent_edit_md5.sh
 scenario test_agent_sessions.sh
+scenario test_desktop.sh
 scenario test_repl_model_ollama_server_url.sh
 scenario test_completion_cmd.sh
 scenario test_features_clone_info.sh

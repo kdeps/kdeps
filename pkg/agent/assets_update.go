@@ -70,8 +70,9 @@ func ReloadAssets() {
 	kdepsconfig.ReloadProviders()
 }
 
-// EnsureAssets installs the base set, the agent set, and the project
-// templates without a prompt.
+// EnsureAssets makes what the desktop app loads available without asking
+// (it has no terminal): the base and agent sets and the project templates.
+// Its build and run actions start the CLI, which installs what they need.
 func EnsureAssets(ctx context.Context, w io.Writer) error {
 	return EnsureSets(ctx, w, nil, append(append(slices.Clone(assets.BaseSets), assets.AgentSets...), "templates"))
 }

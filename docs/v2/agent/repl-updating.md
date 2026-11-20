@@ -196,7 +196,7 @@ Offline, a missing set stops the command and names the fix: `kdeps assets docker
 
 ### Update notices and commands
 
-A startup notice shows when there are new published updates. kdeps checks each day and keeps the result in `~/.kdeps/assets/check.json`.
+A startup notice shows when there are new published updates. kdeps checks each day and keeps the result in `~/.kdeps/assets/check.json`. The desktop app shows an **Updates available** button in the top bar.
 
 ```text
 2 asset updates available (harness/safety 1.2.0, tools/read_file 1.1.0). Run kdeps update.

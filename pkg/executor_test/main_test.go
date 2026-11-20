@@ -24,7 +24,8 @@ import (
 )
 
 // TestMain gives the tests an empty home: session storage defaults to
-// ~/.kdeps/sessions.db, which a running kdeps process holds locked.
+// ~/.kdeps/sessions.db, which a running kdeps (CLI or desktop app) holds
+// locked.
 func TestMain(m *testing.M) {
 	home, err := os.MkdirTemp("", "kdeps-test-home")
 	if err == nil {

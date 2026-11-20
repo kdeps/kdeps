@@ -18,7 +18,7 @@ llm:
     - llama3.2                            # one model, or several
 ```
 
-The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
+The [desktop app](/desktop/) reads the same file. The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
 
 The same `workflow.yaml` is the pipeline. `kdeps` runs it. This page is the REPL for a `chat` with `loop:`. To run several workflows as one system, see [Agencies](/agencies/).
 
@@ -95,7 +95,7 @@ KDEPS_THEME=normal                    # only normal applies
 
 ### Settings from the workflow
 
-When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session:
+When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session, in the terminal and the [desktop app](/agent/desktop) alike:
 
 ```yaml
 # resources/assistant.yaml

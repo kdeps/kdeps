@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=kdeps
+Comment=Chat client for the kdeps agent loop
+Exec=kdeps-desktop
+Icon=kdeps
+Terminal=false
+Categories=Development;Utility;
+StartupWMClass=kdeps

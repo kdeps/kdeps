@@ -15,7 +15,7 @@ q -> recall -> notes -> model
 card -> model
 ```
 
-Recall runs on every prompt kdeps sends to a model. It runs on each agent-loop turn and on each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. Compaction skips it.
+Recall runs on every prompt kdeps sends a model: each agent-loop turn (terminal and desktop app) and each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. Compaction skips it.
 
 A 2,000-note vault holds about a million words, more than any model can read. With recall, a question typically reads a routing table, one card and a handful of notes.
 

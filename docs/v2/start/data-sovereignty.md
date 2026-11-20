@@ -12,7 +12,7 @@ With kdeps, you run the full AI stack on servers that you control, in the region
 ```d2
 direction: right
 
-U: "CLI\non each machine" {shape: oval}
+U: "Desktop app and CLI\non each machine" {shape: oval}
 W: "Workflows\non your server"
 L: "LLM server\nyou run"
 D: "Your data\n(files, DBs, repos)"
@@ -32,13 +32,14 @@ Everything on the solid path stays inside your boundary. The dashed path only ex
 
 kdeps is open source. Anyone can run it on their own machine. A public agency or a private institution is one use case.
 
-The same [coding CLI](/agent/) runs for every row below. Point it at a model server you run, or at a local model. The name of the organization does not matter.
+The same [desktop app](/desktop/) and [coding CLI](/agent/) run for every row below. Point them at a model server you run, or at a local model. The name of the organization does not matter.
 
-Three jobs, in this order:
+Four jobs, in this order:
 
 1. The [LLM server](/llm-server/) they run, on machines they control. One open model, or several.
-2. The [coding CLI](/agent/). It talks to that server, or to a local model.
-3. The rule on this page: prompts, code, and files stay inside that boundary.
+2. The [desktop app](/desktop/). It talks to that server, or to a local model.
+3. The [coding CLI](/agent/). Same server, or the same local model.
+4. The rule on this page: prompts, code, and files stay inside that boundary.
 
 | Who | Data that stays in | Lead with |
 |---|---|---|
@@ -48,13 +49,13 @@ Three jobs, in this order:
 | Hospitals and insurers | Patient records | Their datacenter server |
 | Banks | Customer and trading data | Their datacenter server |
 | Defense and intelligence | Classified work | The air-gapped appliance |
-| A company that keeps customer files off a public chat | Customer files | The CLI, then where the prompt goes |
+| A company that keeps customer files off a public chat | Customer files | The desktop, then where the prompt goes |
 
-The first row is the default. The other rows are the same three jobs with a different boundary.
+The first row is the default. The other rows are the same four jobs with a different boundary.
 
-## CLI to a private LLM server
+## Desktop app to a private LLM server
 
-The CLI sends prompts to an LLM server you run. Files stay on the machine where the CLI is open.
+The desktop app sends prompts to an LLM server you run. Files stay on the machine where the app is open.
 
 ```d2
 direction: down
@@ -62,12 +63,12 @@ direction: down
 W: "1. On the server\nkdeps llm wizard" {shape: oval}
 L: "2. Private LLM server\n/v1 on your network"
 Y: "3. Client config\nllm.base_url"
-D: "4. CLI\non each machine" {shape: oval}
+D: "4. Desktop app\non each machine" {shape: oval}
 F: "Files and tools\nstay on that machine"
 
 W -> L: "Docker, ISO, or Kubernetes"
 L -> Y: "kdeps llm client-config"
-Y -> D: "config.yaml"
+Y -> D: "Settings, or config.yaml"
 D -> L: "prompts over /v1"
 D -> F: "tools"
 ```
@@ -80,7 +81,7 @@ kdeps llm run --engine ollama --model llama3.2 -p 8000        # or run it here
 kdeps llm client-config --url http://192.168.1.50:8000/v1     # prints the block below
 ```
 
-On each machine, write `base_url:` under `llm:` in `~/.kdeps/config.yaml`. Or paste this:
+On each desktop, open Settings and set the LLM base URL (`base_url:` under `llm:`). Settings writes `~/.kdeps/config.yaml`, the same file the CLI reads. Or paste this:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -92,13 +93,13 @@ llm:
     - llama3.2                            # the model that server is running
 ```
 
-Leave `base_url` unset and the CLI keeps its local model. Engines, GPU, and the full contract are on [kdeps LLM server](/llm-server/#client-contract).
+Leave `base_url` unset and the desktop keeps its local model. Engines, GPU, and the full contract are on [kdeps LLM server](/llm-server/#client-contract).
 
 ## Three ways to keep it inside your boundary
 
 ### 1. The agent REPL on your own machine
 
-Run `kdeps --agent-loop` to open the agent REPL with a local model. The agent has file edits, shell, search, and memory. kdeps sends no data to an external API.
+Run `kdeps --agent-loop` to open the agent REPL with a local model. The agent has file edits, shell, search, and memory. kdeps sends no data to an external API. The [desktop app](/desktop/) is the same agent in a window, with the same local default.
 
 ```bash
 kdeps --agent-loop         # agent REPL, default local llamafile model
@@ -107,14 +108,14 @@ kdeps --agent-loop --model llama3.1:8b  # bigger local model, still fully local
 
 ### 2. Your own LLM server in your own datacenter
 
-Provision a standalone OpenAI-compatible inference appliance on a server you control, then point every client at it. The clients are the [agent REPL](/agent/) and any workflow host. One `base_url` serves all of them. `models:` names one model or several. The steps are [above](#cli-to-a-private-llm-server).
+Provision a standalone OpenAI-compatible inference appliance on a server you control, then point every client at it. The clients are the [desktop app](/desktop/), the [coding CLI](/agent/), and any workflow host. One `base_url` serves all of them. `models:` names one model or several. The desktop steps are [above](#desktop-app-to-a-private-llm-server).
 
 ```bash
 kdeps llm wizard           # pick engine + model, then build/run/export Docker, ISO, or Kubernetes
 ```
 
 ```yaml
-# ~/.kdeps/config.yaml on each CLI and workflow host
+# ~/.kdeps/config.yaml on each desktop, CLI, and workflow host
 llm:
   backend: openai
   base_url: http://192.168.1.50:8000/v1   # your LLM server, your network
@@ -159,6 +160,7 @@ kdeps itself contains no usage telemetry.
 
 - [Local models](/start/local-models) - llamafile and Ollama, fully offline
 - [kdeps LLM server](/llm-server/) - run your own inference appliance
+- [Desktop app](/desktop/) - the same agent in a window, pointed at that server
 - [Coding CLI](/agent/) - the same agent in the terminal, pointed at that server
 - [kdeps deploy](/deploy/) - Docker, Kubernetes, ISO, single binary
 - [Why kdeps?](/start/why-kdeps) - the case for self-hosted, git-native AI

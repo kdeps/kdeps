@@ -72,6 +72,7 @@ const categories: MenuCategory[] = [
       items: [
         { title: 'Overview', desc: 'A chat with loop: in a workflow; its interactive prompt is the agent REPL', link: '/agent/' },
         { title: 'Quickstart', desc: 'Run your first agent', link: '/agent/quickstart' },
+        { title: 'Desktop app', desc: 'The agent in a window. Uses a local model or an LLM server that you run', link: '/desktop/' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools that the LLM can call', link: '/agent/tools' },
         { title: 'Subagents', desc: 'A fresh loop for one task. It sees only that task', link: '/agent/subagent' },
         { title: 'Judge panel', desc: 'Reviews a workflow chat answer before the resource finishes', link: '/agent/judges' },
