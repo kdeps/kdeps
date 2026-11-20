@@ -115,7 +115,7 @@ else
 fi
 
 OUT=$(upd --remove presets/frugal)
-if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.2\.2 +removed" "$(upd --list)"; then
+if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.3\.0 +removed" "$(upd --list)"; then
     test_passed "update --remove removes an item"
 else
     test_failed "update --remove" "$OUT"
@@ -130,7 +130,7 @@ else
 fi
 
 OUT=$(upd presets/frugal)
-if output_grep "presets/frugal +1\.2\.2 +source" "$(upd --list)"; then
+if output_grep "presets/frugal +1\.3\.0 +source" "$(upd --list)"; then
     test_passed "update <item> restores a removed item"
 else
     test_failed "update <item> restore" "$OUT"
@@ -195,19 +195,20 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
     OUT=$(HOME="$MIN_HOME" KDEPS_ASSETS_SRC= KDEPS_COMPONENT_DIR= KDEPS_ASSETS_DIR="$MIN_HOME/store" KDEPS_PROFILE=minimum \
         KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
     if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
-        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ ! -e "$MIN_HOME/store/harness" ] && [ ! -e "$MIN_HOME/store/components" ]; then
-        test_passed "KDEPS_PROFILE=minimum installs only the base sets; validate works"
+        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ -f "$MIN_HOME/store/harness/refine-system.yaml" ] &&
+        [ -d "$MIN_HOME/store/events" ] && [ ! -e "$MIN_HOME/store/components" ]; then
+        test_passed "KDEPS_PROFILE=minimum installs the base and chat sets only; validate works"
     else
         test_failed "KDEPS_PROFILE=minimum first run" "$OUT"
     fi
 
     ITEM_HOME="$FR_DIR/items"
     mkdir -p "$ITEM_HOME"
-    OUT=$(HOME="$ITEM_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$ITEM_HOME/store" KDEPS_PROFILE=tools/bash_exec,presets/balanced \
+    OUT=$(HOME="$ITEM_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$ITEM_HOME/store" KDEPS_PROFILE=tools/bash_exec,harness/safety \
         KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
     if output_grep "Installing the custom profile" "$OUT" && [ -f "$ITEM_HOME/store/tools/bash_exec.yaml" ] &&
-        [ -f "$ITEM_HOME/store/presets/balanced.yaml" ] && [ ! -e "$ITEM_HOME/store/tools/read_file.yaml" ] &&
-        [ ! -e "$ITEM_HOME/store/presets/frugal.yaml" ] && [ -f "$ITEM_HOME/store/schemas/v1.yaml" ]; then
+        [ -f "$ITEM_HOME/store/harness/safety.yaml" ] && [ ! -e "$ITEM_HOME/store/tools/read_file.yaml" ] &&
+        [ ! -e "$ITEM_HOME/store/harness/accuracy.yaml" ] && [ -f "$ITEM_HOME/store/schemas/v1.yaml" ]; then
         test_passed "KDEPS_PROFILE item list installs those items and the base, nothing else"
     else
         test_failed "KDEPS_PROFILE item list" "$OUT"
