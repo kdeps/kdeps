@@ -14,7 +14,7 @@ A chat's keys sit in six groups:
 |---|---|
 | `model` | `name`, `backend`, `timeout`, `streaming`, `thinking`, caching, sampling (`temperature`, `maxTokens`, ...), provider fields (`ollama*`, `google*`, ...) |
 | `context` | `prompt`, `role`, `messages`, `scenario`, `files`, `promptVars`, `goTemplate`, `contextLength`, `fewShot` |
-| `harness` | `sections`, `refine`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
+| `harness` | `sections`, `refine`, `plan`, `turo`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
 | `tools` | `list`, `components`, `choice`, `maxRounds`, `skills` |
 | `rag` | `knowledge`, `retriever` (`passages`, `topK`, `maxTokens`), `chunk` |
 | `guardrails` | `judges`, `judgePreset` |
@@ -42,7 +42,7 @@ chat:
 ```
 
 - On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
-- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`, `loop.judges: true`), the planning council (`loop.plan: true`) and prompt refine (`harness.refine: true`). They add tool access or model calls, so a chat never gets them silently.
+- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`), prompt refine (`harness.refine: true`), the planning council (`harness.plan: true`) and turo (`harness.turo: true`). They add tool access or model calls, so a chat never gets them silently. The same keys work on a chat with `loop:`.
 
 ## Where config lives
 
@@ -464,6 +464,38 @@ chat:
 
 The chat's history is context for the rewrite. A trivial prompt, a failed refine call or an unusable reply keeps the prompt as written.
 
+## Planning council
+
+`plan: true` holds the planning council before the call, as agent mode's `/plan` does. Each member drafts job orders, then all members rank them. The sorted plan goes into the system prompt:
+
+```yaml
+chat:
+  context:
+    prompt: "Triage the outage in {{ get('service') }}."
+  harness:
+    plan: true                   # council calls on the chat's own model, before the real call
+```
+
+```text
+prompt -> council (draft, revise, rank) -> plan in system prompt -> chat call
+```
+
+The members, rounds and job-order cap come from the `plan-council-*` harness entries and events. A council that fails or proposes no job order adds nothing. See [Planning council](/agent/plan).
+
+## Turo
+
+`turo: true` reduces the system prompt and the prompt to fewer tokens with [turo](/agent/turo) before the call. Tool calls, tool results and assistant text stay as they are:
+
+```yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+  harness:
+    turo: true                   # needs the turo binary on PATH (or KDEPS_TURO_PATH); without it, nothing changes
+```
+
+On a local model the prompt is most of the cost of each request, so a shorter prompt answers faster.
+
 ## Skills
 
 `tools.skills` gives the chat the skills of the REPL. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
@@ -493,8 +525,11 @@ chat:
     tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
     maxRounds: 25                              # tool rounds per request; 0 = the agent default
     session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
+  harness:
     plan: true                                 # opt-in: planning council before a task (default false)
-    judges: true                               # opt-in: automatic judge roster (default false; guardrails.judges replace it)
+    refine: true                               # opt-in: rewrite the prompt first (default false)
+  guardrails:
+    judges: auto                               # opt-in: automatic judge roster; a listed roster replaces it
 ```
 
 ```text

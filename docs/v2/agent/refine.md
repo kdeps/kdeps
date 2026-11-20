@@ -10,7 +10,7 @@ your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, 
 ```
 
 **Off by default.** Turn it on with `/refine on`. The choice persists. A
-session that already stored refine-on stays on until `/refine off`.
+workflow chat opts in with `harness.refine: true` (see [workflow chat](/workflow/resources/llm#prompt-refine)).
 
 **You see the rewrite on each turn.** When refinement changes the prompt, the
 REPL prints it before the work starts:

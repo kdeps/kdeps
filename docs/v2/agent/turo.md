@@ -1,6 +1,6 @@
 # Prompt reduction (turo)
 
-`turo` is an optional token reducer for [agent mode](/agent/). When the `turo` binary is on `PATH`, kdeps sends all LLM input through `turo` first. This input is the system preamble, your input, tool results, and conversation history. `turo` keeps code, file paths, and identifiers exactly as they are. If a reduction is not smaller than the input, the original passes through unchanged.
+`turo` is an optional token reducer. In the agent REPL, when the `turo` binary is on `PATH`, kdeps sends all LLM input through `turo` first. A workflow chat opts in with `harness.turo: true` (see [workflow chat](/workflow/resources/llm#turo)); the REPL's `/turo off` does not change it. This input is the system preamble, your input, tool results, and conversation history. `turo` keeps code, file paths, and identifiers exactly as they are. If a reduction is not smaller than the input, the original passes through unchanged.
 
 ```text
 system preamble + input + tool results + history  ->  turo  ->  LLM
