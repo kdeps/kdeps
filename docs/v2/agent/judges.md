@@ -1,6 +1,6 @@
 # Judge panel
 
-The judge panel is the eval. Workflow chats take the same panel as a [`judges:` block](/workflow/resources/llm#judges). It reviews a turn's answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
+The judge panel is the eval. A workflow chat sets it in `guardrails` (a [`judges:` list or `judges: auto`](/workflow/resources/llm#judges), see [Answer quality](/workflow/quality)). The agent REPL uses the same panel. It reviews an answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
 
 Goal enforcement checks that the loop continues to move. It does not check if
 the final answer is correct. The panel is an independent review of that answer,

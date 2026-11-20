@@ -45,7 +45,7 @@ func TestProfile_Targets(t *testing.T) {
 	assert.Equal(t, Registered(), full.Targets(idx))
 
 	minimum, _ := ProfileByName("minimum")
-	assert.Equal(t, BaseSets, minimum.Targets(idx))
+	assert.Equal(t, RunSets(), minimum.Targets(idx), "kdeps run: base sets and the chat sets")
 
 	agent, _ := ProfileByName("agent")
 	got := agent.Targets(idx)

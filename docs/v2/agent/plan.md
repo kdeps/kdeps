@@ -2,7 +2,7 @@
 
 Before a task that needs a plan, a small council agrees on how to do the work. The turn then includes that plan. kdeps does not change the prompt that you typed.
 
-**Off by default.** `/plan on` runs the council before each task, and kdeps remembers the setting. `/plan` shows the current choice. `/plan off` turns it off again. A workflow chat opts in with `harness.plan: true`, with or without `loop:` (see [workflow chat](/workflow/resources/llm#planning-council)).
+**Off by default.** A workflow chat turns it on with `harness.plan: true`, with or without `loop:` (see [Answer quality](/workflow/quality)). In the REPL, `/plan on` runs the council before each task, and kdeps remembers the setting. `/plan` shows the current choice. `/plan off` turns it off again.
 
 ```text
 your prompt -> [refine, if on] -> [council] -> turn, with the plan as a system message

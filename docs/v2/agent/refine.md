@@ -9,8 +9,7 @@ into a clearer, self-contained version. Then the turn runs on the rewrite. The r
 your prompt -> [refine call] -> refined prompt -> normal turn (preamble, tools, judges)
 ```
 
-**Off by default.** Turn it on with `/refine on`. The choice persists. A
-workflow chat opts in with `harness.refine: true` (see [workflow chat](/workflow/resources/llm#prompt-refine)).
+**Off by default.** A workflow chat turns it on with `harness.refine: true` (see [Answer quality](/workflow/quality)). In the REPL, `/refine on` turns it on, and the choice persists.
 
 **You see the rewrite on each turn.** When refinement changes the prompt, the
 REPL prints it before the work starts:

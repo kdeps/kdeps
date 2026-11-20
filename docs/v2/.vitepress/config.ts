@@ -229,6 +229,7 @@ export default defineConfig({
             { text: 'Data access (get/set/input)', link: '/workflow/data-access' },
             { text: 'Templates (Jinja2)', link: '/workflow/templates' },
             { text: 'Function calling', link: '/workflow/tools' },
+            { text: 'Answer quality', link: '/workflow/quality' },
             { text: 'Error handling (onError)', link: '/workflow/error-handling' },
             { text: 'Validation and control', link: '/workflow/validation' },
             { text: 'Test a workflow', link: '/workflow/testing' },

@@ -147,8 +147,8 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 	t.Cleanup(agent.ReloadAssets)
 	t.Cleanup(func() { assets.SetOnDemand(nil) })
 
-	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, assets.BaseSets))
-	assert.Empty(t, assets.MissingOf(assets.BaseSets))
+	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, assets.RunSets()))
+	assert.Empty(t, assets.MissingOf(assets.RunSets()), "kdeps run gets the chat harness and events too")
 	assert.ElementsMatch(t, []string{"templates", "components", "docker", "k8s", "recipes"},
 		assets.MissingOf([]string{"templates", "components", "docker", "k8s", "recipes"}), "not in minimum")
 	_, err = validator.NewSchemaValidator()
@@ -174,7 +174,7 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 	for _, c := range changes {
 		set, _, _ := assets.SplitID(c.ID)
 		assert.NotEqual(t, "k8s", set, c.ID)
-		assert.NotEqual(t, "harness", set, c.ID)
+		assert.NotEqual(t, "commands", set, c.ID)
 	}
 }
 

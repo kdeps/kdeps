@@ -1,6 +1,6 @@
 # Efficiency enforcement
 
-The efficiency governor stops a model that only reads (`ls`, `read_file`, `grep`, read-only `bash`) and makes no output. It is part of kdeps, not a prompt hint. It works in the agent loop and in a workflow `chat`.
+The efficiency governor stops a model that only reads (`ls`, `read_file`, `grep`, read-only `bash`) and makes no output. It is part of kdeps, not a prompt hint. It works in a workflow `chat` (`harness.efficiency`, see [Answer quality](/workflow/quality)) and in the agent loop.
 
 ```d2
 direction: down

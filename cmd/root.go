@@ -266,11 +266,11 @@ var assetFreeCommands = []string{
 //
 //nolint:gochecknoglobals // fixed table
 var commandSets = map[string][]string{
-	"run":       assets.BaseSets,
+	"run":       assets.RunSets(),
 	"validate":  assets.BaseSets,
-	"exec":      assets.BaseSets,
+	"exec":      assets.RunSets(),
 	"env":       assets.BaseSets,
-	"bundle":    assets.BaseSets,
+	"bundle":    assets.RunSets(),
 	"doctor":    nil,
 	"edit":      nil,
 	"new":       append(slices.Clone(assets.BaseSets), "templates"),
