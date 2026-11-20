@@ -174,7 +174,7 @@ func prepareLLMBackend(workflow *domain.Workflow) error {
 // needsLlamafileWarmup reports whether chat resources will be served by the
 // local file backend (default when no other backend or external URL is set).
 func needsLlamafileWarmup(workflow *domain.Workflow) bool {
-	if !domain.HasChatResources(workflow) || len(domain.ChatModels(workflow)) == 0 {
+	if !domain.HasChatResources(workflow) || len(fileBackendModels(workflow)) == 0 {
 		return false
 	}
 	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" && backend != agentBackendFile {
@@ -188,13 +188,26 @@ func needsLlamafileWarmup(workflow *domain.Workflow) bool {
 // chat request. Blocking startup on a multi-GB fetch is what kept E2E
 // API-only workflows from ever binding /health.
 func warmupLlamafiles(workflow *domain.Workflow) {
-	for _, model := range domain.ChatModels(workflow) {
+	for _, model := range fileBackendModels(workflow) {
 		if !localModelAlreadyCached(agentBackendFile, model) {
 			fmt.Fprintf(os.Stdout, "  • %s: not cached (download deferred until first chat request)\n", model)
 			continue
 		}
 		fmt.Fprintf(os.Stdout, "  ✓ llamafile ready: %s\n", model)
 	}
+}
+
+// fileBackendModels lists the chat models served by the local file backend.
+// A chat with another backend (openrouter, ollama, ...) has nothing to cache here.
+func fileBackendModels(workflow *domain.Workflow) []string {
+	var models []string
+	for _, r := range workflow.Resources {
+		if r.Chat == nil || (r.Chat.Backend != "" && r.Chat.Backend != agentBackendFile) {
+			continue
+		}
+		models = append(models, domain.ChatModels(&domain.Workflow{Resources: []*domain.Resource{r}})...)
+	}
+	return models
 }
 
 // ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.

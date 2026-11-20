@@ -1,9 +1,9 @@
-version: 2.0.0
+version: 2.1.0
 category: code
 aliases: [edit, str_replace_editor, str_replace_based_edit_tool, replace_in_file, edit_text_file]  # other names a model may call it by
 description: |-
   Edit one line of an existing file. Give file_path, the line to change (line, 1-based) or words that are on it (match), and either:
-  - text: the replacement. With match, only those words are replaced on the line; without match, the whole line is replaced. text may span several lines.
+  - text: the replacement. With match, only those words are replaced on the line; without match, the whole line is replaced. text may span several lines. Unindented text keeps the indentation of the line it replaces.
   - append: text inserted after the line (after the end of the file when neither line nor match is given).
   Use read_file first to get line numbers. To create a file or rewrite a whole file, use write_file.
 constraints: give exactly one of text or append; the file must exist; with both line and match, the line must contain match
@@ -70,8 +70,15 @@ python:
     else:
         if target is None:
             sys.exit("edit_file: replacing needs line or match")
-        new = lines[target].replace(match, text, 1) if match else text
-        new_lines = new.split("\n")
+        if match:
+            new_lines = lines[target].replace(match, text, 1).split("\n")
+        else:
+            new_lines = text.split("\n")
+            old = lines[target]
+            indent = old[:len(old) - len(old.lstrip())]
+            # A model often drops the indentation of a whole-line replacement.
+            if indent and new_lines[0] == new_lines[0].lstrip():
+                new_lines = [indent + l if l else l for l in new_lines]
         lines[target:target + 1] = new_lines
         shown = (target + 1, target + len(new_lines))
 

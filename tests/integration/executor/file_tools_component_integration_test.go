@@ -144,3 +144,25 @@ func TestEditFileComponent_MatchesTool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
+
+func TestEditFileTool_WholeLineKeepsIndentation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+
+	path := filepath.Join(t.TempDir(), "stats.py")
+	require.NoError(t, os.WriteFile(path, []byte("def mean(xs):\n    return sum(xs) / len(xs) + 1\n"), 0o600))
+
+	reg := kdepstools.NewRegistry()
+	agent.RegisterBuiltinTools(t.Context(), reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"file_path": path, "line": 2, "text": "return sum(xs) / len(xs)"})
+	require.NoError(t, err)
+	_, err = tool.Execute(map[string]any{"file_path": path, "line": 1, "text": "def mean(xs: list):"})
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "def mean(xs: list):\n    return sum(xs) / len(xs)\n", string(got))
+}

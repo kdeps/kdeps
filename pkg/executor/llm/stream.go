@@ -968,7 +968,7 @@ func parseToolCallParts(rawToolCalls any) []llms.ContentPart {
 			Type: tc.Type,
 			FunctionCall: &llms.FunctionCall{
 				Name:      tc.Function.Name,
-				Arguments: tc.Function.Arguments,
+				Arguments: toolCallArgs(tc.Function.Arguments),
 			},
 		})
 	}
@@ -1370,7 +1370,7 @@ func (e *Executor) StreamChat(
 		toolCalls = append(toolCalls, domain.StreamedToolCall{
 			ID:        tc.ID,
 			Name:      tc.FunctionCall.Name,
-			Arguments: tc.FunctionCall.Arguments,
+			Arguments: toolCallArgs(tc.FunctionCall.Arguments),
 		})
 	}
 
@@ -1461,7 +1461,7 @@ func (e *Executor) streamChatOnce(
 		toolCalls = append(toolCalls, domain.StreamedToolCall{
 			ID:        tc.ID,
 			Name:      tc.FunctionCall.Name,
-			Arguments: tc.FunctionCall.Arguments,
+			Arguments: toolCallArgs(tc.FunctionCall.Arguments),
 		})
 	}
 
@@ -1651,4 +1651,13 @@ func estimateMessageTokens(model string, messages []llms.MessageContent) int64 {
 		}
 	}
 	return int64(CountTokens(model, sb.String()))
+}
+
+// toolCallArgs returns "{}" for blank tool-call arguments. Some models send ""
+// for a call with no parameters; strict providers reject "" in the history.
+func toolCallArgs(args string) string {
+	if strings.TrimSpace(args) == "" {
+		return "{}"
+	}
+	return args
 }
