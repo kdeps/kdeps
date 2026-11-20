@@ -43,7 +43,7 @@ func isAssetRef(ref string) bool {
 }
 
 // splitRefs separates asset refs from package refs, keeping their order.
-// Asset refs may be comma-separated ("themes/vim,themes/linux").
+// Asset refs may be comma-separated ("presets/frugal,presets/balanced").
 func splitRefs(args []string) ([]string, []string) {
 	var assetRefs, pkgRefs []string
 	for _, a := range args {

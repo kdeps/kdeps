@@ -43,8 +43,8 @@ func TestIsAssetRefAndSplitRefs(t *testing.T) {
 	assert.False(t, isAssetRef("./tools/x.kdeps"))
 	assert.False(t, isAssetRef("github:tools/repo"), "github: forces a GitHub ref")
 
-	a, p := splitRefs([]string{"themes/vim,themes/linux", "agent-x", "owner/repo:sub", "tools"})
-	assert.Equal(t, []string{"themes/vim", "themes/linux", "tools"}, a)
+	a, p := splitRefs([]string{"presets/frugal,presets/balanced", "agent-x", "owner/repo:sub", "tools"})
+	assert.Equal(t, []string{"presets/frugal", "presets/balanced", "tools"}, a)
 	assert.Equal(t, []string{"agent-x", "owner/repo:sub"}, p)
 }
 
@@ -103,13 +103,13 @@ func TestRegistryAssetCommands(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, out, "failed")
 
-	_, err = run("uninstall", "themes/normal")
+	_, err = run("uninstall", "commands/help")
 	require.ErrorContains(t, err, "required")
 
 	_, err = run("profile", "nope")
 	require.ErrorContains(t, err, "unknown profile")
 	_, err = run("profile")
 	require.ErrorContains(t, err, "needs a terminal")
-	_, err = run("profile", "themes")
+	_, err = run("profile", "policy")
 	require.NoError(t, err)
 }

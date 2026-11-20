@@ -28,6 +28,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/efficiency"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/failbrief"
 	"github.com/kdeps/kdeps/v3/pkg/nudge"
@@ -71,52 +72,91 @@ func (e *Executor) handleToolCalls(
 	if cfg != nil && cfg.MaxToolRounds > 0 {
 		maxIterations = cfg.MaxToolRounds
 	}
-	currentResponse := response
-	currentMessages := messages
-	guard := newCallGuard()
-
+	loop := &toolLoop{
+		ctx: ctx, cfg: cfg, tools: tools, rc: requestConfig, call: call,
+		guard: newCallGuard(), eff: newChatEfficiency(cfg, tools), messages: messages,
+	}
+	current := response
 	for range maxIterations {
-		toolCalls, hasToolCalls := e.pendingToolCalls(currentResponse, tools)
-		if !hasToolCalls {
-			note := guard.nudge(cfg, replyContent(currentResponse))
-			if note == "" {
-				return currentResponse, nil
-			}
-			currentMessages = append(currentMessages,
-				map[string]interface{}{"role": "assistant", jsonFieldContent: replyContent(currentResponse)},
-				map[string]interface{}{"role": "user", jsonFieldContent: note})
-			nextResponse, err := e.chatFollowUp(cfg, call, currentMessages, requestConfig)
-			if err != nil {
-				return nil, err
-			}
-			currentResponse = nextResponse
-			continue
+		next, done, err := e.toolStep(loop, current)
+		if done {
+			return next, err
 		}
-		// A model that keeps re-issuing calls it already has the results of is
-		// looping (common with small models); stop and make it answer.
-		if guard.repeating(toolCalls) {
-			return e.finalAnswer(cfg, call, currentMessages, requestConfig)
-		}
-
-		toolResults, execErr := e.executeToolCalls(toolCalls, tools, ctx, guard)
-		if execErr != nil {
-			return nil, fmt.Errorf("tool execution failed: %w", execErr)
-		}
-
-		currentMessages = e.addToolResultsToMessages(currentMessages, toolCalls, toolResults)
-
-		nextResponse, err := e.chatFollowUp(cfg, call, currentMessages, requestConfig)
-		if err != nil {
-			return nil, err
-		}
-		currentResponse = nextResponse
+		current = next
 	}
 
 	// Rounds ran out with a call still pending: answer from the results so far.
-	if _, pending := e.pendingToolCalls(currentResponse, tools); pending {
-		return e.finalAnswer(cfg, call, currentMessages, requestConfig)
+	if _, pending := e.pendingToolCalls(current, tools); pending {
+		return e.finalAnswer(cfg, call, loop.messages, requestConfig)
 	}
-	return currentResponse, nil
+	return current, nil
+}
+
+// toolLoop is one chat call's tool-loop state.
+type toolLoop struct {
+	ctx      *executor.ExecutionContext
+	cfg      *domain.ChatConfig
+	tools    []domain.Tool
+	rc       ChatRequestConfig
+	call     chatCall
+	guard    *callGuard
+	eff      *efficiency.Ledger
+	messages []map[string]interface{}
+}
+
+// toolStep handles one response of the tool loop and returns the next one.
+// done is true when the loop ends with that response, or with err.
+func (e *Executor) toolStep(l *toolLoop, response map[string]interface{}) (map[string]interface{}, bool, error) {
+	calls, has := e.pendingToolCalls(response, l.tools)
+	if has {
+		next, done, skip := e.governRound(l.cfg, l.call, l.messages, l.rc, l.eff, l.guard, calls)
+		if skip {
+			return next.response, done, next.err
+		}
+		msgs, err := e.runRound(l.ctx, l.messages, calls, l.tools, l.guard, l.eff)
+		if err != nil {
+			return nil, true, err
+		}
+		l.messages = msgs
+	} else {
+		note := l.guard.nudge(l.cfg, replyContent(response))
+		if note == "" {
+			return response, true, nil
+		}
+		l.messages = withNudge(l.messages, response, note)
+	}
+	next, err := e.effFollowUp(l.cfg, l.call, l.messages, l.rc, l.eff)
+	if err != nil {
+		return nil, true, err
+	}
+	return next, false, nil
+}
+
+// withNudge adds the reply and the nudge that pushes back on it.
+func withNudge(
+	messages []map[string]interface{},
+	response map[string]interface{},
+	note string,
+) []map[string]interface{} {
+	return append(messages,
+		map[string]interface{}{"role": "assistant", jsonFieldContent: replyContent(response)},
+		map[string]interface{}{"role": "user", jsonFieldContent: note})
+}
+
+// runRound runs a round's calls and adds their results to the messages.
+func (e *Executor) runRound(
+	ctx *executor.ExecutionContext,
+	messages, calls []map[string]interface{},
+	tools []domain.Tool,
+	guard *callGuard,
+	eff *efficiency.Ledger,
+) ([]map[string]interface{}, error) {
+	results, err := e.executeToolCalls(calls, tools, ctx, guard)
+	if err != nil {
+		return nil, fmt.Errorf("tool execution failed: %w", err)
+	}
+	afterRound(eff, calls, results)
+	return e.addToolResultsToMessages(messages, calls, results), nil
 }
 
 // pendingToolCalls returns the response's tool calls: structured tool_calls,

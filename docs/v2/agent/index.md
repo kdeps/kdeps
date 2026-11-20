@@ -18,7 +18,7 @@ llm:
     - llama3.2                            # one model, or several
 ```
 
-The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
+The [desktop app](/desktop/) reads the same file. The boundary rules are on [Data sovereignty](/start/data-sovereignty). The server page has the [client contract](/llm-server/#client-contract).
 
 The same `workflow.yaml` is the pipeline. `kdeps` runs it. This page is the REPL for a `chat` with `loop:`. To run several workflows as one system, see [Agencies](/agencies/).
 
@@ -82,7 +82,6 @@ kdeps --agent-loop [path] [flags]
 | `--resume` | (none) | Session ID to resume directly (skips the picker) |
 | `--new` | false | Start clean, skipping this folder's resume picker |
 | `--index` | (none) | Search a folder outside the project with it (repeatable): added to the card and indexed first. See [search folders](/agent/knowledge#search-folders) |
-| `--theme` | `normal` | REPL palette. Only `normal` applies. |
 | `--debug` | false | Enable debug logging |
 
 ```bash
@@ -90,12 +89,11 @@ kdeps --agent-loop [path] [flags]
 KDEPS_AGENT_MODEL=llama3.2:1b
 KDEPS_AGENT_BACKEND=file              # default: local llamafile
 KDEPS_AGENT_BASE_URL=http://localhost:11434/v1
-KDEPS_THEME=normal                    # only normal applies
 ```
 
 ### Settings from the workflow
 
-When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session:
+When the workflow (the one at `[path]`, or `./workflow.yaml`) targets a `chat` with [`loop:`](/workflow/resources/llm#agent-loop), that chat defines the session, in the terminal and the [desktop app](/agent/desktop) alike:
 
 ```yaml
 # resources/assistant.yaml
@@ -129,13 +127,16 @@ kdeps --agent-loop --resume abc123def456                      # resume a session
 | Built-in tool catalog, permission modes, lean mode | [Built-in tools](/agent/tools) |
 | Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
 | Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
-| Subagents: the `subagent` tool and knowledge extraction | [Subagents](/agent/subagent) |
-| Review of a workflow chat answer | [Judge panel](/agent/judges) |
+| Rewriting each prompt for clarity before the turn | [Prompt refinement](/agent/refine) |
+| A council's plan before the turn, and the progress file | [Planning council](/agent/plan) |
+| Subagents: the `subagent` tool, and the model judges, extraction and refinement use | [Subagents](/agent/subagent) |
+| Independent review of the final answer | [Judge panel](/agent/judges) |
 | `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
 | One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
+| Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
 | Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
 | Per-folder session history and the startup resume picker | [Sessions](/agent/repl-sessions#sessions) |
-| Pasting, rendering, themes, notifications, updates | [Agent loop REPL features](/agent/repl) |
+| Pasting, rendering, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## The same file
 

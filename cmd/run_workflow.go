@@ -209,6 +209,9 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	if prepErr := preprocessProjectDir(filepath.Dir(workflowPath)); prepErr != nil {
 		return prepErr
 	}
+	if projErr := agent.UseProjectAssets(filepath.Dir(workflowPath)); projErr != nil {
+		return projErr
+	}
 
 	workflow, err := parseWorkflowStep(workflowPath)
 	if err != nil {

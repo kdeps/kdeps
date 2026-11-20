@@ -56,7 +56,8 @@ type Preset struct {
 	Description string             `yaml:"description"`
 	Harness     []yamlHarnessEntry `yaml:"harness,omitempty"`
 	Events      []Event            `yaml:"events,omitempty"`
-	// Judges is the panel a workflow chat names with judgePreset.
+	// Judges, when set, replaces the session's judge panel (same shape as a
+	// workflow chat's judges:, graders included).
 	Judges []domain.Judge `yaml:"judges,omitempty"`
 }
 
@@ -109,9 +110,10 @@ func parseYAMLPreset(data []byte, source string) (Preset, error) {
 // use.
 func loadUserPresets() (map[string]*Preset, []error) {
 	dir, err := userPresetsDir()
-	if err != nil {
-		return nil, []error{err}
-	}
+	return layered(dir, err, userPresetsDirName, loadPresetsDir)
+}
+
+func loadPresetsDir(dir string) (map[string]*Preset, []error) {
 	return loadUserYAMLDir(dir, "presets", parseYAMLPreset, func(p Preset) string { return p.Name })
 }
 
@@ -140,7 +142,7 @@ func init() { initPresets() }
 // PresetByName returns the effective (built-in + user-merged) preset
 // definition, or false if no preset of that name is registered.
 //
-//kdeps:flow presets: /harness preset > [the preset rewrites events and harness sections] > every later turn uses them
+//kdeps:flow presets: /harness preset or /efficiency preset > [the preset rewrites events and harness sections] > every later turn uses them
 func PresetByName(name string) (Preset, bool) {
 	p, ok := presetRegistry[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {
@@ -170,8 +172,9 @@ func exportPresetEntries() []Preset {
 // both registries immediately. Scoped narrowly: unlike ApplyKonfig, it
 // never touches tuning/registry/theme/skills/actions, so switching presets
 // can never clobber a persisted setting the preset doesn't mention. A preset
-// Errors if name isn't a registered preset. The loop argument is unused.
-func ApplyPreset(name string, _ *Loop) error {
+// Errors if name isn't a registered preset. A preset with judges sets them
+// on l when l is not nil.
+func ApplyPreset(name string, l *Loop) error {
 	p, ok := PresetByName(name)
 	if !ok {
 		return fmt.Errorf("presets: unknown preset %q", name)
@@ -184,5 +187,8 @@ func ApplyPreset(name string, _ *Loop) error {
 	}
 	initHarness()
 	initEvents()
+	if l != nil && len(p.Judges) > 0 {
+		l.SetJudges(p.Judges)
+	}
 	return nil
 }

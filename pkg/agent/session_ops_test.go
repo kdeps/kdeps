@@ -100,17 +100,17 @@ func TestSessionOps_GetSetFollowTheSettingAsset(t *testing.T) {
 	saved := 0
 	r.SetSaveTuningFn(func(ToolTuning) error { saved++; return nil })
 
-	out, err := r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "autocontext", "value": "OFF"})
+	out, err := r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "refine", "value": "OFF"})
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"value":"off"}`, out)
-	assert.False(t, r.autoContextDetect)
+	assert.False(t, loop.PromptRefineEnabled())
 	assert.Equal(t, 1, saved, "a stored value persists")
-	out, err = r.sessionOps(t.Context(), map[string]any{"operation": "get", "key": "autocontext"})
+	out, err = r.sessionOps(t.Context(), map[string]any{"operation": "get", "key": "refine"})
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"value":"off"}`, out)
 
-	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "autocontext", "value": "maybe"})
-	require.ErrorContains(t, err, `"maybe" is not a value of setting "autocontext"`)
+	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "refine", "value": "maybe"})
+	require.ErrorContains(t, err, `"maybe" is not a value of setting "refine"`)
 	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "get", "key": "nope"})
 	require.ErrorContains(t, err, "unknown setting")
 	_, err = r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "nope", "value": "x"})
@@ -124,7 +124,7 @@ func TestSessionOps_SetNeedsTheSettingsCommand(t *testing.T) {
 	old := slashCommands
 	t.Cleanup(func() { slashCommands = old })
 	slashCommands = nil
-	_, err := r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "autocontext", "value": "off"})
+	_, err := r.sessionOps(t.Context(), map[string]any{"operation": "set", "key": "refine", "value": "off"})
 	require.ErrorContains(t, err, "no installed command declares setting")
 }
 

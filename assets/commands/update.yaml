@@ -1,4 +1,4 @@
-version: 1.0.1
+version: 1.1.0
 name: update
 order: 280
 # builtin: kdeps handles this command itself; this file names the operation
@@ -7,7 +7,7 @@ builtin: true
 api: update
 usage:
   - args: "[item[@version]...]"
-    help: "Update harness, tools, themes, models, templates (no args: all)"
+    help: "Update harness, tools, models, templates (no args: all)"
   - args: "check | list"
     help: "Show available updates | every asset and its version"
   - args: "remove <item>..."

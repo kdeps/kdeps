@@ -62,7 +62,7 @@ func TestResolveToolName(t *testing.T) {
 }
 
 func TestShippedToolAliases_AreValidAndUnclaimedTwice(t *testing.T) {
-	defs := loadToolDefinitionsFrom(os.DirFS(filepath.Join("..", "..", "assets")).(themeFS))
+	defs := loadToolDefinitionsFrom(os.DirFS(filepath.Join("..", "..", "assets")).(harnessFS))
 	got := aliasesOf(defs)
 	for id, d := range defs {
 		for _, a := range d.Aliases {

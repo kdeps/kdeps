@@ -54,6 +54,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/harness"
 	"github.com/kdeps/kdeps/v3/pkg/nudge"
 	"github.com/kdeps/kdeps/v3/pkg/overflow"
 	"github.com/kdeps/kdeps/v3/pkg/reply"
@@ -238,25 +239,46 @@ type Config struct {
 	// CodeLimit caps search_local calls per user request (0=use
 	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
+	// PromptRefine runs a pre-turn LLM call that rewrites the user's prompt
+	// into a clearer, self-contained version before the real turn.
+	// Off by default in the REPL; /refine on enables it. Persisted via
+	// ToolTuning. A saved session that already stored refine-on stays on.
+	PromptRefine bool
 	// AllowedTools, when set, is the only built-in tools the model is offered
 	// (a workflow chat's loop.tools). Project, component and MCP tools stay;
 	// load_tools is not offered, so nothing outside the list can be loaded.
 	AllowedTools []string
-	// Subagent is the model for subagent calls: knowledge-graph extraction.
-	// Empty or "current" uses this loop's model. "free" picks a large
-	// OpenRouter free model for each call.
+	// PlanCouncil runs the planning council before a task (after refine).
+	// Off by default: /plan on, or loop.plan: true on a workflow chat.
+	PlanCouncil bool
+	// NoEfficiency turns the efficiency governor off for this loop: a
+	// workflow loop chat without harness.efficiency.
+	NoEfficiency bool
+	// Subagent is the model for subagent calls: knowledge-graph extraction,
+	// prompt refinement, the planning council, and judges. Empty or "current" uses this loop's
+	// model. "free" picks a large OpenRouter free model for each call.
 	// Any other value is a model name, or the catalog model_id stored for one.
 	// SubagentSet is true once /subagent stored a
 	// choice, so the saved setting wins over llm.subagent.
 	Subagent    string
 	SubagentSet bool
-	// Nested marks a side loop (a subagent). It gets no subagent tool, so a
-	// subagent never starts another one.
+	// Nested marks a side loop (a judge or a subagent). It gets no subagent
+	// tool, so a subagent never starts another one.
 	Nested bool
 	// OutputTokenCap, when positive, is max_tokens for this loop's model
-	// calls. Zero uses the model output ceiling.
+	// calls. Side loops set it from the side-call-max-tokens event. Zero
+	// uses the model output ceiling.
 	OutputTokenCap int
-	// ProgressWriter, when set, receives live "[kdeps]" status notices
+	// Judges is an explicit review panel run against the final output of every
+	// turn. Takes priority over AutoJudges when non-empty.
+	Judges []domain.Judge
+	// AutoJudges, when true and Judges is empty, generates a review panel per
+	// turn via one LLM call rather than requiring a hand-configured roster.
+	AutoJudges bool
+	// JudgeMaxIterations caps the revise-and-rejudge loop when a judge rejects
+	// the output (0=default 2).
+	JudgeMaxIterations int
+	// ProgressWriter, when set, receives live "[kdeps]"/"[judge]" status notices
 	// instead of the writer passed to RunStreaming. RunStreaming's own writer
 	// carries raw streamed token content that the REPL buffers silently and
 	// only renders (as markdown) once the turn completes, so a notice written
@@ -278,9 +300,10 @@ type Config struct {
 	// builds; the vault stays off without it.
 	KnowledgeCtx context.Context
 	// SubagentEngine makes an engine for one subagent call that runs beside
-	// the turn: knowledge extraction. A fresh one each, because
-	// Engine.Execute keeps per-run state and two calls must not share an
-	// engine. Nil: no model extraction.
+	// the turn: knowledge extraction and judge-roster generation. A fresh one
+	// each, because Engine.Execute keeps per-run state and two calls must not
+	// share an engine. Nil: no model extraction, and the roster call runs on
+	// the loop's engine before the turn.
 	SubagentEngine func() *executor.Engine
 	// Observer, when set, receives typed events (tool start/end, narration)
 	// for a graphical front end. It runs on the loop goroutine: never block.
@@ -306,6 +329,7 @@ var activeLoop *Loop
 type Loop struct {
 	ctx               context.Context
 	knowledge         *knowledgeState // nil when no vault is configured
+	plan              *planState      // the current task's council plan; nil before one
 	knowledgeOff      bool            // /knowledge off
 	knowledgeBuild    string          // /knowledge build; empty until that command is saved
 	knowledgeBuildSet bool
@@ -336,8 +360,9 @@ type Loop struct {
 	// they run in parallel (see startSubagents). Keyed by their arguments.
 	subagentRuns map[string]<-chan subagentResult
 	// askedQuestion is the question ask_question put this round; the round
-	// loop ends the turn with it.
+	// loop ends the turn with it. askedThisTurn skips the judges for it.
 	askedQuestion string
+	askedThisTurn bool
 	subagentMu    sync.Mutex
 	// resumeNote says when a resumed session last ran; it goes on every
 	// request of the first turn after the resume, then is cleared.
@@ -399,7 +424,10 @@ type Loop struct {
 	// bugCapture is set for /auto-improve. A provider 429 then continues on
 	// a random free id. Other sessions keep catalog order.
 	bugCapture bool
-	// eventLoop names a side loop (a subagent) in the instrument log. Empty
+	// onUnofferedTool, when set, runs when the model calls a tool this loop was
+	// not offered. A judge sets it to end its review at once.
+	onUnofferedTool func()
+	// eventLoop names a side loop (a judge or a subagent) in the instrument log. Empty
 	// is the main loop. A side loop's tool calls are tagged with it, so they
 	// are not read as calls the main loop made with its own tools.
 	eventLoop string
@@ -408,6 +436,8 @@ type Loop struct {
 	// (e.g. folding system-role messages for chat templates that reject
 	// them). Read by the REPL's /prompt command; overwritten on every call.
 	lastSentMessages []map[string]interface{}
+	// eff is the efficiency-enforcement ledger (efficiency.go).
+	eff effLedger
 	// lastSentTools holds the exact tool definitions included in the most
 	// recent outgoing LLM request. Tools are a separate top-level request
 	// field, not part of lastSentMessages. Read by the REPL's /prompt command.
@@ -436,6 +466,10 @@ type Loop struct {
 	// for the memory_query relational tool's tool_calls relation. Capped to
 	// maxToolCallLog entries, oldest dropped first.
 	toolCallLog []ToolCallRecord
+	// lastAutoRoster is the most recent auto-generated judge panel, shown by
+	// /judges list. Explicit Config.Judges is separate and always wins at
+	// review time.
+	lastAutoRoster []domain.Judge
 }
 
 // ToolCallRecord is one recorded tool invocation, exposed to the memory_query
@@ -481,6 +515,7 @@ func (l *Loop) recordToolCall(name, args, result string) {
 // never does, so side loops can be built in parallel.
 func (l *Loop) becomeSessionLoop() {
 	activeLoop = l
+	l.registerPlanTool()
 	l.registerToolLoader()
 	l.registerIdentityTool()
 	l.registerSubagentTool()
@@ -1008,6 +1043,12 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoToolAllocationIncrement <= 0 {
 		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
 	}
+	if cfg.JudgeMaxIterations <= 0 {
+		cfg.JudgeMaxIterations = effectiveRounds(eventJudgeIterations)
+	}
+	if cfg.JudgeMaxIterations <= 0 {
+		cfg.JudgeMaxIterations = effectiveRounds(eventJudgeIterations)
+	}
 	// NOTE: auto stall/tool allocation is enabled only by the interactive REPL
 	// (repl.Run), not here — library and test callers keep the deterministic
 	// budget-exhaustion behavior instead of silently raising the budget.
@@ -1161,8 +1202,26 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 
 	l.autoCompactIfDue(ctx)
 
+	// The judge roster is a subagent call that runs beside the turn: it starts
+	// now, on the prompt as typed, and is collected only when the panel needs
+	// it after the answer.
+	rosterReady := l.startJudgeRoster(ctx, input)
+	l.askedThisTurn = false
+
+	// Pre-turn prompt refinement: rewrite a terse or under-specified prompt
+	// into a clearer, self-contained version and run the turn on that. The
+	// refined string replaces input everywhere below (preamble, chat config,
+	// session history). It runs while the roster call is in flight.
+	input = l.applyPromptRefine(ctx, input, w)
+	// The planning council turns the (refined) task into a sorted plan the
+	// turn carries as a system message; the session keeps the task as typed.
+	planNote := l.applyPlanCouncil(ctx, input, w)
+
 	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
+	if planNote != "" {
+		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: planNote})
+	}
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && overflow.Is(err) {
@@ -1173,6 +1232,28 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	}
 
 	response := stripContentToolCalls(finalContent)
+
+	explicitRoster := len(l.config.Judges) > 0
+	roster := <-rosterReady
+	if len(roster) > 0 && !explicitRoster {
+		l.lastAutoRoster = roster
+	}
+	switch {
+	case len(roster) > 0 && !explicitRoster:
+		l.reportJudgeRoster(w, roster)
+	case len(roster) == 0 && l.config.AutoJudges && !explicitRoster && !looksTrivial(input):
+		// Auto-judging is on but the roster call produced nothing. Say so.
+		if pw := l.progressWriter(w); pw != nil {
+			fmt.Fprintln(pw, "\n[judges] no panel this turn - roster generation returned nothing")
+		}
+	}
+
+	// Judge panel: an independent review of the final output, with the power
+	// to send it back for revision. A turn that ends on a question to the
+	// user has no answer to review.
+	if len(roster) > 0 && !l.askedThisTurn {
+		response, _ = l.iterateWithJudges(ctx, chatCfg, roster, input, response, finalContent, w)
+	}
 
 	// Extract [MEMORY:] markers into the store while they are still present,
 	// then strip them so the visible answer and the transcript carry only
@@ -1333,7 +1414,7 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 
 // runToolRounds drives the tool-call loop, returning the final content string.
 //
-//nolint:gocognit,funlen // the tool-round loop owns the turn
+//nolint:gocognit,funlen // the tool-round loop owns the turn and the efficiency gate
 func (l *Loop) runToolRounds(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
@@ -1347,6 +1428,7 @@ func (l *Loop) runToolRounds(
 	l.lastWorkFailure = nil
 	l.pendingEdit = nil
 	l.toolBudgets.reset()
+	l.efficiencyBeginTurn(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1359,6 +1441,9 @@ func (l *Loop) runToolRounds(
 	identicalRepeats := 0
 	convergenceBlocks := 0
 	forcedFinal := false
+	// llmErr is the last soft-stopped LLM-call error; if the rounds run out
+	// before a call succeeds, the turn reports it instead of ending silently.
+	var llmErr error
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -1370,10 +1455,17 @@ func (l *Loop) runToolRounds(
 		}
 
 		var roundBuf strings.Builder
-		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
+		content, toolCalls, err := l.streamChatWithRetry(ctx, l.efficiencyConfig(chatCfg, w), &roundBuf)
 		if err != nil {
+			// A failed call the model may be able to avoid is soft-stopped: the
+			// error goes to the model on the hidden channel and the round reruns.
+			if ctx.Err() == nil && l.efficiencyLLMErrorStop(err) {
+				llmErr = err
+				continue
+			}
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
+		llmErr = nil
 		finalContent = content
 
 		if len(toolCalls) == 0 {
@@ -1389,11 +1481,25 @@ func (l *Loop) runToolRounds(
 			}
 		}
 
+		// Efficiency governor: a refused call is discarded before it runs, so it
+		// leaves nothing in history, events or the terminal.
+		switch l.efficiencyAdmit(toolCalls[0]) {
+		case effDrop:
+			continue
+		case effEnd:
+			chatCfg = forceAnswerConfig(ctx, chatCfg)
+			continue
+		case effAbort:
+			return l.ensureNonSilentFinal(stripContentToolCalls(finalContent), capped, w), nil
+		case effAdmit:
+		}
+
 		if l.config.OnRoundComplete != nil {
 			l.config.OnRoundComplete()
 		}
 
 		var outcome roundOutcome
+		workBefore := l.successfulWorkToolCalls
 		// Only the first call in a multi-call round runs (see the slice below),
 		// so tell the model the rest were not executed -- otherwise they vanish
 		// from the transcript and the model has no way to know it must re-issue
@@ -1404,6 +1510,7 @@ func (l *Loop) runToolRounds(
 		}
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, run, w)
 		nudges.acted = true
+		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
@@ -1422,11 +1529,19 @@ func (l *Loop) runToolRounds(
 		identicalRepeats, lastToolSig = trackRepeat(
 			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
 		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
-			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-			break
+			// The efficiency manager briefs the model (hidden channel) and lets it
+			// retry while it has soft stops left; only then does the turn end.
+			if !l.efficiencyRepeatStop(toolCalls[0], outcome.result, identicalRepeats) {
+				finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+				break
+			}
+			identicalRepeats, lastToolSig = 0, ""
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			ctx, chatCfg, outcome, convergenceBlocks, forcedFinal, w)
+	}
+	if llmErr != nil {
+		return "", fmt.Errorf("agent loop stream: %w", llmErr)
 	}
 	return l.ensureNonSilentFinal(finalContent, capped, w), nil
 }
@@ -1497,14 +1612,17 @@ func nudgeForActionConfig(_ context.Context, cfg *domain.ChatConfig, repeat bool
 // (or <tool_output>/<observation>) block itself. That is always a hallucination
 // -- nothing ran -- so tell it to make the real call and wait for the result.
 // repeat is true on the second strike within this turn.
-func nudgeNoFakeToolResponseConfig(_ context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	note := harnessText("nudge-fake-tool-response") + invokeExample()
+func nudgeNoFakeToolResponseConfig(ctx context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	note := turoReduce(ctx, harnessText("nudge-fake-tool-response")) + invokeExample()
 	return finishNudge(cfg, note, repeat)
 }
 
 // invokeExample returns the shared worked <invoke> example
 // (harness/invoke-example.yaml) with the blank-line separator every nudge
-// that appends it needs, or "" if the entry is disabled.
+// that appends it needs, or "" if the entry is disabled. Never routed
+// through turoReduce by any caller -- turo's filler/synonym rewriting is
+// meant for prose and would mangle the exact whitespace and quoting a model
+// needs to copy.
 func invokeExample() string {
 	return harnessSuffix("invoke-example")
 }
@@ -1593,7 +1711,7 @@ func (l *Loop) silentTurnNotice(w io.Writer) string {
 
 // isTurnFailureNotice reports whether s is one of the canned strings
 // silentTurnNotice / stuckLoopNotice return when a turn produced nothing usable.
-// A side loop that yields one of these has failed and must not replace the
+// A judge revision that yields one of these has failed and must not replace the
 // prior answer with the notice.
 func isTurnFailureNotice(s string) bool {
 	t := strings.TrimSpace(s)
@@ -2021,7 +2139,10 @@ func (l *Loop) captureCallOutputs(cfg *domain.ChatConfig) {
 // most recent call, or nil if no call has completed yet. Used by the REPL's
 // /prompt command.
 func (l *Loop) LastSentMessages() []map[string]interface{} {
-	return l.lastSentMessages
+	if EfficiencyVerbose() {
+		return l.lastSentMessages
+	}
+	return scrubEfficiency(l.lastSentMessages)
 }
 
 // LastSentTools returns the exact tool definitions sent to the LLM on the
@@ -2428,9 +2549,15 @@ func (l *Loop) executeToolCalls(
 			outcome.blocked = true
 		}
 		content := l.toolResultMessage(ctx, tc, result)
+		briefed := l.takeBriefedFailure()
 		note := ""
 		if ctx.Err() == nil {
 			note = l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
+			if briefed {
+				// Soft-stopped failure: the status note rides the hidden brief.
+				l.attachToFailureBrief(note)
+				note = ""
+			}
 			content += note
 		}
 		l.emit(LoopEvent{
@@ -2451,8 +2578,8 @@ func (l *Loop) executeToolCalls(
 }
 
 // toolResultMessage builds the "tool" message content for one call. A failed
-// work tool is flagged unmistakably and remembered for the end-of-turn
-// "did that actually work?" nudge;
+// work tool is flagged unmistakably (turo left untouched so the exact error
+// survives) and remembered for the end-of-turn "did that actually work?" nudge;
 // a later success on any work tool clears that memory and is praised in the
 // same message so the positive reinforcement rides along in history rather
 // than only appearing on the terminal for this one round -- either because the
@@ -2473,7 +2600,7 @@ func (l *Loop) toolResultMessage(
 // passes through the single appendReminders call in toolResultMessage
 // rather than needing its own.
 func (l *Loop) buildToolResultMessage(
-	_ context.Context,
+	ctx context.Context,
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
@@ -2481,6 +2608,11 @@ func (l *Loop) buildToolResultMessage(
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
 		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
+		// Soft stop: the error and the context to fix it reach the model on the
+		// hidden channel, so history keeps only the raw error.
+		if ctx.Err() == nil && l.efficiencyFailureStop(tc, result) {
+			return capToolResult(result)
+		}
 		return capToolResult(result) + "\n\n[TOOL FAILED] " + tc.Name +
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed. Do NOT report it as done."
@@ -2746,6 +2878,9 @@ func (l *Loop) runStreamToolCall(tcp *domain.StreamedToolCall, w io.Writer) stri
 	if tool == nil {
 		if termW := l.config.ToolOutputWriter; termW != nil {
 			l.closeToolCallLine(termW, "... failed: tool not found")
+		}
+		if l.onUnofferedTool != nil {
+			l.onUnofferedTool()
 		}
 		return toolErrorJSON(fmt.Errorf("tool %q not found; tools offered this turn: %s",
 			tc.Name, l.offeredToolNames()))
@@ -3136,39 +3271,17 @@ func (l *Loop) SetPromptMode(mode string) error {
 }
 
 const (
-	promptModeAuto    = "auto"
-	promptModeFull    = "full"
-	promptModeSummary = "summary"
+	promptModeAuto    = harness.ModeAuto
+	promptModeFull    = harness.ModeFull
+	promptModeSummary = harness.ModeSummary
 )
 
 // normalizePromptMode accepts auto, full, and summary. Empty is auto.
-// The bool is false for anything else.
-func normalizePromptMode(mode string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "", promptModeAuto:
-		return promptModeAuto, true
-	case promptModeFull:
-		return promptModeFull, true
-	case promptModeSummary:
-		return promptModeSummary, true
-	default:
-		return "", false
-	}
-}
+func normalizePromptMode(mode string) (string, bool) { return harness.NormalizeMode(mode) }
 
 // backendCachesPrompt reports whether a stable system prefix is cheap after
-// the first request. Anthropic caches an ephemeral system block. OpenAI
-// caches a stable prefix on its own. Every other backend bills the full
-// prompt on every request. Changing the prompt between requests drops the
-// cache, so auto mode leaves those two on the full text.
-func backendCachesPrompt(backend string) bool {
-	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case backendAnthropic, "openai":
-		return true
-	default:
-		return false
-	}
-}
+// the first request.
+func backendCachesPrompt(backend string) bool { return harness.CachesPrompt(backend) }
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
@@ -3186,9 +3299,11 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 	limit := l.preambleLimit()
 	var parts []string
 
-	// MEMORY RULES are built separately from the rest of the preamble.
-	// This text is the core multi-model reliability mechanism, so it must
-	// survive byte-for-byte.
+	// MEMORY RULES are built separately from the rest of the
+	// preamble and never passed through turoReduce below: turo's lexical
+	// rewriting (filler removal, synonym substitution) can mangle directive
+	// language like "MEMORY RULE", and this text is the core
+	// multi-model reliability mechanism, so it must survive byte-for-byte.
 	// It is also excluded from the small-context truncation further down, so
 	// it is always sent regardless of context budget. The preamble is cached
 	// once per session (cachedSystemPreamble), so keeping it unreduced costs
@@ -3488,7 +3603,10 @@ func (l *Loop) buildChatConfig(
 
 	chatCfg.MaxTokens = l.callMaxTokens()
 
-	// Inject conversation history as the messages field.
+	// Inject conversation history as the messages field. When turo is active,
+	// route each message's content through it (cached, so only new messages
+	// spawn turo) so history reaches the LLM in the same reduced form as the
+	// system preamble, input, and tool results.
 	if history := l.historyMessages(ctx); history != "" {
 		chatCfg.Messages = history
 		recordContextSegment("history", history)
@@ -3553,12 +3671,25 @@ func (l *Loop) buildChatConfig(
 	return chatCfg
 }
 
-// historyMessages returns the conversation history JSON.
-func (l *Loop) historyMessages(context.Context) string {
+// historyMessages returns the conversation history JSON, routing each message
+// through turo when active. Falls back to the plain history for session
+// implementations that do not support reduced serialization.
+func (l *Loop) historyMessages(ctx context.Context) string {
 	if l.session == nil {
 		return ""
 	}
-	return l.session.BuildMessagesJSON()
+	if !turoActive(ctx) {
+		return l.session.BuildMessagesJSON()
+	}
+	reducer, ok := l.session.(interface {
+		BuildMessagesJSONReduced(func(string) string) string
+	})
+	if !ok {
+		return l.session.BuildMessagesJSON()
+	}
+	return reducer.BuildMessagesJSONReduced(func(s string) string {
+		return turoReduceCached(ctx, s)
+	})
 }
 
 // preambleToolCatalog is the short text tool list for backends with no

@@ -89,9 +89,9 @@ func TestSplitID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"harness", "safety"}, []string{set, name})
 
-	set, name, err = SplitID("themes")
+	set, name, err = SplitID("policy")
 	require.NoError(t, err)
-	assert.Equal(t, "themes", set)
+	assert.Equal(t, "policy", set)
 	assert.Empty(t, name)
 
 	for _, bad := range []string{"nope/x", "harness/..", "harness/a/b", ""} {

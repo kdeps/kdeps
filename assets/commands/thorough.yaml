@@ -1,0 +1,12 @@
+version: 1.0.1
+# kdeps update installs these with this command: what its run steps use
+requires:
+  commands/efficiency: ""
+  presets/thorough: ""
+name: thorough
+order: 510
+usage:
+  - args: ""
+    help: Keep more context - apply the thorough preset to every token-economy event
+run:
+  - command: /efficiency preset thorough

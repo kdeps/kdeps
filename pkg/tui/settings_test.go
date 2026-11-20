@@ -52,46 +52,6 @@ func TestAgentLoopTuning_RoundTripsMaxToolRounds(t *testing.T) {
 	assert.True(t, got.AgentLoop.ToolsConfigured)
 }
 
-func TestSettings_ThemeRoundTrips(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-
-	s := Settings{Theme: "vim"}
-	require.NoError(t, s.Save())
-
-	got, err := LoadSettings()
-	require.NoError(t, err)
-	assert.Equal(t, "vim", got.Theme)
-}
-
-func TestSaveTheme_PersistsAndPreservesOtherFields(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-
-	require.NoError(t, (&Settings{DefaultModel: "llama3.2"}).Save())
-	require.NoError(t, SaveTheme("emacs"))
-
-	got, err := LoadSettings()
-	require.NoError(t, err)
-	assert.Equal(t, "emacs", got.Theme)
-	assert.Equal(t, "llama3.2", got.DefaultModel, "SaveTheme must not clobber unrelated fields")
-}
-
-func TestSaveTheme_PropagatesLoadSettingsError(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-
-	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
-	require.NoError(t, os.WriteFile(path, []byte(":\tinvalid: yaml: {["), 0o600))
-
-	err := SaveTheme("vim")
-	assert.Error(t, err)
-}
-
 func TestSettings_ModelNameDisplayRoundTrips(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

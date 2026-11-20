@@ -107,6 +107,9 @@ COPY resources/ /app/resources/
 {{- if .HasData }}
 COPY data/ /app/data/
 {{- end }}
+{{- range .ProjectDirs }}
+COPY {{ . }}/ /app/{{ . }}/
+{{- end }}
 {{- end }}
 
 # Copy entrypoint and supervisor config

@@ -28,14 +28,8 @@ type Settings struct {
 	// Set via /model default <name> in the REPL.
 	DefaultModel string `yaml:"default_model,omitempty"`
 
-	// Theme persists the selected REPL theme (normal, black, linux, vim,
-	// emacs, or a custom name from ~/.kdeps/themes/). Set via /theme in the
-	// REPL. The --theme flag and KDEPS_THEME env var override it for one
-	// session without changing the stored value.
-	Theme string `yaml:"theme,omitempty"`
-
 	// ModelNameDisplay persists how the modeline shows the model name: "show",
-	// "hide", or "abbreviate". Empty means automatic (theme-based). Set via
+	// "hide", or "abbreviate". Empty shows the name. Set via
 	// /model name in the REPL.
 	ModelNameDisplay string `yaml:"model_name_display,omitempty"`
 
@@ -72,13 +66,24 @@ type AgentLoopTuning struct {
 	BashLimit            int      `yaml:"bash_limit"`
 	FileLimit            int      `yaml:"file_limit"`
 	CodeLimit            int      `yaml:"code_limit"`
+	TuroLevel            string   `yaml:"turo_level,omitempty"`
+	TuroOff              bool     `yaml:"turo_off,omitempty"`
+	TuroFiller           bool     `yaml:"turo_filler"`
+	TuroSynonyms         bool     `yaml:"turo_synonyms"`
+	TuroGloss            bool     `yaml:"turo_gloss"`
+	TuroDefmatch         bool     `yaml:"turo_defmatch"`
+	TuroArrows           bool     `yaml:"turo_arrows,omitempty"`
 	ToolsFullMode        bool     `yaml:"tools_full_mode,omitempty"`
+	AutoJudges           bool     `yaml:"auto_judges"`
 	ToolsConfigured      bool     `yaml:"tools_configured,omitempty"`
 	AutoContextDetect    bool     `yaml:"auto_context_detect,omitempty"`
 	PermissionMode       string   `yaml:"permission_mode,omitempty"`
 	ThinkingMode         string   `yaml:"thinking_mode,omitempty"`
 	ContextSize          int      `yaml:"context_size,omitempty"`
+	RefineOff            bool     `yaml:"refine_off,omitempty"`
+	RefineConfigured     bool     `yaml:"refine_configured,omitempty"`
 	KnowledgeOff         bool     `yaml:"knowledge_off,omitempty"`
+	PlanCouncil          bool     `yaml:"plan_council,omitempty"`
 	FoldThreshold        int      `yaml:"fold_threshold,omitempty"`
 	FoldContextItems     int      `yaml:"fold_context_items,omitempty"`
 	FoldAuto             bool     `yaml:"fold_auto,omitempty"`
@@ -140,16 +145,6 @@ func SaveDefaultModel(model string) error {
 		return err
 	}
 	s.DefaultModel = model
-	return s.Save()
-}
-
-// SaveTheme updates only the Theme field and persists the settings file.
-func SaveTheme(name string) error {
-	s, err := LoadSettings()
-	if err != nil {
-		return err
-	}
-	s.Theme = name
 	return s.Save()
 }
 

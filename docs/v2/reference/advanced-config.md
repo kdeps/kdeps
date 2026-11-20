@@ -344,7 +344,7 @@ warning for agent profiles under `agents:` that do not match the `name:` under
 
 ## Subthe REPLl
 
-The subagent channel is the model for knowledge-graph extraction. Empty or `current` uses the session model.
+The subagent channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the session model.
 
 ```yaml
 # ~/.kdeps/config.yaml

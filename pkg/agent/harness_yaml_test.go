@@ -49,10 +49,11 @@ var (
 		"tools-reminder", "skills-preamble",
 		"compaction-system", "compaction-user", "compaction-update-user",
 		"judge-roster-system",
-		"judge-system", "subagent-system", "skill-folder", "ask-question",
+		"judge-system", "subagent-system", "skill-folder", "ask-question", "refine-system",
+		"plan-council-members", "plan-council-note", "plan-council-draft", "plan-council-revise",
+		"plan-council-prioritize", "plan-council-plan",
 		"branch-summary",
-		"knowledge-extract-system",
-		"invoke-example", "repeat-offense-note",
+		"knowledge-extract-system", "invoke-example", "repeat-offense-note",
 		"nudge-action", "nudge-fake-tool-response", "nudge-sandbox-hallucination",
 		"nudge-sandbox-hallucination-qualifier", "nudge-unbacked-claim", "model-refusal-record",
 		"nudge-unresolved-failure",
@@ -193,7 +194,7 @@ func TestLoadBuiltinHarness_JudgeSystemIsATemplate(t *testing.T) {
 // fakeHarnessFS is a harnessFS whose ReadDir/ReadFile results are fully
 // controlled, letting tests trigger loadBuiltinHarnessFrom's read/parse-error
 // panics -- unreachable through the real embed.FS, which is always valid
-// once it compiles. Mirrors fakeThemeFS (theme_yaml_test.go).
+// once it compiles. Tests pass it to hit read errors.
 type fakeHarnessFS struct {
 	entries     []fs.DirEntry
 	readDirErr  error

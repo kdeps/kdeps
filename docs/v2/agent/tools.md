@@ -15,6 +15,7 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Harness | `instruct` (alias `help`) | [Slash commands](/agent/commands) |
 | Subagents | `subagent`: a task for a fresh, read-only agent loop | [Subagents](/agent/subagent) |
 | Questions | `ask_question`: show the user a question (with numbered options) and end the turn; their next message is the answer | [Asking the user](#asking-the-user) |
+| Planning | `plan_update`: tick a job order, or add one, in the progress file the planning council wrote | [Planning council](/agent/plan) |
 
 Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced) and [Harness reminders](/agent/tools-harness).
 
@@ -430,7 +431,7 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - [File tools](/agent/tools-files) - read, write, list
 - [Edit file](/agent/tools-edit) - replace or append on one line
 - [Memory and identity](/agent/tools-memory) - memory_save, memory_search, memory_query, identity_get
-- [Shell execution](/agent/shell) - bash_exec, jobs, rtk
+- [Shell execution](/agent/shell) - bash_exec, jobs
 - Web and search - web_search, wikipedia, web_scraper
 - [Data tools](/agent/tools-data) - calculator, SQL, embeddings, rerank
 - [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer

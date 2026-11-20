@@ -47,12 +47,12 @@ func commandsHelpOp() map[string]any {
 
 func konfigCounts(k *Konfig, path string) map[string]any {
 	return map[string]any{
-		"path": path, "harness": len(k.Harness), "themes": len(k.Themes), "events": len(k.Events),
+		"path": path, "harness": len(k.Harness), "events": len(k.Events),
 		"actions": len(k.Actions), "skills": len(k.Skills),
 	}
 }
 
-// konfigExportOp writes the tuning, harness, themes, events, actions and
+// konfigExportOp writes the tuning, harness, events, actions and
 // skills to one YAML file (args.path).
 func (r *REPL) konfigExportOp(args map[string]any) (map[string]any, error) {
 	path := strings.TrimSpace(stringArgValue(args, "path"))

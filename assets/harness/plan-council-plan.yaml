@@ -1,0 +1,11 @@
+version: 1.0.0
+name: plan-council-plan
+kind: standalone
+body: |-
+  A planning council prepared this plan for the task. Work through the job
+  orders in this order. Track progress in {{.Path}}: after each job order, call
+  plan_update with its id, a status (doing, done, blocked or dropped) and a
+  short note. Add work you discover as a new job order with plan_update
+  (status: added). Finish with every job order done, blocked or dropped.
+
+  {{.Plan}}

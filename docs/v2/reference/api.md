@@ -1,6 +1,6 @@
 # kdeps API
 
-The kdeps API is the control listener for the REPL and for `kdeps run`. It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
+The kdeps API is the control listener for the REPL, the desktop app, and `kdeps run`. It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
 
 ```text
 caller -> bearer check -> handler
@@ -30,7 +30,6 @@ Five YAML sets configure the agent loop. They are configuration data, not callab
 | `events/` | `assets/events/` (names generated into `pkg/agent/events_gen.go`) | Limits that start an action, such as compact, fold, and judge rounds |
 | `actions/` | `pkg/agent/actions.go` | The action names an event can run |
 | `presets/` | `pkg/agent/presets.go` | Named bundles of event and harness settings (`/harness preset`) |
-| `themes/` | `pkg/agent/theme_yaml.go` | The REPL palette. Only `normal` ships |
 
 Users override a set by name under `~/.kdeps/` (see the agent reference). The loop reads the merged result at start.
 
@@ -59,7 +58,7 @@ declared: "assets/tools/X.yaml\nhttp: or exec:" {shape: diamond}
 command: "/name" {shape: oval}
 commands: "POST /apis/commands.kdeps.io/v1/commands/X/call"
 cmdasset: "assets/commands/X.yaml"
-loop: "agent loop reads\nharness, events, actions,\npresets, themes" {shape: oval}
+loop: "agent loop reads\nharness, events, actions,\npresets" {shape: oval}
 
 workflow -> component
 component -> tools: "kdeps.api"
@@ -212,7 +211,7 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
 
 The call runs against the REPL that published it, so it acts on that session (`/clear` empties it). The response is the output of the command, as `text/plain`. A command that prints only to the terminal returns an empty body. A command that fails returns `400` with the error text. Arg decoding accepts a JSON array, a string (split on whitespace), or an `arguments` string. An unknown name is `404` with message `command not found`.
 
-The agent loop (`kdeps`) publishes the routes. A `kdeps run` process serves the routes with no commands registered: the list is empty and every call is `404`. `/update` re-registers the commands after it installs assets, so a new display name or usage line shows without a restart.
+The agent loop (`kdeps`, the desktop app) publishes the routes. A `kdeps run` process serves the routes with no commands registered: the list is empty and every call is `404`. `/update` re-registers the commands after it installs assets, so a new display name or usage line shows without a restart.
 
 ## Other calls
 

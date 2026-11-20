@@ -61,6 +61,7 @@ type DockerfileData struct {
 	OfflineMode          bool              // Whether offline mode is enabled (download models during build)
 	HasResources         bool              // Whether resources directory exists
 	HasData              bool              // Whether data directory exists
+	ProjectDirs          []string          // The workflow's own events/, harness/, actions/, presets/ folders that exist
 	Env                  map[string]string // User-defined environment variables
 	InstallerRef         string            // kdeps repo ref for install.sh (release tag, or main for dev builds)
 	OllamaImageTag       string            // Docker image tag for Ollama COPY --from sources

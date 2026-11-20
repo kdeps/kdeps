@@ -496,7 +496,7 @@ func toolCallCtx(fallback context.Context, args map[string]any) context.Context 
 // registerBashExec registers a bash command execution tool.
 // The handler runs the command. This wrapper keeps the agent-loop checks:
 // a shell-shaped tool call is refused, and the convergence cache records the
-// command the user asked for, before rtk rewrites it.
+// command the user asked for.
 func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return

@@ -90,7 +90,7 @@ curl -s -X POST http://localhost:16395/api/v1/chat \
 
 Resources run in dependency order. Independent resources run in parallel. The model can write a different answer each time. But for the same request, kdeps always runs the same steps in the same order.
 
-A chat puts its keys in these groups: `model`, `context`, `harness`, `tools`, `rag`, and `guardrails`. Guardrail judges review and revise the answer. `tools.list` names built-in tools (`web_search`, `calculator`, `subagent`, ...), or `auto` for all of them. Judges are opt-in.
+A chat puts its keys in these groups: `model`, `context`, `harness`, `tools`, `rag`, and `guardrails`. Guardrail judges review and revise the answer. `tools.list` names built-in tools (`web_search`, `calculator`, `subagent`, ...), or `auto` for all of them. Judges (`guardrails.judges: auto`), prompt refine, the planning council, turo and the efficiency governor (`harness.refine`, `harness.plan`, `harness.turo`, `harness.efficiency`) are opt-in. They make a small local model answer better. `harness.promptMode` sends short harness text after the first request. A workflow ships its own limits and prompts in `events/` and `harness/` folders; every package and image carries them. See [Answer quality](https://kdeps.com/workflow/quality).
 
 `kdeps test .` runs the `evals:` of a workflow in the process. It runs assertions, judges, and repeated runs against a pass-rate threshold.
 
@@ -118,7 +118,7 @@ chat:
 
 File tools stay inside the working directory. In the REPL, a path outside it asks you first; `~/.kdeps` and `/tmp` are exceptions.
 
-For more data, see the [agent docs](https://kdeps.com/agent/).
+For more data, see the [agent docs](https://kdeps.com/agent/) and the [desktop app](https://kdeps.com/agent/desktop#install).
 
 ## 3. Deploy on your infrastructure
 

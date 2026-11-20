@@ -34,10 +34,29 @@ import (
 //nolint:gochecknoglobals // fixed list
 var BaseSets = []string{"schemas", "defaults", "models", "providers"}
 
+// ChatSets are what a workflow chat's harness features read: the harness
+// prompts (refine, the planning council, the judge roster, nudges, sections),
+// the events that hold their limits (efficiency, failure briefs, rounds) and
+// the actions those events name. kdeps run loads them with BaseSets, so a
+// workflow-only install has every feature the agent loop has.
+//
+//nolint:gochecknoglobals // fixed list
+var ChatSets = []string{"harness", "events", "actions"}
+
+// ProjectSets are the asset sets a workflow project can ship as folders next
+// to resources/ (events/, harness/, actions/, presets/). They layer over
+// ~/.kdeps, and every package, image and binary of the workflow carries them.
+//
+//nolint:gochecknoglobals // fixed list
+var ProjectSets = []string{"harness", "events", "actions", "presets"}
+
+// RunSets are what kdeps run loads: BaseSets and ChatSets.
+func RunSets() []string { return append(slices.Clone(BaseSets), ChatSets...) }
+
 // AgentSets are what the agent loop loads besides BaseSets.
 //
 //nolint:gochecknoglobals // fixed list
-var AgentSets = []string{"harness", "tools", "commands", "themes", "events", "actions", "presets", "memory", "policy"}
+var AgentSets = []string{"harness", "tools", "commands", "events", "actions", "presets", "memory", "policy"}
 
 // Profile is a choice of what to install: whole sets, the items a set's
 // loader requires, and single items.
@@ -67,26 +86,26 @@ var agentTools = []string{
 var Profiles = []Profile{
 	{
 		Name:        "minimum",
-		Description: "kdeps run and validate: chat, httpClient, python, exec, apiResponse",
-		Sets:        BaseSets,
+		Description: "kdeps run and validate: chat (with its harness and events), httpClient, python, exec, apiResponse",
+		Sets:        RunSets(),
 	},
 	{
 		Name:        "workflows",
 		Description: "minimum, kdeps new templates and the components (sql, browser, email, ...)",
-		Sets:        append(slices.Clone(BaseSets), "templates", "components"),
+		Sets:        append(RunSets(), "templates", "components"),
 	},
 	{
 		Name:        "agent",
-		Description: "minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools",
+		Description: "minimum and the agent loop: prompts, slash commands, file/shell/web tools",
 		Sets: append(slices.Clone(BaseSets),
-			"harness", "commands", "themes", "events", "actions", "presets", "memory", "policy"),
+			"harness", "commands", "events", "actions", "presets", "memory", "policy"),
 		RequiredOf: []string{"tools"},
 		Items:      toolIDs(agentTools),
 	},
 	{
 		Name:        "deploy",
 		Description: "workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes",
-		Sets:        append(slices.Clone(BaseSets), "templates", "components", "docker", "k8s", "recipes"),
+		Sets:        append(RunSets(), "templates", "components", "docker", "k8s", "recipes"),
 	},
 	{Name: "full", Description: "every asset set", All: true},
 }

@@ -61,13 +61,6 @@ func init() {
 		_, err := parseYAMLPreset(data, name)
 		return err
 	}})
-	assets.Register("themes", assets.Spec{
-		Validate: func(data []byte, name string) error {
-			_, err := parseYAMLTheme(data, name)
-			return err
-		},
-		Required: []string{"normal"},
-	})
 	assets.Register("tools", assets.Spec{
 		Validate: validateToolDefinition,
 		Required: requiredTools,
@@ -91,25 +84,26 @@ func init() {
 //nolint:gochecknoglobals // fixed list
 var requiredCommands = []string{
 	"help", "exit", "clear", "model", "compact", "session", "settings", "update",
-	"fold", "memory", "skills", "prompts", "reload", "harness", "recall", "knowledge",
+	"fold", "memory", "skills", "prompts", "reload", "judges", "harness", "efficiency", "recall", "knowledge",
 	"prompt", "search", "context", "konfig", "kartographer",
 }
 
-// requiredHarness are the standalone prompts that compaction and judges
-// are built on. They can be updated or disabled (/harness disable), not removed.
+// requiredHarness are the standalone prompts that compaction, judges and
+// prompt refinement are built on. They can be
+// updated or disabled (/harness disable), not removed.
 //
 //nolint:gochecknoglobals // fixed list
 var requiredHarness = []string{
 	"compaction-system", "compaction-user", "compaction-update-user", "branch-summary",
 	"judge-roster-system", "judge-system",
+	"refine-system",
 }
 
 // requiredTools are the tools every agent session keeps, whatever profile
 // installed the assets: a tool without its definition is not offered to the
 // model, so these are what a minimum install can work with. They are the
 // file, shell, search, memory and knowledge tools, and the loop's own
-// control tools (without those, judges cannot finish), and session_ops,
-// which /clear, /compact, /history and /copy run. Web, code-intelligence, team and other tools are installed with
+// control tools (without those, judges cannot finish), and session_ops, which /clear, /compact, /history and /copy run. Web, code-intelligence, team and other tools are installed with
 // the tools set, or one by one (kdeps install tools/<name>).
 //
 //nolint:gochecknoglobals // fixed list

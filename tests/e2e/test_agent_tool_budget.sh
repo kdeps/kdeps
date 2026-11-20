@@ -112,8 +112,8 @@ done
 # model's view of the second calculator result lands in $TB_DIR/server.log.
 tb_run() {
     : > "$TB_DIR/server.log"
-    OUT=$(printf 'use the calculator tool to add one plus one and then two plus two, and report both results\n/exit\n' \
-        | HOME="$1" USERPROFILE="$(to_native_path "$1")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+    OUT=$(printf '/refine off\n/judges auto off\nuse the calculator tool to add one plus one and then two plus two, and report both results\n/exit\n' \
+        | HOME="$1" USERPROFILE="$(to_native_path "$1")" OPENAI_API_KEY=e2e \
             timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
             --base-url "http://127.0.0.1:$TB_PORT/v1" --model fake 2>&1 || true)
     LOG=$(cat "$TB_DIR/server.log")

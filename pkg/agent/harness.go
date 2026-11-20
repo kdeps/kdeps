@@ -34,7 +34,7 @@ var (
 	harnessRegistry map[string]*harnessEntry
 	// assembledPreamble caches harnessAssembledPreamble's result: the
 	// registry never changes after init (no runtime "switch harness"
-	// command, unlike themes), so there is nothing to invalidate it.
+	// command), so there is nothing to invalidate it.
 	assembledPreamble string
 )
 
@@ -544,7 +544,7 @@ func configureCompaction() {
 // chat.harness: each renders as agent mode renders it, user overrides
 // included; a disabled section renders as nothing.
 func configureChatHarness() {
-	harness.Configure(harness.Settings{Section: chatHarnessSection})
+	harness.Configure(harness.Settings{Section: chatHarnessSection, Summary: chatHarnessSummary})
 }
 
 // chatHarnessSection renders the preamble section name, or false when there
@@ -559,4 +559,17 @@ func chatHarnessSection(name string) (string, bool) {
 		return "", true
 	}
 	return harnessRender(key, currentPreambleData()), true
+}
+
+// chatHarnessSummary is the preamble section's one-line summary, "" when it
+// is disabled, or false when there is no preamble section by that name.
+func chatHarnessSummary(name string) (string, bool) {
+	e, ok := harnessRegistry[strings.ToLower(strings.TrimSpace(name))]
+	if !ok || e.kind != harnessKindPreambleSection {
+		return "", false
+	}
+	if e.disabled {
+		return "", true
+	}
+	return e.summaryLine(), true
 }

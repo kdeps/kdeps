@@ -171,10 +171,6 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 		&flags.NewSession, "new", false,
 		"Start a clean session, skipping the resume picker for this folder",
 	)
-	rootCmd.Flags().StringVar(
-		&flags.Theme, "theme", "",
-		"REPL theme: normal (default), black, linux, vim, emacs, or a custom name from ~/.kdeps/themes/",
-	)
 	rootCmd.Flags().StringArrayVar(
 		&flags.Index, "index", nil,
 		"Search a folder with this project: add it to the project card and index it before "+
@@ -182,7 +178,7 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 	)
 	rootCmd.Flags().StringVar(
 		&flags.Konfig, "konfig", "",
-		"Import a konfig file (tuning, harness, themes, skills) before starting, "+
+		"Import a konfig file (tuning, harness, skills) before starting, "+
 			"materializing it to ~/.kdeps (see kdeps konfig)",
 	)
 
@@ -224,7 +220,7 @@ const agentLoopFlag = "agent-loop"
 
 //nolint:gochecknoglobals // fixed list
 var agentLoopOnlyFlags = []string{
-	"model", "backend", "base-url", "system", "skill", "resume", "new", "theme", "index", "konfig",
+	"model", "backend", "base-url", "system", "skill", "resume", "new", "index", "konfig",
 }
 
 // changedAgentLoopFlag names an agent-REPL flag set without --agent-loop.
@@ -270,11 +266,11 @@ var assetFreeCommands = []string{
 //
 //nolint:gochecknoglobals // fixed table
 var commandSets = map[string][]string{
-	"run":       assets.BaseSets,
+	"run":       assets.RunSets(),
 	"validate":  assets.BaseSets,
-	"exec":      assets.BaseSets,
+	"exec":      assets.RunSets(),
 	"env":       assets.BaseSets,
-	"bundle":    assets.BaseSets,
+	"bundle":    assets.RunSets(),
 	"doctor":    nil,
 	"edit":      nil,
 	"new":       append(slices.Clone(assets.BaseSets), "templates"),

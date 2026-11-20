@@ -12,11 +12,14 @@ Already installed? [Quickstart](/workflow/quickstart) or [Run locally](/agent/qu
 brew install kdeps/tap/kdeps
 ```
 
+Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows (Scoop, packages, or manual) install steps are in [Desktop app](../agent/desktop#install).
+
 ## Windows (Scoop)
 
 ```powershell
 scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
 scoop install kdeps           # CLI
+scoop install kdeps-desktop   # desktop app, standalone
 ```
 
 ## Linux packages (deb, rpm, apk, Arch)
@@ -30,7 +33,7 @@ sudo pacman -U kdeps_<version>_linux_amd64.pkg.tar.zst        # Arch
 sudo apk add --allow-untrusted ./kdeps_<version>_linux_amd64.apk   # Alpine
 ```
 
-Use `linux_arm64` in the name on ARM machines.
+Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you. See [Desktop app](../agent/desktop#install).
 
 ## Linux, macOS, and Windows (curl)
 
@@ -105,7 +108,7 @@ The binary ships no prompts, schemas, templates or tool definitions. The first c
 What will you use kdeps for? (change it later with kdeps profile)
   1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
   2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, ...)
-  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, file/shell/web tools
   4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
   5) full       ~19.4k tok   every asset set
   6) custom                 tick the asset sets, or single items, yourself

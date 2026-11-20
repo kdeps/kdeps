@@ -27,6 +27,7 @@ import (
 
 	"context"
 
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
@@ -140,6 +141,7 @@ func (b *Builder) buildTemplateData(ctx context.Context, workflow *domain.Workfl
 		OfflineMode:          offlineMode,
 		HasResources:         hasResources,
 		HasData:              hasData,
+		ProjectDirs:          projectDirs(usePrepackagedBinary),
 		Env:                  workflow.Settings.AgentSettings.Env,
 		InstallerRef:         kdepsRef,
 		OllamaImageTag:       ollamaTag,
@@ -231,6 +233,21 @@ func resolvePythonVersion(workflow *domain.Workflow) string {
 		return version
 	}
 	return "3.12"
+}
+
+// projectDirs are the workflow's asset set folders (assets.ProjectSets) that
+// exist. A prepackaged binary carries them in its embedded package.
+func projectDirs(usePrepackagedBinary bool) []string {
+	if usePrepackagedBinary {
+		return nil
+	}
+	var dirs []string
+	for _, set := range assets.ProjectSets {
+		if info, err := os.Stat(set); err == nil && info.IsDir() {
+			dirs = append(dirs, set)
+		}
+	}
+	return dirs
 }
 
 func resolveBuildContextDirs(usePrepackagedBinary bool) (bool, bool) {

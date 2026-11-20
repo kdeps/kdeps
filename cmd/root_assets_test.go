@@ -44,7 +44,10 @@ func TestSetsFor(t *testing.T) {
 
 	sets, ok = setsFor(run)
 	assert.True(t, ok)
-	assert.Equal(t, assets.BaseSets, sets)
+	assert.Equal(t, assets.RunSets(), sets)
+	for _, set := range []string{"harness", "events", "actions"} {
+		assert.Contains(t, sets, set, "kdeps run loads what a workflow chat's harness features read")
+	}
 
 	_, ok = setsFor(install)
 	assert.False(t, ok, "install installs the assets itself")

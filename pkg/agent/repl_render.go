@@ -46,20 +46,6 @@ import (
 //nolint:gochecknoglobals // test seam for terminal color detection
 var replColorProfile = termenv.ColorProfile
 
-// stealthColorProfile is the profile glamour and lipgloss use. In stealth mode
-// it is forced to TrueColor: the near-black stealth palette only works with
-// 24-bit escapes - downsampling to 256 or 16 colors rounds the dark grays
-// *up* toward the default foreground, which is exactly the "some text is still
-// light gray / white" bug. A terminal that genuinely cannot do 24-bit will drop
-// the escapes, but nearly every modern terminal renders them even when $TERM
-// does not advertise truecolor.
-func stealthColorProfile() termenv.Profile {
-	if stealthEnabled() {
-		return termenv.TrueColor
-	}
-	return replColorProfile()
-}
-
 // cached glamour renderers — created once, recreated only on terminal resize.
 // Recreating glamour.NewTermRenderer on every call parses styles and re-initialises
 // chroma from scratch, which causes a visible flicker as each response is rendered.
@@ -83,7 +69,7 @@ func getRenderer() (*glamour.TermRenderer, error) {
 	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(replStyleConfig()),
-		glamour.WithColorProfile(stealthColorProfile()),
+		glamour.WithColorProfile(replColorProfile()),
 		glamour.WithWordWrap(w),
 	)
 	if err != nil {
@@ -113,7 +99,7 @@ func renderCommandOutput(text string) string {
 	if cachedCommandRenderer == nil || cachedCommandRendererWidth != w {
 		r, err := glamour.NewTermRenderer(
 			glamour.WithStyles(replStyleConfig()),
-			glamour.WithColorProfile(stealthColorProfile()),
+			glamour.WithColorProfile(replColorProfile()),
 			glamour.WithWordWrap(w),
 			glamour.WithPreservedNewLines(),
 		)
@@ -142,7 +128,7 @@ func getThinkingRenderer() (*glamour.TermRenderer, error) {
 	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(thinkingStyleConfig()),
-		glamour.WithColorProfile(stealthColorProfile()),
+		glamour.WithColorProfile(replColorProfile()),
 		glamour.WithWordWrap(thinkingWrapWidth(w)), // leave room for the gutter
 	)
 	if err != nil {
@@ -160,9 +146,9 @@ const (
 )
 
 // Color palette for markdown rendering. These are package vars, not consts, so
-// stealth mode (see theme.go) can swap them at runtime via applyRenderPalette.
+// stealth mode (see palette.go) sets them via applyRenderPalette.
 // Default values come from normalPalette; applyRenderPalette is called once
-// from theme.go's init and again on every /stealth toggle.
+// from palette.go's init.
 //
 //nolint:gochecknoglobals // runtime-swappable render palette (stealth mode)
 var (
@@ -188,7 +174,7 @@ var (
 )
 
 // applyRenderPalette sets the markdown color vars from the active palette and
-// rebuilds the thinking-block styles. Called by rebuildTheme (theme.go).
+// rebuilds the thinking-block styles. Called by applyPalette (palette.go).
 func applyRenderPalette() {
 	p := activePalette
 	colorHeading = p.heading
@@ -216,7 +202,7 @@ func applyRenderPalette() {
 }
 
 // invalidateRenderers drops the cached glamour renderers so the next render
-// rebuilds them from the current palette. Called by rebuildTheme (theme.go).
+// rebuilds them from the current palette. Called by applyPalette (palette.go).
 func invalidateRenderers() {
 	rendererMu.Lock()
 	defer rendererMu.Unlock()

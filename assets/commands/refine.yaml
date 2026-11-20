@@ -1,0 +1,15 @@
+version: 2.0.1
+name: refine
+order: 220
+usage:
+  - args: "[on|off]"
+    help: Show or toggle pre-turn prompt refinement (off by default)
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: refine        # live session state; the choice persists across sessions
+  values: [on, off]  # accepted arguments, matched without case
+  show: >-
+    {{if eq .value "on"}}prompt refinement is on — each prompt is rewritten for clarity before the turn{{else}}prompt refinement is off — /refine on to enable{{end}}
+  set: >-
+    {{if eq .value "on"}}prompt refinement enabled — the next prompt is rewritten for clarity before the turn{{else}}prompt refinement disabled — prompts are sent to the model verbatim{{end}}
+  invalid: "Usage: /refine [on|off]"

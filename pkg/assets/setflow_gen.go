@@ -16,7 +16,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the agent loop continues"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.ActionByName"},
+		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.ActionByName"},
 	},
 	"codegraph": {
 		Mode: "both",
@@ -55,7 +55,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "config.GetDefaults"},
 	},
 	"docker": {
@@ -117,7 +117,7 @@ var generatedFlows = map[string]SetInfo{
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.(*Topic).Add", "knowledge.recallRules"},
 	},
 	"memory": {
-		Mode: "agent",
+		Mode: "both",
 		Flow: []FlowStep{
 			{Label: "the agent saves a memory or a tool returns"},
 			{Label: "kdeps types the entry by its key and links it to its parent type"},
@@ -125,8 +125,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its result is captured"},
 			{Label: "the memory block flags open errors and resumes from unfinished work"},
 		},
-		UsedBy: []string{"/update", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
-		Code:   []string{"/update", "agent.RunAssetUpdate", "agent.initMemoryRules"},
+		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec"},
+		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.initMemoryRules"},
 	},
 	"models": {
 		Mode: "both",
@@ -152,7 +152,7 @@ var generatedFlows = map[string]SetInfo{
 	"presets": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "/harness preset"},
+			{Label: "/harness preset or /efficiency preset"},
 			{Label: "the preset rewrites events and harness sections", Here: true},
 			{Label: "every later turn uses them"},
 		},
@@ -200,16 +200,6 @@ var generatedFlows = map[string]SetInfo{
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps new", "kdeps run", "kdeps knowledge build"},
 		Code:   []string{"kdeps new", "templates.(*Generator).GenerateProject"},
-	},
-	"themes": {
-		Mode: "both",
-		Flow: []FlowStep{
-			{Label: "kdeps starts"},
-			{Label: "the normal palette colors the terminal", Here: true},
-			{Label: "every reply and prompt"},
-		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
-		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.loadBuiltinThemes"},
 	},
 	"tools": {
 		Mode: "both",

@@ -55,7 +55,7 @@ or a local archive.
 Source is auto-detected from the ref format:
 
   Asset        <set>[/<name>][@version], set one of kdeps's asset sets
-               (tools, harness, themes, ...); installs what it requires first,
+               (tools, harness, presets, ...); installs what it requires first,
                and a version pins it
   Local file   Path starting with ./ ../ / ~ or ending with .kdeps .kagency .komponent
   GitHub       owner/repo[:subdir]  (contains "/", owner not an asset set;

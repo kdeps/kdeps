@@ -1,0 +1,39 @@
+version: 2.0.0
+name: turo
+order: 205
+usage:
+  - args: "[on|off|lite|full|ultra|wenyan|filler/synonyms/gloss/defmatch/arrows on|off]"
+    help: Show or set the turo prompt reducer (turo backend only)
+# setting: the command shows or sets one session setting; the text is here.
+setting:
+  key: turo  # .available is false when the turo binary is not installed; nothing changes then
+  values:
+    - on        # reduce content before it reaches the LLM
+    - off       # send content unreduced
+    - lite      # a level also turns turo on
+    - full
+    - ultra
+    - wenyan
+    - filler on  # "<stage> on|off" toggles one lossy pipeline stage
+    - filler off
+    - synonyms on
+    - synonyms off
+    - gloss on
+    - gloss off
+    - defmatch on
+    - defmatch off
+    - arrows on
+    - arrows off
+  show: |-
+    {{if not .available}}turo is not installed. Install github.com/kdeps/turo to enable prompt reduction.{{else}}turo
+      state: {{.value}}
+      level: {{.level}}
+      filler: {{.filler}}
+      synonyms: {{.synonyms}}
+      gloss: {{.gloss}}
+      defmatch: {{.defmatch}}
+      arrows: {{.arrows}}{{end}}
+  set: >-
+    {{if not .available}}turo is not installed. Install github.com/kdeps/turo to enable prompt reduction.{{else if eq .arg "off"}}turo off — content is sent to the LLM unreduced{{else if eq .arg "on"}}turo on{{else if eq .arg "lite" "full" "ultra" "wenyan"}}turo level: {{.level}}{{else}}turo {{.arg}}{{end}}
+  invalid: >-
+    {{if not .available}}turo is not installed. Install github.com/kdeps/turo to enable prompt reduction.{{else}}Usage: /turo [on|off|lite|full|ultra|wenyan|filler|synonyms|gloss|defmatch|arrows on|off]{{end}}

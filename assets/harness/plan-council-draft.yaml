@@ -1,0 +1,15 @@
+version: 1.0.0
+name: plan-council-draft
+kind: standalone
+body: |-
+  You are "{{.Name}}" on a planning council for an AI agent. Your focus: {{.Focus}}.
+  The agent will carry out the task below after the council agrees on a plan.
+  Do not do the task. Propose how to do it.
+
+  Task:
+  {{.Task}}
+
+  Reply with ONLY a JSON object:
+  {"answer": "<your approach in a few sentences>",
+   "job_orders": [{"title": "<one unit of work, imperative>", "detail": "<what done looks like>"}]}
+  Keep job orders small, concrete, and checkable. At most 6.

@@ -1,6 +1,6 @@
 # Updating kdeps
 
-`/upgrade` installs a new kdeps binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets): harness, tool definitions, slash commands, themes, recipes, model registries and templates. Other REPL behaviors are on [REPL features](/agent/repl).
+`/upgrade` installs a new kdeps binary. `/update` (and `kdeps update`) updates the [versioned assets](#updating-assets): harness, tool definitions, slash commands, recipes, model registries and templates. Other REPL behaviors are on [REPL features](/agent/repl).
 
 At startup kdeps checks GitHub for a newer stable release and prints a notice under the banner. The check runs a maximum of one time in 24 hours. kdeps keeps the result in `~/.kdeps/update-check.json`. The check stops after 3 seconds:
 
@@ -35,7 +35,7 @@ This is standalone-only, like nightly. Homebrew, .deb and .apk print a link to t
 
 ## Updating assets
 
-kdeps behavior files are versioned assets. They update separately from the binary. Harness sections, events, actions, presets, themes, tool definitions, and slash commands drive the REPL. LLM server recipes, `kdeps new` templates, workflow schemas, executor defaults, components, and Docker or Kubernetes templates drive the workflow.
+kdeps behavior files are versioned assets. They update separately from the binary. Harness sections, events, actions, presets, tool definitions, and slash commands drive the REPL. LLM server recipes, `kdeps new` templates, workflow schemas, executor defaults, components, and Docker or Kubernetes templates drive the workflow.
 
 | Set | What an item is | Example id |
 |---|---|---|
@@ -43,7 +43,6 @@ kdeps behavior files are versioned assets. They update separately from the binar
 | `events` | An agent-loop event and its limits | `events/file-read-limit` |
 | `actions` | An action an event can fire | `actions/block` |
 | `presets` | A named bundle of harness/event settings | `presets/frugal` |
-| `themes` | The REPL palette. Only `normal` applies | `themes/normal` |
 | `tools` | A built-in tool's description and parameter schema (the code stays in the binary) | `tools/read_file` |
 | `commands` | A REPL slash command: a built-in's help and aliases, or a [declared command](/agent/commands#declared-commands) run entirely from its steps | `commands/review` |
 | `recipes` | An LLM server recipe | `recipes/vllm` |
@@ -80,7 +79,7 @@ $ kdeps --agent-loop
 What will you use kdeps for? (change it later with kdeps profile)
   1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
   2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, ...)
-  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, themes, file/shell/web tools
+  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, file/shell/web tools
   4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
   5) full       ~19.4k tok   every asset set
   6) custom                 tick the asset sets, or single items, yourself
@@ -92,7 +91,7 @@ Choice [5]:
 |---|---|
 | `minimum` | `schemas`, `defaults`, `models`, `providers` (the base: every other profile includes it) |
 | `workflows` | base + `templates`, `components` |
-| `agent` | base + `harness`, `commands`, `themes`, `events`, `actions`, `presets`, `memory`, the loop's required tools and the file, shell, web and memory tools |
+| `agent` | base + `harness`, `commands`, `events`, `actions`, `presets`, `memory`, the loop's required tools and the file, shell, web and memory tools |
 | `deploy` | base + `templates`, `components`, `docker`, `k8s`, `recipes` |
 | `full` | every set |
 | `custom` | a checklist of every set and item |
@@ -150,7 +149,7 @@ func definedAs(id string, t *kdepstools.Tool) *kdepstools.Tool {
 
 The asset publish job makes the file again, so kdeps.io matches main. `pkg/assets/setinfo.go` gives the purpose of each set. The `description:` of an item gives its purpose.
 
-`~tok` estimates the quantity that an item adds to the context of the model (about 4 bytes for each token). Harness sections are system-prompt text. Tool definitions and components are tool schemas that kdeps sends on each turn. Themes, events, schemas, templates, and other sets never go to the model and show no count. The estimate appears in the asset index, on kdeps.io, in `kdeps install` and `kdeps update`, and as a total in `kdeps list --assets`:
+`~tok` estimates the quantity that an item adds to the context of the model (about 4 bytes for each token). Harness sections are system-prompt text. Tool definitions and components are tool schemas that kdeps sends on each turn. Events, schemas, templates, and other sets never go to the model and show no count. The estimate appears in the asset index, on kdeps.io, in `kdeps install` and `kdeps update`, and as a total in `kdeps list --assets`:
 
 ```text
 $ kdeps install tools/bash_exec
@@ -164,13 +163,13 @@ CI, Docker and scripts get no question. `KDEPS_PROFILE` names the profile (`KDEP
 
 ### What a profile installs later
 
-A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the `normal` theme, the loop's required tools and harness, and 21 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `harness`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
+A command that loads a set outside the profile installs only that set's required items, never the whole set. Under `minimum`, `kdeps --agent-loop` adds the loop's required tools and harness, and 22 core commands, which `/help` lists: `help`, `exit`, `clear`, `model`, `compact`, `session`, `settings`, `update`, `fold`, `memory`, `skills`, `prompts`, `reload`, `judges`, `harness`, `recall`, `knowledge`, `prompt`, `search`, `context`, `konfig`, `kartographer`.
 
 ```text
 $ KDEPS_PROFILE=minimum kdeps
 Installing the minimum profile...
 minimum profile  downloaded 7/19 providers/openai
-Installing harness/compaction-system, ..., tools/note_get, ..., commands/help, ..., themes/normal (needed by this command)...
+Installing harness/compaction-system, ..., tools/note_get, ..., commands/help, ... (needed by this command)...
 ```
 
 When files download, a terminal writes one line again and again, as in `minimum profile  downloaded 7/19 providers/openai`. The profile name stays on that line. A log prints one line for each file. Items that the registry does not have now show as one line, `Skipped 3 items that are no longer published.`
@@ -180,7 +179,7 @@ kdeps gives the name of an item that fails for a different reason. If other item
 - Sets with no necessary items (`events`, `actions`, `presets`) stay empty. kdeps records them as empty in `lock.json`, so the next start makes no network call.
 - If a necessary item is not installed when code reads it, kdeps installs it one time, on first use. The terminal shows its name: `Installed knowledge/vault 1.0.0 (first use).` (the first `kdeps knowledge build` or local search).
 - A Go built-in command (`builtin: true`) runs without its file. The file only adds it to `/help`.
-- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/review`) exists only when installed. `kdeps install commands/review` adds `/review`. `kdeps install commands` adds all.
+- A YAML command (`run:`, `setting:` or `subcommands:`, such as `/refine` or `/review`) exists only when installed: `kdeps install commands/refine` adds `/refine`, `kdeps install commands` adds all.
 - You cannot uninstall a necessary item.
 
 A switch to a smaller profile prunes items. `kdeps profile minimum` after `agent` or `full` deletes all items that are not in the new profile (`docker/image  remove  not in the profile`). A set that is not in the profile also loses its necessary items. The base sets and the sets of the agent loop are exceptions. If you install an item by name later, `kdeps update` keeps it.
@@ -196,7 +195,7 @@ Offline, a missing set stops the command and names the fix: `kdeps assets docker
 
 ### Update notices and commands
 
-A startup notice shows when there are new published updates. kdeps checks each day and keeps the result in `~/.kdeps/assets/check.json`.
+A startup notice shows when there are new published updates. kdeps checks each day and keeps the result in `~/.kdeps/assets/check.json`. The desktop app shows an **Updates available** button in the top bar.
 
 ```text
 2 asset updates available (harness/safety 1.2.0, tools/read_file 1.1.0). Run kdeps update.
@@ -243,16 +242,15 @@ In the REPL, `/update`, `/update check`, `/update list` and `/update remove <ite
 
 ### Removing and overriding
 
-A removed item stays hidden until you update it by name. The model does not see a removed tool. kdeps does not send a removed harness section. kdeps does not list a removed theme or template. You cannot remove these items:
+A removed item stays hidden until you update it by name. The model does not see a removed tool. kdeps does not send a removed harness section. kdeps does not list a removed template. You cannot remove these items:
 
-- `themes/normal`
-- the internal harness prompts: compaction, judges, and branch summaries
+- the internal harness prompts: compaction, judges, prompt refinement, and branch summaries
 - the loop's control tools: `judge_verdict` and `session_ops`
 - the model registries: `models/llamafile`, `models/gguf`, `models/cloud`, `models/openrouter`
 
 `/harness disable <name>` turns off a harness section. It does not remove the section.
 
-Files in `~/.kdeps/harness/`, `~/.kdeps/themes/`, `~/.kdeps/llm-servers/` and similar directories layer on top of the installed version.
+Files in `~/.kdeps/harness/`, `~/.kdeps/llm-servers/` and similar directories layer on top of the installed version.
 
 `KDEPS_ASSETS_URL` points downloads at a mirror laid out like `assets/` in kdeps/packages (`index.json` plus `<set>/<name>/<version>.yaml`). `KDEPS_ASSETS_URL=off` turns downloads off.
 
@@ -274,7 +272,7 @@ A [shelf](/reference/glossary#shelf) is the engineering category of an asset. Th
 | tools | Tool definitions other than memory, rag, guardrails, or agent. Web search and scrapers stay here |
 | memory | `memory_*`, `knowledge_*`, the memory harness section, memory events |
 | rag | `embedding_*`, `search_local`, `retrieve_context`, `load_document`, the rerank tools |
-| agent | Slash commands other than `/model`. `load_skill`, `instruct`, `identity_get`, `themes/` |
+| agent | Slash commands other than `/model`. `load_skill`, `instruct`, `identity_get` |
 | guardrails | Approval tools and the safety harness. Events and actions that block, reject, or fail |
 | evals | Judge prompts, `judge_verdict`, `judge-iterations`, `judge-max-rounds`. The items keep the name judge. The panel is the eval |
 | workflow | `schemas/`, `templates/`, `components/`, `defaults/` |

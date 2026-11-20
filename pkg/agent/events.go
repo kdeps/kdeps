@@ -47,7 +47,7 @@ import (
 //	run: compact
 //
 // Same asset-set + ~/.kdeps user-override-merged-by-name pattern as
-// harness/themes (harness_yaml.go/theme_yaml.go), so an event is already
+// harness (harness_yaml.go), so an event is already
 // covered by konfig export/import (konfig.go) for free, and a user can
 // override one by dropping a same-named file in ~/.kdeps/events/ -- no Go
 // code or recompilation required.
@@ -65,7 +65,9 @@ type EventTrigger struct {
 	// is unknown); "memory-prompt-limit" caps how many tokens of memory
 	// content are injected into the system preamble (converted to an
 	// approximate byte budget internally, same charsPerToken ratio the
-	// truncation cluster's Bytes fields use directly).
+	// truncation cluster's Bytes fields use directly);
+	// "side-call-max-tokens" caps refine, the judge roster, and a
+	// verdict-only judge.
 	Tokens int `yaml:"tokens,omitempty"`
 	// CtxWindowFraction fires when the session's estimated token count
 	// exceeds this fraction of the model's known context window --
@@ -135,7 +137,7 @@ type Event struct {
 	Disabled bool `yaml:"disabled,omitempty"`
 }
 
-//nolint:gochecknoglobals // built-in + user-merged registry, mirrors harnessRegistry/themes
+//nolint:gochecknoglobals // built-in + user-merged registry, mirrors harnessRegistry
 var eventRegistry map[string]*Event
 
 // userEventsDirName is the subdirectory of ~/.kdeps holding user event
@@ -230,9 +232,10 @@ func parseYAMLEvent(data []byte, source string) (Event, error) {
 // lenient pattern loadUserHarness/loadUserThemes use.
 func loadUserEvents() (map[string]*Event, []error) {
 	dir, err := userEventsDir()
-	if err != nil {
-		return nil, []error{err}
-	}
+	return layered(dir, err, userEventsDirName, loadEventsDir)
+}
+
+func loadEventsDir(dir string) (map[string]*Event, []error) {
 	return loadUserYAMLDir(dir, "events", parseYAMLEvent, func(e Event) string { return e.Name })
 }
 
@@ -314,10 +317,14 @@ func initEvents() {
 	configureToolBudget()
 	configureBodyLimit()
 	configureChatHarness()
+	configureRefine()
+	configureCouncil()
+	configureChatTuro()
 	configureSkills()
 	configureNudges()
 	setFreeModelQueueCap()
 	configureFailureBrief()
+	configureEfficiency()
 	configureCompaction()
 }
 
@@ -574,8 +581,23 @@ func memoryPromptLimit() int {
 	return fallback
 }
 
-// tokensField reads the "Tokens" field. auto-compact and memory-prompt-limit
-// use it.
+// sideCallMaxTokens is the output cap for refine, the judge roster, and a
+// verdict-only judge. The side-call-max-tokens event supplies it. A disabled
+// event or a zero tokens field falls back to the model ceiling. Compaction,
+// the main turn, branch summaries, plan, confirm, and handshake do not use
+// this helper.
+func sideCallMaxTokens(backend, model string) *int {
+	if !EventEnabled(eventSideCallMaxTokens) {
+		return syntheticCallMaxTokens(backend, model)
+	}
+	if n := tokensField(eventSideCallMaxTokens); n > 0 {
+		return &n
+	}
+	return syntheticCallMaxTokens(backend, model)
+}
+
+// tokensField reads the "Tokens" field. auto-compact, memory-prompt-limit,
+// and side-call-max-tokens use it.
 func tokensField(name string) int {
 	e, _ := EventByName(name)
 	return e.On.Tokens

@@ -21,4 +21,4 @@ Tools marked "cached" in Web and search memoize successful results for the agent
 ## See also
 
 - [Built-in tools](/agent/tools) - the full tool catalog
-- [Shell execution](/agent/shell) - Ctrl+C/Ctrl+Z, background jobs, rtk
+- [Shell execution](/agent/shell) - Ctrl+C/Ctrl+Z, background jobs

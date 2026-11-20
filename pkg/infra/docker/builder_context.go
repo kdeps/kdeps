@@ -141,6 +141,12 @@ func (b *Builder) addWorkflowFilesToContext(tw *tar.Writer) error {
 	// Resources and data directories are optional; ignore errors.
 	_ = b.addDirectoryToTar(tw, "resources")
 	_ = b.addDirectoryToTar(tw, "data")
+	// The workflow's own limits and prompts (events/, harness/, ...).
+	for _, dir := range projectDirs(false) {
+		if addErr := b.addDirectoryToTar(tw, dir); addErr != nil {
+			return fmt.Errorf("failed to add %s/: %w", dir, addErr)
+		}
+	}
 	return nil
 }
 

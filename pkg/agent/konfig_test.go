@@ -30,7 +30,7 @@ import (
 )
 
 // isolateKonfigHome points os.UserHomeDir (via HOME/USERPROFILE) at a fresh
-// temp dir, so tui.LoadSettings/Save (and any user harness/theme dirs) never
+// temp dir, so tui.LoadSettings/Save (and any user harness dirs) never
 // touch the real ~/.kdeps.
 func isolateKonfigHome(t *testing.T) {
 	t.Helper()
@@ -47,13 +47,11 @@ func TestExportKonfig_FreshHomeStillExportsBuiltinDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	// A bare ~/.kdeps (nothing customized) must still produce a complete,
-	// self-contained konfig -- every built-in harness section and theme,
+	// self-contained konfig -- every built-in harness section,
 	// proving "current system default config can also be exported."
 	assert.Len(t, k.Harness, len(harnessRegistry), "every effective harness entry must be present")
-	assert.Len(t, k.Themes, len(themeOrder), "every effective theme must be present")
 	assert.Len(t, k.Events, len(eventRegistry), "every effective event must be present")
 	assert.Len(t, k.Actions, len(actionRegistry), "every effective action must be present")
-	assert.Equal(t, CurrentThemeName(), k.ActiveTheme)
 	assert.Empty(t, k.Skills, "no skills loaded in this test loop")
 }
 
@@ -112,9 +110,7 @@ func TestWriteKonfig_ReadKonfig_RoundTrip(t *testing.T) {
 	got, err := ReadKonfig(path)
 	require.NoError(t, err)
 	assert.Equal(t, k.Tuning.MaxToolRounds, got.Tuning.MaxToolRounds)
-	assert.Equal(t, k.ActiveTheme, got.ActiveTheme)
 	assert.Len(t, got.Harness, len(k.Harness))
-	assert.Len(t, got.Themes, len(k.Themes))
 	require.Len(t, got.Skills, 1)
 	assert.Equal(t, "lint", got.Skills[0].Name)
 }
@@ -125,20 +121,15 @@ func TestReadKonfig_MissingFileReturnsError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
+func TestApplyKonfig_WritesHarnessSkillsAndSettings(t *testing.T) {
 	isolateKonfigHome(t)
 	t.Cleanup(initHarness)
-	t.Cleanup(initThemes)
 	t.Cleanup(initEvents)
 
 	k := &Konfig{
-		Tuning:      tui.AgentLoopTuning{MaxToolRounds: 77},
-		ActiveTheme: "linux",
+		Tuning: tui.AgentLoopTuning{MaxToolRounds: 77},
 		Harness: []yamlHarnessEntry{
 			{Name: "my-override", Kind: harnessKindStandalone, Body: "Custom rule."},
-		},
-		Themes: []yamlTheme{
-			{Name: "my-theme", Prompt: "> ", Palette: yamlPalette{Heading: "#FF00FF", ReplError: "#FF0000"}},
 		},
 		Events: []Event{
 			{Name: eventAutoCompact, On: EventTrigger{Tokens: 12345, MinTurns: 4}, Run: "compact"},
@@ -164,11 +155,6 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 	assert.FileExists(t, harnessPath)
 	assert.Contains(t, harnessRegistry, "my-override", "reloaded in-process after import")
 
-	themePath := filepath.Join(home, ".kdeps", "themes", "my-theme.yaml")
-	assert.FileExists(t, themePath)
-	assert.NotContains(t, themes, "my-theme")
-	assert.Equal(t, "normal", CurrentThemeName())
-
 	eventPath := filepath.Join(home, ".kdeps", "events", "auto-compact.yaml")
 	assert.FileExists(t, eventPath)
 	assert.Equal(t, 12345, autoCompactTokens(), "reloaded in-process after import")
@@ -188,7 +174,6 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 	settings, loadErr := tui.LoadSettings()
 	require.NoError(t, loadErr)
 	assert.Equal(t, "llama3.2:1b", settings.DefaultModel)
-	assert.Equal(t, "linux", settings.Theme)
 	require.NotNil(t, settings.AgentLoop)
 	assert.Equal(t, 77, settings.AgentLoop.MaxToolRounds)
 }
@@ -196,12 +181,10 @@ func TestApplyKonfig_WritesHarnessThemesSkillsAndSettings(t *testing.T) {
 func TestApplyKonfig_SanitizesUntrustedNames(t *testing.T) {
 	isolateKonfigHome(t)
 	t.Cleanup(initHarness)
-	t.Cleanup(initThemes)
 	t.Cleanup(initEvents)
 
 	k := &Konfig{
 		Harness: []yamlHarnessEntry{{Name: "../../evil", Body: "x"}},
-		Themes:  []yamlTheme{{Name: "../../evil"}},
 		Events:  []Event{{Name: "../../evil", On: EventTrigger{Tokens: 1}, Run: "compact"}},
 		Actions: []Action{{Name: "../../evil", Kind: "tokens", Description: "x"}},
 		Skills:  []KonfigSkill{{Name: "../../evil", Content: "x"}},
@@ -212,7 +195,6 @@ func TestApplyKonfig_SanitizesUntrustedNames(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "harness", "evil.yaml"))
-	assert.FileExists(t, filepath.Join(home, ".kdeps", "themes", "evil.yaml"))
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "events", "evil.yaml"))
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "actions", "evil.yaml"))
 	assert.FileExists(t, filepath.Join(home, ".kdeps", "skills", "evil", "SKILL.md"))
@@ -228,7 +210,6 @@ func TestExportKonfig_ApplyKonfig_RoundTrip(t *testing.T) {
 	// alone reproduces the full effective config elsewhere.
 	isolateKonfigHome(t)
 	t.Cleanup(initHarness)
-	t.Cleanup(initThemes)
 	t.Cleanup(initEvents)
 	require.NoError(t, ApplyKonfig(k))
 
@@ -238,18 +219,4 @@ func TestExportKonfig_ApplyKonfig_RoundTrip(t *testing.T) {
 	assert.Len(t, harnessRegistry, len(k.Harness))
 	assert.Len(t, eventRegistry, len(k.Events))
 	assert.Len(t, actionRegistry, len(k.Actions))
-	assert.Equal(t, k.ActiveTheme, CurrentThemeName())
-}
-
-func TestExportThemeEntries_EveryThemeFullyResolved(t *testing.T) {
-	entries := exportThemeEntries()
-	require.Len(t, entries, len(themeOrder))
-	for _, e := range entries {
-		assert.NotEmpty(t, e.Name)
-		// A fully-resolved theme has no gaps -- every color inherited from
-		// "normal" is filled in explicitly, not left blank for the target
-		// machine to re-inherit.
-		assert.NotEmpty(t, e.Palette.Heading, "theme %q must have every palette field resolved", e.Name)
-		assert.NotEmpty(t, e.Palette.ReplError, "theme %q must have every palette field resolved", e.Name)
-	}
 }

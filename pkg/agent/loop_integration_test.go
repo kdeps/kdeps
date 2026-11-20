@@ -383,6 +383,7 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	ms := &mockStreamer{responses: responses}
 	loop := newStreamingLoop(ms, 0) // unlimited rounds — only the guard can stop it
 	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(false)) // legacy path: no brief, turn ends
 	resetConvergenceLimitsAfter(t)
 	SetConvergenceLimits(0, 5, 0, 0) // the bash tool limit is the repeat cap
 
@@ -400,6 +401,40 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	if !strings.Contains(result, "repeated the same") {
 		t.Fatalf("expected stuck-loop notice, got %q", result)
 	}
+}
+
+func TestRunStreaming_RepeatBriefsModelThenRetries(t *testing.T) {
+	// With efficiency on, a repeat stuck-loop is not a turn-ending human-visible
+	// notice: the model gets a hidden brief on its next call and may retry.
+	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(true))
+
+	toolCall := domain.StreamedToolCall{
+		ID: "1", Name: "noop", Arguments: "{}",
+	}
+	n := identicalRepeatLimit("noop")
+	responses := make([]mockStreamResponse, 0, n+1)
+	for range n {
+		responses = append(responses, mockStreamResponse{toolCalls: []domain.StreamedToolCall{toolCall}})
+	}
+	responses = append(responses, mockStreamResponse{content: "switched approach, done"})
+	rec := &cfgRecordingStreamer{inner: mockStreamer{responses: responses}}
+	loop := newStreamingLoop(rec, 0)
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.Contains(t, result, "switched approach")
+	assert.NotContains(t, result, "repeated the same")
+	assert.NotContains(t, buf.String(), efficiencyMark, "humans must not see the brief")
+	assert.NotContains(t, buf.String(), "repeated the same")
+
+	require.Len(t, rec.cfgs, n+1)
+	last := rec.cfgs[n]
+	assert.Contains(t, last.Prompt, efficiencyMark)
+	assert.Contains(t, last.Prompt, "noop")
+	assert.Contains(t, last.Prompt, "same result")
+	assert.NotContains(t, rec.cfgs[0].Prompt, efficiencyMark)
 }
 
 // cfgRecordingStreamer wraps mockStreamer and snapshots the ChatConfig of
@@ -2340,6 +2375,28 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 	)
 }
 
+// When auto-judging is on but the roster call yields nothing (no engine func
+// wired -> Execute errors), RunStreaming tells the user instead of silently
+// skipping the panel.
+func TestRunStreaming_ReportsMissingAutoJudgeRoster(t *testing.T) {
+	ms := &mockStreamer{responses: []mockStreamResponse{{content: "answer", toolCalls: nil}}}
+	loop := newStreamingLoop(ms, 3)
+	loop.config.AutoJudges = true
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(
+		context.Background(),
+		"review the auth module and report findings",
+		&buf,
+	)
+	if err != nil {
+		t.Fatalf("RunStreaming: %v", err)
+	}
+	if !strings.Contains(buf.String(), "no panel this turn") {
+		t.Fatalf("expected the missing-roster notice, got %q", buf.String())
+	}
+}
+
 // The model's narration on a tool-call round reaches the user; without this the
 // streamer writes it to a throwaway buffer.
 func TestRunStreaming_EmitsToolRoundNarration(t *testing.T) {
@@ -2506,9 +2563,10 @@ func TestRunStreaming_CappedRoundAnswerEndsTurn(t *testing.T) {
 	assert.Equal(t, "Tool budget is now exhausted, so this turn stops here.", got)
 }
 
-// A failed work tool is marked in history. The loop must not end the turn on
-// a "done" claim right after it. It nudges once for a real success or an
-// honest failure.
+// A failed work tool is soft-stopped: the error reaches the model on the hidden
+// efficiency channel (not as a [TOOL FAILED] banner in history), and the loop
+// must not end the turn on a "done" claim right after it -- it nudges once for
+// a real success or an honest failure.
 func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	calls := 0
 	eng := executor.NewEngine(context.Background(), nil)
@@ -2533,8 +2591,10 @@ func TestRunStreaming_FailedToolNotAcceptedAsDone(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 2)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]")
-	assert.Contains(t, ms.cfgs[1].Messages, "old_string not found in /a.go")
+	assert.Contains(t, ms.cfgs[1].Prompt, efficiencyMark+" Soft stop (failure 1/",
+		"the model must be briefed on the failure")
+	assert.Contains(t, ms.cfgs[1].Prompt, "old_string not found in /a.go")
+	assert.NotContains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the brief replaces the history banner")
 	require.Len(t, ms.cfgs, 3, "a 'done' claim after a failed tool must draw one nudge")
 	assert.Contains(t, ms.cfgs[2].Prompt, "edit_file call failed")
 	assert.Contains(t, result, "edit failed")
@@ -2574,7 +2634,7 @@ func TestRunStreaming_RecoveredToolCallIsPraised(t *testing.T) {
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(ms.cfgs), 3)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]", "the first failure must still be flagged")
+	assert.Contains(t, ms.cfgs[1].Prompt, "Soft stop (failure 1/", "the first failure must still be flagged")
 	assert.Contains(t, ms.cfgs[2].Messages, "[GOOD]", "the recovered success must carry praise")
 	assert.Contains(t, ms.cfgs[2].Messages, "edit applied", "the actual result must still be present")
 }
@@ -2987,6 +3047,8 @@ func TestRunStreaming_IdenticalRepeatsEndTheTurn(t *testing.T) {
 	responses = append(responses, mockStreamResponse{content: "Done."})
 	ms := &mockStreamer{responses: responses}
 	loop := newStreamingLoop(ms, 0)
+	isolateEventsAndPresetsHome(t)
+	require.NoError(t, SetEfficiencyEnabled(false)) // legacy path: the turn ends
 
 	var buf bytes.Buffer
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)

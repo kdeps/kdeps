@@ -17,7 +17,7 @@
 // license notices and attribution when redistributing derived code.
 
 // Package assets manages kdeps' versioned behavior files: harness sections,
-// events, actions, presets, themes, tool definitions, slash commands, LLM
+// events, actions, presets, tool definitions, slash commands, LLM
 // server recipes, model registries and project templates. None of them is
 // compiled into the binary: they are published to the registry and installed
 // into ~/.kdeps/assets by kdeps update (Ensure runs it on first start). A
@@ -54,7 +54,7 @@ import (
 //
 //nolint:gochecknoglobals // fixed list of set names
 var Sets = []string{
-	"harness", "events", "actions", "presets", "policy", "themes", "tools", "commands", "recipes",
+	"harness", "events", "actions", "presets", "policy", "tools", "commands", "recipes",
 	"models", "templates",
 	"docker", "k8s", "schemas", "defaults", "components", "providers", "memory", "knowledge", "codegraph",
 }

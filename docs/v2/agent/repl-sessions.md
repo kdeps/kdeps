@@ -49,7 +49,7 @@ kdeps --agent-loop --resume <id>       # resume a specific session directly (no 
 - Resuming, continuing, then exiting updates the same session - it does not
   fork a new one. The session is also saved after every turn, so a crash or
   kill still leaves it in the picker.
-- Settings (the default model, tool tuning), the model
+- Settings (`/refine`, `/plan`, the default model, tool tuning), the model
   cache, and all other files under `~/.kdeps/` do not change.
 - `ctrl+d` on a highlighted session deletes it. You cannot delete the "Start a
   new session" row. This is the same as `/session delete <id>`, but you do it

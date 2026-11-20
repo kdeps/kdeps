@@ -141,7 +141,7 @@ func loadToolDefinitions() map[string]toolDefinition {
 	return out
 }
 
-func loadToolDefinitionsFrom(fsys themeFS) map[string]toolDefinition {
+func loadToolDefinitionsFrom(fsys harnessFS) map[string]toolDefinition {
 	entries, err := fsys.ReadDir("tools")
 	if err != nil {
 		warnAsset(err)

@@ -45,7 +45,7 @@ func TestBundledAssets_RoundTrip(t *testing.T) {
 	store := os.Getenv("KDEPS_ASSETS_DIR")
 	require.NotEmpty(t, store, "the package's assets become the store")
 	assert.FileExists(t, filepath.Join(store, "lock.json"))
-	assert.FileExists(t, filepath.Join(store, "themes", "normal.yaml"))
+	assert.FileExists(t, filepath.Join(store, "commands", "help.yaml"))
 
 	// The store works with no source directory: nothing is missing.
 	t.Setenv(assets.SourceEnv, t.TempDir())
@@ -77,7 +77,7 @@ func TestUseBundledAssets_Skips(t *testing.T) {
 	require.NoError(t, err)
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
-	for _, name := range []string{BundledAssetsDir + "/../escape.yaml", BundledAssetsDir + "/themes/x.yaml"} {
+	for _, name := range []string{BundledAssetsDir + "/../escape.yaml", BundledAssetsDir + "/policy/x.yaml"} {
 		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: 1, Typeflag: tar.TypeReg}))
 		_, err = tw.Write([]byte("x"))
 		require.NoError(t, err)
@@ -89,7 +89,7 @@ func TestUseBundledAssets_Skips(t *testing.T) {
 	require.NoError(t, err)
 	defer done()
 	store := os.Getenv("KDEPS_ASSETS_DIR")
-	assert.FileExists(t, filepath.Join(store, "themes", "x.yaml"))
+	assert.FileExists(t, filepath.Join(store, "policy", "x.yaml"))
 	assert.NoFileExists(t, filepath.Join(filepath.Dir(store), "escape.yaml"))
 
 	t.Setenv("KDEPS_ASSETS_DIR", "")

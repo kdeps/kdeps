@@ -115,13 +115,13 @@ else
 fi
 
 OUT=$(upd --remove presets/frugal)
-if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.2\.2 +removed" "$(upd --list)"; then
+if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.3\.0 +removed" "$(upd --list)"; then
     test_passed "update --remove removes an item"
 else
     test_failed "update --remove" "$OUT"
 fi
 
-if OUT=$(upd --remove themes/normal); then
+if OUT=$(upd --remove harness/compaction-system); then
     test_failed "update --remove refuses a required item" "$OUT"
 elif output_grep "required" "$OUT"; then
     test_passed "update --remove refuses a required item"
@@ -130,7 +130,7 @@ else
 fi
 
 OUT=$(upd presets/frugal)
-if output_grep "presets/frugal +1\.2\.2 +source" "$(upd --list)"; then
+if output_grep "presets/frugal +1\.3\.0 +source" "$(upd --list)"; then
     test_passed "update <item> restores a removed item"
 else
     test_failed "update <item> restore" "$OUT"
@@ -167,14 +167,14 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
     fi
 
     OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" KDEPS_PROFILE= "$KDEPS_BIN" llamafile list)
-    if output_grep "Installing models" "$OUT" && output_grep "GGUF" "$OUT" && [ ! -e "$FR_DIR/store/themes" ]; then
+    if output_grep "Installing models" "$OUT" && output_grep "GGUF" "$OUT" && [ ! -e "$FR_DIR/store/presets" ]; then
         test_passed "first run without a terminal installs only what the command needs"
     else
         test_failed "first run download" "$OUT"
     fi
 
     OUT=$(fr env KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" profile agent)
-    if [ -f "$FR_DIR/store/themes/normal.yaml" ] && [ -f "$FR_DIR/store/tools/bash_exec.yaml" ] &&
+    if [ -f "$FR_DIR/store/presets/balanced.yaml" ] && [ -f "$FR_DIR/store/tools/bash_exec.yaml" ] &&
         [ ! -e "$FR_DIR/store/tools/zapier_run_action.yaml" ] && [ ! -e "$FR_DIR/store/docker" ] &&
         grep -q '"profile": "agent"' "$FR_DIR/store/lock.json"; then
         test_passed "registry profile agent installs the agent profile and records it"
@@ -195,19 +195,20 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
     OUT=$(HOME="$MIN_HOME" KDEPS_ASSETS_SRC= KDEPS_COMPONENT_DIR= KDEPS_ASSETS_DIR="$MIN_HOME/store" KDEPS_PROFILE=minimum \
         KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
     if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
-        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ ! -e "$MIN_HOME/store/harness" ] && [ ! -e "$MIN_HOME/store/components" ]; then
-        test_passed "KDEPS_PROFILE=minimum installs only the base sets; validate works"
+        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ -f "$MIN_HOME/store/harness/refine-system.yaml" ] &&
+        [ -d "$MIN_HOME/store/events" ] && [ ! -e "$MIN_HOME/store/components" ]; then
+        test_passed "KDEPS_PROFILE=minimum installs the base and chat sets only; validate works"
     else
         test_failed "KDEPS_PROFILE=minimum first run" "$OUT"
     fi
 
     ITEM_HOME="$FR_DIR/items"
     mkdir -p "$ITEM_HOME"
-    OUT=$(HOME="$ITEM_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$ITEM_HOME/store" KDEPS_PROFILE=tools/bash_exec,themes/normal \
+    OUT=$(HOME="$ITEM_HOME" KDEPS_ASSETS_SRC= KDEPS_ASSETS_DIR="$ITEM_HOME/store" KDEPS_PROFILE=tools/bash_exec,harness/safety \
         KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
     if output_grep "Installing the custom profile" "$OUT" && [ -f "$ITEM_HOME/store/tools/bash_exec.yaml" ] &&
-        [ -f "$ITEM_HOME/store/themes/normal.yaml" ] && [ ! -e "$ITEM_HOME/store/tools/read_file.yaml" ] &&
-        [ ! -e "$ITEM_HOME/store/themes/vim.yaml" ] && [ -f "$ITEM_HOME/store/schemas/v1.yaml" ]; then
+        [ -f "$ITEM_HOME/store/harness/safety.yaml" ] && [ ! -e "$ITEM_HOME/store/tools/read_file.yaml" ] &&
+        [ ! -e "$ITEM_HOME/store/harness/accuracy.yaml" ] && [ -f "$ITEM_HOME/store/schemas/v1.yaml" ]; then
         test_passed "KDEPS_PROFILE item list installs those items and the base, nothing else"
     else
         test_failed "KDEPS_PROFILE item list" "$OUT"

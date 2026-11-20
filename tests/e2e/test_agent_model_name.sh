@@ -1,11 +1,7 @@
 # shellcheck shell=bash
-# E2E: /model name (show|hide|abbreviate|auto) overrides how the modeline
-# displays the model name, independent of the active theme.
-#
-# Color/legibility of the palettes themselves is verified by the Go tests
-# (pkg/agent/theme_test.go, tests/integration/cmd). This script checks the
-# cross-platform user-visible behavior: /help advertises /model name, and
-# each mode switches and confirms.
+# E2E: /model name (show|hide|abbreviate|auto) sets how the modeline
+# displays the model name. This script checks that /help advertises
+# /model name, and that each mode switches and confirms.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

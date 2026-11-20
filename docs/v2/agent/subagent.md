@@ -1,6 +1,6 @@
 # Subagents
 
-A subagent is a fresh agent loop. It starts without the conversation and sees only its task. The model starts one with the `subagent` tool. It uses the subagent channel's model. The turn, compaction, and branch summaries stay on the session model.
+A subagent is a fresh agent loop. It starts without the conversation and sees only its task. Prompt refinement and the planning council run as subagents. The model starts one with the `subagent` tool. All of them use the subagent channel's model. The turn, compaction, and branch summaries stay on the session model.
 
 ```text
 turn -> subagent {task, instructions, tools}
@@ -13,7 +13,13 @@ turn -> subagent {task, instructions, tools}
         report -> tool result of the turn
 ```
 
-The model can start several `subagent` calls in one round. Each call gets its own report. They run in parallel.
+Each runs beside the turn where it can:
+
+| Subagent | When it runs |
+|---|---|
+| `subagent` calls a reply opens with | in parallel, in one round; each call gets its own report |
+| Prompt refinement | before the turn: the turn runs on its rewrite |
+| Planning council | before the turn, after refinement: members draft, revise, and rank job orders |
 
 Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at the same time).
 
@@ -59,4 +65,4 @@ kdeps knowledge build --extract
 kdeps knowledge build --extract --model google/gemma-4-31b-it:free
 ```
 
-An unserved local session model still skips extraction. Point the channel at another provider to run that call without the local server.
+An unserved local session model still skips extraction, refinement, and roster generation. Pointing the channel at another provider runs those calls without that local server.

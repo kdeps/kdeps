@@ -92,11 +92,7 @@ func BashExec(ctx context.Context, args map[string]any) (string, error) {
 
 func runBash(ctx context.Context, command string) (string, error) {
 	opts := bashOpts(ctx)
-	runCommand := command
-	if rewritten, ok := rtkRewrite(ctx, command); ok {
-		runCommand = rewritten
-	}
-	cmd := exec.Command("bash", "-c", runCommand) //nolint:noctx // cancel and background are handled below
+	cmd := exec.Command("bash", "-c", command) //nolint:noctx // cancel and background are handled below
 	setProcessGroup(cmd)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout

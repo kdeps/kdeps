@@ -50,7 +50,6 @@ func TestKonfigExportCmd_FreshHomeExportsCompleteDefaultConfig(t *testing.T) {
 	k, err := agent.ReadKonfig(path)
 	require.NoError(t, err)
 	assert.NotEmpty(t, k.Harness, "even a bare ~/.kdeps must export every built-in harness section")
-	assert.NotEmpty(t, k.Themes, "even a bare ~/.kdeps must export every built-in theme")
 }
 
 func TestKonfigExportCmd_DefaultPath(t *testing.T) {

@@ -310,7 +310,7 @@ kdeps --upgrade --target-version 2.35.0
 
 ## Assets: `kdeps install`, `update`, `uninstall`, `list`, `profile`
 
-`kdeps install`, `kdeps update`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, themes, tool definitions, slash commands, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages. This is the same as `/update` in the REPL. For versions, pins, and removal, see [Updating assets](/agent/repl-updating#updating-assets).
+`kdeps install`, `kdeps update`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, tool definitions, slash commands, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages. This is the same as `/update` in the REPL. For versions, pins, and removal, see [Updating assets](/agent/repl-updating#updating-assets).
 
 ```bash
 kdeps update                          # the chosen profile and everything installed since, to their newest versions
@@ -389,7 +389,7 @@ kdeps writes the graph, `GRAPH_REPORT.md`, and `graph.html` under `~/.kdeps/know
 
 ## `kdeps konfig export`
 
-Export the current effective agent-loop config - tuning, harness, themes, and skills - to one self-contained YAML file. See [konfig](/agent/konfig) for the full file format and the REPL's `/konfig export` equivalent.
+Export the current effective agent-loop config - tuning, harness, and skills - to one self-contained YAML file. See [konfig](/agent/konfig) for the full file format and the REPL's `/konfig export` equivalent.
 
 ```bash
 kdeps konfig export              # writes ./konfig.yaml

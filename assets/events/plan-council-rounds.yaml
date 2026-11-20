@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: plan-council-rounds
+# This event has no "on:" trigger block -- "items" below is a plain count:
+# the planning council's rounds: one draft round, then revisions after reading the others' answers.
+items: 2
+run: cap

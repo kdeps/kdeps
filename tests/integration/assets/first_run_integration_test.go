@@ -70,7 +70,6 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 	require.NoError(t, agent.EnsureAssets(t.Context(), io.Discard))
 	assert.Empty(t, assets.Missing())
 	assert.Contains(t, agent.PresetNames(), "frugal")
-	assert.Contains(t, agent.BuiltinThemeNames(), "normal")
 	assert.NotEmpty(t, llm.GGUFAliasNames())
 	_, err = catalog.Get("tgi")
 	require.NoError(t, err)
@@ -148,8 +147,8 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 	t.Cleanup(agent.ReloadAssets)
 	t.Cleanup(func() { assets.SetOnDemand(nil) })
 
-	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, assets.BaseSets))
-	assert.Empty(t, assets.MissingOf(assets.BaseSets))
+	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, assets.RunSets()))
+	assert.Empty(t, assets.MissingOf(assets.RunSets()), "kdeps run gets the chat harness and events too")
 	assert.ElementsMatch(t, []string{"templates", "components", "docker", "k8s", "recipes"},
 		assets.MissingOf([]string{"templates", "components", "docker", "k8s", "recipes"}), "not in minimum")
 	_, err = validator.NewSchemaValidator()
@@ -175,7 +174,7 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 	for _, c := range changes {
 		set, _, _ := assets.SplitID(c.ID)
 		assert.NotEqual(t, "k8s", set, c.ID)
-		assert.NotEqual(t, "harness", set, c.ID)
+		assert.NotEqual(t, "commands", set, c.ID)
 	}
 }
 
@@ -188,6 +187,5 @@ func TestPublish_IndexCarriesContextTokens(t *testing.T) {
 	assert.Positive(t, idx.Tokens("tools/bash_exec"), "a tool definition reaches the model")
 	assert.Positive(t, idx.Tokens("harness/safety"), "a prompt section reaches the model")
 	assert.Positive(t, idx.Tokens("components/web_search"), "a component is an agent tool")
-	assert.Zero(t, idx.Tokens("themes/normal"), "themes never reach the model")
 	assert.Zero(t, idx.Tokens("schemas/v1"))
 }

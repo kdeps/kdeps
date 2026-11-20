@@ -1,0 +1,9 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: trivial-prompt-short
+# Prompt-length cut for the "is this trivial" check that decides whether a
+# prompt is refined or judged. Turning the event off keeps the default.
+items: 32
+run: cap

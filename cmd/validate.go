@@ -19,6 +19,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	goyaml "gopkg.in/yaml.v3"
 
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 	"github.com/kdeps/kdeps/v3/pkg/manifest"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
@@ -197,6 +199,9 @@ func validateWorkflowFile(workflowPath string) error {
 
 	if validateErr := ValidateWorkflow(workflow); validateErr != nil {
 		return validateErr
+	}
+	if errs := agent.ProjectAssetErrors(filepath.Dir(workflowPath)); len(errs) > 0 {
+		return fmt.Errorf("project events/, harness/, actions/ or presets/: %w", errors.Join(errs...))
 	}
 	fmt.Fprintln(os.Stdout, "- Business rules validated")
 	fmt.Fprintln(os.Stdout, "- Dependencies resolved")

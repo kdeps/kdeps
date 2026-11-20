@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v3/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
@@ -72,6 +73,9 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 
 	if prepErr := preprocessProjectDir(agencyDir); prepErr != nil {
 		return prepErr
+	}
+	if projErr := agent.UseProjectAssets(agencyDir); projErr != nil {
+		return projErr
 	}
 
 	agency, agentPaths, yamlParser, err := parseAgencyStep(agencyPath)

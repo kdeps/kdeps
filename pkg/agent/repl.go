@@ -108,7 +108,7 @@ var (
 )
 
 // applyReplStyles rebuilds every REPL style from the active palette.
-// Called by rebuildTheme (theme.go).
+// Called by applyPalette (palette.go).
 func applyReplStyles() {
 	p := activePalette
 	fg := func(hex string) lipgloss.Style {
@@ -191,7 +191,6 @@ type REPL struct {
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
-	saveThemeFn        func(string) error                  // persists the selected theme; nil if unavailable
 	saveModelNameFn    func(string) error                  // persists the /model name display mode; nil if unavailable
 	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
 	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
@@ -371,13 +370,6 @@ func (r *REPL) SetSaveDefaultFn(fn func(string) error) {
 	r.saveDefaultFn = fn
 }
 
-// SetSaveThemeFn injects the function that persists the selected theme.
-// Called by /theme. When nil, /theme still switches for the session but
-// does not persist.
-func (r *REPL) SetSaveThemeFn(fn func(string) error) {
-	r.saveThemeFn = fn
-}
-
 // SetSaveModelNameFn injects the function that persists the /model name
 // display mode. Called by /model name. When nil, /model name still switches
 // for the session but does not persist.
@@ -447,25 +439,9 @@ func (r *REPL) syncTokenCounter() {
 	}
 }
 
-// dynamicPrompt returns the input prompt. The prompt text itself follows the
-// active stealth theme (e.g. vim's ": ", a plain shell's "$ "); in stealth
-// mode it also ends with a bare foreground escape matching that theme (no
-// reset) so the text the user types inherits it instead of the terminal's
-// default foreground - runLoop emits a reset right after Readline returns.
+// dynamicPrompt returns the input prompt.
 func (r *REPL) dynamicPrompt() string {
-	p := styleReplPrompt.Render(activePromptText)
-	if stealthEnabled() {
-		p += activeInputTint
-	}
-	return p
-}
-
-// resetStealthInputTint clears the trailing input tint left by dynamicPrompt so
-// tool output and errors are not rendered in it. No-op outside stealth mode.
-func resetStealthInputTint() {
-	if stealthEnabled() {
-		fmt.Fprint(os.Stdout, "\x1b[0m")
-	}
+	return styleReplPrompt.Render(activePromptText)
 }
 
 // modeline returns a single-line kartographer status bar rendered above
@@ -495,6 +471,15 @@ func (r *REPL) modeline() string {
 		if n := r.loop.memoryStore.Len(); n > 0 {
 			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
+	}
+	if !turoAvailable(r.ctx) || TuroRuntimeOff() {
+		parts = append(parts, dim("turo:off"))
+	} else {
+		label := "turo:" + TuroLevel()
+		if saved := TuroTokensSaved(); saved > 0 {
+			label += " (" + formatCompactCount(int64(saved)) + " saved)"
+		}
+		parts = append(parts, styleReplSuccess.Render(label))
 	}
 	// "reminder:" only appears while at least one /harness reminders <name> on
 	// is active, and disappears the moment the last one is turned off -- same
@@ -1609,6 +1594,14 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
+	// The automatic judge panel is opt-in: /judges auto turns it on and the
+	// choice persists via applyToolTuning below.
+	r.loop.config.AutoJudges = false
+	// Pre-turn prompt refinement is off by default. /refine on turns it on
+	// and the choice persists via applyToolTuning below. A settings file
+	// that already stored refine-on (RefineConfigured, RefineOff false)
+	// stays on.
+	r.loop.config.PromptRefine = false
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}
@@ -1785,7 +1778,6 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		fmt.Fprint(os.Stdout, ansiEnableBracketedPaste+ansiClearLine+r.modeline()+"\r\n")
 		rl.SetPrompt(r.dynamicPrompt())
 		line, readErr := rl.Readline()
-		resetStealthInputTint()
 
 		if stop, err := r.handleReadError(readErr); stop {
 			return err

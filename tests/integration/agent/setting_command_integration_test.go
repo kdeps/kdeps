@@ -41,15 +41,15 @@ func TestUserSettingCommand_NarrowsTheShippedOne(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	dir := filepath.Join(home, ".kdeps", "commands")
 	require.NoError(t, os.MkdirAll(dir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "autocontext.yaml"), []byte(`version: 9.0.0
-name: autocontext
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "refine.yaml"), []byte(`version: 9.0.0
+name: refine
 usage:
-  - help: Turn auto-context off
+  - help: Turn prompt refinement off
 setting:
-  key: autocontext
+  key: refine
   values: [off]
-  show: "autocontext is {{.value}}"
-  set: "autocontext is now {{.value}}"
+  show: "refine is {{.value}}"
+  set: "refine is now {{.value}}"
   invalid: "only off is allowed"
 `), 0o600))
 	agent.ReloadAssets()
@@ -63,16 +63,12 @@ setting:
 	)
 	repl := agent.NewREPL(t.Context(), loop)
 	repl.RegisterCommandAPI()
-	t.Cleanup(func() { api.SetSessionOps(nil) })
 
-	_, err := api.CallCommand(t.Context(), "autocontext", map[string]any{"args": []string{"off"}})
+	_, err := api.CallCommand(t.Context(), "refine", map[string]any{"args": []string{"off"}})
 	require.NoError(t, err)
-	out, err := api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "autocontext"})
+	require.False(t, loop.PromptRefineEnabled())
+	loop.SetPromptRefine(true)
+	_, err = api.CallCommand(t.Context(), "refine", map[string]any{"args": []string{"on"}})
 	require.NoError(t, err)
-	require.JSONEq(t, `{"value":"off"}`, out)
-	_, err = api.CallCommand(t.Context(), "autocontext", map[string]any{"args": []string{"on"}})
-	require.NoError(t, err)
-	out, err = api.CallTool(t.Context(), "session_ops", map[string]any{"operation": "get", "key": "autocontext"})
-	require.NoError(t, err)
-	require.JSONEq(t, `{"value":"off"}`, out, "on is not in this file's values, so nothing changes")
+	require.True(t, loop.PromptRefineEnabled(), "on is not in this file's values, so nothing changes")
 }

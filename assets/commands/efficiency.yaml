@@ -1,0 +1,75 @@
+version: 2.0.0
+# kdeps update installs these with this command: what its run steps use
+requires:
+  tools/session_ops: ""
+name: efficiency
+order: 290
+usage:
+  - args: "[on|off|verbose on|off|prompt auto|full|summary|<setting> <n|off>|preset <name>|reset]"
+    help: Show or tune efficiency enforcement (soft stops on read-only loops; persists)
+  - args: "state [on|off]"
+    help: Show or set enforcement on or off
+subcommands:
+  "":
+    run:
+      - tool: session_ops
+        args: {operation: efficiency}
+        print: |-
+          **Efficiency enforcement**
+          ```
+            state    {{.value}}
+            verbose  {{.verbose}}
+            prompt   {{printf "%-8s" .prompt}} harness text after the first send
+            reads    {{printf "%-4s" .limits.reads}} consecutive read-only calls before a stop
+            actions  {{printf "%-4s" .limits.actions}} tool calls per turn before a stop
+            stops    {{printf "%-4s" .limits.stops}} soft stops per turn before the turn ends
+            failures {{printf "%-4s" .limits.failures}} failed tool/LLM calls briefed and retried per turn
+            tighten  {{printf "%-4s" .limits.tighten}} reads budget lost per stop
+            web      {{printf "%-4s" .limits.web}} web calls per turn
+            bash     {{printf "%-4s" .limits.bash}} read-only bash calls per turn
+            file     {{printf "%-4s" .limits.file}} file read/list/search calls per turn
+            code     {{printf "%-4s" .limits.code}} sql/code-inspection calls per turn
+          ```
+          Usage: `/efficiency [on|off|verbose on|off|prompt auto|full|summary|<setting> <n|off>|preset <name>|reset]`
+  state:
+    setting:
+      key: efficiency
+      values: ["on", "off"]
+      show: "efficiency enforcement {{.value}}"
+      set: "efficiency enforcement {{.value}} (saved)"
+      invalid: "Usage: /efficiency on|off"
+  "on":
+    run:
+      - command: /efficiency state on
+  "off":
+    run:
+      - command: /efficiency state off
+  verbose:
+    setting:
+      key: efficiency-verbose
+      values: ["on", "off"]
+      show: "efficiency verbose {{.value}}"
+      set: "efficiency verbose {{.value}} (saved)"
+      invalid: "Usage: /efficiency verbose on|off"
+  prompt:
+    setting:
+      key: efficiency-prompt
+      values: [auto, full, summary]
+      show: "efficiency prompt {{.value}}"
+      set: "efficiency prompt {{.value}} (saved)"
+      invalid: "usage: /efficiency prompt auto|full|summary"
+  reset:
+    run:
+      - tool: session_ops
+        args: {operation: efficiency_reset}
+        print: efficiency settings reset to defaults (saved)
+  preset:
+    run:
+      - tool: session_ops
+        args: {operation: preset_apply, name: "$1"}
+        print: 'preset {{.name}} applied: all harness and efficiency values overwritten (saved)'
+  "*":                    # /efficiency <setting> <n|off>
+    run:
+      - tool: session_ops
+        args: {operation: efficiency_limit, setting: "$1", value: "$2"}
+        print: "efficiency {{.setting}} {{if eq .value \"off\"}}limit off{{else}}= {{.value}}{{end}} (saved)"

@@ -110,9 +110,9 @@ func TestEditMD5_NoOpEditIsRetriedUntilFileChanges(t *testing.T) {
 }
 
 // Every tool result carries kdeps' own status: the recorded md5 and a memory id
-// for an applied edit. A failed edit stays in history. The result ends with
-// [TOOL FAILED] and the read-first retry block. Every stored status entry can
-// be read back from memory.
+// for an applied edit; a failed one is soft-stopped, so its error and read-first
+// retry block ride the hidden efficiency brief instead of history. Every stored
+// status entry can be read back from memory.
 func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -144,10 +144,11 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	all := strings.Join(s.msgs, "\n")
-	assert.Contains(t, all, "EDIT NOT APPLIED", "failed edit is flagged on the tool result")
-	assert.Contains(t, all, "[TOOL FAILED]", "a failed tool result names the failure")
-	assert.Contains(t, all, "read the file first", "failed edit says to read first")
-	assert.Contains(t, all, "Read the file for its current line numbers", "retry blocks are present")
+	hidden := strings.Join(s.prompts, "\n")
+	assert.Contains(t, hidden, "EDIT NOT APPLIED", "failed edit is flagged on the hidden channel")
+	assert.Contains(t, hidden, "read the file first", "failed edit says to read first")
+	assert.Contains(t, hidden, "Read the file for its current line numbers", "retry blocks are present")
+	assert.NotContains(t, all, "EDIT NOT APPLIED", "the failure brief stays out of history")
 	assert.Contains(t, all, "EDIT OK", "applied edit is confirmed with its md5")
 	assert.Contains(t, all, "files edited this session")
 
@@ -155,7 +156,7 @@ func TestToolStatus_EditAndToolResultsCarryMD5MemoryIDAndRetry(t *testing.T) {
 	for _, e := range ms.List() {
 		if strings.HasPrefix(e.Key, "status:edit_file:") {
 			statusKeys++
-			assert.Contains(t, all, e.Key, "the memory id shown matches a stored entry")
+			assert.Contains(t, all+hidden, e.Key, "the memory id shown matches a stored entry")
 		}
 	}
 	assert.Equal(t, 2, statusKeys, "one status entry per edit_file call")
