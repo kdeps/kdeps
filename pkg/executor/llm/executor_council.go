@@ -20,6 +20,7 @@ package llm
 
 import (
 	"context"
+	"slices"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/plancouncil"
@@ -50,10 +51,7 @@ func councilChat(call chatCall, messages []map[string]any, prompt string, contex
 	for at < len(messages) && messages[at][jsonFieldRole] == roleSystem {
 		at++
 	}
-	out := make([]map[string]any, 0, len(messages)+1)
-	out = append(out, messages[:at]...)
-	out = append(out, map[string]any{jsonFieldRole: roleSystem, jsonFieldContent: note})
-	return append(out, messages[at:]...)
+	return slices.Insert(slices.Clone(messages), at, map[string]any{jsonFieldRole: roleSystem, jsonFieldContent: note})
 }
 
 // prepareRequest runs a chat's opt-in pre-call steps in order: refine
