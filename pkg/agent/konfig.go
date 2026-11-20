@@ -44,7 +44,7 @@ import (
 // that machine's ~/.kdeps happens to contain.
 type Konfig struct {
 	// Tuning is every /model tool set knob (rounds, retries, compaction,
-	// fold, leaf limits, turo, goal/refine/handshake toggles, ...). Typed as
+	// fold, leaf limits, turo, goal/refine/plan toggles, ...). Typed as
 	// tui.AgentLoopTuning (the on-disk, yaml-tagged form ToolTuning already
 	// converts to everywhere else) rather than ToolTuning itself, which
 	// carries no yaml tags of its own.
@@ -120,7 +120,7 @@ func (l *Loop) ExportKonfig(tuning ToolTuning) (*Konfig, error) {
 // invocation with no Loop to read one from.
 //
 // Everything else reads from source, not resolved single-purpose caches,
-// for full fidelity: harnessRegistry and exportThemeEntries already reflect
+// for full fidelity: harnessRegistry already reflects
 // built-in + user overrides merged by name; tui.LoadSettings reads the
 // persisted registry file (falling back to defaults when it doesn't exist
 // yet, so a bare ~/.kdeps still exports a complete, valid konfig).
@@ -184,7 +184,7 @@ func PersistedOrDefaultTuning() (ToolTuning, error) {
 // WriteKonfig marshals k and writes it to path (any directory -- a git repo,
 // a share drive, wherever the user wants it, not just ~/.kdeps), creating
 // parent directories as needed. Uses AppFS (afero.NewOsFs() by default, a
-// fake in tests) the same way session_store.go/theme_yaml.go/harness_yaml.go
+// fake in tests) the same way session_store.go/harness_yaml.go
 // already do for testability.
 func WriteKonfig(k *Konfig, path string) error {
 	data, marshalErr := yaml.Marshal(k)
@@ -295,9 +295,9 @@ func writeKonfigPresets(entries []Preset) error {
 
 // writeKonfigYAMLDir writes one <dirFn()>/<name>.yaml per entry, overriding
 // any built-in or existing user entry of the same name. Shared by
-// writeKonfigHarness/writeKonfigThemes/writeKonfigEvents/writeKonfigActions/
+// writeKonfigHarness/writeKonfigEvents/writeKonfigActions/
 // writeKonfigPresets -- otherwise identical loops golangci-lint's dupl check
-// would flag as a duplicate across all five.
+// would flag as a duplicate across all four.
 func writeKonfigYAMLDir[T any](entries []T, dirFn func() (string, error), nameOf func(T) string, kind string) error {
 	if len(entries) == 0 {
 		return nil
