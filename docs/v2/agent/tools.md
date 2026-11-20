@@ -431,7 +431,7 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - [File tools](/agent/tools-files) - read, write, list
 - [Edit file](/agent/tools-edit) - replace or append on one line
 - [Memory and identity](/agent/tools-memory) - memory_save, memory_search, memory_query, identity_get
-- [Shell execution](/agent/shell) - bash_exec, jobs, rtk
+- [Shell execution](/agent/shell) - bash_exec, jobs
 - Web and search - web_search, wikipedia, web_scraper
 - [Data tools](/agent/tools-data) - calculator, SQL, embeddings, rerank
 - [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer

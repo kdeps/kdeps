@@ -30,7 +30,6 @@ import (
 func TestBashExecComponent_MatchesTool(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_COMPONENT_DIR", t.TempDir())
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 
 	reg := kdepstools.NewRegistry()

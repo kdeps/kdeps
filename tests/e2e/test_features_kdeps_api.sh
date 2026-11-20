@@ -30,9 +30,6 @@ source "$SCRIPT_DIR/common.sh"
 echo "Testing kdeps API..."
 
 kdeps_api_e2e() {
-    # The bash_exec handler rewrites commands through rtk when it is installed.
-    # Turn that off before any server starts so `echo hi` stays `echo hi`.
-    export KDEPS_RTK=off
     export KDEPS_ALLOW_BASH=true
     if ! command -v python3 >/dev/null 2>&1; then
         test_skipped "kdeps API - python3 is required"

@@ -794,8 +794,6 @@ func TestBashExec_ContextCancel(t *testing.T) {
 
 func TestBashExec_ContextCancelKillsChildren(t *testing.T) {
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
-	// Disable rtk so the command runs as written (no wrapper process in the way).
-	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
@@ -828,7 +826,6 @@ func TestBashExec_Background(t *testing.T) {
 	api.ResetBashJobs()
 	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
-	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
@@ -852,7 +849,6 @@ func TestBashJobWait(t *testing.T) {
 	api.ResetBashJobs()
 	t.Cleanup(api.ResetBashJobs)
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
-	t.Setenv("KDEPS_RTK", "off")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	bashTool := reg.Get("bash_exec")

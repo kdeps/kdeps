@@ -28,7 +28,6 @@ import (
 )
 
 func TestBashExec_Echo(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	out, err := BashExec(t.Context(), map[string]any{argCommand: "echo hi"})
 	if err != nil || out != "hi" {
@@ -37,7 +36,6 @@ func TestBashExec_Echo(t *testing.T) {
 }
 
 func TestBashExec_UnescapesHTML(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	out, err := BashExec(t.Context(), map[string]any{argCommand: "echo a &amp;&amp; echo b"})
 	if err != nil || out != "a\nb" {
@@ -79,7 +77,6 @@ func TestBashExec_Blocked(t *testing.T) {
 }
 
 func TestBashExec_StderrOnFailure(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	_, err := BashExec(t.Context(), map[string]any{argCommand: "echo 'err msg' >&2; exit 1"})
 	if err == nil || !strings.Contains(err.Error(), "err msg") {
@@ -88,7 +85,6 @@ func TestBashExec_StderrOnFailure(t *testing.T) {
 }
 
 func TestBashExec_StdoutOnFailure(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	_, err := BashExec(t.Context(), map[string]any{argCommand: "echo FAIL_MARKER; exit 1"})
 	if err == nil || !strings.Contains(err.Error(), "FAIL_MARKER") {
@@ -97,7 +93,6 @@ func TestBashExec_StdoutOnFailure(t *testing.T) {
 }
 
 func TestBashExec_StderrOnSuccess(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	out, err := BashExec(t.Context(), map[string]any{argCommand: "echo 'warning' >&2; echo 'output'"})
 	if err != nil || !strings.Contains(out, "output") || !strings.Contains(out, "warning") {
@@ -106,7 +101,6 @@ func TestBashExec_StderrOnSuccess(t *testing.T) {
 }
 
 func TestBashExec_Cancel(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
@@ -120,7 +114,6 @@ func TestBashExec_Cancel(t *testing.T) {
 }
 
 func TestBashExec_AlreadyCancelled(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -131,7 +124,6 @@ func TestBashExec_AlreadyCancelled(t *testing.T) {
 }
 
 func TestBashExec_OutputWriter(t *testing.T) {
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	var buf bytes.Buffer
 	ctx := WithBashOpts(t.Context(), BashOpts{Output: &buf})

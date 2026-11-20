@@ -108,7 +108,7 @@ done
 JR_HOME="$JR_DIR/home"
 mkdir -p "$JR_HOME" "$JR_DIR/work"
 OUT=$(cd "$JR_DIR/work" && printf '/refine off\n/turo off\n/judges auto on\nplease add two and two and tell me the exact sum\n/exit\n' \
-    | HOME="$JR_HOME" USERPROFILE="$(to_native_path "$JR_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+    | HOME="$JR_HOME" USERPROFILE="$(to_native_path "$JR_HOME")" OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$JR_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$JR_DIR/server.log" 2>/dev/null)

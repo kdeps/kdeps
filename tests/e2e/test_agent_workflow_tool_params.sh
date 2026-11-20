@@ -142,7 +142,7 @@ component:
     command: echo "Hello, {{ input('name') }}! (from greeter)"
 EOF
 OUT=$(cd "$WT_DIR" && printf '/refine off\n/turo off\n/judges auto on\nuse the greeter tool to greet Ada please\n/exit\n' \
-    | HOME="$WT_HOME" USERPROFILE="$(to_native_path "$WT_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+    | HOME="$WT_HOME" USERPROFILE="$(to_native_path "$WT_HOME")" OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$WT_PORT/v1" --model fake greeter 2>&1 || true)
 LOG=$(cat "$WT_DIR/server.log" 2>/dev/null)

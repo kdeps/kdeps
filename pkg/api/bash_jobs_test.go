@@ -176,7 +176,6 @@ func TestTruncateJobCommand(t *testing.T) {
 func TestBashExec_Background(t *testing.T) {
 	ResetBashJobs()
 	t.Cleanup(ResetBashJobs)
-	t.Setenv("KDEPS_RTK", "off")
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	bg := make(chan struct{}, 1)
 	go func() {

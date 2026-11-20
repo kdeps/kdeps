@@ -110,7 +110,7 @@ done
 UC_HOME="$UC_DIR/home"
 mkdir -p "$UC_HOME" "$UC_DIR/work"
 OUT=$(cd "$UC_DIR/work" && printf '/refine off\n/turo off\n/judges auto off\ncreate notes.md containing hello kdeps\n/exit\n' \
-    | HOME="$UC_HOME" USERPROFILE="$(to_native_path "$UC_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+    | HOME="$UC_HOME" USERPROFILE="$(to_native_path "$UC_HOME")" OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$UC_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$UC_DIR/server.log" 2>/dev/null)
@@ -125,7 +125,7 @@ fi
 # Second session, same home: the record reaches the model and /model record.
 : > "$UC_DIR/server.log"
 OUT=$(cd "$UC_DIR/work" && printf '/refine off\n/turo off\n/judges auto off\nhello\n/model record\n/exit\n' \
-    | HOME="$UC_HOME" USERPROFILE="$(to_native_path "$UC_HOME")" KDEPS_RTK=off OPENAI_API_KEY=e2e \
+    | HOME="$UC_HOME" USERPROFILE="$(to_native_path "$UC_HOME")" OPENAI_API_KEY=e2e \
         timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai \
         --base-url "http://127.0.0.1:$UC_PORT/v1" --model fake 2>&1 || true)
 LOG=$(cat "$UC_DIR/server.log" 2>/dev/null)
