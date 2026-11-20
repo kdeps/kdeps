@@ -3,7 +3,7 @@
 #
 # Against a local server publishing the repo's assets:
 #   - minimum installs the base sets only; the agent loop then adds just the
-#     items its loaders require (8 core commands, the normal theme, the
+#     items its loaders require (the core commands, the
 #     required tools and harness), never whole sets
 #   - /help under minimum lists only the core commands; other built-ins
 #     still run; a second start downloads nothing and works offline
@@ -88,7 +88,7 @@ help_commands() {
 }
 lock_field() { python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2]))" "$1/store/lock.json" "$2"; }
 
-CORE="/clear /compact /context /exit /fold /harness /help /kartographer /knowledge /konfig /memory /model /prompt /prompts /recall /reload /search /session /settings /skills /update"
+CORE="/clear /compact /context /exit /fold /harness /help /judges /kartographer /knowledge /konfig /memory /model /prompt /prompts /recall /reload /search /session /settings /skills /update"
 TOTAL_COMMANDS=$(find "$PROJECT_ROOT/assets/commands" -name '*.yaml' | wc -l | tr -d ' ')
 
 # --- minimum: base sets only ------------------------------------------------
@@ -96,7 +96,7 @@ MN=$(ap_home minimum)
 OUT=$(ap "$MN" env KDEPS_PROFILE=minimum "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
 if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
     [ "$(lock_field "$MN" profile)" = "minimum" ] && [ ! -d "$MN/store/commands" ] && [ ! -d "$MN/store/tools" ] &&
-    [ ! -d "$MN/store/themes" ] && [ ! -d "$MN/store/templates" ]; then
+    [ ! -d "$MN/store/templates" ]; then
     test_passed "asset profiles - minimum installs the base sets only; validate works"
 else
     test_failed "asset profiles - minimum install" "$OUT $(ls "$MN/store" 2>&1)"
@@ -110,12 +110,12 @@ if [ -n "$INSTALL_LINE" ] && ! output_grep "Installing [a-z]+, " "$INSTALL_LINE"
 else
     test_failed "asset profiles - agent loop install under minimum" "$INSTALL_LINE"
 fi
-if [ "$(set_count "$MN" commands)" = "21" ] && [ "$(set_count "$MN" themes)" = "1" ] && [ -f "$MN/store/themes/normal.yaml" ] &&
+if [ "$(set_count "$MN" commands)" = "22" ] &&
     [ ! -d "$MN/store/events" ] && [ ! -d "$MN/store/actions" ] && [ ! -d "$MN/store/presets" ] &&
     [ ! -f "$MN/store/tools/web_search.yaml" ] && [ -f "$MN/store/tools/session_ops.yaml" ]; then
-    test_passed "asset profiles - minimum keeps the core commands, the normal theme, required tools; no events/actions/presets"
+    test_passed "asset profiles - minimum keeps the core commands and required tools; no events/actions/presets"
 else
-    test_failed "asset profiles - minimum store contents" "commands=$(set_count "$MN" commands) themes=$(set_count "$MN" themes) $(ls "$MN/store" "$MN/store/tools" 2>&1 | head -40)"
+    test_failed "asset profiles - minimum store contents" "commands=$(set_count "$MN" commands) $(ls "$MN/store" "$MN/store/tools" 2>&1 | head -40)"
 fi
 GOT=$(help_commands "$OUT" | tr '\n' ' ' | sed 's/ $//')
 if [ "$GOT" = "$CORE" ]; then
@@ -259,8 +259,8 @@ fi
 
 # --- custom: sets and single items, exactly ------------------------------------
 CU=$(ap_home custom)
-OUT=$(ap "$CU" env KDEPS_PROFILE="themes,commands/review,tools/calculator" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
-if [ "$(lock_field "$CU" profile)" = "custom" ] && [ "$(set_count "$CU" themes)" = "1" ] &&
+OUT=$(ap "$CU" env KDEPS_PROFILE="policy,commands/review,tools/calculator" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
+if [ "$(lock_field "$CU" profile)" = "custom" ] && [ "$(set_count "$CU" policy)" = "2" ] &&
     [ "$(set_count "$CU" commands)" = "1" ] && [ -f "$CU/store/commands/review.yaml" ] &&
     [ "$(set_count "$CU" tools)" = "1" ] && [ -f "$CU/store/tools/calculator.yaml" ]; then
     test_passed "asset profiles - a custom selection installs exactly its sets and items"
@@ -269,7 +269,7 @@ else
 fi
 HELP=$(ap_loop "$CU" '/help\n/quit\n')
 GOT=$(help_commands "$HELP" | tr '\n' ' ' | sed 's/ $//')
-if [ "$GOT" = "/clear /compact /context /exit /fold /harness /help /kartographer /knowledge /konfig /memory /model /prompt /prompts /recall /reload /review /search /session /settings /skills /update" ]; then
+if [ "$GOT" = "/clear /compact /context /exit /fold /harness /help /judges /kartographer /knowledge /konfig /memory /model /prompt /prompts /recall /reload /review /search /session /settings /skills /update" ]; then
     test_passed "asset profiles - /help under a custom selection: the core plus the chosen command"
 else
     test_failed "asset profiles - /help under custom" "got: $GOT"

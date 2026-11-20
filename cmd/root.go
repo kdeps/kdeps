@@ -171,10 +171,6 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 		&flags.NewSession, "new", false,
 		"Start a clean session, skipping the resume picker for this folder",
 	)
-	rootCmd.Flags().StringVar(
-		&flags.Theme, "theme", "",
-		"REPL theme: normal (default), black, linux, vim, emacs, or a custom name from ~/.kdeps/themes/",
-	)
 	rootCmd.Flags().StringArrayVar(
 		&flags.Index, "index", nil,
 		"Search a folder with this project: add it to the project card and index it before "+
@@ -224,7 +220,7 @@ const agentLoopFlag = "agent-loop"
 
 //nolint:gochecknoglobals // fixed list
 var agentLoopOnlyFlags = []string{
-	"model", "backend", "base-url", "system", "skill", "resume", "new", "theme", "index", "konfig",
+	"model", "backend", "base-url", "system", "skill", "resume", "new", "index", "konfig",
 }
 
 // changedAgentLoopFlag names an agent-REPL flag set without --agent-loop.

@@ -815,37 +815,10 @@ func TestResolveStartModel_ExplicitBackendNotOverridden(t *testing.T) {
 	assert.Equal(t, "llamafile", b)
 }
 
-func TestResolveTheme_Precedence(t *testing.T) {
-	t.Setenv("KDEPS_THEME", "")
-
-	// Nothing set -> built-in default.
-	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{}); got != "normal" {
-		t.Errorf("no flag/env/setting should default to normal, got %q", got)
-	}
-	// Persisted setting alone.
-	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "vim" {
-		t.Errorf("persisted Theme=vim should win, got %q", got)
-	}
-	// Only normal is a theme. An unknown env name falls through.
-	t.Setenv("KDEPS_THEME", "linux")
-	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "vim" {
-		t.Errorf("KDEPS_THEME=linux is not a theme, persisted Theme stays, got %q", got)
-	}
-	t.Setenv("KDEPS_THEME", "normal")
-	if got := resolveTheme(&agentLoopFlags{}, tui.Settings{Theme: "vim"}); got != "normal" {
-		t.Errorf("KDEPS_THEME=normal should win over persisted Theme=vim, got %q", got)
-	}
-	t.Setenv("KDEPS_THEME", "")
-	// Flag wins over everything.
-	if got := resolveTheme(&agentLoopFlags{Theme: "emacs"}, tui.Settings{Theme: "vim"}); got != "emacs" {
-		t.Errorf("--theme should win over persisted Theme, got %q", got)
-	}
-}
-
-func TestRootCmd_HasThemeFlag(t *testing.T) {
+func TestRootCmd_HasNoThemeFlag(t *testing.T) {
 	cmd := NewRootCmd()
-	if cmd.Flags().Lookup("theme") == nil {
-		t.Fatal("expected --theme flag on root command")
+	if cmd.Flags().Lookup("theme") != nil {
+		t.Fatal("the --theme flag was removed")
 	}
 }
 

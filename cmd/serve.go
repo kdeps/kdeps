@@ -219,7 +219,6 @@ type agentLoopFlags struct {
 	SkillPaths   []string
 	Resume       string
 	NewSession   bool
-	Theme        string
 	Konfig       string
 	// Workflow is the workflow file that defines the session (kdeps run on
 	// an interactive workflow whose target is a chat with loop:). It is not
@@ -289,13 +288,6 @@ func runAgentLoopCmd(ctx context.Context, path string, flags *agentLoopFlags) er
 	settings, _ := tui.LoadSettings()
 	applySettingsToRegistry(settings, registry, flags, flags.Debug)
 
-	// The REPL's theme. Applied before anything is printed so the banner
-	// picks it up too. A non-"normal" theme is what used to be a separate
-	// stealth on/off flag -- there's no such flag anymore, /theme is the
-	// only control. This also pushes the theme's colors into pkg/tui, so
-	// /model, /settings, and the resume picker match it (agent.SetTheme ->
-	// rebuildTheme -> syncPickerColors).
-	agent.SetTheme(resolveTheme(flags, settings))
 	if settings.ModelNameDisplay != "" {
 		agent.SetModelNameDisplay(settings.ModelNameDisplay)
 	}
@@ -508,12 +500,6 @@ func wireREPL(
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
-	// Wire theme persistence for /theme. agent.SetTheme (already called by
-	// the theme setting before this fires) pushes the new theme's colors into pkg/tui
-	// on its own, so /model, /settings, and the resume picker already match
-	// by the time this only needs to persist the name.
-	repl.SetSaveThemeFn(tui.SaveTheme)
-
 	// Wire /model name persistence (show|hide|abbreviate|auto).
 	repl.SetSaveModelNameFn(tui.SaveModelNameDisplay)
 
@@ -603,22 +589,6 @@ func resolveAutoModel(ctx context.Context) (string, string) {
 		return model, backend
 	}
 	return agent.ResolveModelAndBackend(ctx, "", "")
-}
-
-// resolveTheme decides which theme the REPL renders with. Precedence: the
-// --theme flag, then KDEPS_THEME, then the persisted setting, falling back
-// to the built-in default ("normal") when none is set.
-func resolveTheme(flags *agentLoopFlags, settings tui.Settings) string {
-	if flags.Theme != "" {
-		return flags.Theme
-	}
-	if envTheme := agent.ResolveThemeEnv(); envTheme != "" {
-		return envTheme
-	}
-	if settings.Theme != "" {
-		return settings.Theme
-	}
-	return "normal"
 }
 
 // resolveStartModel returns the model and backend to use at startup.

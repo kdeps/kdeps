@@ -11,7 +11,6 @@
 #   actions          the event's new action is registered (no warning);
 #                    uninstalled, the event warns it is unknown
 #   presets          a new preset is listed and applying it retunes the event
-#   themes           a new theme is listed and can be switched to
 #   tools            a changed tool description reaches the model
 #   commands         a new declared command is in /help and sends its prompt
 #   recipes          a new LLM server recipe is listed and shown
@@ -117,8 +116,6 @@ write("events/e2e-marker.yaml", "version: 1.0.0\nrequires:\n  actions/e2e_marker
 write("presets/e2e-preset.yaml", "version: 1.0.0\nrequires:\n  events/e2e-marker: \"\"\n"
       "name: e2e-preset\ndescription: E2E-PRESET-MARKER\nevents:\n"
       "  - name: e2e-marker\n    on:\n      rounds: 55\n    run: e2e_marker_action\n")
-theme = open(p("themes", "normal.yaml")).read().replace("name: normal", "name: e2e-theme")
-write("themes/e2e-theme.yaml", re.sub(r"(?m)^prompt: .*$", 'prompt: "E2E-THEME> "', theme))
 s = bump("tools/read_file.yaml")
 s = re.sub(r"(?m)^description: (.*)$", lambda m: "description: " + json.dumps("E2E-TOOL-MARKER " + m.group(1).strip("'\"")), s, count=1)
 open(p("tools", "read_file.yaml"), "w").write(s)
@@ -265,7 +262,7 @@ fi
 
 LIST=$(sa "$KDEPS_BIN" list --assets)
 missing=""
-for id in harness/e2e-marker events/e2e-marker actions/e2e_marker_action presets/e2e-preset themes/e2e-theme \
+for id in harness/e2e-marker events/e2e-marker actions/e2e_marker_action presets/e2e-preset \
     tools/read_file commands/e2e-cmd recipes/e2e-recipe models/gguf templates/api-service docker/image \
     k8s/manifests schemas/v1 components/e2e-echo providers/e2eprov defaults/executors memory/rules; do
     # A here-string, not printf | grep -q: grep -q exits at its first match,
@@ -316,7 +313,7 @@ else
     test_failed "asset sets - index sets" "$(head -c 400 "$SA_PUB/index.json")"
 fi
 
-# --- agent loop: harness, tools, commands, providers, events, actions, presets, themes
+# --- agent loop: harness, tools, commands, providers, events, actions, presets
 : > "$SA_LOG"
 OUT=$(sa_loop '/e2e-mem\n/quit\n')
 if output_grep "e2emark_note \\[decision\\]: E2E-MEMORY-VALUE" "$OUT"; then
@@ -361,11 +358,6 @@ if output_grep "e2e-preset +E2E-PRESET-MARKER" "$OUT" && output_grep "Applied pr
     test_passed "asset sets - presets: a published preset is listed and applying it retunes its event"
 else
     test_failed "asset sets - presets" "$OUT"
-fi
-if [ -f "$SA_HOME/store/themes/e2e-theme.yaml" ] && [ -f "$SA_HOME/store/themes/normal.yaml" ] && ! output_grep "E2E-THEME>" "$OUT"; then
-    test_passed "asset sets - themes: a published theme file installs; only the normal palette applies"
-else
-    test_failed "asset sets - themes" "$OUT"
 fi
 OUT=$(sa "$KDEPS_BIN" uninstall actions/e2e_marker_action)
 OUT2=$(sa_loop '/harness events\n/quit\n')

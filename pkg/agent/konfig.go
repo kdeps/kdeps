@@ -20,7 +20,7 @@ package agent
 
 // konfig.go implements "konfig": one YAML file that is a total,
 // self-contained, declarative description of a kdeps agent's behavior --
-// tuning, harness, themes, and skills -- exportable from the current
+// tuning, harness, and skills -- exportable from the current
 // effective state (including pure compiled-in defaults) and importable to
 // fully configure another agent. See docs/v2/agent/konfig.md.
 
@@ -38,7 +38,7 @@ import (
 )
 
 // Konfig is the top-level konfig document. Every field is exported at full
-// fidelity -- Harness and Themes carry every built-in section/theme, merged
+// fidelity -- Harness carries every built-in section, merged
 // with any user overrides, not just a diff -- so the file alone fully
 // determines behavior on any machine or kdeps version, independent of what
 // that machine's ~/.kdeps happens to contain.
@@ -52,9 +52,6 @@ type Konfig struct {
 	// Harness is every tool-use/behavior-prompt section (built-in plus user
 	// overrides from ~/.kdeps/harness/*.yaml, already merged by name).
 	Harness []yamlHarnessEntry `yaml:"harness"`
-	// Themes is every REPL theme (built-in plus user overrides from
-	// ~/.kdeps/themes/*.yaml, already merged by name), fully resolved.
-	Themes []yamlTheme `yaml:"themes"`
 	// Events is every reactive LLM event (auto-compact, fold, ...) -- built-in
 	// plus user overrides from ~/.kdeps/events/*.yaml, already merged by name.
 	// Replaces the standalone Tuning fields that used to hardcode these
@@ -75,14 +72,12 @@ type Konfig struct {
 	// just carries the registry so a target machine's "/harness preset list"
 	// matches the source machine's.
 	Presets []Preset `yaml:"presets"`
-	// ActiveTheme is the currently selected theme's name.
-	ActiveTheme string `yaml:"activeTheme"`
 	// Skills carries each loaded skill's full SKILL.md content inline, so
 	// skills travel with the konfig file instead of depending on external
 	// paths existing on the target machine.
 	Skills []KonfigSkill `yaml:"skills,omitempty"`
 	// Registry is everything else persisted in ~/.kdeps/agent-loop-settings.yaml
-	// (tui.Settings) not already covered by Tuning or ActiveTheme.
+	// (tui.Settings) not already covered by Tuning.
 	Registry KonfigRegistry `yaml:"registry"`
 }
 
@@ -94,8 +89,7 @@ type KonfigSkill struct {
 	Hidden      bool   `yaml:"hidden,omitempty"`
 }
 
-// KonfigRegistry mirrors tui.Settings minus AgentLoop (== Konfig.Tuning) and
-// Theme (== Konfig.ActiveTheme).
+// KonfigRegistry mirrors tui.Settings minus AgentLoop (== Konfig.Tuning).
 type KonfigRegistry struct {
 	EnabledWorkflows   []string                `yaml:"enabledWorkflows,omitempty"`
 	EnabledAgencies    []string                `yaml:"enabledAgencies,omitempty"`
@@ -152,14 +146,12 @@ func ExportKonfigWithSkills(tuning ToolTuning, skillList []Skill) (*Konfig, erro
 	}
 
 	return &Konfig{
-		Tuning:      tui.AgentLoopTuning(tuning),
-		Harness:     harness,
-		Themes:      exportThemeEntries(),
-		Events:      exportEventEntries(),
-		Actions:     exportActionEntries(),
-		Presets:     exportPresetEntries(),
-		ActiveTheme: CurrentThemeName(),
-		Skills:      skills,
+		Tuning:  tui.AgentLoopTuning(tuning),
+		Harness: harness,
+		Events:  exportEventEntries(),
+		Actions: exportActionEntries(),
+		Presets: exportPresetEntries(),
+		Skills:  skills,
 		Registry: KonfigRegistry{
 			EnabledWorkflows:   settings.EnabledWorkflows,
 			EnabledAgencies:    settings.EnabledAgencies,
@@ -224,11 +216,10 @@ func ReadKonfig(path string) (*Konfig, error) {
 }
 
 // ApplyKonfig materializes k onto disk exactly where each section already
-// lives -- every harness entry to ~/.kdeps/harness/<name>.yaml, every theme
-// to ~/.kdeps/themes/<name>.yaml, every skill to
-// ~/.kdeps/skills/<name>/SKILL.md, and Tuning/Registry/ActiveTheme into
+// lives -- every harness entry to ~/.kdeps/harness/<name>.yaml, every skill
+// to ~/.kdeps/skills/<name>/SKILL.md, and Tuning/Registry into
 // ~/.kdeps/agent-loop-settings.yaml -- then reloads the in-process harness
-// and theme registries and applies the active theme, so a running REPL
+// and event registries, so a running REPL
 // reflects the import immediately. Skills are only picked up by a fresh
 // process (loop.skillList is populated once at startup), so a live REPL's
 // "/konfig import" still asks the user to restart for those.
@@ -238,9 +229,6 @@ func ReadKonfig(path string) (*Konfig, error) {
 // through sanitizeKonfigName first.
 func ApplyKonfig(k *Konfig) error {
 	if err := writeKonfigHarness(k.Harness); err != nil {
-		return err
-	}
-	if err := writeKonfigThemes(k.Themes); err != nil {
 		return err
 	}
 	if err := writeKonfigActions(k.Actions); err != nil {
@@ -260,12 +248,8 @@ func ApplyKonfig(k *Konfig) error {
 	}
 
 	initHarness()
-	initThemes()
 	initEvents()
 	initPresets()
-	if k.ActiveTheme != "" {
-		SetTheme(k.ActiveTheme)
-	}
 	return nil
 }
 
@@ -286,13 +270,6 @@ func sanitizeKonfigName(name string) string {
 // mergeUserHarness).
 func writeKonfigHarness(entries []yamlHarnessEntry) error {
 	return writeKonfigYAMLDir(entries, userHarnessDir, func(e yamlHarnessEntry) string { return e.Name }, "harness")
-}
-
-// writeKonfigThemes writes one ~/.kdeps/themes/<name>.yaml per entry,
-// overriding any built-in or existing user theme of the same name (see
-// mergeUserThemes).
-func writeKonfigThemes(entries []yamlTheme) error {
-	return writeKonfigYAMLDir(entries, userThemesDir, func(t yamlTheme) string { return t.Name }, "theme")
 }
 
 // writeKonfigEvents writes one ~/.kdeps/events/<name>.yaml per event,
@@ -370,7 +347,7 @@ func writeKonfigSkills(skills []KonfigSkill) error {
 	return nil
 }
 
-// writeKonfigSettings persists Tuning/Registry/ActiveTheme to
+// writeKonfigSettings persists Tuning/Registry to
 // ~/.kdeps/agent-loop-settings.yaml, overwriting the file outright -- a
 // konfig import is a full replacement of effective config, not a merge.
 func writeKonfigSettings(k *Konfig) error {
@@ -382,7 +359,6 @@ func writeKonfigSettings(k *Konfig) error {
 		EnabledSkills:      k.Registry.EnabledSkills,
 		SelectAll:          k.Registry.SelectAll,
 		DefaultModel:       k.Registry.DefaultModel,
-		Theme:              k.ActiveTheme,
 		ModelNameDisplay:   k.Registry.ModelNameDisplay,
 		CustomOpenAIModels: k.Registry.CustomOpenAIModels,
 		FavoriteModels:     k.Registry.FavoriteModels,

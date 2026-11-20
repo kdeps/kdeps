@@ -47,7 +47,7 @@ func commandsHelpOp() map[string]any {
 
 func konfigCounts(k *Konfig, path string) map[string]any {
 	return map[string]any{
-		"path": path, "harness": len(k.Harness), "themes": len(k.Themes), "events": len(k.Events),
+		"path": path, "harness": len(k.Harness), "events": len(k.Events),
 		"actions": len(k.Actions), "skills": len(k.Skills),
 	}
 }

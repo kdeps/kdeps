@@ -194,7 +194,7 @@ func TestLoadBuiltinHarness_JudgeSystemIsATemplate(t *testing.T) {
 // fakeHarnessFS is a harnessFS whose ReadDir/ReadFile results are fully
 // controlled, letting tests trigger loadBuiltinHarnessFrom's read/parse-error
 // panics -- unreachable through the real embed.FS, which is always valid
-// once it compiles. Mirrors fakeThemeFS (theme_yaml_test.go).
+// once it compiles. Tests pass it to hit read errors.
 type fakeHarnessFS struct {
 	entries     []fs.DirEntry
 	readDirErr  error

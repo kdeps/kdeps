@@ -62,7 +62,6 @@ func TestCmdKonfigExport_WritesFileAtDefaultPath(t *testing.T) {
 	got, err := ReadKonfig(filepath.Join(dir, "konfig.yaml"))
 	require.NoError(t, err)
 	assert.NotEmpty(t, got.Harness)
-	assert.NotEmpty(t, got.Themes)
 }
 
 func TestCmdKonfigExport_WritesFileAtGivenPath(t *testing.T) {

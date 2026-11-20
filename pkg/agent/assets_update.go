@@ -47,13 +47,9 @@ const (
 )
 
 // ReloadAssets re-reads every asset set (harness, events, actions, presets,
-// themes, tool definitions, slash commands) after an update, keeping the active theme.
+// tool definitions, slash commands) after an update.
 // Already-registered tools keep their descriptions until the next start.
 func ReloadAssets() {
-	key, mode := currentThemeKey, modelNameDisplayMode
-	initThemes()
-	modelNameDisplayMode = mode
-	SetTheme(key) // a removed theme stays on normal
 	initHarness()
 	initEvents()
 	initPermissionPolicy()

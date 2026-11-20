@@ -26,7 +26,6 @@ sets:
   harness: harness
   tools: tools
   commands: agent
-  themes: agent
   events: guardrails
   policy: guardrails
   actions: guardrails

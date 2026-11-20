@@ -211,13 +211,13 @@ else
 fi
 
 # --- a 404 for a published path is skipped; the rest of the profile installs -
-serve "missing=themes/"
+serve "missing=presets/"
 MS_HOME="$AS_DIR/missing"
 mkdir -p "$MS_HOME"
 OUT=$(as_run "$MS_HOME" env KDEPS_ASSETS_URL="http://127.0.0.1:$AS_PORT" KDEPS_PROFILE=full "$KDEPS_BIN" llamafile list)
 if output_grep "Skipped [0-9]+ items? that (is|are) no longer published" "$OUT" &&
     output_grep "Profile: full" "$OUT" && output_grep "GGUF +e2e-src-model" "$OUT" &&
-    [ -z "$(find "$MS_HOME/store/themes" -name '*.yaml' -print -quit 2>/dev/null)" ]; then
+    [ -z "$(find "$MS_HOME/store/presets" -name '*.yaml' -print -quit 2>/dev/null)" ]; then
     test_passed "assets - a missing published path is skipped and the profile still installs"
 else
     test_failed "assets - missing published path" "$OUT"
@@ -234,7 +234,7 @@ if output_grep "schemas/v1 +install .*\(required by components/web_search\)" "$O
     output_grep "tools/web_search +install .*\(required by components/web_search\)" "$OUT" &&
     output_grep "components/web_search +install" "$OUT" &&
     [ "$(echo "$ORDER" | grep -n 'schemas/v1' | head -1 | cut -d: -f1)" -lt "$(echo "$ORDER" | grep -nE 'components/web_search +install' | head -1 | cut -d: -f1)" ] &&
-    [ -f "$RQ_HOME/store/schemas/v1.yaml" ] && [ ! -e "$RQ_HOME/store/themes" ]; then
+    [ -f "$RQ_HOME/store/schemas/v1.yaml" ] && [ ! -e "$RQ_HOME/store/presets" ]; then
     test_passed "assets - kdeps update <item> installs its requires first, nothing else"
 else
     test_failed "assets - update installs requires" "$OUT"

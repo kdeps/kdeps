@@ -20,6 +20,7 @@ package agent
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -113,11 +114,13 @@ func userHarnessDir() (string, error) {
 	return filepath.Join(home, ".kdeps", userHarnessDirName), nil
 }
 
-// harnessFS is what loadBuiltinHarnessFrom needs from a filesystem of
-// harness YAML files -- identical in shape to themeFS (theme_yaml.go), so
-// it's an alias rather than a second copy of the same two-method interface.
-// Tests pass a fake to exercise unreadable and invalid files.
-type harnessFS = themeFS
+// harnessFS is what loadBuiltinHarnessFrom and loadToolDefinitionsFrom need
+// from a filesystem of asset YAML files. Tests pass a fake to exercise
+// unreadable and invalid files.
+type harnessFS interface {
+	fs.ReadDirFS
+	fs.ReadFileFS
+}
 
 // loadBuiltinHarness parses every harness/*.yaml file of the asset set.
 func loadBuiltinHarness() map[string]*harnessEntry {

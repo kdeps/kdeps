@@ -57,7 +57,6 @@ func DesktopWireREPL(repl *agent.REPL) {
 		repl.SetFavorites(s.FavoriteModels, tui.SetFavoriteModel)
 	}
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
-	repl.SetSaveThemeFn(tui.SaveTheme)
 	repl.SetSaveModelNameFn(tui.SaveModelNameDisplay)
 	repl.SetSaveTuningFn(func(t agent.ToolTuning) error {
 		return tui.SaveAgentLoopTuning(tui.AgentLoopTuning(t))

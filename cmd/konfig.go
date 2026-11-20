@@ -30,9 +30,9 @@ func newKonfigCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newKonfigCmd")
 	cmd := &cobra.Command{
 		Use:   "konfig",
-		Short: "Export or import the full agent-loop config (tuning, harness, themes, skills)",
+		Short: "Export or import the full agent-loop config (tuning, harness, skills)",
 		Long: `konfig is one YAML file that is a total, self-contained, declarative
-description of a kdeps agent's behavior -- tuning, harness, themes, and
+description of a kdeps agent's behavior -- tuning, harness, and
 skills -- exportable from the current effective state (including pure
 compiled-in defaults, with nothing customized yet) and importable to fully
 configure another agent.`,
@@ -73,8 +73,8 @@ func runKonfigExportCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(),
-		"Exported %d harness section(s), %d theme(s), %d event(s), %d action(s), %d skill(s) to %s\n",
-		len(k.Harness), len(k.Themes), len(k.Events), len(k.Actions), len(k.Skills), path)
+		"Exported %d harness section(s), %d event(s), %d action(s), %d skill(s) to %s\n",
+		len(k.Harness), len(k.Events), len(k.Actions), len(k.Skills), path)
 	return nil
 }
 
@@ -103,14 +103,14 @@ func runKonfigImportCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(),
-		"Imported %d harness section(s), %d theme(s), %d event(s), %d action(s), %d skill(s) from %s\n",
-		len(k.Harness), len(k.Themes), len(k.Events), len(k.Actions), len(k.Skills), path)
+		"Imported %d harness section(s), %d event(s), %d action(s), %d skill(s) from %s\n",
+		len(k.Harness), len(k.Events), len(k.Actions), len(k.Skills), path)
 	return nil
 }
 
 // importKonfigFlag applies the "--konfig <path>" startup flag: read and
 // materialize the file to ~/.kdeps before the rest of runAgentLoopCmd loads
-// settings, registers tools, and picks a theme, so every downstream read of
+// settings, registers tools, so every downstream read of
 // persisted state already sees the imported values. A no-op when path is
 // empty (the common case: no --konfig flag given).
 func importKonfigFlag(path string) error {

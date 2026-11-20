@@ -55,7 +55,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec"},
+		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "config.GetDefaults"},
 	},
 	"docker": {
@@ -200,16 +200,6 @@ var generatedFlows = map[string]SetInfo{
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps new", "kdeps run", "kdeps knowledge build"},
 		Code:   []string{"kdeps new", "templates.(*Generator).GenerateProject"},
-	},
-	"themes": {
-		Mode: "both",
-		Flow: []FlowStep{
-			{Label: "kdeps starts"},
-			{Label: "the normal palette colors the terminal", Here: true},
-			{Label: "every reply and prompt"},
-		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig import", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
-		Code:   []string{"kdeps (agent loop)", "agent.ApplyKonfig", "agent.loadBuiltinThemes"},
 	},
 	"tools": {
 		Mode: "both",

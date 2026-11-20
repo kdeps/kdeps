@@ -61,13 +61,6 @@ func init() {
 		_, err := parseYAMLPreset(data, name)
 		return err
 	}})
-	assets.Register("themes", assets.Spec{
-		Validate: func(data []byte, name string) error {
-			_, err := parseYAMLTheme(data, name)
-			return err
-		},
-		Required: []string{"normal"},
-	})
 	assets.Register("tools", assets.Spec{
 		Validate: validateToolDefinition,
 		Required: requiredTools,

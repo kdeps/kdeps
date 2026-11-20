@@ -28,14 +28,8 @@ type Settings struct {
 	// Set via /model default <name> in the REPL.
 	DefaultModel string `yaml:"default_model,omitempty"`
 
-	// Theme persists the selected REPL theme (normal, black, linux, vim,
-	// emacs, or a custom name from ~/.kdeps/themes/). Set via /theme in the
-	// REPL. The --theme flag and KDEPS_THEME env var override it for one
-	// session without changing the stored value.
-	Theme string `yaml:"theme,omitempty"`
-
 	// ModelNameDisplay persists how the modeline shows the model name: "show",
-	// "hide", or "abbreviate". Empty means automatic (theme-based). Set via
+	// "hide", or "abbreviate". Empty shows the name. Set via
 	// /model name in the REPL.
 	ModelNameDisplay string `yaml:"model_name_display,omitempty"`
 
@@ -151,16 +145,6 @@ func SaveDefaultModel(model string) error {
 		return err
 	}
 	s.DefaultModel = model
-	return s.Save()
-}
-
-// SaveTheme updates only the Theme field and persists the settings file.
-func SaveTheme(name string) error {
-	s, err := LoadSettings()
-	if err != nil {
-		return err
-	}
-	s.Theme = name
 	return s.Save()
 }
 

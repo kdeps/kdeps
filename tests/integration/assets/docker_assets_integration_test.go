@@ -67,7 +67,7 @@ func TestDockerBuildContext_CarriesAssets(t *testing.T) {
 		}
 		names[hdr.Name] = true
 	}
-	for _, want := range []string{"lock.json", "themes/normal.yaml", "models/gguf.yaml", "templates/api-service.yaml"} {
+	for _, want := range []string{"lock.json", "harness/safety.yaml", "models/gguf.yaml", "templates/api-service.yaml"} {
 		assert.True(t, names[assets.ExportDir+"/"+want], want)
 	}
 }

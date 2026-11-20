@@ -451,18 +451,11 @@ func TestAssetUpdateNotice(t *testing.T) {
 	assert.Contains(t, n, ", ...). Run kdeps update.")
 }
 
-func TestReloadAssets_KeepsTheme(t *testing.T) {
-	t.Cleanup(func() { SetTheme(defaultThemeName) })
-	require.True(t, SetTheme("normal"))
-	ReloadAssets()
-	assert.Equal(t, "normal", currentThemeKey)
-}
-
 func TestCmdUpdate(t *testing.T) {
 	serveAssets(t, map[string]string{"tools/md5_file@2.1.0": newerMD5Def})
 	r, _ := newTestMemoryREPL(t)
 	r.loopCtx = context.Background()
-	for _, args := range [][]string{{"check"}, {"--list"}, {"remove"}, {"remove", "themes/vim"}, {}, {"nope/x"}} {
+	for _, args := range [][]string{{"check"}, {"--list"}, {"remove"}, {"remove", "tools/md5_file"}, {}, {"nope/x"}} {
 		r.cmdUpdate(args)
 	}
 	assert.Equal(t, "Newer md5 text.", toolDefinitions["md5_file"].Description)
