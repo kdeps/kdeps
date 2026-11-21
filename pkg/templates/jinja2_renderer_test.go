@@ -340,3 +340,19 @@ func TestPreprocessJ2Files(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "no rendering here", string(data))
 }
+
+// kdeps run workflow.yaml from inside the project passes "." as the folder;
+// its name must not count as a hidden directory.
+func TestPreprocessJ2Files_DotFolder(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greeting.txt.j2"), []byte("hi {{ env.WHO }}"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "skip.txt.j2"), []byte("x"), 0o600))
+	t.Setenv("WHO", "there")
+	t.Chdir(dir)
+	require.NoError(t, templates.PreprocessJ2Files("."))
+	got, err := os.ReadFile(filepath.Join(dir, "greeting.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "hi there", string(got))
+	assert.NoFileExists(t, filepath.Join(dir, ".hidden", "skip.txt"), "hidden folders stay skipped")
+}

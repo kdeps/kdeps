@@ -77,7 +77,9 @@ func (m *ModelManager) serveFileModelIfNeeded(ctx context.Context, config *domai
 		return
 	}
 	if config.BaseURL == "" {
-		config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", actualPort)
+		// The OpenAI client appends /chat/completions to the base URL, and
+		// the local server serves it under /v1 (as langchainBaseURLs does).
+		config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d/v1", actualPort)
 	}
 }
 
@@ -106,7 +108,9 @@ func (m *ModelManager) serveGGUFModelIfNeeded(ctx context.Context, config *domai
 		return
 	}
 	if config.BaseURL == "" {
-		config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", actualPort)
+		// The OpenAI client appends /chat/completions to the base URL, and
+		// the local server serves it under /v1 (as langchainBaseURLs does).
+		config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d/v1", actualPort)
 	}
 }
 

@@ -47,10 +47,11 @@ func registerHTTPTool(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 // registerSearchLocalTool registers a local file search tool (search_local).
-// Indexing is deferred to first use. Run '/search index' to build the
+// Indexing is deferred to first use. Run 'kdeps knowledge folders index' to build the
 // inverted index for faster ranked searches.
 func registerSearchLocalTool(ctx context.Context, reg *kdepstools.Registry) {
-	fmt.Fprintln(os.Stderr, "searchLocal: files auto-indexed on read/search — /search index for full pre-index")
+	fmt.Fprintln(os.Stderr,
+		"searchLocal: files auto-indexed on read/search; kdeps knowledge folders index builds the full index")
 
 	tool := defined(&kdepstools.Tool{Name: toolNameSearchLocal})
 	if tool == nil {

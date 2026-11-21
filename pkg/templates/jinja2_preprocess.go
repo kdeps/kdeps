@@ -114,7 +114,7 @@ func PreprocessJ2Files(dir string) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+		if d.IsDir() && path != dir && strings.HasPrefix(d.Name(), ".") {
 			return filepath.SkipDir
 		}
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".j2") {

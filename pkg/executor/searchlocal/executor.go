@@ -327,7 +327,7 @@ func fileExists(path string) bool {
 }
 
 // StartIndex builds or updates an inverted index of the given directory.
-// It is called when the user runs '/search index'. Only changed files
+// It is called by kdeps knowledge folders index. Only changed files
 // (different ModTime) are re-indexed; unchanged files are skipped.
 // Returns the number of files indexed (new or changed).
 func (e *Executor) StartIndex(path string) int {

@@ -103,7 +103,7 @@ func indexNote(folder string) string {
 	if fileExistsAt(searchlocal.IndexPath(folder)) {
 		return ""
 	}
-	return "  - not indexed yet: /search index"
+	return "  - not indexed yet: kdeps knowledge folders index"
 }
 
 // changeProjectFolders adds (indexing it now) or removes a search folder of

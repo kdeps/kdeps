@@ -37,7 +37,7 @@ const wantVaultPreamble = "<knowledge-vault>\nThe knowledge vault is <VAULT>; ea
 	"Each turn includes the cards' current status and may include a <knowledge-recall> list of the notes " +
 	"related to the request: read only those you need. " +
 	"Status lives in cards (knowledge_card_get/update), the story in notes (knowledge_note_save for a new idea). " +
-	"A <knowledge-files> list names files from the project's search index (built by /search index; the card's " +
+	"A <knowledge-files> list names files from the project's search index (built by kdeps knowledge folders index; the card's " +
 	"index rows give its path): open them with read_file, or search the project further with search_local, " +
 	"path set to the project's folder.\n</knowledge-vault>"
 
