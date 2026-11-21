@@ -133,7 +133,7 @@ The engine also orders resources that share a key without `requires`:
 | `set('k')` after another resource's `get('k')` or `set('k')` | keeps their order |
 | `output('id')` or `get('id')` of another resource | waits for that resource |
 
-A `component:` call runs beside others when the component is read-only in the [permission policy](/agent/tools#permission-modes) (`web_search`, `read_file`, `web_scraper`, ...) and has no `teardown:`. Each call gets its own inputs and outputs. As a result, three `web_search` calls with different queries run at the same time. Other components (`write_file`, `bash_exec`, `http_request`, ...) run alone.
+A `component:` call runs beside others when the component is read-only in the [permission policy](/workflow/agent-loop/tools#permission-modes) (`web_search`, `read_file`, `web_scraper`, ...) and has no `teardown:`. Each call gets its own inputs and outputs. As a result, three `web_search` calls with different queries run at the same time. Other components (`write_file`, `bash_exec`, `http_request`, ...) run alone.
 
 A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
 
@@ -227,6 +227,6 @@ See [Loop](/workflow/loop) for full details.
 ## See also
 
 - [Workflow](/workflow/) - the YAML pipeline
-- [Agent loop](/agent/) - the model calls tools
+- [Agent loop](/workflow/agent-loop/) - the model calls tools
 - [Validation & control flow](/workflow/validation) - skip, check, and error handling
 - [Loop](/workflow/loop) - a loop that repeats when a condition is true

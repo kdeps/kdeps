@@ -50,15 +50,15 @@ The same chat serves an HTTP API, a bot, or a file when you change `sources:`. S
 
 | Topic | Page |
 |-------|------|
-| Built-in tool catalog and permission modes | [Built-in tools](/agent/tools) |
-| Tool calls that a model writes as text | [Fenced tools](/agent/tools-fenced) |
-| Shell execution and background jobs | [Shell execution](/agent/shell) |
-| The `subagent` tool | [Subagents](/agent/subagent) |
-| Independent review of the answer | [Judge panel](/agent/judges) |
-| One-time exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
-| Persistent memory | [Persistent memory](/agent/memory) |
-| Skills and `KDEPS.md` instructions | [Skills and instructions](/agent/skills) |
-| Limits and thresholds as YAML | [Reactive LLM events](/agent/events) |
+| Built-in tool catalog and permission modes | [Built-in tools](/workflow/agent-loop/tools) |
+| Tool calls that a model writes as text | [Fenced tools](/workflow/agent-loop/fenced-tools) |
+| Shell execution and background jobs | [Shell execution](/workflow/agent-loop/tool-reference#shell-execution) |
+| The `subagent` tool | [Subagents](/workflow/agent-loop/subagent) |
+| Independent review of the answer | [Judge panel](/workflow/agent-loop/judges) |
+| One-time exceptions for a denied tool call | [Approval tokens](/workflow/agent-loop/approvals) |
+| Persistent memory | [Persistent memory](/workflow/agent-loop/memory) |
+| Skills and `KDEPS.md` instructions | [Skills and instructions](/workflow/agent-loop/skills) |
+| Limits and thresholds as YAML | [Reactive LLM events](/workflow/agent-loop/events) |
 
 Every key is under the chat in the workflow. The full list is in the [chat resource reference](/workflow/resources/llm#agent-loop).
 

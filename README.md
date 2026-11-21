@@ -117,7 +117,7 @@ chat:
 
 File tools stay inside the working directory. `~/.kdeps` and `/tmp` are exceptions.
 
-For more data, see the [agent docs](https://kdeps.com/agent/).
+For more data, see the [agent docs](https://kdeps.com/workflow/agent-loop/).
 
 ## 3. Deploy on your infrastructure
 

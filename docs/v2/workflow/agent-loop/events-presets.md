@@ -1,6 +1,6 @@
 # Event presets
 
-An override file turns off one event. A preset is a named set of event overrides. The trigger list is on [Reactive LLM events](/agent/events).
+An override file turns off one event. A preset is a named set of event overrides. The trigger list is on [Reactive LLM events](/workflow/agent-loop/events).
 
 ## Enabling and disabling
 
@@ -31,7 +31,7 @@ body: >-
 
 - The count is per turn for nudges, and per session for `tool-call-early-praise` (successful tool calls).
 - `0` (the default) means unlimited, but only for a present entry with a body. A missing, disabled or empty entry never fires.
-- State switches are not caps. After a sandbox hallucination, `tools-reminder` changes permanently to the full `use-kdeps-tools` guidance. [Events](/agent/events) control this change.
+- State switches are not caps. After a sandbox hallucination, `tools-reminder` changes permanently to the full `use-kdeps-tools` guidance. [Events](/workflow/agent-loop/events) control this change.
 
 ## Presets
 

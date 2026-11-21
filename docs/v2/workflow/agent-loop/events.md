@@ -54,6 +54,6 @@ The other events, the actions they run, and the presets are their own pages.
 
 | Topic | Page |
 |---|---|
-| Round counts, truncation, call budgets, memory caps | [Event guards](/agent/events-guards) |
-| What an event runs, and hard vs soft enforcement | [Event actions](/agent/events-actions) |
-| Turning events off, occurrence caps, presets | [Event presets](/agent/events-presets) |
+| Round counts, truncation, call budgets, memory caps | [Event guards](/workflow/agent-loop/events-guards) |
+| What an event runs, and hard vs soft enforcement | [Event actions](/workflow/agent-loop/events-actions) |
+| Turning events off, occurrence caps, presets | [Event presets](/workflow/agent-loop/events-presets) |

@@ -8,7 +8,7 @@ delegates to another with the `agent:` resource, which runs that agent's whole p
 kdeps run ./my-agency/     # run the entry-point agent's pipeline
 ```
 
-**Not this?** For one pipeline, start with the [workflow](/workflow/). A `chat` with `loop:` is the [agent loop](/agent/). To reuse one bundle of resources, use a [component](/agencies/components).
+**Not this?** For one pipeline, start with the [workflow](/workflow/). A `chat` with `loop:` is the [agent loop](/workflow/agent-loop/). To reuse one bundle of resources, use a [component](/agencies/components).
 
 ---
 

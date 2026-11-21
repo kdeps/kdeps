@@ -6,11 +6,11 @@
   <section class="modes-section">
     <div class="container">
       <p class="section-eyebrow">architecture</p>
-      <h2 class="section-title">Two modes</h2>
-      <p class="section-sub">Select the mode that fits the task. Use both modes in an agency.</p>
+      <h2 class="section-title">Fixed steps, or an agent step</h2>
+      <p class="section-sub">A workflow runs fixed steps. A chat with <code>loop:</code> is one step that calls tools until it answers.</p>
 
       <div class="modes">
-        <!-- Workflow mode -->
+        <!-- Workflow -->
         <div class="mode-card">
           <div class="mode-header">
             <span class="mode-tag">workflow</span>
@@ -37,31 +37,31 @@
           <div class="mode-cmd"><span class="prompt">$</span> kdeps run workflow.yaml</div>
         </div>
 
-        <!-- Agent mode -->
+        <!-- Agent loop -->
         <div class="mode-card">
           <div class="mode-header">
-            <span class="mode-tag">agent</span>
-            <h3>Autonomous LLM loop</h3>
+            <span class="mode-tag">agent loop</span>
+            <h3>A bounded agent step</h3>
           </div>
-          <p class="mode-desc">The LLM selects the workflows to call and their order. Each workflow runs as a complete pipeline. The LLM does multi-step reasoning, and you write no extra code.</p>
+          <p class="mode-desc">A <code>chat</code> with <code>loop:</code> calls tools over many rounds, then answers. <code>maxRounds</code> stops it. The steps around it still run in <code>requires:</code> order.</p>
 
           <div class="flow">
-            <div class="flow-node entry">stdin prompt</div>
+            <div class="flow-node entry">prompt</div>
             <div class="flow-arrow">↓</div>
             <div class="flow-node llm">
               <span class="node-name">LLM</span>
-              <span class="node-type">plans steps</span>
+              <span class="node-type">calls tools</span>
             </div>
             <div class="flow-arrow">↓</div>
             <div class="flow-tools">
-              <div class="tool-node">workflow</div>
-              <div class="tool-node">component</div>
-              <div class="tool-node">builtin</div>
+              <div class="tool-node">file</div>
+              <div class="tool-node">shell</div>
+              <div class="tool-node">search</div>
             </div>
             <div class="flow-arrow">↓</div>
             <div class="flow-node llm">
               <span class="node-name">LLM</span>
-              <span class="node-type">synthesizes</span>
+              <span class="node-type">answers</span>
             </div>
             <div class="flow-arrow">↓</div>
             <div class="flow-node exit">response</div>

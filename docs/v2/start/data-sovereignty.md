@@ -105,6 +105,6 @@ kdeps itself contains no usage telemetry.
 
 - [Local models](/start/local-models) - llamafile and Ollama, fully offline
 - [kdeps LLM server](/llm-server/) - run your own inference appliance
-- [Agent loop](/agent/) - a chat that calls tools, on that server
+- [Agent loop](/workflow/agent-loop/) - a chat that calls tools, on that server
 - [kdeps deploy](/deploy/) - Docker, Kubernetes, ISO, single binary
 - [Why kdeps?](/start/why-kdeps) - the case for self-hosted, git-native AI

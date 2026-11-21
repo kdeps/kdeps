@@ -1,6 +1,6 @@
 # Event actions
 
-An action is what an event runs. The check is Go control flow. The model does not choose it. The triggers stay on [Reactive LLM events](/agent/events).
+An action is what an event runs. The check is Go control flow. The model does not choose it. The triggers stay on [Reactive LLM events](/workflow/agent-loop/events).
 
 ## Actions
 

@@ -161,7 +161,7 @@ func ActionByName(name string) (Action, bool) {
 // not check that the action's Kind matches the event's trigger shape; that
 // is documentation, not an enforced constraint, since judge-max-rounds
 // reuses "force_answer" (kind: rounds) at a call site that does not carry
-// a distinct dispatchable action of its own. See docs/v2/agent/events.md.
+// a distinct dispatchable action of its own. See docs/v2/workflow/agent-loop/events.md.
 func validateEventActions() {
 	for name, e := range eventRegistry {
 		if e.Run == "" {

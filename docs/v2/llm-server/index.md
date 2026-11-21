@@ -223,7 +223,7 @@ Default: no auth (private networks - document the risk). Opt in with the recipe'
 ## See also
 
 - [Data sovereignty](/start/data-sovereignty) - prompts stay on your network
-- [Agent loop](/agent/) - a chat that calls tools, on this server
+- [Agent loop](/workflow/agent-loop/) - a chat that calls tools, on this server
 - [LLM backends](/workflow/resources/llm-backends) - client-side backend selection
 - [LLM commands](/llm-server/cli) - full CLI flag reference
 - [Docker deployment](/deploy/docker) - agent images (not appliances)

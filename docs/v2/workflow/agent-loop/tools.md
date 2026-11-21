@@ -1,22 +1,22 @@
 # Built-in tools
 
-The [agent loop](/agent/) has access to a set of built-in tools that the LLM can call without any YAML configuration. kdeps registers tools that need credentials only when you set the related environment variable. Workflow `tools:` blocks are [function calling](/reference/tools), a different page.
+The [agent loop](/workflow/agent-loop/) has access to a set of built-in tools that the LLM can call without any YAML configuration. kdeps registers tools that need credentials only when you set the related environment variable. Workflow `tools:` blocks are [function calling](/reference/tools), a different page.
 
 | Family | Tools | Page |
 |---|---|---|
-| Files | `read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, `tail_file` | [File tools](/agent/tools-files). [Edit file](/agent/tools-edit) |
-| Memory and identity | `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `identity_get` | [Memory and identity](/agent/tools-memory) |
-| Knowledge vault | `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` (while the vault is on: the default) | [Knowledge vault](/agent/knowledge#tools) |
-| Shell | `bash_exec`, `bash_job_list`, `bash_job_wait` | [Shell execution](/agent/shell) |
+| Files | `read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, `tail_file` | [File tools](/workflow/agent-loop/tool-reference#file-tools). [Edit file](/workflow/agent-loop/tool-reference#edit-file) |
+| Memory and identity | `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `identity_get` | [Memory and identity](/workflow/agent-loop/tool-reference#memory-and-identity) |
+| Knowledge vault | `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` (while the vault is on: the default) | [Knowledge vault](/workflow/agent-loop/knowledge#tools) |
+| Shell | `bash_exec`, `bash_job_list`, `bash_job_wait` | [Shell execution](/workflow/agent-loop/tool-reference#shell-execution) |
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | Web and search |
-| Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
-| Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
+| Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/workflow/agent-loop/tool-reference#data-tools) |
+| Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/workflow/agent-loop/tool-reference#action-tools) |
 | Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same tools behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
-| Harness | `instruct` (alias `help`) | [Built-in tools](/agent/tools) |
-| Subagents | `subagent`: a task for a fresh, read-only agent loop | [Subagents](/agent/subagent) |
+| Harness | `instruct` (alias `help`) | [Built-in tools](/workflow/agent-loop/tools) |
+| Subagents | `subagent`: a task for a fresh, read-only agent loop | [Subagents](/workflow/agent-loop/subagent) |
 | Questions | `ask_question`: show the user a question (with numbered options) and end the turn; their next message is the answer | [Asking the user](#asking-the-user) |
 
-Permission modes stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced) and [Harness reminders](/agent/tools-harness).
+Permission modes stay on this page. The calling rules are their own pages: [Fenced tools](/workflow/agent-loop/fenced-tools) and [Harness reminders](/workflow/agent-loop/tool-reference#harness-reminders).
 
 ## Asking the user
 
@@ -138,7 +138,7 @@ http:
   url: "https://api.wolframalpha.com/v1/result?i={{urlquery .args.query}}&appid={{urlquery .env.APP_ID}}"
 ```
 
-`wolfram_alpha` is on the `web-call-budget` event's `tools:` list: a repeat call with the same arguments reuses the turn's answer, and each distinct call counts against the budget. Add a declared tool to a budget's list for the same behavior. See [call-budget events](/agent/events-guards#call-budget-events).
+`wolfram_alpha` is on the `web-call-budget` event's `tools:` list: a repeat call with the same arguments reuses the turn's answer, and each distinct call counts against the budget. Add a declared tool to a budget's list for the same behavior. See [call-budget events](/workflow/agent-loop/events-guards#call-budget-events).
 
 ```yaml
 # tools/cohere_rerank.yaml (shipped, abridged): JSON body and a templated result
@@ -393,13 +393,13 @@ When an instrument session records, each gate decision is a `permission_decision
 
 ## See also
 
-- [Fenced tools](/agent/tools-fenced) - invoke blocks and narration
-- [Harness reminders](/agent/tools-harness) - force a guidance section onto every turn
-- [File tools](/agent/tools-files) - read, write, list
-- [Edit file](/agent/tools-edit) - replace or append on one line
-- [Memory and identity](/agent/tools-memory) - memory_save, memory_search, memory_query, identity_get
-- [Shell execution](/agent/shell) - bash_exec, jobs
+- [Fenced tools](/workflow/agent-loop/fenced-tools) - invoke blocks and narration
+- [Harness reminders](/workflow/agent-loop/tool-reference#harness-reminders) - force a guidance section onto every turn
+- [File tools](/workflow/agent-loop/tool-reference#file-tools) - read, write, list
+- [Edit file](/workflow/agent-loop/tool-reference#edit-file) - replace or append on one line
+- [Memory and identity](/workflow/agent-loop/tool-reference#memory-and-identity) - memory_save, memory_search, memory_query, identity_get
+- [Shell execution](/workflow/agent-loop/tool-reference#shell-execution) - bash_exec, jobs
 - Web and search - web_search, wikipedia, web_scraper
-- [Data tools](/agent/tools-data) - calculator, SQL, embeddings, rerank
-- [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer
-- [Agent loop](/agent/) - overview
+- [Data tools](/workflow/agent-loop/tool-reference#data-tools) - calculator, SQL, embeddings, rerank
+- [Action tools](/workflow/agent-loop/tool-reference#action-tools) - HTTP, local search, documents, Zapier, git trailer
+- [Agent loop](/workflow/agent-loop/) - overview

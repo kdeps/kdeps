@@ -96,4 +96,4 @@ curl -s -c ck -b ck -H 'Content-Type: application/json' -d '{"answer": "2"}' loc
 
 The first reply has `"passed": false`, the findings, a `question` and numbered `options`. The second has the `decision` and the same findings, read from the session.
 
-In agent mode the same panel is the `design-review` [judge preset](/agent/judges), and the model asks with [`ask_question`](/agent/tools).
+In a chat with `loop:` the same panel is the `design-review` [judge preset](/workflow/agent-loop/judges), and the model asks with [`ask_question`](/workflow/agent-loop/tools).

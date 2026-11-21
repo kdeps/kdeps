@@ -145,7 +145,7 @@ You: /quit
 
 `/list` shows the resources and components, `/run <actionId> key=value` runs one directly, and `/quit` (or Ctrl+D) exits. `--interactive` opens the same prompt for any workflow. A chat with [`loop:`](/workflow/resources/llm#agent-loop) whose `session` reads `get('session')` keeps one conversation across the lines.
 
-When the target is a `chat` with `loop:`, each line goes to that chat as the prompt, and the chat runs as the [agent loop](/agent/).
+When the target is a `chat` with `loop:`, each line goes to that chat as the prompt, and the chat runs as the [agent loop](/workflow/agent-loop/).
 
 ## Use cases
 

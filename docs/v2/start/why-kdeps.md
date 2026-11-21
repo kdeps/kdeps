@@ -135,4 +135,4 @@ kdeps uses two small open-source projects that the team develops with it. Both a
 - [Quickstart](/workflow/quickstart) - build your first workflow API
 - [Data sovereignty](/start/data-sovereignty) - your prompts stay on your servers
 - [Workflow](/workflow/) - the YAML pipeline
-- [Agent loop](/agent/) - a chat with `loop:`
+- [Agent loop](/workflow/agent-loop/) - a chat with `loop:`

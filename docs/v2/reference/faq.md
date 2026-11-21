@@ -98,7 +98,7 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured under `settings:` `session:`. See [Session configuration](/workflow/sessions).
 
-The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/agent/).
+The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/workflow/agent-loop/).
 
 ## Does kdeps write into my project folder?
 

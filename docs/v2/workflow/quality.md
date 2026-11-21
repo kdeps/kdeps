@@ -14,7 +14,7 @@ chat:
   context:
     prompt: "{{ get('q') }}"
   harness:
-    sections: [accuracy, honesty]   # agent mode's system-prompt sections, in this order
+    sections: [accuracy, honesty]   # the agent loop's system-prompt sections, in this order
     promptMode: summary             # after the first request, one summary line per section
   tools:
     list:
@@ -28,13 +28,13 @@ chat:
 |---|---|---|---|
 | `harness.sections` | Adds the agent loop's system-prompt sections | tokens | [Harness sections](/workflow/resources/llm#harness-sections) |
 | `harness.promptMode` | `full` (default), `summary` or `auto` harness text after the first request | saves tokens | [Prompt mode](/workflow/resources/llm#prompt-mode) |
-| `guardrails.judges` | Judges review the answer. A rejected answer is revised | 1 call per judge, plus revisions | [Judge panel](/agent/judges) |
+| `guardrails.judges` | Judges review the answer. A rejected answer is revised | 1 call per judge, plus revisions | [Judge panel](/workflow/agent-loop/judges) |
 
 A failed tool call always gets a failure brief: the error and the context to repair it. The `failure-briefs` event caps the briefs.
 
 ## The workflow ships its own limits
 
-The limits are [events](/agent/events): `judge-*`, `chat-max-rounds`, `failure-briefs`. The prompts are harness entries: `judge-system`, `accuracy`, and the other sections. A workflow ships its own copies in folders next to `resources/`, in the same format as `~/.kdeps/`:
+The limits are [events](/workflow/agent-loop/events): `judge-*`, `chat-max-rounds`, `failure-briefs`. The prompts are harness entries: `judge-system`, `accuracy`, and the other sections. A workflow ships its own copies in folders next to `resources/`, in the same format as `~/.kdeps/`:
 
 ```text
 my-agent/
@@ -76,5 +76,5 @@ A chat with `loop:` runs as the agent loop and reads the same keys.
 ## See also
 
 - [LLM resource](/workflow/resources/llm) - every chat key
-- [Reactive LLM events](/agent/events) - the limits
+- [Reactive LLM events](/workflow/agent-loop/events) - the limits
 - [Test a workflow](/workflow/testing) - judges as evals with `kdeps test`

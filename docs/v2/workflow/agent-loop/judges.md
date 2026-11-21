@@ -1,6 +1,6 @@
 # Judge panel
 
-The judge panel is the eval. A workflow chat sets it in `guardrails` (a [`judges:` list or `judges: auto`](/workflow/resources/llm#judges), see [Answer quality](/workflow/quality)). It reviews an answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the chat's model unless `subagent:` under `llm:` names another one.
+The judge panel is the eval. A workflow chat sets it in `guardrails` (a [`judges:` list or `judges: auto`](/workflow/resources/llm#judges), see [Answer quality](/workflow/quality)). It reviews an answer on its own. Roster generation and each judge use the [subagent channel](/workflow/agent-loop/subagent). That is the chat's model unless `subagent:` under `llm:` names another one.
 
 Goal enforcement checks that the loop continues to move. It does not check if
 the final answer is correct. The panel is an independent review of that answer,
@@ -107,4 +107,4 @@ judges:
 
 ## See also
 
-- [Agent loop](/agent/) - overview
+- [Agent loop](/workflow/agent-loop/) - overview

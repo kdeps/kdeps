@@ -1,6 +1,6 @@
 # Function calling
 
-Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. A chat with `loop:` also gets the [built-in tools](/agent/tools). This page is the workflow examples: chaining, debugging, and the patterns below.
+Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. A chat with `loop:` also gets the [built-in tools](/workflow/agent-loop/tools). This page is the workflow examples: chaining, debugging, and the patterns below.
 
 ## Examples
 

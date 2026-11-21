@@ -1,6 +1,6 @@
 # Event guards
 
-These events fire on a round count, a truncation size, a call budget, or a memory cap. The two token events, auto-compact and fold, stay on [Reactive LLM events](/agent/events).
+These events fire on a round count, a truncation size, a call budget, or a memory cap. The two token events, auto-compact and fold, stay on [Reactive LLM events](/workflow/agent-loop/events).
 
 ## Round-count events
 
@@ -116,7 +116,7 @@ run: cap
 | `memory-capture-limit` (`on: bytes`) | bytes of a tool result or thinking text captured into memory automatically | 300 |
 | `memory-tool-results-limit` | automatic captures kept per tool (oldest dropped) | 20 |
 | `memory-thinking-limit` | reasoning (thinking) entries kept (oldest dropped) | 20 |
-| `memory-low-signal-limit` | entries of the low-signal types (`low_signal:` in [memory rules](/agent/memory-internals#memory-rules)) kept (oldest dropped) | 50 |
+| `memory-low-signal-limit` | entries of the low-signal types (`low_signal:` in [memory rules](/workflow/agent-loop/memory-internals#memory-rules)) kept (oldest dropped) | 50 |
 | `memory-status-limit` | tool-call status entries (`status:<tool>:<n>`) kept (oldest dropped) | 60 |
 | `memory-key-chars` (`on: bytes`) | characters of a memory key, and of a memory note's file name made from it | 80 |
 | `memory-tool-line-chars` (`on: bytes`) | characters of a tool result's first line used to name its entry | 40 |

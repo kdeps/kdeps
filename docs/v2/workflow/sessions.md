@@ -2,7 +2,7 @@
 
 Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under the top-level `session:` block.
 
-This page is HTTP session storage. The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/agent/).
+This page is HTTP session storage. The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/workflow/agent-loop/).
 
 | Type | Persistence | Use Case |
 |------|-------------|----------|

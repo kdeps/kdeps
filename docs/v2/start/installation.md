@@ -255,7 +255,7 @@ sudo usermod -aG docker $USER
 ## See also
 
 - [Quickstart](/workflow/quickstart) - build your first workflow API
-- [Agent loop](/agent/) - a chat that calls tools
+- [Agent loop](/workflow/agent-loop/) - a chat that calls tools
 - [CLI reference](/reference/cli) - Complete command reference
 - [Workflow configuration](/workflow/configuration) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

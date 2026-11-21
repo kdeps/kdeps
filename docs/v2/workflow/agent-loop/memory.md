@@ -2,7 +2,7 @@
 
 Persistent memory stores and recalls facts across agent sessions for one project. [Session storage](/workflow/sessions) is different: it persists across HTTP requests from one caller.
 
-Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals). Memory holds the current work's short facts. The long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/agent/knowledge).
+Persistent memory is mostly for a chat with `loop:`. The memory tools also work in other workflow steps (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/workflow/agent-loop/memory-internals). Memory holds the current work's short facts. The long-term story (sessions, decisions, gotchas across projects) belongs in the [knowledge vault](/workflow/agent-loop/knowledge).
 
 ## How it works
 
@@ -22,11 +22,11 @@ Louvain first, Leiden later.
 
 Because entries are vault notes, the knowledge graph indexes them and recall can surface them. Older memory is in `~/.kdeps/memory/`. The first time that the memory of a folder loads, kdeps moves the older memory into the vault. It renames the old database to `memory.bolt.moved`.
 
-Memory lives in the [knowledge vault](/agent/knowledge) as one markdown note per entry, in `<vault>/projects/<project>/memory/`. The project is the one whose card covers the folder, else one kdeps creates, named after the git repository root or folder. Thinking and tool-result captures go in a hidden `memory/.auto/` folder, outside the link graph. A note you write there by hand is an entry too, keyed by its title. Each entry has a key, value, type, timestamps and optional references to other entries.
+Memory lives in the [knowledge vault](/workflow/agent-loop/knowledge) as one markdown note per entry, in `<vault>/projects/<project>/memory/`. The project is the one whose card covers the folder, else one kdeps creates, named after the git repository root or folder. Thinking and tool-result captures go in a hidden `memory/.auto/` folder, outside the link graph. A note you write there by hand is an entry too, keyed by its title. Each entry has a key, value, type, timestamps and optional references to other entries.
 
 `KDEPS_MEMORY_GLOBAL=1` shares one store across every project, in `<vault>/shared/memory/`. Session storage (conversation history) stays per-directory either way.
 
-Every turn gets one graph-ordered `<memory>` block, rebuilt and focused on that turn's request. It is not in the cached system prompt, so memory saved mid-session reaches the next turn. Entries appear in causal order with the newest unfinished task flagged, so a model taking over after a switch knows where to continue. Format: [Memory internals](/agent/memory-internals#prompt-injection).
+Every turn gets one graph-ordered `<memory>` block, rebuilt and focused on that turn's request. It is not in the cached system prompt, so memory saved mid-session reaches the next turn. Entries appear in causal order with the newest unfinished task flagged, so a model taking over after a switch knows where to continue. Format: [Memory internals](/workflow/agent-loop/memory-internals#prompt-injection).
 
 ## Built-in memory tools
 
@@ -135,7 +135,7 @@ The result has `rows` (capped at `limit`: the tool default is 50 and the `memory
 
 ## Memory entry types
 
-kdeps classifies entries automatically by key pattern, with the rules in the `memory/rules` asset (see [Memory rules](/agent/memory-internals#memory-rules)). The type sets the position of the entry in the [memory graph](/agent/memory-internals#memory-graph). It also sets if kdeps can prune the entry. The table lists the shipped rules.
+kdeps classifies entries automatically by key pattern, with the rules in the `memory/rules` asset (see [Memory rules](/workflow/agent-loop/memory-internals#memory-rules)). The type sets the position of the entry in the [memory graph](/workflow/agent-loop/memory-internals#memory-graph). It also sets if kdeps can prune the entry. The table lists the shipped rules.
 
 | Type | Key patterns | Description |
 |------|-------------|-------------|
@@ -167,6 +167,6 @@ Memory is on by default when the agent loop starts. You do not need YAML configu
 
 ## See also
 
-- [Memory internals](/agent/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
+- [Memory internals](/workflow/agent-loop/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
 - [Session configuration](/workflow/sessions) - HTTP session storage across requests from the same caller
-- [Agent loop](/agent/) - how the loop works
+- [Agent loop](/workflow/agent-loop/) - how the loop works

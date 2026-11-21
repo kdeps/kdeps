@@ -307,4 +307,4 @@ Best for:
 
 - [Quickstart](/workflow/quickstart) - build your first workflow in 5 minutes
 - [Workflow](/workflow/) - the YAML pipeline
-- [Agent loop](/agent/) - the model calls tools
+- [Agent loop](/workflow/agent-loop/) - the model calls tools
