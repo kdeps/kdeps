@@ -196,6 +196,7 @@ func Publish(src, out, commit string, now time.Time) ([]string, error) {
 	}
 	var published []string
 	var errs []error
+	inSource := map[string]bool{}
 	for _, set := range Sets {
 		files, sErr := SourceFiles(src, set)
 		if sErr != nil {
@@ -205,6 +206,7 @@ func Publish(src, out, commit string, now time.Time) ([]string, error) {
 		names := make([]string, 0, len(files))
 		for n := range files {
 			names = append(names, n)
+			inSource[ID(set, n)] = true
 		}
 		sort.Strings(names)
 		for _, name := range names {
@@ -216,9 +218,18 @@ func Publish(src, out, commit string, now time.Time) ([]string, error) {
 			}
 		}
 	}
-	errs = append(errs, checkRequires(idx, published)...)
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
+	}
+	// An item or set removed from the source leaves the index too, so no
+	// formula names it.
+	for id := range idx.Items {
+		if !inSource[id] {
+			delete(idx.Items, id)
+		}
+	}
+	if rErrs := checkRequires(idx, published); len(rErrs) > 0 {
+		return nil, errors.Join(rErrs...)
 	}
 	idx.Sets = SetInfos
 	return published, WriteIndex(out, idx)

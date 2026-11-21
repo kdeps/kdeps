@@ -211,3 +211,35 @@ func TestInRange(t *testing.T) {
 	assert.False(t, inRange("1.0.3", "1.0.3"))
 	assert.False(t, inRange(">=x", "1.0.3"))
 }
+
+func TestPublish_DropsRemovedSets(t *testing.T) {
+	withSource(t, fstest.MapFS{
+		"harness/safety.yaml": {Data: []byte("version: 1.0.0\nbody: a\n")},
+	})
+	out := t.TempDir()
+	now := time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC)
+	_, err := Publish(Source(), out, "c1", now)
+	require.NoError(t, err)
+	idx, err := ReadIndex(out)
+	require.NoError(t, err)
+	idx.Items["themes/dark"] = idx.Items["harness/safety"]
+	idx.Items["harness/gone"] = idx.Items["harness/safety"]
+	require.NoError(t, WriteIndex(out, idx))
+
+	_, err = Publish(Source(), out, "c2", now)
+	require.NoError(t, err)
+	idx, err = ReadIndex(out)
+	require.NoError(t, err)
+	assert.NotContains(t, idx.Items, "themes/dark")
+	assert.NotContains(t, idx.Items, "harness/gone")
+	assert.Contains(t, idx.Items, "harness/safety")
+	formulas := t.TempDir()
+	stale := "name: kdeps-themes-dark\ntarball: https://example.test/themes/dark/1.0.0.yaml\n"
+	other := "name: kdeps-resource-x\ntarball: https://other.test/resources/x.yaml\n"
+	require.NoError(t, os.WriteFile(filepath.Join(formulas, "kdeps-themes-dark.yaml"), []byte(stale), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(formulas, "kdeps-resource-x.yaml"), []byte(other), 0o600))
+	require.NoError(t, WriteFormulas(formulas, out, "https://example.test", idx))
+	assert.NoFileExists(t, filepath.Join(formulas, "kdeps-themes-dark.yaml"))
+	assert.FileExists(t, filepath.Join(formulas, "kdeps-resource-x.yaml"))
+	assert.FileExists(t, filepath.Join(formulas, "kdeps-harness-safety.yaml"))
+}
