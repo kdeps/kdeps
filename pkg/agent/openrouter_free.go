@@ -310,10 +310,21 @@ func (l *Loop) onFreeModelLimit(
 	tried map[string]struct{},
 	accountWaited *bool,
 ) (bool, error) {
-	// A provider refusal of one free id moves to another in every session, as a
-	// rate limit does, so one refusing model does not end the turn.
-	if !overflow.Is(err) && isFreeModelRefusal(err) {
-		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was refused by its provider") {
+	if overflow.Is(err) {
+		return false, nil
+	}
+	// A provider 429 carries the same text as a refusal, so it is tested first
+	// and the notice names the rate limit.
+	why := ""
+	switch {
+	case isProviderRateLimit(err):
+		why = "was rate-limited"
+	case isFreeModelRefusal(err):
+		// A refusal of one free id moves to another, as a rate limit does.
+		why = "was refused by its provider"
+	}
+	if why != "" {
+		if l.continueOnFreeModelRateLimit(chatCfg, tried, why) {
 			return true, nil
 		}
 		if l.openRouterFree(chatCfg.Model) {
@@ -321,16 +332,7 @@ func (l *Loop) onFreeModelLimit(
 		}
 		return false, nil
 	}
-	if !isRateLimitError(err) || overflow.Is(err) {
-		return false, nil
-	}
-	if isProviderRateLimit(err) {
-		if l.continueOnFreeModelRateLimit(chatCfg, tried, "was rate-limited") {
-			return true, nil
-		}
-		if l.openRouterFree(chatCfg.Model) {
-			return false, err
-		}
+	if !isRateLimitError(err) {
 		return false, nil
 	}
 	if !l.openRouterFree(chatCfg.Model) {

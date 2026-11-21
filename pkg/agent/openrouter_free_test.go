@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -135,8 +136,18 @@ func TestStreamChatWithRetry_RateLimitContinuesOnNextFreeModel(t *testing.T) {
 	loop := freeModelLoop(t, ids[0], s)
 	cfg := &domain.ChatConfig{Backend: openrouterBackend, Model: ids[0]}
 	var buf strings.Builder
+	oldErr := os.Stderr
+	rd, wr, pipeErr := os.Pipe()
+	require.NoError(t, pipeErr)
+	os.Stderr = wr
 	got, _, err := loop.streamChatWithRetry(t.Context(), cfg, &buf)
+	os.Stderr = oldErr
+	_ = wr.Close()
+	notice, _ := io.ReadAll(rd)
 	require.NoError(t, err)
+	// A provider 429 also matches the refusal text; the notice names the limit.
+	assert.Contains(t, string(notice), "was rate-limited")
+	assert.NotContains(t, string(notice), "refused")
 	assert.Equal(t, "continued", got)
 	assert.Equal(t, []string{ids[0], ids[1]}, s.models)
 	assert.Equal(t, ids[1], cfg.Model)
