@@ -114,6 +114,7 @@ func WriteFormulas(dir, assetsDir, fileBase string, idx Index) error {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
+	written := map[string]bool{}
 	for _, id := range ids {
 		f, err := formulaFor(id, idx.Items[id], assetsDir, fileBase)
 		if err != nil {
@@ -121,6 +122,38 @@ func WriteFormulas(dir, assetsDir, fileBase string, idx Index) error {
 		}
 		if wErr := writeFormula(dir, f); wErr != nil {
 			return wErr
+		}
+		written[f.Name+yamlExt] = true
+	}
+	return removeStaleFormulas(dir, fileBase, written)
+}
+
+// removeStaleFormulas deletes asset formulas (tarball under fileBase) that
+// the index no longer lists, such as the items of a removed set.
+func removeStaleFormulas(dir, fileBase string, written map[string]bool) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	base := strings.TrimRight(fileBase, "/") + "/"
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || written[name] || !strings.HasPrefix(name, formulaPrefix) || filepath.Ext(name) != yamlExt {
+			continue
+		}
+		file := filepath.Join(dir, name)
+		data, rErr := os.ReadFile(file)
+		if rErr != nil {
+			return rErr
+		}
+		var f struct {
+			Tarball string `yaml:"tarball"`
+		}
+		if yaml.Unmarshal(data, &f) != nil || !strings.HasPrefix(f.Tarball, base) {
+			continue
+		}
+		if rmErr := os.Remove(file); rmErr != nil {
+			return rmErr
 		}
 	}
 	return nil
