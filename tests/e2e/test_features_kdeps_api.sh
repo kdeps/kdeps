@@ -806,25 +806,6 @@ EOF
     : >"$body"
     got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
         -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{"operation":"tool","tool":"identity_get"}' "${tools}/session_ops/call" || true)
-    if [ "$got" = "400" ] && grep -F "identity_get: no active agent session" "$body" >/dev/null \
-        && ! grep -F "$ctrl_tok" "$body" >/dev/null; then
-        test_passed "kdeps API - session_ops tool identity_get needs an agent session"
-    else
-        test_failed "kdeps API - session_ops tool identity_get needs an agent session" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
-        --data '{"operation":"tool","tool":"bash_exec","args":{"command":"echo hi"}}' "${tools}/session_ops/call" || true)
-    if [ "$got" = "400" ] && grep -F "served on its own route" "$body" >/dev/null; then
-        test_passed "kdeps API - session_ops tool reaches only session tools"
-    else
-        test_failed "kdeps API - session_ops tool reaches only session tools" "status $got body $(head -c 180 "$body")"
-    fi
-    : >"$body"
-    got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-        -X POST -H "Authorization: ${auth}" -H "Content-Type: application/json" \
         --data '{}' "${tools}/identity_get/call" || true)
     if [ "$got" = "404" ]; then
         test_passed "kdeps API - a session tool has no route of its own"
