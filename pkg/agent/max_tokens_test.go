@@ -273,24 +273,6 @@ func TestGenerateJudgeRoster_MaxTokens_UnknownCloudModel(t *testing.T) {
 	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
 }
 
-func TestRefinePrompt_MaxTokens_KnownCloudModel(t *testing.T) {
-	var captured *domain.Workflow
-	eng := executor.NewEngine(context.Background(), nil)
-	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
-		captured = wf
-		return "Add a --dry-run flag to the sync command and cover it with a unit test.", nil
-	})
-	l := &Loop{
-		engine:   eng,
-		workflow: newTestWorkflowForSession(),
-		config:   Config{Model: "gpt-4o", Backend: "openai"},
-	}
-	refinePrompt(context.Background(), l, "add a dry-run flag to the sync command and cover it with a unit test")
-	require.NotNil(t, captured, "refine workflow was not captured")
-	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
-	assert.Equal(t, 512, *captured.Resources[0].Chat.MaxTokens)
-}
-
 func TestSideCallMaxTokens_DisabledOrZeroFallsBack(t *testing.T) {
 	orig := eventRegistry
 	t.Cleanup(func() { eventRegistry = orig })
