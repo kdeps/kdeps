@@ -115,7 +115,7 @@ else
 fi
 
 OUT=$(upd --remove presets/frugal)
-if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.3\.0 +removed" "$(upd --list)"; then
+if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.4\.0 +removed" "$(upd --list)"; then
     test_passed "update --remove removes an item"
 else
     test_failed "update --remove" "$OUT"
@@ -130,7 +130,7 @@ else
 fi
 
 OUT=$(upd presets/frugal)
-if output_grep "presets/frugal +1\.3\.0 +source" "$(upd --list)"; then
+if output_grep "presets/frugal +1\.4\.0 +source" "$(upd --list)"; then
     test_passed "update <item> restores a removed item"
 else
     test_failed "update <item> restore" "$OUT"
