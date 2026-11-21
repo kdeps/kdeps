@@ -72,6 +72,14 @@ Refreshes the OpenRouter free-model catalog (`assets/models/openrouter.yaml`) fr
 2. Select "Harvest OpenRouter" workflow
 3. Click "Run workflow"
 
+### real-llm.yml
+**Trigger**: Daily at 3:00 AM UTC, Manual via workflow_dispatch
+
+Tests what the mock LLM cannot. Not a required check.
+
+- `real-llm`: downloads and serves real local models (llamafile, ollama) and runs the real-model E2E scripts.
+- `offline-appliance`: `scripts/offline-smoke.sh` prepackages the `api-service` template with `--include-models`, then runs the binary under `unshare --net` with an empty HOME. The chat must answer from the bundled model.
+
 ### docs.yml
 **Trigger**: Push to main (docs changes), Manual
 

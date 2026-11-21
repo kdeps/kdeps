@@ -217,8 +217,11 @@ func testDirectOllamaAPI(t *testing.T, model string) {
 	content, ok := message["content"].(string)
 	require.True(t, ok, "Message should contain content")
 
-	assert.Contains(t, strings.ToLower(content), "hello from e2e test",
-		"Response should contain expected greeting")
+	// A real model words the greeting its own way ("hello, from the e2e
+	// test!"), so check the key words, not one exact phrase.
+	lower := strings.ToLower(content)
+	assert.Contains(t, lower, "hello", "Response should contain the greeting")
+	assert.Contains(t, lower, "e2e", "Response should name the e2e test")
 
 	t.Logf("✓ Direct API test passed with response: %s", content)
 }
