@@ -137,28 +137,6 @@ func makeTestLoop() *Loop {
 		session: NewSession(0),
 	}
 }
-func effCall(name, args string) domain.StreamedToolCall {
-	return domain.StreamedToolCall{Name: name, Arguments: args}
-}
-
-func effCfg() *domain.ChatConfig {
-	return &domain.ChatConfig{
-		Prompt: "do the task",
-		Tools: []domain.Tool{
-			{Name: toolNameReadFile}, {Name: toolNameListFiles},
-			{Name: toolNameWriteFile}, {Name: toolNameBashExec},
-		},
-	}
-}
-
-func effLoop(t *testing.T) *Loop {
-	t.Helper()
-	isolateEventsAndPresetsHome(t)
-	l := &Loop{}
-	l.efficiencyBeginTurn(effCfg())
-	require.True(t, l.eff.Active)
-	return l
-}
 
 // knowledgeLoop returns a loop with a sample vault whose card covers the
 // test's working directory, and its graph built.

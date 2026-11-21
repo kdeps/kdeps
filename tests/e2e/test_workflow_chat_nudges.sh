@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# E2E: chat.refine rewrites a workflow chat's prompt with the refine-system
-# harness before the real call, which then answers the rewrite. A chat
-
 # E2E: a workflow chat with tools that claims an action it never took gets
 # agent mode's unbacked-claim nudge (nudge-unbacked-claim harness) and answers
 # again.

@@ -57,14 +57,6 @@ func TestFileExcerpt(t *testing.T) {
 	assert.True(t, strings.HasSuffix(out, "..."))
 }
 
-func TestErrorTextAndQuote(t *testing.T) {
-	assert.Equal(t, "boom", ErrorText(`{"error":"boom"}`))
-	assert.Equal(t, "plain", ErrorText("plain"))
-	q := Quote(strings.Repeat("é", defaultErrorBytes))
-	assert.True(t, strings.HasSuffix(q, `..."`))
-	assert.LessOrEqual(t, len(q), defaultErrorBytes+10)
-}
-
 func TestFileContext(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(fs, "/w/a.txt", []byte("one\ntwo\nthree\n"), 0o600))
@@ -84,6 +76,11 @@ func TestFileContext(t *testing.T) {
 		FileContext(unreadable, "read_file", map[string]any{"path": "/nope/y"}))
 }
 
+// unreadableFs fails every Open, so a folder listing errors.
+type unreadableFs struct{ afero.Fs }
+
+func (unreadableFs) Open(string) (afero.File, error) { return nil, os.ErrPermission }
+
 func TestSettings(t *testing.T) {
 	t.Cleanup(func() { settings.Store(nil) })
 	settings.Store(nil)
@@ -94,7 +91,6 @@ func TestSettings(t *testing.T) {
 		Failures:     func() int { return 2 },
 		DirEntries:   func() int { return 1 },
 		ContextBytes: func() int { return 45 },
-		ErrorBytes:   func() int { return 0 },
 	})
 	assert.Equal(t, 2, Failures())
 	fs := afero.NewMemMapFs()
@@ -103,12 +99,4 @@ func TestSettings(t *testing.T) {
 	assert.Equal(t, "/w/c does not exist. Entries in "+filepath.FromSlash("/w")+": a, ... 1 more",
 		FileContext(fs, "read_file", map[string]any{"path": "/w/c"}))
 	assert.Equal(t, "Current content of f, lines 1-3 of 3:\n1\taaaa\n...", fileExcerpt("f", "aaaa\nb\nc\n", 1))
-	assert.Equal(t, `"short"`, Quote("short"), "a value below 1 uses the default")
-	Configure(Settings{ErrorBytes: func() int { return 3 }})
-	assert.Equal(t, `"é..."`, Quote("éé"), "cut on a rune boundary")
 }
-
-// unreadableFs fails every Open, so a folder listing errors.
-type unreadableFs struct{ afero.Fs }
-
-func (unreadableFs) Open(string) (afero.File, error) { return nil, os.ErrPermission }

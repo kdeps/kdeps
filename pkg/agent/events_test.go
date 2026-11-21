@@ -59,7 +59,6 @@ func TestLoadBuiltinEvents_HasRoundCountCluster(t *testing.T) {
 	}{
 		{eventIdenticalToolCalls, 3, "force_answer"},
 		{eventConvergenceBlock, 1, "force_answer"},
-		{eventEfficiencyFailures, 5, "block"},
 	}
 	for _, c := range cases {
 		require.Contains(t, built, c.name)
@@ -76,7 +75,6 @@ func TestEffectiveRounds_FallsBackToOneWhenEventUnset(t *testing.T) {
 func TestEffectiveRounds_UsesEventValueWhenSet(t *testing.T) {
 	assert.Equal(t, 3, effectiveRounds(eventIdenticalToolCalls))
 	assert.Equal(t, 1, effectiveRounds(eventConvergenceBlock))
-	assert.Equal(t, 5, effectiveRounds(eventEfficiencyFailures))
 }
 
 func TestLoadBuiltinEvents_HasTruncationCluster(t *testing.T) {

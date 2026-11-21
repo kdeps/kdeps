@@ -14,7 +14,7 @@ A chat's keys sit in six groups:
 |---|---|
 | `model` | `name`, `backend`, `timeout`, `streaming`, `thinking`, caching, sampling (`temperature`, `maxTokens`, ...), provider fields (`ollama*`, `google*`, ...) |
 | `context` | `prompt`, `role`, `messages`, `scenario`, `files`, `promptVars`, `goTemplate`, `contextLength`, `fewShot` |
-| `harness` | `sections`, `refine`, `plan`, `turo`, `efficiency`, `promptMode`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
+| `harness` | `sections`, `promptMode`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
 | `tools` | `list`, `components`, `choice`, `maxRounds`, `skills` |
 | `rag` | `knowledge`, `retriever` (`passages`, `topK`, `maxTokens`), `chunk` |
 | `guardrails` | `judges`, `judgePreset` |
@@ -42,7 +42,7 @@ chat:
 ```
 
 - On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
-- Opt-in: built-in tools (`tools.list: auto`), the judge roster (`guardrails.judges: auto`), prompt refine (`harness.refine: true`), the planning council (`harness.plan: true`) and turo (`harness.turo: true`). They add tool access or model calls, so a chat never gets them silently. The same keys work on a chat with `loop:`.
+- Opt-in: built-in tools (`tools.list: auto`) and the judge roster (`guardrails.judges: auto`). They add tool access or model calls, so a chat never gets them silently. The same keys work on a chat with `loop:`.
 
 ## Where config lives
 
@@ -450,70 +450,6 @@ chat:
 
 Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing. An unknown name fails the resource.
 
-## Prompt refine
-
-`refine: true` rewrites the prompt into a clearer, self-contained request before the call, as agent mode's `/refine` does:
-
-```yaml
-chat:
-  context:
-    prompt: "{{ get('q') }}"   # e.g. "fix it" -> "Fix the failing build in ./cmd and report what changed."
-  harness:
-    refine: true                 # one extra model call with the refine-system harness prompt
-```
-
-The chat's history is context for the rewrite. A trivial prompt, a failed refine call or an unusable reply keeps the prompt as written.
-
-## Planning council
-
-`plan: true` holds the planning council before the call, as agent mode's `/plan` does. Each member drafts job orders, then all members rank them. The sorted plan goes into the system prompt:
-
-```yaml
-chat:
-  context:
-    prompt: "Triage the outage in {{ get('service') }}."
-  harness:
-    plan: true                   # council calls on the chat's own model, before the real call
-```
-
-```text
-prompt -> council (draft, revise, rank) -> plan in system prompt -> chat call
-```
-
-The members, rounds and job-order cap come from the `plan-council-*` harness entries and events. A council that fails or proposes no job order adds nothing. See [Planning council](/agent/plan).
-
-## Turo
-
-`turo: true` reduces the system prompt and the prompt to fewer tokens with [turo](/agent/turo) before the call. Tool calls, tool results and assistant text stay as they are:
-
-```yaml
-chat:
-  context:
-    prompt: "{{ get('q') }}"
-  harness:
-    turo: true                   # needs the turo binary on PATH (or KDEPS_TURO_PATH); without it, nothing changes
-```
-
-On a local model the prompt is most of the cost of each request, so a shorter prompt answers faster.
-
-## Efficiency
-
-`efficiency: true` runs the [efficiency governor](/agent/efficiency) on the chat's tool loop. A run of read-only calls gets a soft stop: kdeps drops the call, removes the read tools, and sends the model a hidden note. A repeated call and a failed model call also get a hidden brief:
-
-```yaml
-chat:
-  context:
-    prompt: "Fix the failing test in {{ get('path') }}."
-  harness:
-    efficiency: true             # limits come from the efficiency-* events (reads 6, stops 3 by default)
-  tools:
-    list:
-      - name: read_file
-      - name: edit_file          # the governor applies only when the chat has an output tool
-```
-
-The note goes on the request only. It never goes into the chat's output.
-
 ## Prompt mode
 
 `promptMode` sets how the `harness.sections` text goes on the requests after the first in a tool loop:
@@ -557,9 +493,6 @@ chat:
     maxRounds: 25                              # tool rounds per request; 0 = the agent default
     session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
   harness:
-    plan: true                                 # opt-in: planning council before a task (default false)
-    refine: true                               # opt-in: rewrite the prompt first (default false)
-    efficiency: true                           # opt-in: the efficiency governor (default false)
     promptMode: auto                           # harness text after the first request (default full)
   guardrails:
     judges: auto                               # opt-in: automatic judge roster; a listed roster replaces it
@@ -663,7 +596,7 @@ Each nudge occurs a maximum of `maxOccurrences` times (from its harness entry). 
 
 First, kdeps checks each model call against the [request body limit](/reference/security#request-body-size-preflight) of the backend. A request above the limit fails with a clear error. It never goes to the model.
 
-A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `efficiency-failures` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop sends the same brief on its hidden channel. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
+A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `failure-briefs` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop sends the same brief on its hidden channel. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
 
 If a call is larger than the context of the model, kdeps compacts it and tries again one time. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
 

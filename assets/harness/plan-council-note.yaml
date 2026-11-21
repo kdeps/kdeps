@@ -1,9 +1,0 @@
-version: 1.0.0
-name: plan-council-note
-kind: standalone
-# The plan a workflow chat with harness.plan: true adds to its system prompt.
-body: |-
-  A planning council prepared this plan for the request. Follow the job
-  orders in this order. Answer every job order in your reply.
-
-  {{.Plan}}

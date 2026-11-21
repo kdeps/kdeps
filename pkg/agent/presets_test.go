@@ -65,7 +65,7 @@ func isolateEventsAndPresetsHome(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	// Load the registries under the isolated HOME now: the package-level init()
 	// already loaded them from the developer's real ~/.kdeps, and a user event
-	// override (e.g. efficiency-failures rounds) would otherwise leak into the
+	// override (e.g. failure-briefs rounds) would otherwise leak into the
 	// test's expected defaults.
 	initEvents()
 	initPresets()

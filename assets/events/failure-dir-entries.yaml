@@ -1,8 +1,8 @@
-version: 1.0.0
+version: 1.0.1
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/cap: ""
 name: failure-dir-entries
-# Limit on the efficiency failure brief. Turning the event off keeps the default.
+# Limit on a failed tool call's brief (pkg/failbrief). Turning the event off keeps the default.
 items: 40
 run: cap

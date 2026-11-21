@@ -344,7 +344,7 @@ warning for agent profiles under `agents:` that do not match the `name:` under
 
 ## Subagent
 
-The subagent channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the chat's model.
+The subagent channel is the model for knowledge-graph extraction, judges, and the `subagent` tool. Empty or `current` uses the chat's model.
 
 ```yaml
 # ~/.kdeps/config.yaml

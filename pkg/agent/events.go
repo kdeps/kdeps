@@ -34,6 +34,7 @@ import (
 
 	"github.com/kdeps/kdeps/v3/pkg/assets"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
+	"github.com/kdeps/kdeps/v3/pkg/failbrief"
 	"github.com/kdeps/kdeps/v3/pkg/parallel"
 )
 
@@ -84,7 +85,7 @@ type EventTrigger struct {
 	// calls ("identical-tool-calls"), consecutive convergence-blocked rounds
 	// ("convergence-block"), a single judge's tool-round budget
 	// ("judge-max-rounds"), the revise-and-rejudge loop's iteration budget
-	// ("judge-iterations"), or failure briefs ("efficiency-failures").
+	// ("judge-iterations"), or failure briefs ("failure-briefs").
 	// Each event reads this same field for its own counter.
 	Rounds int `yaml:"rounds,omitempty"`
 	// Bytes fires once a measured byte length reaches this value. What it
@@ -317,14 +318,10 @@ func initEvents() {
 	configureToolBudget()
 	configureBodyLimit()
 	configureChatHarness()
-	configureRefine()
-	configureCouncil()
-	configureChatTuro()
 	configureSkills()
 	configureNudges()
 	setFreeModelQueueCap()
 	configureFailureBrief()
-	configureEfficiency()
 	configureCompaction()
 }
 
@@ -707,4 +704,24 @@ func SetEventEnabled(name string, enabled bool) error {
 	}
 	initEvents()
 	return nil
+}
+
+// briefLimit is a failure-brief limit from its event's items, or 0 (the
+// default) when the event is off or unset.
+func briefLimit(name string) int {
+	n := effectiveItems(name, 0)
+	if n == disabledSentinel || n < 1 {
+		return 0
+	}
+	return n
+}
+
+// configureFailureBrief installs the failure-brief limits that workflow chats
+// read (pkg/failbrief).
+func configureFailureBrief() {
+	failbrief.Configure(failbrief.Settings{
+		Failures:     func() int { return briefLimit(eventFailureBriefs) },
+		ContextBytes: func() int { return briefLimit(eventFailureContextBytes) },
+		DirEntries:   func() int { return briefLimit(eventFailureDirEntries) },
+	})
 }

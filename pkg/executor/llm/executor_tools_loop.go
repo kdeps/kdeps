@@ -28,7 +28,6 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
-	"github.com/kdeps/kdeps/v3/pkg/efficiency"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/failbrief"
 	"github.com/kdeps/kdeps/v3/pkg/nudge"
@@ -74,7 +73,7 @@ func (e *Executor) handleToolCalls(
 	}
 	loop := &toolLoop{
 		ctx: ctx, cfg: cfg, tools: tools, rc: requestConfig, call: call,
-		guard: newCallGuard(), eff: newChatEfficiency(cfg, tools), messages: messages,
+		guard: newCallGuard(), messages: messages,
 	}
 	current := response
 	for range maxIterations {
@@ -100,7 +99,6 @@ type toolLoop struct {
 	rc       ChatRequestConfig
 	call     chatCall
 	guard    *callGuard
-	eff      *efficiency.Ledger
 	messages []map[string]interface{}
 }
 
@@ -109,11 +107,13 @@ type toolLoop struct {
 func (e *Executor) toolStep(l *toolLoop, response map[string]interface{}) (map[string]interface{}, bool, error) {
 	calls, has := e.pendingToolCalls(response, l.tools)
 	if has {
-		next, done, skip := e.governRound(l.cfg, l.call, l.messages, l.rc, l.eff, l.guard, calls)
-		if skip {
-			return next.response, done, next.err
+		// A model that keeps re-issuing calls it already has the results of
+		// is looping (common with small models): it has to answer.
+		if l.guard.repeating(calls) {
+			r, err := e.finalAnswer(l.cfg, l.call, l.messages, l.rc)
+			return r, true, err
 		}
-		msgs, err := e.runRound(l.ctx, l.messages, calls, l.tools, l.guard, l.eff)
+		msgs, err := e.runRound(l.ctx, l.messages, calls, l.tools, l.guard)
 		if err != nil {
 			return nil, true, err
 		}
@@ -125,7 +125,7 @@ func (e *Executor) toolStep(l *toolLoop, response map[string]interface{}) (map[s
 		}
 		l.messages = withNudge(l.messages, response, note)
 	}
-	next, err := e.effFollowUp(l.cfg, l.call, l.messages, l.rc, l.eff)
+	next, err := e.followUp(l.cfg, l.call, l.messages, l.rc)
 	if err != nil {
 		return nil, true, err
 	}
@@ -149,13 +149,11 @@ func (e *Executor) runRound(
 	messages, calls []map[string]interface{},
 	tools []domain.Tool,
 	guard *callGuard,
-	eff *efficiency.Ledger,
 ) ([]map[string]interface{}, error) {
 	results, err := e.executeToolCalls(calls, tools, ctx, guard)
 	if err != nil {
 		return nil, fmt.Errorf("tool execution failed: %w", err)
 	}
-	afterRound(eff, calls, results)
 	return e.addToolResultsToMessages(messages, calls, results), nil
 }
 
@@ -198,7 +196,7 @@ type callGuard struct {
 	limit   int
 	issued  map[string]int
 	results map[string]interface{}
-	// failures counts failed calls briefed so far (efficiency-failures).
+	// failures counts failed calls briefed so far (failure-briefs).
 	failures int
 	// ran is true once any call ran; lastFailure is the last call that
 	// failed with no success since; nudged counts each nudge's uses.
@@ -257,7 +255,7 @@ func (g *callGuard) remember(name, args string, result interface{}) {
 	}
 }
 
-// failed is a failed call's result. Within the efficiency-failures budget it
+// failed is a failed call's result. Within the failure-briefs budget it
 // carries a brief: the folder of a missing path or the lines around a failed
 // edit, and the instruction to fix the cause and call again. The agent loop
 // does not attach this brief. A failed tool result there ends with [TOOL FAILED].

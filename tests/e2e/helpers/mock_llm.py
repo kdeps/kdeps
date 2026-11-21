@@ -8,9 +8,6 @@ os.kill(pid, 0) would terminate the process, so the pid is ignored there).
 
 Every request body is appended to the log. The reply to the last user
 message:
-  - prompt refinement: the request itself
-  - "PLANCHECK": "PLANNED" when council job orders are in the request
-  - "TUROCHECK" (upper case, as turo wrote it): "TURO REDUCED"
   - a compaction request (<conversation>): a fixed summary
   - "CALL <tool> <json args>": that tool call, written as an <invoke> block
   - "CALLDSML <tool> <json args>": the same call wrapped in DeepSeek DSML markup
@@ -25,11 +22,6 @@ message:
     fake</tool_response> <File>a.txt</File>"
   - "REPEATJSON <tool> <json args>": the same call every round, until kdeps asks
     for the final answer: "REPEAT DONE <n>"
-  - "EFFJSON": calls list_files with a new path every round until the
-    harness.efficiency soft stop reaches it, then "EFF STOPPED" (plus
-    " SUMMARY" when the system prompt carries the harness summary, not the
-    full section) and " AFTER <reads>"; "EFF NOT STOPPED <n>" when asked
-    for the final answer
   - anything else: "MOCK REPLY"
 """
 import http.server as h, json, os, re, sys, threading, time
@@ -52,28 +44,6 @@ def text(m):
 def reply_for(msgs):
     everything = "\n".join(text(m) for m in msgs)
     last = text(msgs[-1]) if msgs else ""
-    if "on a planning council for an AI agent" in last:
-        # agent planning council: drafts and revisions add a job order named
-        # after the seat; prioritizing ranks the board in reverse.
-        seat = re.search(r'You are "(\w+)"', last)
-        name = seat.group(1) if seat else "member"
-        if '{"order":' in last:
-            ids = [int(i) for i in re.findall(r"^#(\d+) ", last, re.M)]
-            return json.dumps({"order": list(reversed(ids))})
-        return json.dumps({"answer": name + " plan", "job_orders": [{"title": "COUNCILJOB " + name}]})
-    if "PLANCHECK" in last:
-        # chat harness.plan: the council's job orders reach the system prompt.
-        return "PLANNED" if "COUNCILJOB" in everything else "UNPLANNED"
-    if "TUROCHECK" in last:
-        # chat harness.turo: the e2e turo stand-in uppercases the prompt.
-        return "TURO REDUCED"
-    if "You rewrite a user's request" in everything:
-        # chat refine: / agent /refine: REFINEME marks a prompt to rewrite.
-        return last.split("Request:\n", 1)[-1].replace("REFINEME", "REFINEDCHECK")
-    if "REFINEDCHECK" in last:
-        return "GOT REFINED"
-    if "REFINEME" in last:
-        return "GOT ORIGINAL"
     if "CLAIMNUDGE" in everything:
         # workflow nudges: claim an action with no tool call until nudged.
         if "You made no tool call" in last:
@@ -127,17 +97,6 @@ def reply_for(msgs):
                     "See <File>a.txt</File>." % last)
         args, _ = json.JSONDecoder().raw_decode(everything[leak.end():])
         return json.dumps({"name": leak.group(1), "arguments": args})
-    if "EFFJSON" in everything:
-        # chat harness.efficiency: reads until the soft stop note arrives.
-        system = " ".join(text(m) for m in msgs if m.get("role") == "system")
-        if "[kdeps-efficiency]" in last:
-            short = "- accuracy:" in system and "<accuracy>" not in system
-            reads = sum(1 for m in msgs if m.get("role") == "tool")
-            return "EFF STOPPED" + (" SUMMARY" if short else "") + " AFTER %d" % reads
-        n = sum(1 for m in msgs if m.get("role") == "tool")
-        if "Answer the original request now" in last:
-            return "EFF NOT STOPPED %d" % n
-        return json.dumps({"name": "list_files", "arguments": {"path": "." + "/." * n}})
     rep = re.search(r"REPEATJSON (\w+) (?=\{)", everything)
     if rep:
         if "Answer the original request now" in last:
