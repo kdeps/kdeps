@@ -2,7 +2,7 @@
 
 With tools, an LLM can call other resources during a response. When the LLM decides that it needs a tool, kdeps runs the target resource. kdeps gives the result back to the LLM, and the LLM continues. The LLM sees only the output of the tool. It does not see the resource YAML.
 
-This page covers `tools:` on a `chat:` resource. In the REPL, tools are whole workflows and components. See the [agent REPL](/agent/) and [Built-in tools](/agent/tools).
+This page covers `tools:` on a `chat:` resource. A chat with `loop:` also gets the [built-in tools](/agent/tools).
 
 ```d2
 direction: down

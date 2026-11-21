@@ -153,28 +153,6 @@ func TestModelService_ServerURL_Ollama_HonorsOllamaHost(t *testing.T) {
 	assert.Equal(t, "http://127.0.0.1:9999", gotURL)
 }
 
-func TestWaitForServerReady_EmptyURL(_ *testing.T) {
-	WaitForServerReady(context.Background(), "")
-}
-
-func TestWaitForServerReady_CallsOverride(t *testing.T) {
-	orig := WaitForCompletionsReadyFunc
-	t.Cleanup(func() { WaitForCompletionsReadyFunc = orig })
-
-	called := false
-	WaitForCompletionsReadyFunc = func(_ context.Context, url string) {
-		called = true
-		assert.Equal(t, "http://127.0.0.1:8080", url)
-	}
-	WaitForServerReady(context.Background(), "http://127.0.0.1:8080")
-	assert.True(t, called)
-}
-
-func TestListLocalServers_DoesNotPanic(t *testing.T) {
-	// Global state may have entries from other tests; just verify it doesn't panic.
-	_ = ListLocalServers(t.Context())
-}
-
 func TestLlamafileServerURL_NoModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-llamafile-test"))
 	s := NewModelService(t.Context(), slog.Default())

@@ -17,18 +17,12 @@ Llamafile is a model + server packaged into a single self-contained binary. It r
 
 kdeps uses llamafile by default. The first time you run a `chat:` resource with no backend configured, kdeps downloads the model automatically and caches it in `~/.kdeps/models/`.
 
-**Start kdeps with the default llamafile model:**
+**Pick a model by alias** in the chat resource:
 
-```bash
-kdeps --agent-loop
-# confirms download of llama3.2:1b (~1.1 GB) on first message, then serves it
-```
-
-**Pick a different model by alias:**
-
-```bash
-kdeps --agent-loop --model llama3.1:8b    # 5.2 GB, better quality
-kdeps --agent-loop --model llama3.2:3b    # 2.2 GB, good balance
+```yaml
+chat:
+  model:
+    name: llama3.2:1b    # the default, ~1.1 GB; llama3.2:3b is 2.2 GB, llama3.1:8b is 5.2 GB
 ```
 
 **See all available aliases:**
@@ -107,15 +101,6 @@ ollama pull deepseek-r1     # DeepSeek R1 reasoning model
 ollama pull qwen2.5:7b      # Qwen 2.5 7B
 ```
 
-**Run kdeps with Ollama:**
-
-```bash
-# CLI flag
-kdeps --agent-loop --model llama3.2 --backend ollama
-
-# or set it once in config and skip the flags
-```
-
 **Set Ollama as the default backend in config:**
 
 ```yaml
@@ -164,7 +149,7 @@ llm:
   backend: gguf
 ```
 
-Known GGUF aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `qwen3.5:122b`, `qwen3`, `gemma4`, `glm4.5`, `glm4.7`, `yi34`, `yi6`, `dolphin2.9`, `hermes2.5`. Each has quantization variants (`-q4`, `-q6`, `-q8`, ...). Find more with `kdeps llamafile list` or `/model hff search <query>` in the REPL.
+Known GGUF aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `qwen3.5:122b`, `qwen3`, `gemma4`, `glm4.5`, `glm4.7`, `yi34`, `yi6`, `dolphin2.9`, `hermes2.5`. Each has quantization variants (`-q4`, `-q6`, `-q8`, ...). Find more with `kdeps llamafile list`.
 
 Environment overrides:
 - `KDEPS_LLAMA_SERVER_BIN` - path to the `llama-server` binary
@@ -189,4 +174,4 @@ This makes kdeps suitable for working with sensitive codebases, proprietary docu
 - [LLM backends reference](/workflow/resources/llm-backends) - Full backend config, routing strategies, all provider options
 - [LLM providers reference](/llm-server/providers) - Per-provider snippets for cloud backends
 - [Quickstart](/workflow/quickstart) - build your first workflow API
-- [Run locally in 30 seconds](/agent/quickstart) - agent REPL in 30 seconds
+- [Agent loop](/agent/) - a chat that calls tools

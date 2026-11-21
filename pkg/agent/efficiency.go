@@ -37,7 +37,6 @@ const efficiencyMark = efficiency.Mark
 
 type (
 	effLedger  = efficiency.Ledger
-	effKind    = efficiency.Kind
 	effVerdict = efficiency.Verdict
 )
 
@@ -123,13 +122,6 @@ func (l *Loop) efficiencyBeginTurn(chatCfg *domain.ChatConfig) {
 	l.eff.BeginTurn(l.effPrimed(chatCfg))
 }
 
-func effClassify(tc domain.StreamedToolCall) effKind {
-	return efficiency.Classify(tc.Name, tc.Arguments)
-}
-
-// effReadsLimit is the consecutive read-only budget for this turn.
-func (l *Loop) effReadsLimit() int { return l.eff.ReadsLimit(efficiencyLimits()) }
-
 // efficiencyAdmit decides whether the model's next tool call may run.
 func (l *Loop) efficiencyAdmit(tc domain.StreamedToolCall) effVerdict {
 	return l.eff.Admit(tc.Name, tc.Arguments)
@@ -140,8 +132,6 @@ func (l *Loop) efficiencyAdmit(tc domain.StreamedToolCall) effVerdict {
 func (l *Loop) efficiencyRepeatStop(tc domain.StreamedToolCall, result string, repeats int) bool {
 	return l.eff.RepeatStop(tc.Name, summarizeToolArgs(tc.Arguments), result, repeats)
 }
-
-func effSnippet(result string) string { return efficiency.Snippet(result) }
 
 // efficiencyAfterCall resolves an open stop once an output call succeeded.
 func (l *Loop) efficiencyAfterCall(tc domain.StreamedToolCall, workBefore int) {

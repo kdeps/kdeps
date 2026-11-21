@@ -1,6 +1,6 @@
 # Dev commands
 
-Commands for local development: run, agent REPL, validate, scaffold, configure, and diagnose.
+Commands for local development: run, validate, scaffold, configure, and diagnose.
 
 ## `kdeps run`
 
@@ -22,7 +22,7 @@ kdeps run [workflow.yaml | directory | package.kdeps] [flags]
 | `--dev` | Enable hot reload mode | `false` |
 | `--port` | API server port number | From workflow config |
 | `--debug` | Enable debug logging | `false` |
-| `--interactive` | Open an interactive LLM REPL alongside the running workflow | `false` |
+| `--interactive` | Open an interactive prompt alongside the running workflow | `false` |
 | `--file` | File path to process (file input source only). Takes priority over stdin, `KDEPS_FILE_PATH`, and `input.file.path` config | |
 | `--events` | Emit structured NDJSON execution events to stderr (resource lifecycle, failure classification) | `false` |
 | `--memory` | Enable the agent memory store for a workflow. Resources can use `memory_save`, `memory_search`, `memory_list`, and `memory_delete` | `false` |
@@ -37,7 +37,7 @@ kdeps run myapp.kdeps                      # Run from package
 kdeps run workflow.yaml --dev              # Hot reload
 kdeps run workflow.yaml --debug            # Debug logging
 kdeps run workflow.yaml --port 16395       # Custom port
-kdeps run workflow.yaml --interactive      # LLM REPL alongside server
+kdeps run workflow.yaml --interactive      # prompt alongside server
 ```
 
 When you configure `apiServer`, kdeps does not start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security reference](/reference/security).
@@ -52,43 +52,6 @@ When you configure `apiServer`, kdeps does not start without `KDEPS_API_AUTH_TOK
 kdeps                    # runs ./workflow.yaml
 kdeps ./my-agent/        # runs that workflow
 ```
-
-An agent-REPL flag (`--model`, `--backend`, `--resume`, ...) without `--agent-loop` is an error.
-
----
-
-## `kdeps --agent-loop [path]` (agent REPL)
-
-Open the agent REPL. kdeps registers full workflows and components as tools. To give workflows as tools, give a path. For a bare REPL with no workflow tools, do not give a path.
-
-```bash
-kdeps --agent-loop [path] [flags]
-```
-
-**Flags:**
-
-| Flag | Default | Description |
-|---|---|---|
-| `--model` | `KDEPS_AGENT_MODEL` or `llama3.2:1b` | LLM model name |
-| `--backend` | `KDEPS_AGENT_BACKEND` or `file` | LLM backend (`file` = local llamafile, no server) |
-| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
-| `--system` | (none) | System prompt injected at conversation start |
-| `--skill` | (none) | Load a skill file or directory (repeatable) |
-| `--resume` | (none) | Resume a saved session by ID |
-| `--index` | (none) | Search a folder with this project: add it to the project card and index it before the session starts (repeatable; see [search folders](/agent/knowledge#search-folders)) |
-| `--debug` | false | Enable debug logging |
-
-**Examples:**
-
-```bash
-kdeps --agent-loop                                            # bare REPL, no workflow tools
-kdeps --agent-loop ./my-agent/                                             # one tool: metadata.name
-kdeps --agent-loop ./agents/                                               # all workflows in folder as tools
-kdeps --agent-loop ./my-agent/ --model mistral
-kdeps --agent-loop ./agents/ --system "You are a helpful assistant."
-```
-
-See the [agent REPL](/agent/) for the flags and the folder layout.
 
 ---
 
@@ -263,7 +226,6 @@ Exits with code 1 when any check has FAIL status.
 List, show and remove sessions recorded with [`--instrument`](/reference/troubleshooting#record-a-session-for-a-model-to-debug).
 
 ```bash
-kdeps --agent-loop --instrument=billing-bug          # record an agent session
 kdeps run workflow.yaml --instrument=api-500
 kdeps instrument list                   # saved sessions, newest first
 kdeps instrument show billing-bug       # session.md and events.ndjson
@@ -282,13 +244,11 @@ trace.log       # every log line at debug level, and the call-chain trace
 
 Bare `--instrument` names the session by its start time. Put the name after `=`. With a space, kdeps uses the next argument (the workflow path) as the name.
 
-A daily workflow runs one `/auto-improve N` hunt at a time in this repository with `--backend openrouter` and a shuffled id from `assets/models/openrouter.yaml`. That process evaluates the hunt. It files one GitHub issue when the report arrives, and discards all edits. Then the next hunt starts in a new process. A hunt that does not finish tries another id. See [Auto-improve](/agent/commands#auto-improve).
-
 ---
 
 ## `kdeps --upgrade`
 
-Check for a newer kdeps release and, for a standalone install, download/verify/install it. This is the same flow as the `/upgrade` command of the REPL. For the full behavior (what each install method does, checksum verification, and more), see [Agent loop REPL features - Updating kdeps](/agent/repl-updating#updating-kdeps).
+Check for a newer kdeps release and, for a standalone install, download, verify and install it. `--nightly` checks the nightly channel. `--target-version <v>` installs that exact version, also an older one.
 
 ```bash
 kdeps --upgrade
@@ -310,7 +270,7 @@ kdeps --upgrade --target-version 2.35.0
 
 ## Assets: `kdeps install`, `update`, `uninstall`, `list`, `profile`
 
-`kdeps install`, `kdeps update`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, tool definitions, slash commands, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages. This is the same as `/update` in the REPL. For versions, pins, and removal, see [Updating assets](/agent/repl-updating#updating-assets).
+`kdeps install`, `kdeps update`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, tool definitions, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
 
 ```bash
 kdeps update                          # the chosen profile and everything installed since, to their newest versions
@@ -334,7 +294,7 @@ kdeps profile                         # choose the profile again, or tick sets a
 | `kdeps list <shelf>` | Assets on one shelf. Item ids stay `set/name` |
 | `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
 
-[Updating assets](/agent/repl-updating#updating-assets) lists the profiles and what each profile installs.
+[Installation](/start/installation) lists the profiles and what each profile installs.
 
 ## `kdeps llamafile`
 
@@ -342,14 +302,12 @@ Manage the local model registry. Covers llamafile, GGUF (llama.cpp), and Ollama 
 
 An interrupted aria2c download stops. It does not start again through the HTTP fallback. kdeps keeps the partial file, so the next attempt continues from it.
 
-With [llmfit](https://github.com/AlexsJones/llmfit), the `/model` picker of the REPL shows the hardware-fit score (0-100) of each local model before you download it. It also shows the level (`Perfect`, `Good`, `Marginal`, `Too Tight`) from your RAM/VRAM. Type `perfect` or `tight` in the picker to filter. Without aria2c or llmfit, the REPL prints a one-line install tip at startup.
-
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
 kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets. A job collects them each night from HuggingFace and publishes them as new versions. Install them with `kdeps update models` (see [Updating assets](/agent/repl-updating#updating-assets)). Models that you register yourself (HuggingFace search or a custom URL) are in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. kdeps adds them on top.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets. A job collects them each night from HuggingFace and publishes them as new versions. Install them with `kdeps update models`. Models that you register yourself (HuggingFace search or a custom URL) are in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. kdeps adds them on top.
 
 kdeps finds Ollama models in the local `ollama list` output.
 
@@ -384,19 +342,6 @@ kdeps writes the graph, `GRAPH_REPORT.md`, and `graph.html` under `~/.kdeps/know
 | `--limit` (build) | Most notes `--extract` reads | `0` (all changed) |
 
 `check` exits non-zero when it reports anything. It reports structural duplicates. It does not decide that two different wordings are the same fact.
-
----
-
-## `kdeps konfig export`
-
-Export the current effective agent-loop config - tuning, harness, and skills - to one self-contained YAML file. See [konfig](/agent/konfig) for the full file format and the REPL's `/konfig export` equivalent.
-
-```bash
-kdeps konfig export              # writes ./konfig.yaml
-kdeps konfig export path/to/mine.yaml
-```
-
-Reads the settings that kdeps keeps in `~/.kdeps/agent-loop-settings.yaml`. If you did not change a setting, it reads the built-in default. As a result, this also operates with a new, empty `~/.kdeps`.
 
 ---
 

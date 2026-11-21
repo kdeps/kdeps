@@ -66,23 +66,3 @@ description: Custom calculator text.
 	assert.Equal(t, "Custom calculator text.", defs["calculator"].Description, "a user file replaces the shipped one")
 	assert.Contains(t, defs, "read_file", "shipped tools stay")
 }
-
-func TestInitCommands_UserCommandIsLoaded(t *testing.T) {
-	// Registered before useHome, so it runs after HOME is restored.
-	t.Cleanup(initCommands)
-	home := useHome(t)
-	writeUserAsset(t, home, "commands", "hello.yaml", `version: 1.0.0
-name: hello
-order: 900
-usage:
-  - args: "<name>"
-    help: Greet someone
-run:
-  - prompt: Say hello to $ARGUMENTS.
-`)
-
-	initCommands()
-	c := declaredCommand("hello")
-	require.NotNil(t, c, "a ~/.kdeps/commands file is a declared command")
-	assert.NotNil(t, declaredCommand("explain"), "shipped commands stay")
-}

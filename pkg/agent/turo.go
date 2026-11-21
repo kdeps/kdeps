@@ -19,13 +19,10 @@
 package agent
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -111,91 +108,11 @@ func turoEnvOff(name string) bool {
 	return false
 }
 
-// TuroLevel returns the active compression level (lite, full, ultra).
-func TuroLevel() string {
-	turoInit()
-	turoState.mu.Lock()
-	defer turoState.mu.Unlock()
-	return turoState.level
-}
-
-// SetTuroLevel sets the compression level. Returns false for an unknown level.
-func SetTuroLevel(level string) bool {
-	level = strings.ToLower(strings.TrimSpace(level))
-	if !turoValidLevels[level] {
-		return false
-	}
-	turoInit()
-	turoState.mu.Lock()
-	turoState.level = level
-	turoState.mu.Unlock()
-	turoReduceCache.Clear()
-	return true
-}
-
-// turoValidStages are the pipeline stages toggled by /turo <stage> on|off.
-//
-//nolint:gochecknoglobals // static lookup set
-var turoValidStages = map[string]bool{"filler": true, "synonyms": true, "gloss": true, "defmatch": true, "arrows": true}
-
-// TuroStage reports whether a pipeline stage is enabled. Unknown stages report
-// false.
-func TuroStage(name string) bool {
-	turoInit()
-	turoState.mu.Lock()
-	defer turoState.mu.Unlock()
-	switch name {
-	case "filler":
-		return turoState.filler
-	case "synonyms":
-		return turoState.synonyms
-	case "gloss":
-		return turoState.gloss
-	case "defmatch":
-		return turoState.defmatch
-	case "arrows":
-		return turoState.arrows
-	}
-	return false
-}
-
-// SetTuroStage enables or disables a pipeline stage. Returns false for an
-// unknown stage.
-func SetTuroStage(name string, on bool) bool {
-	if !turoValidStages[name] {
-		return false
-	}
-	turoInit()
-	turoState.mu.Lock()
-	switch name {
-	case "filler":
-		turoState.filler = on
-	case "synonyms":
-		turoState.synonyms = on
-	case "gloss":
-		turoState.gloss = on
-	case "defmatch":
-		turoState.defmatch = on
-	case "arrows":
-		turoState.arrows = on
-	}
-	turoState.mu.Unlock()
-	turoReduceCache.Clear()
-	return true
-}
-
 // TuroRuntimeOff reports whether the /turo off override is active.
 func TuroRuntimeOff() bool {
 	turoState.mu.Lock()
 	defer turoState.mu.Unlock()
 	return turoState.off
-}
-
-// SetTuroRuntimeOff toggles the runtime override that disables reduction.
-func SetTuroRuntimeOff(off bool) {
-	turoState.mu.Lock()
-	turoState.off = off
-	turoState.mu.Unlock()
 }
 
 func turoDisabled() bool {
@@ -308,80 +225,3 @@ func turoReduceCached(ctx context.Context, text string) string {
 }
 
 // --- turo gain integration: read the turo binary's token savings log ---
-
-// turoGainPath resolves the gain.jsonl path using the same precedence as the
-// turo binary: TURO_HOME, then OS config dir, then ~/.turo.
-func turoGainPath() string {
-	if d := os.Getenv("TURO_HOME"); d != "" {
-		return filepath.Join(d, "gain.jsonl")
-	}
-	if d, err := os.UserConfigDir(); err == nil && d != "" {
-		return filepath.Join(d, "turo", "gain.jsonl")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".turo", "gain.jsonl")
-}
-
-// totalTuroSavings reads gain.jsonl and sums (before - after) across every
-// recorded reduction. Returns 0 on any error — analytics must not break the REPL.
-func totalTuroSavings() int {
-	f, err := os.Open(turoGainPath())
-	if err != nil {
-		return 0
-	}
-	defer func() { _ = f.Close() }()
-	var total int
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-		var e struct {
-			Before int `json:"before"`
-			After  int `json:"after"`
-		}
-		if json.Unmarshal([]byte(line), &e) == nil {
-			total += e.Before - e.After
-		}
-	}
-	_ = sc.Err()
-	return total
-}
-
-// turo savings cache — re-reading gain.jsonl on every modeline render is
-// wasteful; cache for 60 seconds.
-//
-//nolint:gochecknoglobals // process-wide savings cache + per-session baseline
-var (
-	turoSavingsMu           sync.Mutex
-	turoSavingsCached       int
-	turoSavingsAt           time.Time
-	turoSessionStartSet     bool
-	turoSessionStartSavings int
-)
-
-// TuroTokensSaved returns the tokens saved during the current session according
-// to the turo binary's gain log. On first call it captures the cumulative total
-// as the session baseline; subsequent calls return (current - baseline) so the
-// modeline shows only per-session savings. Result is cached for 60 seconds to
-// avoid re-reading on every status-line render.
-func TuroTokensSaved() int {
-	turoSavingsMu.Lock()
-	defer turoSavingsMu.Unlock()
-	if time.Since(turoSavingsAt) < 60*time.Second {
-		return turoSavingsCached
-	}
-	n := totalTuroSavings()
-	if !turoSessionStartSet {
-		turoSessionStartSavings = n
-		turoSessionStartSet = true
-	}
-	session := n - turoSessionStartSavings
-	if session < 0 {
-		session = 0
-	}
-	turoSavingsCached = session
-	turoSavingsAt = time.Now()
-	return session
-}

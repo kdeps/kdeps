@@ -40,7 +40,6 @@ var Shelves = []string{
 var setShelf = map[string]string{
 	"actions":    ShelfGuardrails,
 	"codegraph":  ShelfTools,
-	"commands":   ShelfAgent,
 	"components": ShelfWorkflow,
 	"defaults":   ShelfWorkflow,
 	"docker":     ShelfDeploy,
@@ -69,9 +68,7 @@ var itemShelf = map[string]string{
 	"actions/drop_oldest":              ShelfContext,
 	"actions/force_answer":             ShelfAgent,
 	"actions/truncate":                 ShelfContext,
-	"commands/model":                   ShelfModel,
 	"events/auto-compact":              ShelfContext,
-	"events/bug-capture-max-errors":    ShelfEvals,
 	"events/context-segment-cap":       ShelfContext,
 	"events/fold":                      ShelfContext,
 	"events/force-answer-digest":       ShelfContext,

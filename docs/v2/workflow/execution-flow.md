@@ -1,6 +1,6 @@
 # Execution flow
 
-How kdeps resolves, orders, and runs resources in a workflow. `kdeps run` runs that DAG directly. The same DAG runs when the REPL calls the workflow as a tool.
+How kdeps resolves, orders, and runs resources in a workflow. `kdeps run` runs that DAG directly.
 
 ## Overview
 
@@ -137,7 +137,7 @@ A `component:` call runs beside others when the component is read-only in the [p
 
 A resource whose effects the YAML can't show also runs alone, in its usual place: `exec:`, `python:`, `items:`, `loop:`, `apiResponse:`, `chat` with `tools`, header or param `validations`, a computed key (`get(name)`), `'item'`/`'loop'` storage, `session()` and `memory_*` calls.
 
-One cap covers workflow resources, subagents, judges, and REPL tool calls. It is the `parallel` event:
+One cap covers workflow resources, subagents, judges, and loop tool calls. It is the `parallel` event:
 
 ```yaml
 # ~/.kdeps/events/parallel.yaml
@@ -224,24 +224,9 @@ J -> B: no
 
 See [Loop](/workflow/loop) for full details.
 
-## REPL execution
-
-In the REPL (`kdeps --agent-loop [path]`), the execution model differs:
-
-1. kdeps registers each workflow as one tool (tool name = `name:` under `metadata:`)
-2. kdeps registers each agency as one tool (tool name = `agency.metadata.name`). The LLM cannot call the internal agents directly
-3. kdeps also registers the components from each loaded workflow as separate tools
-4. The LLM receives the user prompt and selects the tool to call
-5. A workflow tool call runs the full DAG. All `requires:` dependencies run in order. kdeps returns `apiResponse.response` to the LLM
-6. Agency tool calls run the agency's entry-point pipeline. Internal `agent:` resources resolve against the agency's agent map
-7. Component tool calls run the component in isolation with inputs mapped to its interface fields
-8. The LLM can call more tools or give a final answer
-
-Pointing at a single file registers one tool. Pointing at a folder registers one tool per workflow/agency found recursively (plus components). Resources are never registered as individual tools.
-
 ## See also
 
 - [Workflow](/workflow/) - the YAML pipeline
-- [Agent REPL](/agent/) - the model calls tools
+- [Agent loop](/agent/) - the model calls tools
 - [Validation & control flow](/workflow/validation) - skip, check, and error handling
 - [Loop](/workflow/loop) - a loop that repeats when a condition is true

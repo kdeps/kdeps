@@ -19,7 +19,6 @@
 package agent_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,45 +26,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/agent"
-	"github.com/kdeps/kdeps/v3/pkg/api"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
-	"github.com/kdeps/kdeps/v3/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
-	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
-
-// A /thinking mode's budget is its thinking-budget-<mode> event: an override
-// in ~/.kdeps/events is the budget session_ops reports after the switch.
-func TestThinkingBudget_EventOverrideThroughTheAPI(t *testing.T) {
-	t.Cleanup(agent.ReloadAssets)
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	dir := filepath.Join(home, ".kdeps", "events")
-	require.NoError(t, os.MkdirAll(dir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "thinking-budget-medium.yaml"),
-		[]byte("name: thinking-budget-medium\nitems: 4321\nrun: cap\n"), 0o600))
-	agent.ReloadAssets()
-
-	loop := agent.New(
-		t.Context(),
-		executor.NewEngine(context.Background(), nil),
-		nil,
-		kdepstools.NewRegistry(),
-		agent.Config{Model: "m"},
-	)
-	repl := agent.NewREPL(t.Context(), loop)
-	repl.RegisterCommandAPI()
-	t.Cleanup(func() { api.SetSessionOps(nil) })
-
-	out, err := api.CallTool(
-		t.Context(),
-		"session_ops",
-		map[string]any{"operation": "set", "key": "thinking", "value": "medium"},
-	)
-	require.NoError(t, err)
-	require.Contains(t, out, `"budget":4321`)
-}
 
 // A workflow chat's thinking mode with no budgetTokens gets the same event:
 // the override reaches the workflow executor too.

@@ -224,7 +224,7 @@ env:
 
 ## Request body size preflight
 
-The workflow and the REPL check the request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests, so the preflight returns an actionable error before the call. A workflow `chat:` checks its first call and each tool-round follow-up.
+kdeps checks the request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests, so the preflight returns an actionable error before the call. A workflow `chat:` checks its first call and each tool-round follow-up.
 
 Each limit is a `provider-body-limit-<backend>` event. Override it in `~/.kdeps/events/`, or turn it off for no limit.
 

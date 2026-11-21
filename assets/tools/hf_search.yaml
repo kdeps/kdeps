@@ -1,6 +1,6 @@
-version: 1.0.0
+version: 1.1.0
 category: model
-description: Search HuggingFace for GGUF model repos (most downloaded first) and list each repo's GGUF files with their sizes. Use to find a local model to download with /model hff download.
+description: Search HuggingFace for GGUF model repos (most downloaded first) and list each repo's GGUF files with their sizes. Use to find a local model to download.
 outputFormat: "a table: REPO, DOWNLOADS, LIKES per repo, then its GGUF files (those whose name contains the query, else all) with sizes"
 seeAlso: hf_repo_files
 parameters:

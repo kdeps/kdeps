@@ -2,7 +2,7 @@
 
 A workflow gets input from an HTTP server (`apiServer:` under `settings:`), a chat bot, one file, or a terminal prompt. You set the bot, file and interactive sources under `settings:` `input:`.
 
-This sets how a run gets its input. `interactive` is one of the four sources. When the target is a `chat` with `loop:`, that prompt is the agent REPL. When the model calls a workflow as a tool, that workflow still uses its own input settings.
+This sets how a run gets its input. `interactive` is one of the four sources.
 
 ## Overview
 
@@ -145,7 +145,7 @@ You: /quit
 
 `/list` shows the resources and components, `/run <actionId> key=value` runs one directly, and `/quit` (or Ctrl+D) exits. `--interactive` opens the same prompt for any workflow. A chat with [`loop:`](/workflow/resources/llm#agent-loop) whose `session` reads `get('session')` keeps one conversation across the lines.
 
-When the target is a `chat` with `loop:`, the prompt is the agent REPL. The REPL has slash commands, the `/model` picker, tool approvals, and saved sessions. Each line goes to the chat as the prompt. The chat's model, `loop.tools`, `loop.maxRounds`, and system `scenario` items set the session. `kdeps --agent-loop` in that folder opens the same REPL.
+When the target is a `chat` with `loop:`, each line goes to that chat as the prompt, and the chat runs as the [agent loop](/agent/).
 
 ## Use cases
 

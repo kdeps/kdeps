@@ -31,7 +31,6 @@ import HomeHowItWorks from './HomeHowItWorks.vue'
 import HomeComparison from './HomeComparison.vue'
 import HomeBook from './HomeBook.vue'
 import FooterCTAs from './FooterCTAs.vue'
-import DesktopLanding from './DesktopLanding.vue'
 import './custom.css'
 
 // Fades home sections up as they scroll into view. Gated on the kd-motion
@@ -77,7 +76,6 @@ function observeReveals() {
 export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
-    app.component('DesktopLanding', DesktopLanding)
   },
   setup() {
     const route = useRoute()

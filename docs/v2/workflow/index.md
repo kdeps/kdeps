@@ -10,7 +10,7 @@ API, a bot, a file processor, or an interactive prompt.
 kdeps run ./my-agent/      # run once / serve on :16395
 ```
 
-A `chat` with `loop:` in this file is an agent. `kdeps --agent-loop` opens that chat as a REPL. To run several workflows as one system, see [Agencies](/agencies/). To ship the file, see [Deploy](/deploy/).
+A `chat` with `loop:` in this file is an agent. To run several workflows as one system, see [Agencies](/agencies/). To ship the file, see [Deploy](/deploy/).
 
 ---
 
@@ -83,7 +83,7 @@ See [Input sources](/workflow/input-sources) for full configuration.
 
 ## Agent memory (`--memory`)
 
-A workflow can use the same memory notes as the agent REPL. Pass `--memory` to enable:
+A workflow can use the agent memory notes. Pass `--memory` to enable:
 
 ```bash
 kdeps run workflow.yaml --memory
@@ -138,4 +138,4 @@ kdeps automatically links memory entries into a relationship graph. The graph sh
 
 - [Workflow configuration](/workflow/configuration) - Full `workflow.yaml` reference
 - [Resources overview](/workflow/resources) - Resource types and fields
-- [Agent REPL](/agent/) - a chat with `loop:`
+- [Agent loop](/agent/) - a chat with `loop:`

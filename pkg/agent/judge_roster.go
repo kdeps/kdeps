@@ -105,38 +105,6 @@ func jsonResultText(result any) string {
 // code fence or surrounding prose around the JSON object.
 func parseJudgeRoster(reply string) []domain.Judge { return judge.ParseRoster(reply) }
 
-// Judges returns the explicit judge roster (nil when none configured).
-func (l *Loop) Judges() []domain.Judge {
-	if l == nil {
-		return nil
-	}
-	return l.config.Judges
-}
-
-// SetJudges replaces the explicit judge roster, used by /judges add|remove|clear.
-func (l *Loop) SetJudges(judges []domain.Judge) {
-	if l == nil {
-		return
-	}
-	l.config.Judges = judges
-}
-
-// AutoJudges reports whether a judge roster is auto-generated per turn.
-func (l *Loop) AutoJudges() bool {
-	if l == nil {
-		return false
-	}
-	return l.config.AutoJudges
-}
-
-// SetAutoJudges toggles auto-generated judge rosters, used by /judges auto.
-func (l *Loop) SetAutoJudges(enabled bool) {
-	if l == nil {
-		return
-	}
-	l.config.AutoJudges = enabled
-}
-
 // resolveJudgeRoster returns the judge panel to run for this turn's output.
 // An explicit Config.Judges roster always wins; otherwise a roster is
 // auto-generated when Config.AutoJudges is set, skipped for trivial chat the
@@ -187,14 +155,6 @@ func (l *Loop) startJudgeRoster(ctx context.Context, input string) <-chan []doma
 	return ready
 }
 
-// LastAutoRoster returns the most recent auto-generated judge panel, or nil.
-func (l *Loop) LastAutoRoster() []domain.Judge {
-	if l == nil {
-		return nil
-	}
-	return l.lastAutoRoster
-}
-
 // reportJudgeRoster shows the auto-generated judge panel and each judge's
 // review criteria as soon as the roster is built, before the main tool loop.
 func (l *Loop) reportJudgeRoster(w io.Writer, roster []domain.Judge) {
@@ -206,4 +166,12 @@ func (l *Loop) reportJudgeRoster(w io.Writer, roster []domain.Judge) {
 	for _, j := range roster {
 		fmt.Fprintf(pw, "  - %s: %s\n", j.Name, j.Criteria)
 	}
+}
+
+// LastAutoRoster returns the most recent auto-generated judge panel, or nil.
+func (l *Loop) LastAutoRoster() []domain.Judge {
+	if l == nil {
+		return nil
+	}
+	return l.lastAutoRoster
 }

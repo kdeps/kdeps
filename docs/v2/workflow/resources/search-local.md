@@ -4,7 +4,7 @@ The `search_local` component searches a local directory by content keyword and/o
 
 It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `search_local` tool of the kdeps API. This tool runs the native searchLocal executor. kdeps rejects a workflow that uses `searchLocal:` directly, as primary or in a `before:`/`after:` step. See [Search resources](/workflow/resources/search) for how it relates to `web_search`.
 
-It runs as a workflow step. In the REPL, it runs inside the workflow when the model calls that workflow as a tool.
+It runs as a workflow step.
 
 ```d2
 direction: right

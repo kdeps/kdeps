@@ -300,32 +300,6 @@ func TestDeclaredHTTPTool_NonJSONResponseIsReturnedAsIs(t *testing.T) {
 	assert.Equal(t, "<html>not json</html>", out)
 }
 
-func TestDeclaredHTTPTool_CacheReusesAnswers(t *testing.T) {
-	api := newFakeAPI(t, http.StatusOK, "42")
-	globalWebCache.reset()
-	t.Cleanup(globalWebCache.reset)
-	tool := declaredTool(t, "wolfram_alpha", map[string]string{"WOLFRAM_APP_ID": "id"})
-	for range 3 {
-		_, err := tool.Execute(map[string]any{"query": "same"})
-		require.NoError(t, err)
-	}
-	assert.Equal(t, 1, api.count(), "a tool on the web-call-budget list answers repeats from the cache")
-}
-
-func TestDeclaredHTTPTool_UnlistedToolIsNotCached(t *testing.T) {
-	api := newFakeAPI(t, http.StatusOK, `{"results":[]}`)
-	globalWebCache.reset()
-	t.Cleanup(globalWebCache.reset)
-	tool := declaredTool(t, "zapier_list_actions", map[string]string{"ZAPIER_NLA_API_KEY": "k"})
-	for range 2 {
-		_, err := tool.Execute(map[string]any{})
-		require.NoError(t, err)
-	}
-	assert.Equal(t, 2, api.count(), "a tool no budget lists runs every call")
-	calls, _ := globalWebCache.count()
-	assert.Zero(t, calls)
-}
-
 func TestValidateToolDefinition_HTTPBlock(t *testing.T) {
 	require.NoError(
 		t,
@@ -436,4 +410,30 @@ func TestGoogleCacheListAndDelete_Declared(t *testing.T) {
 	assert.Equal(t, "deleted", out)
 	assert.Equal(t, http.MethodDelete, fake.last(t).Method)
 	assert.Equal(t, "/v1beta/cachedContents/a", fake.last(t).Path)
+}
+
+func TestDeclaredHTTPTool_CacheReusesAnswers(t *testing.T) {
+	api := newFakeAPI(t, http.StatusOK, "42")
+	globalWebCache.reset()
+	t.Cleanup(globalWebCache.reset)
+	tool := declaredTool(t, "wolfram_alpha", map[string]string{"WOLFRAM_APP_ID": "id"})
+	for range 3 {
+		_, err := tool.Execute(map[string]any{"query": "same"})
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, api.count(), "a tool on the web-call-budget list answers repeats from the cache")
+}
+
+func TestDeclaredHTTPTool_UnlistedToolIsNotCached(t *testing.T) {
+	api := newFakeAPI(t, http.StatusOK, `{"results":[]}`)
+	globalWebCache.reset()
+	t.Cleanup(globalWebCache.reset)
+	tool := declaredTool(t, "zapier_list_actions", map[string]string{"ZAPIER_NLA_API_KEY": "k"})
+	for range 2 {
+		_, err := tool.Execute(map[string]any{})
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 2, api.count(), "a tool no budget lists runs every call")
+	calls, _ := globalWebCache.count()
+	assert.Zero(t, calls)
 }

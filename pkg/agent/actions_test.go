@@ -104,16 +104,6 @@ description: a user-defined action
 	assert.Equal(t, "a user-defined action", a.Description)
 }
 
-func TestExportActionEntries_IncludesBuiltins(t *testing.T) {
-	entries := exportActionEntries()
-	names := make(map[string]bool, len(entries))
-	for _, a := range entries {
-		names[a.Name] = true
-	}
-	assert.True(t, names[actionCompact])
-	assert.True(t, names[actionForceAnswer])
-}
-
 // captureStderr runs fn and returns whatever it wrote to os.Stderr.
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()

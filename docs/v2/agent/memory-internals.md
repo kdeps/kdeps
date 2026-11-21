@@ -90,9 +90,9 @@ On `/compact` (summarize and clear history), `AutoCapture` saves two summary sec
 
 ## Checkpoint summaries
 
-Every compaction or [fold](/agent/repl-context#fold) saves a `checkpoint:summary` entry with the Goal, Progress, Key Decisions and Critical Context sections. It persists across sessions.
+Every compaction or fold saves a `checkpoint:summary` entry with the Goal, Progress, Key Decisions and Critical Context sections. It persists across sessions.
 
-First, kdeps archives the previous checkpoint as `checkpoint:archive:<timestamp>`. It never discards it. Only the newest `FoldContextItems` checkpoints (active + archived, default 5, see `/fold items`) enter the memory block. Older ones stay retrievable with `/memory list` or `/memory show checkpoint:archive:<timestamp>`.
+First, kdeps archives the previous checkpoint as `checkpoint:archive:<timestamp>`. It never discards it. Only the newest `FoldContextItems` checkpoints (active + archived, default 5) enter the memory block. Older ones stay in the store, and `memory_query` reads them.
 
 ## Leaf-node limits
 
@@ -105,7 +105,7 @@ Two settings cap leaves, independent of the checkpoint cap:
 /model tool set leaf-chars 300   # max characters per leaf value, cut with an ellipsis; 0 = unlimited
 ```
 
-Both exempt the active task chain (the resume node, its ancestors, and entries matching the prompt), like the budget pass. They change only the rendered block: the store keeps every leaf intact for `/memory list` and `/memory show`.
+Both exempt the active task chain (the resume node, its ancestors, and entries matching the prompt), like the budget pass. They change only the rendered block: the store keeps every leaf intact.
 
 ## Session persistence
 
@@ -121,7 +121,7 @@ kdeps saves the LLM configuration (model, backend, base URL) to `session:config`
 
 ## Memory rules
 
-The `memory/rules` asset sets the type and links of entries, and the tool results that kdeps captures. It also sets where a resumed session continues, and which text means done or resolved. Install a newer `memory/rules` to change them (see [Updating assets](/agent/repl-updating)). kdeps does not install a file that the loader rejects.
+The `memory/rules` asset sets the type and links of entries, and the tool results that kdeps captures. It also sets where a resumed session continues, and which text means done or resolved. Install a newer `memory/rules` to change them. kdeps does not install a file that the loader rejects.
 
 ```yaml
 version: 1.0.0
@@ -165,4 +165,4 @@ Focus matching splits the prompt and each entry into stemmed words, like knowled
 ## See also
 
 - [Persistent memory](/agent/memory) - the memory tools and entry types
-- [Agent REPL](/agent/) - how the loop works
+- [Agent loop](/agent/) - how the loop works

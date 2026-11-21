@@ -67,7 +67,5 @@ const (
 	toolNameSearchLocal = "search_local"
 )
 
-const toolNameSet = "set"
-
 // Tool parameter field names (additional).
 const toolParamURL = "url"

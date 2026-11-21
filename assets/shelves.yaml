@@ -25,7 +25,6 @@ sets:
   presets: context
   harness: harness
   tools: tools
-  commands: agent
   events: guardrails
   policy: guardrails
   actions: guardrails
@@ -41,7 +40,6 @@ sets:
 
 # items: a shelf other than its set's default. The key is set/name.
 items:
-  "commands/model": model
   "harness/branch-summary": context
   "harness/compaction-system": context
   "harness/compaction-update-user": context
@@ -54,7 +52,6 @@ items:
   "events/history-window-trim": context
   "events/memory-prompt-limit": context
   "events/knowledge-recall-files": rag
-  "events/bug-capture-max-errors": evals
   "events/thinking-budget-auto": model
   "events/thinking-budget-high": model
   "events/thinking-budget-low": model

@@ -166,43 +166,10 @@ func trackedInGo(tool string) bool {
 	return false
 }
 
-func (c *convergenceCache) reset() {
-	c.mu.Lock()
-	c.m = make(map[string]string)
-	c.seen = make(map[string]struct{})
-	c.calls = 0
-	c.mu.Unlock()
-}
-
-// SetConvergenceLimits applies per-request call limits: >0 caps the category,
-// 0 leaves it at its event default, <0 removes the cap entirely.
-func SetConvergenceLimits(web, bash, file, code int) {
-	applyConvergenceLimit(globalWebCache, web)
-	applyConvergenceLimit(globalBashCache, bash)
-	applyConvergenceLimit(globalFileCache, file)
-	applyConvergenceLimit(globalCodeCache, code)
-}
-
-func applyConvergenceLimit(c *convergenceCache, limit int) {
-	switch {
-	case limit > 0:
-		c.setMax(limit)
-	case limit < 0:
-		c.setMax(disabledSentinel)
-	}
-}
-
 func (c *convergenceCache) setMax(m int) {
 	c.mu.Lock()
 	c.max = m
 	c.mu.Unlock()
-}
-
-func ResetConvergence() {
-	globalWebCache.reset()
-	globalBashCache.reset()
-	globalFileCache.reset()
-	globalCodeCache.reset()
 }
 
 func WebConvergenceCalls() (int, int)  { return globalWebCache.count() }
@@ -234,17 +201,6 @@ func markFileSeen(path string) {
 	globalFileCache.mu.Unlock()
 }
 
-// fileSeenThisTurn reports whether path was read, written, or edited this turn.
-func fileSeenThisTurn(path string) bool {
-	globalFileCache.mu.Lock()
-	defer globalFileCache.mu.Unlock()
-	if _, ok := globalFileCache.m[path]; ok {
-		return true
-	}
-	_, ok := globalFileCache.seen[path]
-	return ok
-}
-
 // rememberFile records path as the most recently accessed file.
 func rememberFile(path string) {
 	if path == "" {
@@ -260,4 +216,28 @@ func lastFile() string {
 	lastFileState.mu.Lock()
 	defer lastFileState.mu.Unlock()
 	return lastFileState.path
+}
+
+// SetConvergenceLimits applies per-request call limits: >0 caps the category,
+// 0 leaves it at its event default, <0 removes the cap entirely.
+func SetConvergenceLimits(web, bash, file, code int) {
+	applyConvergenceLimit(globalWebCache, web)
+	applyConvergenceLimit(globalBashCache, bash)
+	applyConvergenceLimit(globalFileCache, file)
+	applyConvergenceLimit(globalCodeCache, code)
+}
+
+func applyConvergenceLimit(c *convergenceCache, limit int) {
+	switch {
+	case limit > 0:
+		c.setMax(limit)
+	case limit < 0:
+		c.setMax(disabledSentinel)
+	}
+}
+func ResetConvergence() {
+	globalWebCache.reset()
+	globalBashCache.reset()
+	globalFileCache.reset()
+	globalCodeCache.reset()
 }

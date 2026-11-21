@@ -16,10 +16,10 @@ run: force_answer
 
 | Event | Fires after | Action |
 |---|---|---|
-| `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their allocated budget instead (`/model tool set <category>-limit <n>`; `0` = unlimited = never stops) | ends the turn as a stuck loop |
+| `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their budget event instead | ends the turn as a stuck loop |
 | `convergence-block` | this many consecutive rounds end in a convergence-blocked tool call (the model kept trying once a web/bash/file/code budget ran out) | strips every tool and forces a text answer |
 | `judge-max-rounds` | a single [judge](./judges.md)'s review spends this many tool rounds | ends that judge's review and forces its verdict |
-| `agent-max-rounds` | an agent-loop turn spends this many tool rounds (200) when `/model tool set rounds` sets none | forces a text answer |
+| `agent-max-rounds` | an agent-loop turn spends this many tool rounds (200) when the loop sets no round cap | forces a text answer |
 | `chat-max-rounds` | a workflow chat with no `tools.maxRounds` (or `auto`) spends this many tool rounds (25) | forces a text answer |
 | `chat-retries` | a workflow chat's model call fails with a transient error (rate limit, 5xx, dropped connection) | retries this many times (3) with doubling backoff; `model.retries` overrides |
 | `subagent-max-rounds` | one [subagent](./subagent.md) task spends this many tool rounds (20) | ends the subagent and forces its report |
@@ -74,7 +74,7 @@ run: block
 
 If you remove a tool from a list, the tool runs with no budget and does not use earlier answers again. If you add a tool to a list, kdeps counts it by its arguments. These four events must keep a `tools:` list. kdeps rejects an override file without this list when it loads. The shipped event then stays active.
 
-`/model tool set web-limit <n>` (and `bash-limit`, `file-limit`, `code-limit`) overrides an event's default for the session, as `/fold threshold` does for `fold`. `0` removes the cap (`/model tool set web-limit 0`): the budget never blocks, and the system prompt states the enforced limit or that there is none. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget. Tools without a budget use the `identical-tool-calls` threshold.
+The system prompt states the enforced limit. Identical repeated calls (same call, same result) stop after as many rounds as the tool's budget. Tools without a budget use the `identical-tool-calls` threshold.
 
 Workflow chats read the same events: each chat call counts its own distinct calls, and a repeated call reuses its first result (see [tool loop behavior](/workflow/resources/llm#tool-loop-behavior)).
 
@@ -91,7 +91,7 @@ on:
 run: block              # the only action a tools: event takes
 ```
 
-`/harness events disable search-budget` turns it off like any other event. kdeps rejects a `tools:` event without `on.distinctCalls` or with a different `run:` when it loads.
+`disabled: true` turns it off like any other event. kdeps rejects a `tools:` event without `on.distinctCalls` or with a different `run:` when it loads.
 
 ## Memory events
 
@@ -143,9 +143,9 @@ run: truncate
 
 ## Thinking budgets
 
-Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model can use a maximum of that number of tokens to reason before it answers. Models that do not reason ignore it. A workflow chat's `thinking:` mode with no `budgetTokens` uses the same event. A missing or disabled budget event uses 10000.
+Each thinking mode's reasoning token budget is an event: `thinking-budget-<mode>`, an `items:` count. The model can use a maximum of that number of tokens to reason before it answers. Models that do not reason ignore it. A workflow chat's `thinking:` mode with no `budgetTokens` uses the same event. A missing or disabled budget event uses 10000.
 
-| Event | `/thinking` mode | Default |
+| Event | `thinking:` mode | Default |
 |---|---|---|
 | `thinking-budget-minimal` | `minimal` | 512 |
 | `thinking-budget-low` | `low` | 2048 |
@@ -157,6 +157,6 @@ Each `/thinking` mode's reasoning token budget is an event: `thinking-budget-<mo
 ```yaml
 # ~/.kdeps/events/thinking-budget-high.yaml
 name: thinking-budget-high
-items: 24000   # /thinking high lets the model reason for up to 24000 tokens
+items: 24000   # thinking: high lets the model reason for up to 24000 tokens
 run: cap
 ```

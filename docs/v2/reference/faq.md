@@ -10,7 +10,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 `kdeps` runs `./workflow.yaml`. Requests come from an HTTP API, a bot, a file, or an interactive prompt. Resources run in the order that [`requires`](/reference/glossary#requires) sets.
 
-An agent is a `chat` with `loop:` in that file. `kdeps --agent-loop` opens that chat as a REPL. The model calls tools. A workflow tool runs the full pipeline, so every `requires:` dependency resolves.
+An agent is a `chat` with `loop:` in that file. The model calls tools over many rounds inside that one step.
 
 ## Do I need to know go to use kdeps?
 
@@ -58,7 +58,7 @@ Yes, with [agencies](/reference/glossary#agency). Use the `agent:` action type t
 
 ## Can I deploy kdeps as an API server?
 
-Yes. `kdeps run workflow.yaml` starts the HTTP API. `kdeps --agent-loop ./my-agent/` opens the REPL. The REPL is not an HTTP server. See [Web server](/deploy/webserver).
+Yes. `kdeps run workflow.yaml` starts the HTTP API. See [Web server](/deploy/webserver).
 
 For production, use the [Docker](/deploy/docker) or [Kubernetes](/deploy/kubernetes) deployment options.
 
@@ -92,13 +92,13 @@ Yes. The `kdeps run` command is for one-shot runs. Send input through stdin, giv
 
 ## Does kdeps support streaming?
 
-Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-by-token. This works in the workflow and in the REPL.
+Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-by-token.
 
 ## Where does kdeps store session data?
 
 HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured under `settings:` `session:`. See [Session configuration](/workflow/sessions).
 
-REPL conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
+The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/agent/).
 
 ## Does kdeps write into my project folder?
 
@@ -122,8 +122,6 @@ export KDEPS_DATA_DIR=/fast-disk/kdeps-projects   # moves ~/.kdeps/projects (ind
 ## See also
 
 - [Quickstart](/workflow/quickstart) - build your first workflow API
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
-- [Load a workflow as a tool](/workflow/as-a-tool) - the same file, called by the model
 - [Execution flow](/workflow/execution-flow) - how the engine runs resources
 - [Troubleshooting](/reference/troubleshooting) - common errors and fixes
 - [Glossary](/reference/glossary) - all kdeps terms defined

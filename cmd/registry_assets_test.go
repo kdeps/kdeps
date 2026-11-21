@@ -103,7 +103,7 @@ func TestRegistryAssetCommands(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, out, "failed")
 
-	_, err = run("uninstall", "commands/help")
+	_, err = run("uninstall", "harness/compaction-system")
 	require.ErrorContains(t, err, "required")
 
 	_, err = run("profile", "nope")

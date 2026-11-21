@@ -25,8 +25,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
 // foldersFixture configures a vault and works in a project folder, with a
@@ -77,19 +75,4 @@ func TestKnowledgeFoldersCmd(t *testing.T) {
 	assert.Contains(t, out, "no longer searches "+docs)
 	_, err = runKnowledge(t, "folders", "remove", docs, "--vault", vault)
 	require.ErrorContains(t, err, "is not a search folder")
-}
-
-func TestIndexFoldersFlag(t *testing.T) {
-	vault, proj, docs := foldersFixture(t)
-	require.NoError(t, indexFoldersFlag(nil), "no --index: nothing to do")
-	require.NoError(t, indexFoldersFlag([]string{docs}))
-	require.NoError(t, indexFoldersFlag([]string{docs}), "the same --index on the next start re-indexes")
-	card := knowledge.Vault{Root: vault}.CardForDir(proj)
-	require.NotNil(t, card)
-	assert.Equal(t, []string{docs}, card.SearchFolders())
-	assert.ErrorContains(t, indexFoldersFlag([]string{filepath.Join(docs, "gone")}), "--index")
-
-	cfg := os.Getenv("KDEPS_CONFIG_PATH")
-	require.NoError(t, os.WriteFile(cfg, []byte("knowledge:\n  enabled: false\n"), 0o600))
-	assert.ErrorContains(t, indexFoldersFlag([]string{docs}), "enable the knowledge vault")
 }

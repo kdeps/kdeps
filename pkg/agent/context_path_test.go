@@ -298,27 +298,6 @@ func TestCompactTokenStatus_SentAndGeneratedArrows(t *testing.T) {
 	assert.NotContains(t, compactTokenStatus(), "total")
 }
 
-func TestTurnTokenDelta(t *testing.T) {
-	t.Cleanup(func() { executorLLM.ResetSessionTokens(0, 0) })
-	executorLLM.ResetSessionTokens(145300, 600)
-	beginTurnTokens()
-	in, out := turnTokenDelta()
-	assert.Equal(t, int64(0), in)
-	assert.Equal(t, int64(0), out)
-	assert.NotContains(t, compactTokenStatus(), "turn ↑")
-
-	executorLLM.ResetSessionTokens(192500, 1000)
-	in, out = turnTokenDelta()
-	assert.Equal(t, int64(47200), in)
-	assert.Equal(t, int64(400), out)
-	assert.Contains(t, compactTokenStatus(), "turn ↑47.2k ↓400")
-
-	executorLLM.ResetSessionTokens(20000, 100) // compact mid-turn
-	in, out = turnTokenDelta()
-	assert.Equal(t, int64(0), in, "a compaction must never produce a negative delta")
-	assert.Equal(t, int64(0), out)
-}
-
 func TestContextPathStatus_TheEventSetsTheCap(t *testing.T) {
 	resetContextSegments(modelGPT4o, "")
 	withEvent(t, Event{Name: eventContextSegmentCap, Items: 2, Run: actionCap})

@@ -145,18 +145,6 @@ func TestRefinePrompt_RunawayExpansionRejected(t *testing.T) {
 	}
 }
 
-func TestSetPromptRefine(t *testing.T) {
-	l := &Loop{}
-	l.SetPromptRefine(true)
-	if !l.PromptRefineEnabled() {
-		t.Fatal("expected enabled")
-	}
-	l.SetPromptRefine(false)
-	if l.PromptRefineEnabled() {
-		t.Fatal("expected disabled")
-	}
-}
-
 func TestTrivialLength_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
 	withEvent(t, Event{Name: eventTrivialPromptMax, Items: 50, Run: actionCap})
 	withEvent(t, Event{Name: eventTrivialPromptShort, Items: 10, Run: actionCap, Disabled: true})

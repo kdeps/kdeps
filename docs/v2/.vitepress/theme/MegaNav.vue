@@ -61,7 +61,6 @@ const categories: MenuCategory[] = [
         { title: 'Function calling', desc: 'Register a resource as a tool that the LLM can call', link: '/workflow/tools' },
         { title: 'Answer quality', desc: 'Refine, plan, turo, efficiency and judges on a chat. They help a small local model', link: '/workflow/quality' },
         { title: 'Error handling (onError)', desc: 'Retry and fallback control for each resource', link: '/workflow/error-handling' },
-        { title: 'Workflow as a tool', desc: 'Call a full pipeline as a function', link: '/workflow/as-a-tool' },
       ],
     }],
   },
@@ -71,12 +70,10 @@ const categories: MenuCategory[] = [
     link: '/agent/',
     groups: [{
       items: [
-        { title: 'Overview', desc: 'A chat with loop: in a workflow; its interactive prompt is the agent REPL', link: '/agent/' },
-        { title: 'Quickstart', desc: 'Run your first agent', link: '/agent/quickstart' },
-        { title: 'Desktop app', desc: 'The agent in a window. Uses a local model or an LLM server that you run', link: '/desktop/' },
+        { title: 'Overview', desc: 'A chat with loop: in a workflow that calls tools over many rounds', link: '/agent/' },
         { title: 'Built-in tools', desc: 'bash, file, search, and web tools that the LLM can call', link: '/agent/tools' },
         { title: 'Subagents', desc: 'A fresh loop for one task. It sees only that task', link: '/agent/subagent' },
-        { title: 'Planning council', desc: 'Opt-in: agrees on a plan before the answer, in a workflow chat or the REPL', link: '/agent/plan' },
+        { title: 'Planning council', desc: 'Opt-in: agrees on a plan before the answer', link: '/agent/plan' },
         { title: 'Judge panel', desc: 'Reviews a workflow chat answer before the resource finishes', link: '/agent/judges' },
         { title: 'Persistent memory', desc: 'Facts and decisions that stay across sessions', link: '/agent/memory' },
         { title: 'Skills and prompt templates', desc: 'Reusable instructions that the agent loads when necessary', link: '/agent/skills' },

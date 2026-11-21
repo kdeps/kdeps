@@ -6,13 +6,8 @@
 # installs the full profile from it; each set is then checked through the
 # kdeps behaviour it drives, against a mock LLM where a model is involved:
 #
-#   harness          a new preamble section reaches the model's system prompt
-#   events           a new event is listed with its trigger and action
-#   actions          the event's new action is registered (no warning);
-#                    uninstalled, the event warns it is unknown
-#   presets          a new preset is listed and applying it retunes the event
-#   tools            a changed tool description reaches the model
-#   commands         a new declared command is in /help and sends its prompt
+#   harness, events, actions, presets, tools
+#                    the changed items are installed and listed
 #   recipes          a new LLM server recipe is listed and shown
 #   models           a new GGUF registry entry is listed
 #   templates        kdeps new renders the changed template
@@ -20,10 +15,10 @@
 #   k8s              kdeps export k8s carries the changed template
 #   schemas          the published schema's stricter rule rejects a workflow
 #   components       a workflow runs a new published component
-#   providers        a provider that exists only as an asset serves the agent
-#                    loop and workflow chat calls
+#   providers        a provider that exists only as an asset serves workflow
+#                    chat calls
 #   defaults         a workflow chat call uses the changed default timeout
-#   memory           a saved entry gets the type of a new memory rule
+#   memory           the changed memory rules are installed
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -119,8 +114,6 @@ write("presets/e2e-preset.yaml", "version: 1.0.0\nrequires:\n  events/e2e-marker
 s = bump("tools/read_file.yaml")
 s = re.sub(r"(?m)^description: (.*)$", lambda m: "description: " + json.dumps("E2E-TOOL-MARKER " + m.group(1).strip("'\"")), s, count=1)
 open(p("tools", "read_file.yaml"), "w").write(s)
-write("commands/e2e-cmd.yaml", "version: 1.0.0\nname: e2e-cmd\norder: 999\nusage:\n"
-      "  - args: \"[words]\"\n    help: E2E-COMMAND-HELP\nrun:\n  - prompt: \"E2E-COMMAND-PROMPT $ARGUMENTS\"\n")
 recipe = open(p("recipes", "gguf.yaml")).read()
 recipe = re.sub(r"(?m)^id: .*$", "id: e2e-recipe", recipe, count=1)
 recipe = re.sub(r"(?m)^name: .*$", "name: E2E Recipe", recipe, count=1)
@@ -155,9 +148,7 @@ s = bump("defaults/executors.yaml")
 open(p("defaults", "executors.yaml"), "w").write(s.replace('timeout: "60s"', 'timeout: "77s"', 1))
 s = bump("memory/rules.yaml")
 open(p("memory", "rules.yaml"), "w").write(s.replace("types:\n", "types:\n  - {contains: [e2emark], type: decision}\n", 1))
-write("commands/e2e-mem.yaml", "version: 1.0.0\nname: e2e-mem\norder: 999\nusage:\n"
-      "  - help: E2E-MEMORY-HELP\nrun:\n  - tool: memory_save\n    args: {key: e2emark_note, value: E2E-MEMORY-VALUE}\n"
-      "    as: saved\n  - command: /memory list\n")
+
 PY
 
 SA_PUB="$SA_DIR/pub"
@@ -187,13 +178,6 @@ sa() {
         KDEPS_ASSETS_DIR="$SA_HOME/store" KDEPS_ASSETS_URL="http://127.0.0.1:$SRV_PORT" \
         KDEPS_CONFIG_PATH="$SA_HOME/.kdeps/config.yaml" KDEPS_DATA_DIR="$SA_HOME/data" KDEPS_PROFILE=full \
         "$@" 2>&1 </dev/null)
-}
-# sa_loop runs one piped agent session against the asset-only provider.
-sa_loop() {
-    (cd "$SA_WORK" && printf '%b' "$1" | env -u E2EPROV_API_KEY HOME="$SA_HOME" USERPROFILE="$(native "$SA_HOME")" \
-        KDEPS_ASSETS_SRC='' KDEPS_ASSETS_DIR="$SA_HOME/store" KDEPS_ASSETS_URL="http://127.0.0.1:$SRV_PORT" \
-        KDEPS_CONFIG_PATH="$SA_HOME/.kdeps/config.yaml" KDEPS_DATA_DIR="$SA_HOME/data" \
-        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend e2eprov --model fake 2>&1) || true
 }
 # requests_with prints the logged request bodies containing $1.
 requests_with() { grep -F -- "$1" "$SA_LOG" || true; }
@@ -263,7 +247,7 @@ fi
 LIST=$(sa "$KDEPS_BIN" list --assets)
 missing=""
 for id in harness/e2e-marker events/e2e-marker actions/e2e_marker_action presets/e2e-preset \
-    tools/read_file commands/e2e-cmd recipes/e2e-recipe models/gguf templates/api-service docker/image \
+    tools/read_file recipes/e2e-recipe models/gguf templates/api-service docker/image \
     k8s/manifests schemas/v1 components/e2e-echo providers/e2eprov defaults/executors memory/rules; do
     # A here-string, not printf | grep -q: grep -q exits at its first match,
     # and under pipefail printf's SIGPIPE on a long list fails the match.
@@ -307,67 +291,11 @@ if output_grep "<- events" "$OUT" && output_grep "events/e2e-marker +1\.0\.0" "$
 else
     test_failed "asset sets - kdeps info set" "$OUT"
 fi
-if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "19 E2E-TOOL-MARKER" ]; then
-    test_passed "asset sets - the published index says where all 19 sets run, and each item's purpose"
+if [ "$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d.get('sets',{})), d['items']['tools/read_file'].get('description','')[:15])" "$SA_PUB/index.json")" = "18 E2E-TOOL-MARKER" ]; then
+    test_passed "asset sets - the published index says where all 18 sets run, and each item's purpose"
 else
     test_failed "asset sets - index sets" "$(head -c 400 "$SA_PUB/index.json")"
 fi
-
-# --- agent loop: harness, tools, commands, providers, events, actions, presets
-: > "$SA_LOG"
-OUT=$(sa_loop '/e2e-mem\n/quit\n')
-if output_grep "e2emark_note \\[decision\\]: E2E-MEMORY-VALUE" "$OUT"; then
-    test_passed "asset sets - memory: a saved entry gets the type of the published memory rule"
-else
-    test_failed "asset sets - memory: rule type" "$OUT"
-fi
-
-OUT=$(sa_loop '/help\nsay hi\n/e2e-cmd from the e2e\n/harness\n/harness events\n/harness preset list\n/harness preset e2e-preset\n/harness events\n/quit\n')
-if output_grep_fixed "MOCK REPLY" "$OUT" && [ -n "$(requests_with "say hi")" ]; then
-    test_passed "asset sets - providers: the agent loop talks to a provider that exists only as an asset"
-else
-    test_failed "asset sets - providers: agent loop" "$OUT $(cat "$SA_DIR/mock.err")"
-fi
-if [ -n "$(requests_with "say hi" | grep -F "E2E-HARNESS-MARKER")" ] && output_grep "e2e-marker +preamble-section, order 999" "$OUT"; then
-    test_passed "asset sets - harness: a published preamble section reaches the model's system prompt"
-else
-    test_failed "asset sets - harness" "$OUT"
-fi
-if [ -n "$(requests_with "say hi" | grep -F "E2E-TOOL-MARKER")" ]; then
-    test_passed "asset sets - tools: a published tool description reaches the model"
-else
-    test_failed "asset sets - tools" "$(requests_with "say hi" | head -c 600)"
-fi
-if output_grep "/e2e-cmd \[words\] +E2E-COMMAND-HELP" "$OUT" && [ -n "$(requests_with "E2E-COMMAND-PROMPT from the e2e")" ]; then
-    test_passed "asset sets - commands: a published command is in /help and sends its prompt with the arguments"
-else
-    test_failed "asset sets - commands" "$OUT"
-fi
-if output_grep "e2e-marker +on: rounds=77 +run: e2e_marker_action" "$OUT"; then
-    test_passed "asset sets - events: a published event is listed with its trigger and action"
-else
-    test_failed "asset sets - events" "$OUT"
-fi
-if ! output_grep "e2e-marker.*not a registered action" "$OUT"; then
-    test_passed "asset sets - actions: the event's published action is registered"
-else
-    test_failed "asset sets - actions" "$OUT"
-fi
-if output_grep "e2e-preset +E2E-PRESET-MARKER" "$OUT" && output_grep "Applied preset \"e2e-preset\"" "$OUT" &&
-    output_grep "e2e-marker +on: rounds=55 +run: e2e_marker_action" "$OUT"; then
-    test_passed "asset sets - presets: a published preset is listed and applying it retunes its event"
-else
-    test_failed "asset sets - presets" "$OUT"
-fi
-OUT=$(sa "$KDEPS_BIN" uninstall actions/e2e_marker_action)
-OUT2=$(sa_loop '/harness events\n/quit\n')
-if output_grep "e2e-marker.*e2e_marker_action.*not a registered action|e2e_marker_action" "$OUT2" &&
-    output_grep "not a registered action" "$OUT2"; then
-    test_passed "asset sets - actions: without the action installed, the event warns it is unknown"
-else
-    test_failed "asset sets - actions removed" "$OUT $OUT2"
-fi
-sa "$KDEPS_BIN" install actions/e2e_marker_action >/dev/null
 
 # --- workflow mode: providers, defaults, components ---------------------------
 : > "$SA_LOG"

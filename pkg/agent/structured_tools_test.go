@@ -66,10 +66,3 @@ func TestStructuredTools_ExecuteCallsHandler(t *testing.T) {
 		require.NotContains(t, call, "_ctx")
 	}
 }
-
-func TestStructuredTools_LeanExcluded(t *testing.T) {
-	kept := LeanModeToolFilter([]string{
-		"file_ops", "git_ops", "sql_ops", "read_file",
-	})
-	require.Equal(t, []string{"read_file"}, kept)
-}

@@ -100,21 +100,6 @@ func TestApplyPlanCouncil_PlansAndWritesProgress(t *testing.T) {
 	assert.Contains(t, string(data), "## Progress")
 }
 
-func TestApplyPlanCouncil_SkipsWhenOffTrivialOrFailing(t *testing.T) {
-	calls := 0
-	l := councilLoop(t, func(*domain.Workflow, interface{}) (interface{}, error) { calls++; return "not json", nil })
-	l.SetPlanCouncil(false)
-	assert.False(t, l.PlanCouncilEnabled())
-	assert.Empty(t, l.applyPlanCouncil(context.Background(), "fix the failing build in cmd and add a test", nil))
-	l.SetPlanCouncil(true)
-	assert.Empty(t, l.applyPlanCouncil(context.Background(), "hi", nil), "a trivial prompt gets no council")
-	assert.Equal(t, 0, calls)
-	assert.Empty(t, l.applyPlanCouncil(context.Background(), "fix the failing build in cmd and add a test", nil),
-		"no job orders: no plan")
-	assert.Positive(t, calls)
-	assert.Nil(t, l.plan)
-}
-
 func TestPlanUpdate(t *testing.T) {
 	l := councilLoop(t, func(wf *domain.Workflow, _ interface{}) (interface{}, error) { return councilReply(wf) })
 	_, err := l.planUpdate(map[string]any{"id": 1, "status": "done"})
@@ -204,4 +189,19 @@ func TestCouncilCall_JSONModeObjectResult(t *testing.T) {
 	note := l.applyPlanCouncil(context.Background(),
 		"fix the failing build in cmd and add a test that covers the fix", nil)
 	assert.Contains(t, note, "write tests")
+}
+
+func TestApplyPlanCouncil_SkipsWhenOffTrivialOrFailing(t *testing.T) {
+	calls := 0
+	l := councilLoop(t, func(*domain.Workflow, interface{}) (interface{}, error) { calls++; return "not json", nil })
+	l.SetPlanCouncil(false)
+	assert.False(t, l.PlanCouncilEnabled())
+	assert.Empty(t, l.applyPlanCouncil(context.Background(), "fix the failing build in cmd and add a test", nil))
+	l.SetPlanCouncil(true)
+	assert.Empty(t, l.applyPlanCouncil(context.Background(), "hi", nil), "a trivial prompt gets no council")
+	assert.Equal(t, 0, calls)
+	assert.Empty(t, l.applyPlanCouncil(context.Background(), "fix the failing build in cmd and add a test", nil),
+		"no job orders: no plan")
+	assert.Positive(t, calls)
+	assert.Nil(t, l.plan)
 }

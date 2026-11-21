@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -107,36 +106,3 @@ func startInteractiveMode(
 	logger := logging.NewLogger(debugMode)
 	return llminput.Run(ctx, workflow, eng, logger)
 }
-
-// startAgentREPLMode is the interactive prompt of a workflow whose target is
-// a chat with loop:: the agent REPL, defined by that workflow (model, tools,
-// rounds, knowledge), with slash commands, the model picker, tool approvals
-// and saved sessions. Its other input sources keep running in the
-// background, as with startInteractiveMode.
-func startAgentREPLMode(
-	ctx context.Context,
-	eng *executor.Engine,
-	workflow *domain.Workflow,
-	workflowPath string,
-	flags *RunFlags,
-	debugMode bool,
-) error {
-	kdeps_debug.Log("enter: startAgentREPLMode")
-	if executionModeForFunc(workflow) != execModeSingleRun {
-		go func() {
-			dispErr := dispatchExecutionWithEngineInteractiveFunc(
-				eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, true,
-			)
-			if dispErr != nil {
-				kdepslog.Error("workflow execution failed", "error", dispErr)
-			}
-		}()
-		fmt.Fprintf(os.Stdout, "  ✓ Workflow '%s' running in background\n", workflow.Metadata.Name)
-	}
-	return runAgentLoopCmdFunc(processParent(ctx), "", &agentLoopFlags{Workflow: workflowPath, Debug: debugMode})
-}
-
-// runAgentLoopCmdFunc starts the agent REPL; replaced in tests.
-//
-//nolint:gochecknoglobals // test hook
-var runAgentLoopCmdFunc = runAgentLoopCmd

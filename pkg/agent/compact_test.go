@@ -645,48 +645,6 @@ func TestSerializeConversation_WithFileOps(t *testing.T) {
 
 // --- formatFileOperations ---
 
-func TestFormatFileOperations_Empty(t *testing.T) {
-	if got := formatFileOperations(nil, nil); got != "" {
-		t.Fatalf("expected empty string for no files, got %q", got)
-	}
-}
-
-func TestFormatFileOperations_ReadOnly(t *testing.T) {
-	got := formatFileOperations([]string{"a.go", "b.go"}, nil)
-	if !strings.Contains(got, "<read-files>") {
-		t.Fatalf("expected <read-files> tag, got %q", got)
-	}
-	if !strings.Contains(got, "a.go") || !strings.Contains(got, "b.go") {
-		t.Fatalf("expected both files, got %q", got)
-	}
-	if strings.Contains(got, "<modified-files>") {
-		t.Fatalf("unexpected <modified-files> tag, got %q", got)
-	}
-}
-
-func TestFormatFileOperations_ModifiedOnly(t *testing.T) {
-	got := formatFileOperations(nil, []string{"c.go"})
-	if strings.Contains(got, "<read-files>") {
-		t.Fatalf("unexpected <read-files> tag, got %q", got)
-	}
-	if !strings.Contains(got, "<modified-files>") {
-		t.Fatalf("expected <modified-files> tag, got %q", got)
-	}
-	if !strings.Contains(got, "c.go") {
-		t.Fatalf("expected c.go, got %q", got)
-	}
-}
-
-func TestFormatFileOperations_BothSections(t *testing.T) {
-	got := formatFileOperations([]string{"r.go"}, []string{"w.go"})
-	if !strings.Contains(got, "<read-files>") || !strings.Contains(got, "<modified-files>") {
-		t.Fatalf("expected both sections, got %q", got)
-	}
-	if !strings.Contains(got, "r.go") || !strings.Contains(got, "w.go") {
-		t.Fatalf("expected both files, got %q", got)
-	}
-}
-
 // --- PreviousCompactionSummary ---
 
 func TestPreviousCompactionSummary_Empty(t *testing.T) {
@@ -761,44 +719,15 @@ func TestForcedCutIndex(t *testing.T) {
 	}
 }
 
-func TestShouldAutoCompactNow_DisabledEventNeverFires(t *testing.T) {
-	isolateEventsHome(t)
-	initEvents()
-	if err := SetEventEnabled(eventAutoCompact, false); err != nil {
-		t.Fatal(err)
-	}
-	loop := makeTestLoop(nil)
-	loop.config.AutoCompactThreshold = 1 // would otherwise fire immediately
-	msgs := makeTurns(compactMinTurns + 5)
-	if loop.shouldAutoCompactNow(msgs) {
-		t.Fatal("expected a disabled auto-compact event to never fire")
-	}
-}
-
 func TestShouldAutoCompactNow_EnabledEventFiresNormally(t *testing.T) {
 	isolateEventsHome(t)
 	initEvents()
-	loop := makeTestLoop(nil)
+	loop := makeTestLoop()
 	loop.config.AutoCompactThreshold = 1
 	loop.config.Model = "some-unregistered-local-gguf" // unknown ctx window: uses flat threshold
 	msgs := makeTurns(compactMinTurns + 5)
 	if !loop.shouldAutoCompactNow(msgs) {
 		t.Fatal("expected an enabled auto-compact event to fire once its threshold is exceeded")
-	}
-}
-
-func TestNormalizeCompactionSummary_DropsEmptyGoal(t *testing.T) {
-	in := "Summary\n\n## Goal\n\n## Progress\n### Done\n- [x] fixed the parser\n"
-	got := normalizeCompactionSummary(in)
-	if strings.Contains(got, "## Goal") || strings.Contains(strings.ToLower(got), "summary") {
-		t.Fatalf("empty title and goal kept: %q", got)
-	}
-	want := "## Progress\n### Done\n- [x] fixed the parser"
-	if got != want {
-		t.Fatalf("got %q", got)
-	}
-	if preview := summaryPreview(in); preview != "- [x] fixed the parser" {
-		t.Fatalf("preview %q", preview)
 	}
 }
 
@@ -810,36 +739,5 @@ func TestNormalizeCompactionSummary_DropsSummaryGoalTitle(t *testing.T) {
 	}
 	if !strings.Contains(got, "keep the tests") {
 		t.Fatalf("body lost: %q", got)
-	}
-}
-
-func TestNormalizeCompactionSummary_KeepsRealGoal(t *testing.T) {
-	in := "## Goal\nShip the parser fix.\n\n## Constraints & Preferences\n- [Any constraints, preferences, or requirements mentioned by user]\n- keep tests green\n"
-	got := normalizeCompactionSummary(in)
-	if !strings.Contains(got, "## Goal\nShip the parser fix.") {
-		t.Fatalf("goal lost: %q", got)
-	}
-	if strings.Contains(got, "Any constraints") {
-		t.Fatalf("placeholder kept: %q", got)
-	}
-	if !strings.Contains(got, "- keep tests green") {
-		t.Fatalf("real bullet lost: %q", got)
-	}
-	if preview := summaryPreview(in); preview != "Ship the parser fix." {
-		t.Fatalf("preview %q", preview)
-	}
-}
-
-func TestShouldFoldNow_DisabledEventNeverFires(t *testing.T) {
-	isolateEventsHome(t)
-	initEvents()
-	if err := SetEventEnabled(eventFold, false); err != nil {
-		t.Fatal(err)
-	}
-	loop := makeTestLoop(nil)
-	loop.config.FoldThreshold = 1
-	msgs := makeTurns(compactMinTurns + 5)
-	if loop.shouldFoldNow(msgs) {
-		t.Fatal("expected a disabled fold event to never fire")
 	}
 }

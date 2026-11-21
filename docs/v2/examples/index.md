@@ -30,13 +30,6 @@ The examples are in groups. Pick the one closest to what you are building.
 | [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Complex agents in ~20 lines of YAML - multiple real-world patterns |
 
-### Agent REPL
-
-| Example | What it demonstrates |
-|---|---|
-| [Read a file in the REPL](/examples/agent-repl) | `kdeps --agent-loop` with no YAML and no API key: `read_file`, then `write_file` |
-| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps --agent-loop [path]` registers the workflow as one LLM tool, named by `name:` under `metadata:` |
-
 ### Agencies
 
 | Example | What it demonstrates |
@@ -275,28 +268,6 @@ Best for:
 - Learning the `POST /api/v1/run` pattern
 - Adapting a pattern to your own data
 
-## Read a file in the REPL
-
-A folder with one text file. `kdeps --agent-loop` reads it and writes the answer next to it. No workflow YAML. No API key.
-
-Best for:
-- Seeing the agent REPL before you write a workflow
-- Checking that `read_file` and `write_file` run on your machine
-
-[Build it step by step](/examples/agent-repl)
-
-## Load a workflow as a tool
-
-The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
-started with `kdeps --agent-loop .` instead of `kdeps run`. The LLM calls one tool named
-the workflow's `name:` under `metadata:`. kdeps runs the full DAG.
-
-Best for:
-- Turning an API you already wrote into a REPL tool
-- Opening the REPL on a workflow you already wrote
-
-[Build it step by step](/workflow/as-a-tool)
-
 ## Two-agent agency
 
 Two agents in one project: the entry-point agent calls the other with the
@@ -336,4 +307,4 @@ Best for:
 
 - [Quickstart](/workflow/quickstart) - build your first workflow in 5 minutes
 - [Workflow](/workflow/) - the YAML pipeline
-- [Agent REPL](/agent/) - the model calls tools
+- [Agent loop](/agent/) - the model calls tools

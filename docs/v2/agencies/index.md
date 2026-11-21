@@ -6,10 +6,9 @@ delegates to another with the `agent:` resource, which runs that agent's whole p
 
 ```bash
 kdeps run ./my-agency/     # run the entry-point agent's pipeline
-kdeps --agent-loop ./my-agency/         # register the agency as one LLM tool in the REPL
 ```
 
-**Not this?** For one pipeline, start with the [workflow](/workflow/). A `chat` with `loop:` is the [agent REPL](/agent/). To reuse one bundle of resources, use a [component](/agencies/components).
+**Not this?** For one pipeline, start with the [workflow](/workflow/). A `chat` with `loop:` is the [agent loop](/agent/). To reuse one bundle of resources, use a [component](/agencies/components).
 
 ---
 

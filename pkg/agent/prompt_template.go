@@ -21,8 +21,6 @@ package agent
 import (
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"unicode"
 
@@ -139,67 +137,7 @@ func loadPromptTemplateFromFile(path string) *PromptTemplate {
 	}
 }
 
-var (
-	rePositionalDefault = regexp.MustCompile(`\$\{(\d+):-([^}]*)\}`)
-	reSlice             = regexp.MustCompile(`\$\{@:(\d+)(?::(\d+))?\}`)
-	reSimple            = regexp.MustCompile(`\$(ARGUMENTS|@|\d+)`)
-)
-
-// substituteArgs replaces placeholder tokens in content with args values.
-// Supported placeholders:
-//   - $1, $2, ... positional
-//   - $@ and $ARGUMENTS all args joined by space
-//   - ${N:-default} positional with fallback
-//   - ${@:N} args from position N onward (1-indexed)
-//   - ${@:N:L} L args starting at position N
-func substituteArgs(content string, args []string) string {
-	allArgs := strings.Join(args, " ")
-
-	// ${N:-default} before ${@:...} to avoid overlap
-	result := rePositionalDefault.ReplaceAllStringFunc(content, func(m string) string {
-		sub := rePositionalDefault.FindStringSubmatch(m)
-		idx, _ := strconv.Atoi(sub[1])
-		if idx >= 1 && idx <= len(args) && args[idx-1] != "" {
-			return args[idx-1]
-		}
-		return sub[2]
-	})
-
-	result = reSlice.ReplaceAllStringFunc(result, func(m string) string {
-		sub := reSlice.FindStringSubmatch(m)
-		start, _ := strconv.Atoi(sub[1])
-		if start < 1 {
-			start = 1
-		}
-		start-- // convert to 0-indexed
-		if start >= len(args) {
-			return ""
-		}
-		if sub[2] == "" {
-			return strings.Join(args[start:], " ")
-		}
-		length, _ := strconv.Atoi(sub[2])
-		end := start + length
-		if end > len(args) {
-			end = len(args)
-		}
-		return strings.Join(args[start:end], " ")
-	})
-
-	result = reSimple.ReplaceAllStringFunc(result, func(m string) string {
-		inner := m[1:] // strip leading $
-		if inner == "ARGUMENTS" || inner == "@" {
-			return allArgs
-		}
-		idx, _ := strconv.Atoi(inner)
-		if idx >= 1 && idx <= len(args) {
-			return args[idx-1]
-		}
-		return ""
-	})
-
-	return result
-}
+var ()
 
 // parseCommandArgs splits s into tokens respecting single and double quotes.
 func parseCommandArgs(s string) []string {

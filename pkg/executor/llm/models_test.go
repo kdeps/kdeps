@@ -74,26 +74,6 @@ func TestReadModelRegistry_Missing(t *testing.T) {
 	assert.Empty(t, ListGGUFMappings())
 }
 
-// A newer downloaded registry (`kdeps update models/gguf`) replaces the
-// source one; the user's local entries still merge on top.
-func TestModelRegistry_DownloadedVersionWins(t *testing.T) {
-	root := t.TempDir()
-	t.Cleanup(ReloadGGUFRegistry)
-	t.Setenv("KDEPS_ASSETS_DIR", root)
-	home := t.TempDir()
-	origHome := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origHome })
-	userHomeDirFunc = func() (string, error) { return home, nil }
-
-	data := []byte("version: 99.0.0\nggufs:\n  - alias: fresh\n    url: https://x/fresh.gguf\n")
-	require.NoError(t, assets.Install(root, "models/gguf", data, false))
-	require.NoError(t, HFRegisterGGUFEntry(GGUFEntry{Alias: "mine", URL: "https://x/mine.gguf"}))
-
-	ReloadGGUFRegistry()
-	assert.Equal(t, "99.0.0", GGUFRegistryVersion())
-	assert.Equal(t, []string{"fresh", "mine"}, GGUFAliasNames())
-}
-
 func TestModelRegistry_Required(t *testing.T) {
 	root := t.TempDir()
 	require.Error(t, assets.Remove(root, "models/gguf"))

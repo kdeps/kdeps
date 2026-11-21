@@ -25,25 +25,6 @@ import (
 	"testing"
 )
 
-// TestMain keeps the package tests off the developer's home and off the
-// checkout's git root. CI keeps temp folders inside the checkout. Without a
-// ceiling, those folders are named as the kdeps project.
-func TestMain(m *testing.M) {
-	home, err := os.MkdirTemp("", "kdeps-agent-test-home")
-	if err == nil {
-		os.Setenv("HOME", home)
-		os.Setenv("USERPROFILE", home)
-	}
-	os.Setenv("KDEPS_TURO", "off")
-	os.Setenv("GIT_CEILING_DIRECTORIES", testCeilings())
-	SetConvergenceLimits(1_000_000, 1_000_000, 1_000_000, 1_000_000)
-	code := m.Run()
-	if home != "" {
-		os.RemoveAll(home)
-	}
-	os.Exit(code)
-}
-
 // testCeilings stops project naming at the temp folder and at the module
 // root, wherever CI puts temp folders: no test project is named after the
 // kdeps repository.
@@ -62,4 +43,23 @@ func testCeilings() string {
 		}
 	}
 	return strings.Join(stops, string(filepath.ListSeparator))
+}
+
+// TestMain keeps the package tests off the developer's home and off the
+// checkout's git root. CI keeps temp folders inside the checkout. Without a
+// ceiling, those folders are named as the kdeps project.
+func TestMain(m *testing.M) {
+	home, err := os.MkdirTemp("", "kdeps-agent-test-home")
+	if err == nil {
+		os.Setenv("HOME", home)
+		os.Setenv("USERPROFILE", home)
+	}
+	os.Setenv("KDEPS_TURO", "off")
+	os.Setenv("GIT_CEILING_DIRECTORIES", testCeilings())
+	SetConvergenceLimits(1_000_000, 1_000_000, 1_000_000, 1_000_000)
+	code := m.Run()
+	if home != "" {
+		os.RemoveAll(home)
+	}
+	os.Exit(code)
 }

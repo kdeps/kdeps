@@ -309,7 +309,6 @@ memory
 !**/memory/
 
 # desktop shell binaries
-/desktop/kdeps-desktop*
 /desktop/desktop
 !/desktop/frontend/dist/
 !/desktop/frontend/dist/*.html

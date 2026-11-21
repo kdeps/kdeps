@@ -15,7 +15,7 @@ q -> recall -> notes -> model
 card -> model
 ```
 
-Recall runs on every prompt kdeps sends a model: each agent-loop turn (terminal and desktop app) and each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. Internal loop calls (compaction, prompt refinement) skip it.
+Recall runs on every prompt kdeps sends a model: each agent-loop turn and each workflow [`chat`](/workflow/resources/llm#knowledge-recall) call. Internal loop calls (compaction, prompt refinement) skip it.
 
 A 2,000-note vault holds about a million words, more than any model can read. With recall, a question typically reads a routing table, one card and a handful of notes.
 
@@ -121,19 +121,18 @@ The layout is the same for a code repository, a document folder, a workflow, a b
 | First prompt in a place no card covers | `projects/<name>/<name>.md` (`status: active`) |
 | Every turn | `sessions/<date> <topic>.md`, rewritten in place |
 | `[MEMORY: key] value` | `memory/<key>.md` |
-| Compaction, or the end of a terminal session | the session note from the model's summary; one `decisions/` note per Key Decision; the first next step on the card |
+| Compaction | the session note from the model's summary; one `decisions/` note per Key Decision; the first next step on the card |
 | `knowledge_note_save` | `notes/` (`decisions/` for type decision), or `shared/`, `inbox/` |
 | `knowledge_card_update` with `status: archived` | moves `projects/<name>/` to `archive/<name>/`; the next turn there moves it back |
 | A workflow chat call, with `workflow_notes: true` | `sessions/<date> <workflow> runs.md`, one line per call |
 
 ## Set up
 
-The vault is on by default, in `~/.kdeps/notes`. The first session creates it. Every session rebuilds its graph in the background.
+The vault is on by default, in `~/.kdeps/notes`. The first run creates it. Each run rebuilds its graph in the background.
 
 | Turn it | How |
 |---|---|
 | off for good | `knowledge.enabled: false` in `~/.kdeps/config.yaml` |
-| off or on, remembered across sessions | `/knowledge off`, `/knowledge on` |
 | to another folder | `knowledge.vault` in config.yaml, or `kdeps knowledge init <folder>` |
 
 ```yaml
@@ -172,7 +171,7 @@ Card rows:
 | `folder`, `workflow` | another place that belongs to this project; the deepest matching row wins |
 | `search` | a [search folder](#search-folders): searched with the project, not one of its places |
 | `branch` | the project's git branch, updated at the start of a turn when it changes (kdeps keeps one) |
-| `index` | a place's search index (built by `/search index`, kept under `~/.kdeps`); added by kdeps |
+| `index` | a place's search index (built by `kdeps knowledge folders index`, kept under `~/.kdeps`); added by kdeps |
 
 Every turn carries a `<knowledge-status>` overview of active projects, read from the cards at that moment and never stored. The model reads and changes cards with `knowledge_card_get` and `knowledge_card_update`.
 
@@ -196,50 +195,6 @@ We moved to monthly billing because ...
 - Links kdeps writes use the full vault path (`[[projects/app/app]]`, `[[shared/Stripe gotcha]]`), so they never point at the wrong note. A link to a later-archived project still resolves by title.
 - Links inside code blocks are examples, not links.
 - One idea per note. `knowledge_note_save` writes into `notes/` (or `decisions/`, `shared/`, `inbox/`) and refuses a title that already exists anywhere in the vault.
-
-## Session notes
-
-After every turn, kdeps rewrites the session's note in the project's `sessions/` folder. A note covers one thread: an unrelated request starts a new note, so a session moving from billing to Kubernetes leaves two. Each note links the project's card, so the card's backlinks list every session.
-
-```text
-switch billing to monthly invoices      -> 2026-10-16 0900 switch billing to monthly invoices.md
-why are monthly invoices late           -> same note (shares the thread's words)
-yes do it                               -> same note (a short follow-up)
-configure kubernetes liveness probes    -> 2026-10-16 0912 configure kubernetes liveness probes.md
-```
-
-No model decides this. A request continues the thread in two conditions. The first condition is that it has fewer than three content words. The second condition is that one fifth or more of its content words are also in the thread. kdeps uses word stems and ignores stopwords and task verbs (for example fix, add, make). Summaries at compaction and session end go to the current thread's note, written from that thread's messages only.
-
-```markdown
----
-type: session
-project: my-app
-session: 7f3c...
-summary: Ship knowledge recall for my-app
-links: ["[[my-app]]"]
-branch: feat/recall              # in a git repository: the branch the thread ran on
-commits: 3f2a91c0b7de..9c41e2d07a55  # HEAD when the thread began .. HEAD now
----
-## Focus
-## What was built
-## Mistakes
-## Decisions
-## Wins
-## Git
-On branch `feat/recall`, commits `3f2a91c0b7de..9c41e2d07a55`: `git log 3f2a91c0b7de..9c41e2d07a55` shows them.
-```
-
-In a git repository, the note points into git. It does not copy the history. The note has `branch`, `commits`, and a `## Git` line. `commits` goes from `HEAD` at the start of the thread to `HEAD` now. kdeps reads it with `git rev-parse` on each turn. With these lines, the model can run `git log` or `git diff`.
-
-A rebase or squash never leaves the vault stale. A rewritten note keeps its original start, even in a resumed session. Outside git, a note has no git lines.
-
-How kdeps adds data to the note:
-
-- **Each turn, no model call:** your prompts, files written or edited, decisions saved to memory, failed tools.
-- **At compaction:** the summary of the model replaces it (compaction always makes that summary). kdeps adds later turns on top.
-- **When an interactive terminal session ends:** one summary call includes the turns after the last note. A piped or scripted session stops immediately. Its compactions write notes.
-- The summary's first next step goes to the card's `next`, not the note.
-- Each Key Decision becomes a `decisions/` note titled by its bold lead: `- **Monthly billing**: per-call doubled churn` becomes `decisions/Monthly billing.md`. kdeps does not change a decision note that exists.
 
 ## Workflow mode
 
@@ -294,53 +249,19 @@ build: "graph build\ninferred / ambiguous edges"
 changed -> first -> rest -> cache -> build
 ```
 
-**In agent sessions**, `knowledge.build` or `/knowledge build` sets the mode:
-
-| Mode | Runs |
-|---|---|
-| `manual` (default) | only on `/knowledge extract` or `kdeps knowledge build --extract` |
-| `auto` | also at session end (after the session note, up to `per_session` notes) and before a background build; keeps running after the prompt returns |
-| `off` | never |
-
-Recall waits for the link graph, not for the model. The call uses the [subagent channel](/agent/subagent): the session model unless `/subagent` or `llm.subagent` names another. `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only when the channel is `current`. kdeps skips a local model that is not available.
+Recall waits for the link graph, not for the model. The call uses the [subagent channel](/agent/subagent): the chat's model unless `llm.subagent` names another. `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only when the channel is `current`. kdeps skips a local model that is not available.
 
 **From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.subagent`, then `knowledge.extract.model`, then the current model.
 
 kdeps reads a note again only when it changes. It tries a failed note again on the next run. A build without `--extract` prints how many notes are waiting. The graph records the model and time of the latest successful extraction.
 
-```text
-/knowledge build            # manual, the default
-/knowledge build auto       # session end and before a background build
-/knowledge build off
-```
-
 ```yaml
 # ~/.kdeps/config.yaml
 knowledge:
-  build: manual               # manual | auto | off
   extract:
-    model: llama3.2:3b        # used when llm.subagent is current; empty: the session model
+    model: llama3.2:3b        # used when llm.subagent is current; empty: the chat's model
     workers: 2                # parallel calls after the first
-    per_session: 20           # changed notes read on an automatic run
 ```
-
-### Media into notes
-
-`/ingest` reads a file with a kdeps tool and saves its text as a note titled by the second argument, so extraction can read it:
-
-```text
-/ingest image  ~/scans/receipt.png  receipt-march
-/ingest audio  ~/calls/standup.mp3  standup-2026-11-02
-/ingest document ~/docs/spec.pdf    spec-v2
-```
-
-| Subcommand | Reader tool | Accepts |
-|---|---|---|
-| `image` | `ocr_image` (tesseract, local) | png, jpg, tiff, bmp, gif |
-| `audio` | `transcribe_audio` (Whisper) | mp3, mp4, m4a, wav and other audio or video |
-| `document` | `load_document` | PDF, DOCX, HTML, CSV, text |
-
-Run `/knowledge extract` afterwards to pull facts from the new notes.
 
 ## Communities and the report
 
@@ -378,7 +299,7 @@ Before each model call, kdeps:
 1. **Scores nodes on the request's words.** Rarer words count more, title words count double, and word forms meet (`billing` matches `bill`). Session notes score 0.4x and memory notes 0.6x, below curated notes. A session's own note is never recalled into it.
 2. **Walks at most 2 edges** from the best matches, strongest first. Extracted edges count fully, inferred edges by their confidence, ambiguous edges at 0.3 times their confidence. Tag edges are then multiplied by 0.3. Each hop divides the score by 2. If `knowledge.recall.hops` is more than 2, kdeps uses 2.
 3. **Lists the best notes** within `budget_tokens`, as paths for `read_file`. A note reached through edges shows the chain, e.g. `projects/app/decisions/Billing decision.md --relates_to--> shared/Stripe gotcha.md`.
-4. **Adds indexed files.** The places of the project or the [search folders](#search-folders) can have a search index (`/search index`). In this condition, the 3 best-matching files for each folder go in a `<knowledge-files>` list. The list has the folder and index path at the top. A file shows one time, also when folders overlap. If recall already found a vault note, kdeps repeats its chain. The model gets an instruction to open the files with `read_file` or to search with `search_local` (path = one folder, or none for all). Here the index is read-only. kdeps skips a busy index.
+4. **Adds indexed files.** The places of the project or the [search folders](#search-folders) can have a search index (`kdeps knowledge folders index`). In this condition, the 3 best-matching files for each folder go in a `<knowledge-files>` list. The list has the folder and index path at the top. A file shows one time, also when folders overlap. If recall already found a vault note, kdeps repeats its chain. The model gets an instruction to open the files with `read_file` or to search with `search_local` (path = one folder, or none for all). Here the index is read-only. kdeps skips a busy index.
 
 ```text
 <knowledge-files>
@@ -398,18 +319,7 @@ Notes in the knowledge vault related to this request, from its link graph (best 
 </knowledge-recall>
 ```
 
-kdeps adds recall to the turn, not to the cached system prompt. The terminal shows its cost:
-
-```text
-recall: 4 notes (~180 tok), 2 files
-```
-
-| Command | Shows |
-|---|---|
-| `/recall` | the last turn's recall and why each note was chosen |
-| `/recall <words>` | recall for other words |
-| `/knowledge` | whether the vault is on, and where |
-| `kdeps knowledge recall "why monthly billing"` | recall from the shell |
+kdeps adds recall to the turn, not to the cached system prompt. To test recall from the shell, run `kdeps knowledge recall "why monthly billing"`.
 
 ## Search folders
 
@@ -417,7 +327,7 @@ A search folder is a folder outside the project (docs, specs, a shared library) 
 
 ```d2
 direction: right
-add: "kdeps --agent-loop --index ~/docs\n/search add ~/docs\nknowledge_card_update" {shape: oval}
+add: "kdeps knowledge folders add ~/docs\nknowledge_card_update" {shape: oval}
 card: "project card\n| search | /home/me/docs |"
 index: "~/.kdeps/projects/docs-<hash>/index.db"
 recall: "recall: <knowledge-files>\nper folder"
@@ -429,7 +339,7 @@ index -> search
 card -> search: "which folders"
 ```
 
-The card stores it as a `search` row. Unlike `repo` or `folder`, a session started inside a search folder gets its own project:
+The card stores it as a `search` row. Unlike `repo` or `folder`, a run started inside a search folder gets its own project:
 
 ```markdown
 | Source | Path |
@@ -439,21 +349,13 @@ The card stores it as a `search` row. Unlike `repo` or `folder`, a session start
 | index | /home/me/.kdeps/projects/billing-specs-3f2a91c0/index.db |
 ```
 
-Add one at session start, from the shell, in a session, or let the model add it:
+Add one from the shell, or let the model add it:
 
 ```bash
-kdeps --agent-loop --index ~/docs/billing-specs                # add and index before the session starts; repeatable, fine to pass every time
 kdeps knowledge folders                           # list the project's folders and their indexes
 kdeps knowledge folders add ~/docs/billing-specs  # add and index now
 kdeps knowledge folders index                     # update every folder's index
 kdeps knowledge folders remove ~/docs/billing-specs
-```
-
-```text
-/search folders                   list them
-/search add ~/docs/billing-specs  add and index now
-/search remove ~/docs/billing-specs
-/search index                     update the index of every folder the project searches
 ```
 
 The model uses `knowledge_card_update` with `add_search_folder` or `remove_search_folder`.
@@ -501,4 +403,4 @@ Install rejects a `check.yaml` with an empty message, an invalid template, or an
 | `knowledge_card_update` | Set `status` and/or `next`; stamps `updated`; `archived` moves the project to `archive/`; `add_search_folder` / `remove_search_folder` change the [search folders](#search-folders) |
 | `knowledge_note_save` | Save a new one-idea note; `scope`: `project` (default), `shared` or `inbox` |
 
-They are available in agent sessions when the vault is on. They refuse when `/knowledge off` is set. They are part of the `agent` asset profile.
+They are available in the agent loop when the vault is on. They are part of the `agent` asset profile.

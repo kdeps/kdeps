@@ -118,64 +118,6 @@ func (t *lastLineTracker) Silence() time.Duration {
 	return time.Since(t.lastWrite)
 }
 
-// monitoredWriter forwards live output to the terminal while coordinating
-// with a status-line monitor: a drawn frame is erased before any real output
-// so the two never collide on one line. Used by ! shell commands, whose
-// output streams directly instead of being buffered like tool output.
-type monitoredWriter struct {
-	mu    sync.Mutex
-	dst   io.Writer
-	track *lastLineTracker
-}
-
-func newMonitoredWriter(dst io.Writer, track *lastLineTracker) *monitoredWriter {
-	return &monitoredWriter{dst: dst, track: track}
-}
-
-func (m *monitoredWriter) Write(p []byte) (int, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	// Real output takes the line. Clear the shared status frame first so
-	// the text does not land in the middle of a redraw.
-	eraseLiveStatus(m.dst)
-	_, _ = m.track.Write(p)
-	return m.dst.Write(p)
-}
-
-// runQuietMonitor draws "label running (elapsed)" frames only while the
-// stream has been silent for at least a tick — live output takes priority
-// and erases the frame via monitoredWriter. Prolonged silence adds a
-// stall warning with a Ctrl+C hint: bang commands may legitimately wait on
-// stdin, so unlike tools they are never auto-killed, only flagged. It
-// clears the frame on stop.
-func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-chan struct{}) {
-	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	tick := time.NewTicker(toolMonitorInterval)
-	defer tick.Stop()
-	i := 0
-	for {
-		select {
-		case <-tick.C:
-			silence := mw.track.Silence()
-			if silence < toolMonitorInterval {
-				i++
-				continue // output is flowing; it speaks for itself
-			}
-			warn := ""
-			if silence >= toolStallWarnAfter {
-				warn = fmt.Sprintf(" · no output for %s (Ctrl+C to kill)", silence.Round(time.Second))
-			}
-			elapsed := time.Since(start).Round(time.Second)
-			drawLiveStatus(mw.dst, fmt.Sprintf("%s %s running (%s)%s",
-				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
-			i++
-		case <-stop:
-			eraseLiveStatus(mw.dst)
-			return
-		}
-	}
-}
-
 // isHeadless reports whether the process is non-interactive (no TTY).
 func isHeadless() bool {
 	return !term.IsTerminal(int(os.Stdin.Fd()))

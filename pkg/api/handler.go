@@ -33,15 +33,11 @@ func newHandler(token string) http.Handler {
 	mux.HandleFunc("GET /openapi/v3", authed(token, handleOpenAPI))
 	mux.HandleFunc("GET "+toolsPrefix, authed(token, handleToolList))
 	mux.HandleFunc("POST "+toolsPrefix+"/{name}/call", authed(token, handleToolCall))
-	mux.HandleFunc("GET "+commandsPrefix, authed(token, handleCommandList))
-	mux.HandleFunc("POST "+commandsPrefix+"/{name}/call", authed(token, handleCommandCall))
 	mux.HandleFunc("/api", authed(token, methodNotAllowed(http.MethodGet)))
 	mux.HandleFunc("/apis", authed(token, methodNotAllowed(http.MethodGet)))
 	mux.HandleFunc("/openapi/v3", authed(token, methodNotAllowed(http.MethodGet)))
 	mux.HandleFunc(toolsPrefix, authed(token, methodNotAllowed(http.MethodGet)))
 	mux.HandleFunc(toolsPrefix+"/{name}/call", authed(token, methodNotAllowed(http.MethodPost)))
-	mux.HandleFunc(commandsPrefix, authed(token, methodNotAllowed(http.MethodGet)))
-	mux.HandleFunc(commandsPrefix+"/{name}/call", authed(token, methodNotAllowed(http.MethodPost)))
 	return mux
 }
 
@@ -92,7 +88,6 @@ func handleGroups(w http.ResponseWriter, _ *http.Request) {
 		APIVersion: versionV1,
 		Groups: []apiGroup{
 			groupDoc(groupTools),
-			groupDoc(groupCommands),
 		},
 	})
 }

@@ -20,7 +20,6 @@ package llm
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/tmc/langchaingo/llms"
 	"gopkg.in/yaml.v3"
@@ -175,24 +174,4 @@ func CloudModelIDs() []string {
 		ids[i] = m.ID
 	}
 	return ids
-}
-
-// BuildProviderStatus returns a map from backend name to true when that
-// provider is usable: its API key env var is set to a non-empty value.
-// A model that declares no EnvVar is treated as ready.
-func BuildProviderStatus() map[string]bool {
-	seen := make(map[string]bool)
-	status := make(map[string]bool)
-	for _, m := range KnownCloudModels {
-		if seen[m.Backend] {
-			continue
-		}
-		seen[m.Backend] = true
-		if m.EnvVar == "" {
-			status[m.Backend] = true
-			continue
-		}
-		status[m.Backend] = os.Getenv(m.EnvVar) != ""
-	}
-	return status
 }

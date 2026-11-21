@@ -19,7 +19,6 @@
 package llm
 
 import (
-	"os"
 	"testing"
 )
 
@@ -101,41 +100,6 @@ func TestCloudModelIDs_MatchCatalog(t *testing.T) {
 	for i, id := range ids {
 		if id != KnownCloudModels[i].ID {
 			t.Errorf("index %d: got %q, want %q", i, id, KnownCloudModels[i].ID)
-		}
-	}
-}
-
-func TestBuildProviderStatus_DetectsSetKey(t *testing.T) {
-	// Pick the first model's env var and set it.
-	m := KnownCloudModels[0]
-	prev := os.Getenv(m.EnvVar)
-	t.Setenv(m.EnvVar, "sk-test")
-	defer func() { _ = os.Setenv(m.EnvVar, prev) }()
-
-	status := BuildProviderStatus()
-	if !status[m.Backend] {
-		t.Errorf("expected %q to be ready when %s is set", m.Backend, m.EnvVar)
-	}
-}
-
-func TestBuildProviderStatus_FalseWhenUnset(t *testing.T) {
-	// Ensure a known env var is unset.
-	m := KnownCloudModels[0]
-	prev := os.Getenv(m.EnvVar)
-	_ = os.Unsetenv(m.EnvVar)
-	defer func() { _ = os.Setenv(m.EnvVar, prev) }()
-
-	status := BuildProviderStatus()
-	if status[m.Backend] {
-		t.Errorf("expected %q to be not ready when %s is unset", m.Backend, m.EnvVar)
-	}
-}
-
-func TestBuildProviderStatus_CoversAllBackends(t *testing.T) {
-	status := BuildProviderStatus()
-	for _, m := range KnownCloudModels {
-		if _, ok := status[m.Backend]; !ok {
-			t.Errorf("BuildProviderStatus missing backend %q", m.Backend)
 		}
 	}
 }

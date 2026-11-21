@@ -5,7 +5,7 @@ kdeps agent or workflow. Build it one time (Docker, ISO, or Kubernetes). Each kd
 network connects to it over `/v1`.
 
 ```bash
-kdeps llm wizard          # pick engine + model, then build/run/export
+kdeps llm run --engine ollama --model llama3.2 -p 8000   # build and run one engine and model
 ```
 
 **Not this?** `kdeps llm` deploys *only* the model server. To package an agent
@@ -15,7 +15,7 @@ see [Local models](/start/local-models).
 
 ---
 
-Serves workflow hosts, the [coding CLI](/agent/), and the [desktop app](/desktop/). On each client, set `backend: openai` and `base_url` under `llm:`. `models:` names one model or several.
+Serves workflow hosts. On each host, set `backend: openai` and `base_url` under `llm:`. `models:` names one model or several.
 
 ## How it fits
 
@@ -41,18 +41,6 @@ E -> F: serve
 ## Commands
 
 No workflow path argument - select engine and model only.
-
-### Interactive wizard (TUI)
-
-On a terminal, pick engine -> harvest model -> GPU -> action (build/run/export):
-
-```bash
-kdeps llm wizard
-# or bare:
-kdeps llm
-```
-
-Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Type to filter. Up/Down navigate. Enter selects. Esc cancels.
 
 ```bash
 # List stock + user recipes
@@ -111,9 +99,9 @@ export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
 
 Generate the same snippet with `kdeps llm client-config`.
 
-Chat resources in the workflow and in the REPL keep their `model:` field. Only the backend URL changes.
+Chat resources keep their `model:` field. Only the backend URL changes.
 
-To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. This is different from `KDEPS_LLM_BASE_URL`. It has priority over the `backend:` of a resource and the `--backend` of the session. It needs no API key, and kdeps starts no llamafile or ollama:
+To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. This is different from `KDEPS_LLM_BASE_URL`. It has priority over the `backend:` of a resource. It needs no API key, and kdeps starts no llamafile or ollama:
 
 ```bash
 export KDEPS_LLM_OVERRIDE_URL=http://127.0.0.1:8099   # POST /v1/chat/completions; the resource's model name is sent as is
@@ -235,8 +223,7 @@ Default: no auth (private networks - document the risk). Opt in with the recipe'
 ## See also
 
 - [Data sovereignty](/start/data-sovereignty) - prompts stay on your network
-- [Desktop app](/desktop/) - window client for this server
-- [Coding CLI](/agent/) - developer client for this server
+- [Agent loop](/agent/) - a chat that calls tools, on this server
 - [LLM backends](/workflow/resources/llm-backends) - client-side backend selection
 - [LLM commands](/llm-server/cli) - full CLI flag reference
 - [Docker deployment](/deploy/docker) - agent images (not appliances)

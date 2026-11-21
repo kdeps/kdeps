@@ -1,6 +1,6 @@
 # Efficiency enforcement
 
-The efficiency governor stops a model that only reads (`ls`, `read_file`, `grep`, read-only `bash`) and makes no output. It is part of kdeps, not a prompt hint. It works in a workflow `chat` (`harness.efficiency`, see [Answer quality](/workflow/quality)) and in the agent loop.
+The efficiency governor stops a model that only reads (`ls`, `read_file`, `grep`, read-only `bash`) and makes no output. It is part of kdeps, not a prompt hint. A workflow `chat` turns it on with `harness.efficiency: true`, with or without `loop:` (see [Answer quality](/workflow/quality)).
 
 ```d2
 direction: down
@@ -30,7 +30,7 @@ A turn also has a cap on all tool calls (`actions`) and on each category (`web`,
 
 ## The hidden channel
 
-The note goes to the model only. kdeps does not print it, and does not write it to history or sessions. `/prompt` removes it. `/efficiency verbose on` prints it to the terminal.
+The note goes to the model only. kdeps does not print it, and does not write it to history or sessions.
 
 ```text
 [kdeps-efficiency] Soft stop 1/3. Why: 6 read-only calls in a row with no output. Needed: your next
@@ -75,19 +75,7 @@ chat:
       - name: edit_file    # the governor applies only when the chat has an output tool
 ```
 
-## From the REPL
-
-The governor is on by default in the agent loop.
-
-```text
-/efficiency                            # state and every limit
-/efficiency on|off                     # switch (persists)
-/efficiency verbose on|off             # show the hidden channel (persists)
-/efficiency prompt auto|full|summary   # prompt mode (persists)
-/efficiency reads 4                    # one limit (persists); "off" removes it
-/efficiency preset frugal              # set every value from a preset
-/efficiency reset                      # shipped defaults
-```
+## Limits
 
 | Setting | Meaning | Default |
 |---|---|---|
@@ -100,7 +88,7 @@ The governor is on by default in the agent loop.
 
 ## Presets and events
 
-The `frugal`, `balanced` and `thorough` [presets](/agent/events-presets#presets) set every value. One `/efficiency <setting> <n>` then changes one value.
+The `frugal`, `balanced` and `thorough` [presets](/agent/events-presets#presets) set every value.
 
 | Preset | reads | actions | stops | failures | tighten | web | bash | file | code |
 |---|---|---|---|---|---|---|---|---|---|
@@ -108,7 +96,7 @@ The `frugal`, `balanced` and `thorough` [presets](/agent/events-presets#presets)
 | `balanced` | 6 | 30 | 3 | 5 | 1 | 5 | 8 | 10 | 6 |
 | `thorough` | 12 | 60 | 4 | 8 | off | 8 | 15 | 20 | 10 |
 
-Each value is an [event](/agent/events) in `~/.kdeps/events/`. [konfig](/agent/konfig) exports it.
+Each value is an [event](/agent/events) in `~/.kdeps/events/`.
 
 ```yaml
 # ~/.kdeps/events/efficiency-reads.yaml
@@ -118,10 +106,9 @@ on:
 run: block         # the governor reads this event; it is not fired as an action
 ```
 
-The governor is off with `/efficiency off`, under the `audit` and `explain` presets, and when no output tool is offered.
+The governor is off unless `harness.efficiency: true`. It is also off when no output tool is offered.
 
 ## See also
 
 - [Reactive LLM events](/agent/events) - the events that hold the limits
 - [LLM resource](/workflow/resources/llm#efficiency) - `harness.efficiency` and `harness.promptMode`
-- [REPL slash commands](/agent/commands)

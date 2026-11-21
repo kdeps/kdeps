@@ -54,7 +54,7 @@ import (
 //
 //nolint:gochecknoglobals // fixed list of set names
 var Sets = []string{
-	"harness", "events", "actions", "presets", "policy", "tools", "commands", "recipes",
+	"harness", "events", "actions", "presets", "policy", "tools", "recipes",
 	"models", "templates",
 	"docker", "k8s", "schemas", "defaults", "components", "providers", "memory", "knowledge", "codegraph",
 }

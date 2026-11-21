@@ -1,6 +1,6 @@
 # Judge panel
 
-The judge panel is the eval. A workflow chat sets it in `guardrails` (a [`judges:` list or `judges: auto`](/workflow/resources/llm#judges), see [Answer quality](/workflow/quality)). The agent REPL uses the same panel. It reviews an answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the session model unless you point it at another model.
+The judge panel is the eval. A workflow chat sets it in `guardrails` (a [`judges:` list or `judges: auto`](/workflow/resources/llm#judges), see [Answer quality](/workflow/quality)). It reviews an answer on its own. Roster generation and each judge use the [subagent channel](/agent/subagent). That is the chat's model unless `subagent:` under `llm:` names another one.
 
 Goal enforcement checks that the loop continues to move. It does not check if
 the final answer is correct. The panel is an independent review of that answer,
@@ -37,36 +37,9 @@ blank or a standard message.
 
 **kdeps makes the roster at the same time as the turn.** Auto-judges make one
 subagent call (the same synthetic JSON call that the loop uses for compaction).
-It starts with the turn, on the prompt as you typed it. It runs at the same
-time as prompt refinement, the planning council, and the turn. The REPL prints
-the panel when the answer is ready, immediately before the judges review it:
-
-```
-[judges] panel generated - 2 reviewer(s)
-  - correctness: every factual claim must be verifiable from the codebase
-  - security: no secrets, credentials, or unsafe shell input
-```
-
-The roster call can return nothing, because the model is not available or kdeps
-cannot parse its reply. In this condition, the REPL tells you. It does not skip
-the review silently:
-
-```
-[judges] no panel this turn - roster generation returned nothing
-```
-
-`/judges` (or `/judges list`) shows that last auto-generated panel. An
-explicit roster from `/judges add` still wins at review time and is not
-re-printed every turn.
-
-**You can see the review as it occurs.** A judge is a full tool-calling loop.
-For this reason, a review can take as long as a real turn. The REPL prints `[judge]` status
-lines, so the prompt is never silent:
-
-```
-[judge] reviewing output - correctness, security
-[judge] approved by correctness, security
-```
+It starts with the turn, on the prompt as written. It runs at the same time as
+prompt refinement, the planning council, and the turn. When the roster call
+returns nothing, the answer gets no review for that turn.
 
 or, on rejection:
 
@@ -103,33 +76,17 @@ for simple chat, as compaction does. A failure in the panel becomes an
 approval, so it does not stop the turn. Examples of failures are a judge
 that gives an error, has a timeout, or never calls `judge_verdict`.
 
-**Off until you turn it on.** The REPL, the desktop app and workflow chats start with no panel. `/judges auto on` turns the automatic roster on and remembers it; a workflow chat uses `guardrails.judges: auto`, with or without `loop:`. `/judges off` (or `/judges clear`) removes the roster and writes `auto_judges: false`. A roster that you configure (`/judges add` / `remove`) is only for the session and has priority over the generated roster.
+**Off until you turn it on.** A workflow chat starts with no panel. `guardrails.judges: auto` turns the automatic roster on, with or without `loop:`. A `judges:` list replaces the automatic roster.
 
 Library callers get no panel unless they set `Config.Judges` or `Config.AutoJudges`. When the agent calls a workflow or an agency as a tool, the panel reviews that turn's final answer. An agency started as its own agent loop gets the same default. `kdeps run` does not.
 
 **Graders** are part of a judge. They run on the answer first, in the process, with no model call. If a grader fails, it rejects the answer, and that judge does not start an LLM review. If the graders pass and the judge also has criteria, the judge uses `judge_verdict`. A judge with graders and no criteria never calls the model.
 
-The auto-generated roster stays criteria-only. Kinds: `exact`, `contains`, `not_contains`, `regex`, `json` (valid JSON, or equal to a JSON pattern), `expr` (`output` and `answer` are the candidate text). `/judges` prints them under that judge. `/judges off` drops them with the roster.
-
-**From the REPL**, use `/judges` to manage the same roster. You do not need a
-restart:
-
-```
-/judges                                        # show the current roster / auto-judges state
-/judges auto off                               # turn the panel off and store it
-/judges add correctness every claim must cite a source   # or: hand-configure an explicit roster instead
-/judges grade correctness contains workflow.yaml         # attach a grader to that judge
-/judges remove correctness                     # drop it again
-/judges clear                                  # disable the panel entirely
-```
+The auto-generated roster stays criteria-only. Kinds: `exact`, `contains`, `not_contains`, `regex`, `json` (valid JSON, or equal to a JSON pattern), `expr` (`output` and `answer` are the candidate text).
 
 ## Judge-panel presets
 
-A preset can carry a panel. Applying it replaces the session's judges and changes no limits. `design-review` ships with four reviewers for a design document or plan: `scope`, `clarity`, `failure-modes` and `readiness`, each with `read_file`, `list_files` and `search_local`.
-
-```text
-/harness preset design-review    # Applied preset "design-review": ..., judge panel of 4 for this session
-```
+A preset can carry a panel. A chat uses it with `judgePreset:` under `guardrails` (see [Judges](/workflow/resources/llm#judges)). `design-review` ships with four reviewers for a design document or plan: `scope`, `clarity`, `failure-modes` and `readiness`, each with `read_file`, `list_files` and `search_local`.
 
 Write your own as `~/.kdeps/presets/<name>.yaml`:
 
@@ -149,10 +106,6 @@ judges:
         pattern: TODO
 ```
 
-The panel lasts for the session, like `/judges add`.
-
 ## See also
 
-- [Agent mode](/agent/) - overview and starting the REPL
-- Goal-directed execution - the task cursor a judge's revision request feeds back into
-- [REPL slash commands](/agent/commands) - full command reference
+- [Agent loop](/agent/) - overview

@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"errors"
 	"strings"
 
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
@@ -170,31 +169,6 @@ func (l *Loop) prepareSubagentCall() (string, string, string, bool) {
 	return model, backend, baseURL, true
 }
 
-// SetSubagent stores the subagent channel. current uses the session model.
-// free picks a large OpenRouter free model per call. A catalog model is
-// stored as its model_id. Any other name is stored as given.
-func (l *Loop) SetSubagent(v string) error {
-	if l == nil {
-		return errors.New("no session")
-	}
-	switch normalizeSubagent(v) {
-	case "", subagentCurrent:
-		l.config.Subagent = subagentCurrent
-	case subagentFree:
-		l.config.Subagent = subagentFree
-	default:
-		id, backend := resolvePinnedSubagent(v)
-		if id == "" {
-			return errors.New("empty model")
-		}
-		// A catalog model is stored as its model_id. Calls and /subagent resolve
-		// that back to the API id.
-		l.config.Subagent = internalModelID(id, backend)
-	}
-	l.config.SubagentSet = true
-	return nil
-}
-
 func canonicalFreeID(spec string) (string, bool) {
 	spec = normalizeSubagent(spec)
 	if spec == "" || spec == subagentCurrent || spec == subagentFree {
@@ -206,44 +180,6 @@ func canonicalFreeID(spec string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// subagentSettingState is what /subagent prints. It does not pick a random model:
-// free stays a mode, and a pinned id is shown as itself.
-func subagentSettingState(l *Loop) map[string]any {
-	raw, model, backend := "", "", ""
-	if l != nil {
-		raw = strings.TrimSpace(l.config.Subagent)
-		model, backend = l.config.Model, l.config.Backend
-	}
-	switch normalizeSubagent(raw) {
-	case subagentFree:
-		model, backend = "", openrouterBackend
-		raw = subagentFree
-	case "", subagentCurrent:
-		raw = subagentCurrent
-	default:
-		id, b := resolvePinnedSubagent(raw)
-		if id != "" {
-			model = id
-		}
-		if b != "" {
-			backend = b
-		}
-		raw = model
-	}
-	return map[string]any{"value": raw, "model": model, "backend": backend}
-}
-
-// internalModelID is the catalog model_id for this API id and backend.
-// A name that is not in the catalog is stored unchanged.
-func internalModelID(id, backend string) string {
-	for _, m := range executorLLM.KnownCloudModels {
-		if strings.EqualFold(m.ID, id) && m.Backend == backend && m.ModelID != "" {
-			return m.ModelID
-		}
-	}
-	return id
 }
 
 // pickLargeFreeModel chooses one id from the larger half of the free catalog.

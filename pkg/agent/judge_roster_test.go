@@ -101,31 +101,6 @@ func TestResolveJudgeRoster_SkipsTrivialPrompt(t *testing.T) {
 	}
 }
 
-func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
-	var gotActionID string
-	eng := executor.NewEngine(context.Background(), nil)
-	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
-		gotActionID = wf.Metadata.TargetActionID
-		return `{"judges":[{"name":"correctness","criteria":"must be accurate"}]}`, nil
-	})
-	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{
-		Backend: "openai", AutoJudges: true,
-	}}
-	got := l.resolveJudgeRoster(
-		context.Background(),
-		"first do step one; then do step two; then verify it",
-	)
-	if len(got) != 1 || got[0].Name != "correctness" {
-		t.Fatalf("expected the generated roster, got %v", got)
-	}
-	if gotActionID != judgeRosterActionID {
-		t.Errorf("action id = %q, want %q", gotActionID, judgeRosterActionID)
-	}
-	if last := l.LastAutoRoster(); len(last) != 1 || last[0].Name != "correctness" {
-		t.Fatalf("LastAutoRoster = %v, want the generated panel", last)
-	}
-}
-
 func TestGenerateJudgeRoster_FallsBackOnEngineError(t *testing.T) {
 	eng := executor.NewEngine(context.Background(), nil)
 	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
@@ -205,12 +180,6 @@ func TestReportJudgeRoster_PrefersConfigProgressWriter(t *testing.T) {
 	}
 }
 
-func TestLastAutoRoster_NilLoop(t *testing.T) {
-	if got := (*Loop)(nil).LastAutoRoster(); got != nil {
-		t.Fatalf("nil loop LastAutoRoster = %v, want nil", got)
-	}
-}
-
 // A JSON-mode reply the engine already decoded into a map still yields the
 // roster (instrument session hunt11: a valid two-judge reply was reported as
 // "roster generation returned nothing").
@@ -224,5 +193,30 @@ func TestJSONResultText_DecodedObjectStillParses(t *testing.T) {
 	}
 	if jsonResultText("plain") != "plain" || jsonResultText(nil) != "" {
 		t.Error("text and nil results pass through")
+	}
+}
+
+func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
+	var gotActionID string
+	eng := executor.NewEngine(context.Background(), nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotActionID = wf.Metadata.TargetActionID
+		return `{"judges":[{"name":"correctness","criteria":"must be accurate"}]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{
+		Backend: "openai", AutoJudges: true,
+	}}
+	got := l.resolveJudgeRoster(
+		context.Background(),
+		"first do step one; then do step two; then verify it",
+	)
+	if len(got) != 1 || got[0].Name != "correctness" {
+		t.Fatalf("expected the generated roster, got %v", got)
+	}
+	if gotActionID != judgeRosterActionID {
+		t.Errorf("action id = %q, want %q", gotActionID, judgeRosterActionID)
+	}
+	if last := l.LastAutoRoster(); len(last) != 1 || last[0].Name != "correctness" {
+		t.Fatalf("LastAutoRoster = %v, want the generated panel", last)
 	}
 }

@@ -47,19 +47,10 @@ func TestRootWorkflowTarget(t *testing.T) {
 	assert.Equal(t, "workflow.yaml", got)
 }
 
-func TestChangedAgentLoopFlag(t *testing.T) {
+func TestRoot_AgentLoopFlagIsGone(t *testing.T) {
 	root := createRootCommand()
-	assert.Empty(t, changedAgentLoopFlag(root))
-	require.NoError(t, root.Flags().Set("model", "x"))
-	assert.Equal(t, "model", changedAgentLoopFlag(root))
-}
-
-func TestRoot_AgentLoopFlagWithoutAgentLoopIsAnError(t *testing.T) {
-	t.Chdir(t.TempDir())
-	root := createRootCommand()
-	require.NoError(t, root.Flags().Set("backend", "openrouter"))
-	err := root.RunE(root, nil)
-	require.EqualError(t, err, "--backend applies to the agent REPL: use kdeps --agent-loop --backend")
+	assert.Nil(t, root.Flags().Lookup("agent-loop"))
+	assert.Nil(t, root.Flags().Lookup("backend"))
 }
 
 func TestRoot_NothingToRunPrintsHelp(t *testing.T) {
@@ -73,5 +64,5 @@ func TestRoot_NothingToRunPrintsHelp(t *testing.T) {
 	require.NoError(t, f.Close())
 	data, err := os.ReadFile(out)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "kdeps --agent-loop [path] opens the agent REPL")
+	assert.Contains(t, string(data), "kdeps [path] runs the workflow at path")
 }

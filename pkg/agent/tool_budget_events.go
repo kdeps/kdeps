@@ -109,3 +109,11 @@ func validateToolBudget(ev Event) error {
 	}
 	return nil
 }
+
+func (c *convergenceCache) reset() {
+	c.mu.Lock()
+	c.m = make(map[string]string)
+	c.seen = make(map[string]struct{})
+	c.calls = 0
+	c.mu.Unlock()
+}

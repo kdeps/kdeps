@@ -2,13 +2,13 @@
 
 Before a task that needs a plan, a small council agrees on how to do the work. The turn then includes that plan. kdeps does not change the prompt that you typed.
 
-**Off by default.** A workflow chat turns it on with `harness.plan: true`, with or without `loop:` (see [Answer quality](/workflow/quality)). In the REPL, `/plan on` runs the council before each task, and kdeps remembers the setting. `/plan` shows the current choice. `/plan off` turns it off again.
+**Off by default.** A workflow chat turns it on with `harness.plan: true`, with or without `loop:` (see [Answer quality](/workflow/quality)).
 
 ```text
 your prompt -> [refine, if on] -> [council] -> turn, with the plan as a system message
 ```
 
-The council uses the [subagent channel](/agent/subagent): the session model, unless `/subagent` points it at another one. In some conditions, the turn runs on the prompt alone. These conditions are a short or simple prompt, a local model that does not run yet, or a council that makes no job orders. A failure has the same result.
+The council uses the [subagent channel](/agent/subagent): the chat's model, unless `subagent:` under `llm:` names another one. In some conditions, the turn runs on the prompt alone. These conditions are a short or simple prompt, a local model that does not run yet, or a council that makes no job orders. A failure has the same result.
 
 ## The board
 
@@ -36,19 +36,8 @@ One checkbox per job order, in priority order, then a progress log that only gro
 
 The path is also stored in memory under `plan-progress`. A later session that has not planned yet can keep updating that file: `plan_update` reads the memory entry and continues it.
 
-## From the REPL
-
-```text
-/plan            # show whether the council is on
-/plan on         # enable (persists across sessions)
-/plan off        # disable (persists across sessions)
-```
-
-kdeps writes the choice to `~/.kdeps/agent-loop-settings.yaml` and uses it again on the next `kdeps --agent-loop` run.
-
 ## See also
 
 - [Prompt refinement](/agent/refine) - the rewrite that runs first, when it is on
 - [Subagents](/agent/subagent) - the model the council members use
-- [REPL slash commands](/agent/commands) - full command reference
 - [Built-in tools](/agent/tools) - `plan_update` with the other tools

@@ -20,7 +20,7 @@ then reach for the rest as you need them.
 |---|---|---|
 | [Workflow](/workflow/) | A DAG of resources that runs in dependency order and returns a response; the one way to run kdeps | Workflow |
 | [Input sources](/workflow/input-sources) | How requests arrive: `api`, `bot`, `file`, `interactive` | Workflow |
-| [Agent loop](/agent/) | A `chat` with `loop:`: an LLM that calls tools over many rounds; `kdeps --agent-loop` opens it as a REPL | Agent |
+| [Agent loop](/agent/) | A `chat` with `loop:`: an LLM that calls tools over many rounds | Agent |
 | [Agencies](/agencies/) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
 | [Components](/agencies/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
 

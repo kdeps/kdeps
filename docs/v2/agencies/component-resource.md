@@ -4,7 +4,7 @@ The `component:` resource calls a reusable resource bundle - a registry componen
 
 ## Where it runs
 
-It runs in a workflow and in the REPL. See [Components](/agencies/components) for registry components, custom components, and how to build one.
+It runs in a workflow. See [Components](/agencies/components) for registry components, custom components, and how to build one.
 
 ## Basic usage
 

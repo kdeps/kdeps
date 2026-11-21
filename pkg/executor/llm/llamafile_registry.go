@@ -23,8 +23,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/spf13/afero"
-
 	"gopkg.in/yaml.v3"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
@@ -126,28 +124,6 @@ func ensureRegistryLoaded() {
 	}
 	llamafileRegistryLoaded = true
 	loadLlamafileRegistry()
-}
-
-// WriteLocalRegistry writes the user's own entries to
-// ~/.kdeps/llamafile_versions.yaml.
-func WriteLocalRegistry(entries []LlamafileEntry) error {
-	ensureRegistryLoaded()
-
-	v := llamafileVersions{Llamafiles: entries}
-
-	raw, err := yaml.Marshal(&v)
-	if err != nil {
-		return err
-	}
-
-	localPath := localRegistryPath()
-	if localPath == "" {
-		localPath = "llamafile_versions.yaml"
-	}
-	if mkdirErr := AppFS.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr != nil {
-		return mkdirErr
-	}
-	return afero.WriteFile(AppFS, localPath, raw, 0600)
 }
 
 // ReloadRegistry re-reads the registry (after `kdeps update models` or a

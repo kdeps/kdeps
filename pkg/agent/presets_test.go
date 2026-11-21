@@ -52,11 +52,6 @@ func TestPresetByName_KnownReturnsTrue(t *testing.T) {
 	assert.Equal(t, "frugal", p.Name)
 }
 
-func TestPresetNames_SortedAndComplete(t *testing.T) {
-	names := PresetNames()
-	assert.Equal(t, []string{"balanced", "design-review", "frugal", "thorough"}, names)
-}
-
 // isolateEventsAndPresetsHome mirrors isolateEventsHome/isolateActionsHome,
 // isolating both registries since ApplyPreset touches both.
 func isolateEventsAndPresetsHome(t *testing.T) {
@@ -117,51 +112,6 @@ description: a user-defined preset
 	assert.Equal(t, "a user-defined preset", p.Description)
 }
 
-func TestExportPresetEntries_IncludesBuiltins(t *testing.T) {
-	entries := exportPresetEntries()
-	names := make(map[string]bool, len(entries))
-	for _, p := range entries {
-		names[p.Name] = true
-	}
-	assert.True(t, names["frugal"])
-	assert.True(t, names["balanced"])
-	assert.True(t, names["thorough"])
-}
-
-func TestApplyPreset_UnknownReturnsError(t *testing.T) {
-	err := ApplyPreset("does-not-exist", nil)
-	assert.Error(t, err)
-}
-
-func TestApplyPreset_WritesEventsAndReloadsRegistry(t *testing.T) {
-	isolateEventsAndPresetsHome(t)
-
-	require.NoError(t, ApplyPreset("frugal", nil))
-
-	e, ok := EventByName("auto-compact")
-	require.True(t, ok)
-	assert.Equal(t, 8000, e.On.Tokens)
-
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	_, statErr := os.Stat(filepath.Join(home, ".kdeps", "events", "auto-compact.yaml"))
-	require.NoError(t, statErr)
-}
-
-func TestApplyPreset_BalancedResetsAfterFrugal(t *testing.T) {
-	isolateEventsAndPresetsHome(t)
-
-	require.NoError(t, ApplyPreset("frugal", nil))
-	e, ok := EventByName("auto-compact")
-	require.True(t, ok)
-	require.Equal(t, 8000, e.On.Tokens)
-
-	require.NoError(t, ApplyPreset("balanced", nil))
-	e, ok = EventByName("auto-compact")
-	require.True(t, ok)
-	assert.Equal(t, 30000, e.On.Tokens)
-}
-
 func TestParseYAMLPreset_ReadsJudges(t *testing.T) {
 	p, err := parseYAMLPreset([]byte(`name: panel
 judges:
@@ -181,32 +131,4 @@ func TestParseYAMLPreset_JudgeNeedsNameAndCriteria(t *testing.T) {
 	_, err := parseYAMLPreset([]byte("name: panel\njudges:\n  - name: scope\n"), "panel.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "judge 1")
-}
-
-// TestApplyPreset_DesignReviewSetsTheJudgePanel checks the shipped
-// design-review preset replaces the session's judges and changes no events.
-func TestApplyPreset_DesignReviewSetsTheJudgePanel(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	p, ok := PresetByName("design-review")
-	require.True(t, ok, "design-review ships")
-	assert.Empty(t, p.Events, "it changes no events")
-
-	l := newJudgeTestLoop(nil)
-	l.SetJudges([]domain.Judge{{Name: "old", Criteria: "x"}})
-	require.NoError(t, ApplyPreset("design-review", l))
-	names := []string{}
-	for _, j := range l.Judges() {
-		names = append(names, j.Name)
-		assert.Equal(t, []string{"read_file", "list_files", "search_local"}, j.Tools, j.Name)
-	}
-	assert.Equal(t, []string{"scope", "clarity", "failure-modes", "readiness"}, names)
-}
-
-func TestApplyPreset_WithoutJudgesKeepsThePanel(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	l := newJudgeTestLoop(nil)
-	l.SetJudges([]domain.Judge{{Name: "keep", Criteria: "x"}})
-	require.NoError(t, ApplyPreset("balanced", l))
-	require.Len(t, l.Judges(), 1)
-	assert.Equal(t, "keep", l.Judges()[0].Name)
 }

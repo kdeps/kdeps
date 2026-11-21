@@ -81,20 +81,6 @@ func loadSkills(extraPaths []string) string {
 	return formatSkillsForPrompt(loadSkillSlice(extraPaths))
 }
 
-// loadSkillSlice discovers and loads all skills from default locations and any
-// explicitly provided paths. Returns the raw slice of Skill structs.
-func loadSkillSlice(extraPaths []string) []Skill {
-	skills, _ := loadSkillSliceWithDirs(extraPaths)
-	return skills
-}
-
-// LoadSkillSlice is loadSkillSlice, exported for cmd/konfig.go's bare CLI
-// export path (kdeps konfig export), which has no running Loop/REPL to read
-// an already-loaded skillList from.
-func LoadSkillSlice(extraPaths []string) []Skill {
-	return loadSkillSlice(extraPaths)
-}
-
 // loadSkillSliceWithDirs is loadSkillSlice, additionally returning the skill
 // root directories that were walked (defaultSkillDirs plus any directory
 // extraPaths). Callers that need to re-walk the same roots -- e.g.
@@ -432,4 +418,11 @@ func relatedSkillNames(ig *graph.IndexedGraph, sk Skill, nameByPath map[string]s
 		names = append(names, name)
 	}
 	return names
+}
+
+// loadSkillSlice discovers and loads all skills from default locations and any
+// explicitly provided paths. Returns the raw slice of Skill structs.
+func loadSkillSlice(extraPaths []string) []Skill {
+	skills, _ := loadSkillSliceWithDirs(extraPaths)
+	return skills
 }

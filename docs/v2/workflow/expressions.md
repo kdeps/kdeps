@@ -1,6 +1,6 @@
 # Expressions
 
-Expressions pass data between resources, validate inputs, and run conditional logic, using [expr-lang](https://expr-lang.org/). They run across workflow resources, and inside any workflow the REPL calls as a tool.
+Expressions pass data between resources, validate inputs, and run conditional logic, using [expr-lang](https://expr-lang.org/). They run across workflow resources.
 
 ## Where expressions are used
 

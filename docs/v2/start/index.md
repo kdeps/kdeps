@@ -10,7 +10,7 @@ the model to call, the data to validate, and the shape of the answer. These
 files are the full specification. When you commit them, kdeps packages the
 workflow, its tools, and the model into one self-contained unit.
 
-You can run this unit as an HTTP API, a terminal REPL, a Docker image, a
+You can run this unit as an HTTP API, a bot, a terminal prompt, a Docker image, a
 Kubernetes deployment, a bootable ISO, or a single binary. All of these use the
 same `workflow.yaml`. You do not rewrite code, change the configuration, or
 import a framework.
@@ -41,8 +41,6 @@ line of configuration on the local machine. It is not part of the repository.
 a folder with workflow.yaml
         |
         +--  kdeps            ->  runs it: HTTP API, bot, file, or interactive prompt
-        |
-        +--  kdeps --agent-loop   ->  the agent REPL on that folder's workflow
 ```
 
 - A **resource** is one step - an LLM call, a shell command, a SQL query, an HTTP
@@ -53,17 +51,11 @@ a folder with workflow.yaml
 - An **input source** is how requests reach the workflow: `api`, `bot`, `file`, or
   `interactive` (a terminal prompt). See [Input sources](/workflow/input-sources).
 - An **agent** is a `chat` with [`loop:`](/workflow/resources/llm#agent-loop): the
-  model calls tools over many rounds. `kdeps --agent-loop` opens it as a REPL.
+  model calls tools over many rounds.
 
 The [Glossary](/reference/glossary) gives the definition of each kdeps term.
 
 ## The smallest working example
-
-No YAML needed. Run the binary:
-
-```bash
-kdeps --agent-loop   # an AI chat REPL against a local model, no API key
-```
 
 A minimal workflow is a folder with a manifest and two resources - one that
 calls the model, one that shapes the response:
@@ -86,7 +78,7 @@ chat:
   model:
     name: llama3.2:1b         # a local model, downloaded on first run
   context:
-    prompt: "{{ get('q') }}"   # 'q' comes from the HTTP request body or REPL input
+    prompt: "{{ get('q') }}"   # 'q' comes from the HTTP request body or the prompt
 ```
 
 </div>
@@ -104,7 +96,6 @@ apiResponse:
 
 ```bash
 kdeps run ./my-agent/     # run it once / serve it
-kdeps --agent-loop ./my-agent/         # or load it as a tool in the chat REPL
 ```
 
 ## Where to read next
@@ -112,7 +103,7 @@ kdeps --agent-loop ./my-agent/         # or load it as a tool in the chat REPL
 | You want to... | Read |
 |---|---|
 | Run the YAML as an API, a bot, or a file processor | [Workflow](/workflow/) |
-| Open a `chat` with `loop:` as a REPL | [Agent REPL](/agent/) |
+| Give a `chat` tools with `loop:` | [Agent loop](/agent/) |
 | Run several workflows as one system | [Agencies](/agencies/) |
 | Serve an OpenAI-compatible endpoint, with no workflow | [LLM server](/llm-server/) |
 | Ship the file as Docker, Kubernetes, an ISO, or a binary | [Deploy](/deploy/) |
@@ -126,6 +117,6 @@ step in building or running your own.
 | You want to... | Start here |
 |---|---|
 | Build a real HTTP API from YAML | [Quickstart](/workflow/quickstart) |
-| Run an AI agent locally right now | [Run locally in 30 seconds](/agent/quickstart) |
+| Run an AI agent locally right now | [Agent loop](/agent/) |
 | Understand why kdeps works this way | [Why kdeps?](/start/why-kdeps) |
 | See the full picture of every concept | [Concepts overview](/start/concepts) |

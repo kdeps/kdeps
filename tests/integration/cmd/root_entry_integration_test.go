@@ -47,17 +47,17 @@ func TestRootEntry_NoWorkflowPrintsHelp(t *testing.T) {
 	root.SetErr(&out)
 	root.SetArgs(nil)
 	require.NoError(t, root.Execute())
-	assert.Contains(t, out.String(), "kdeps --agent-loop [path] opens the agent REPL")
-	assert.Contains(t, out.String(), "--agent-loop")
+	assert.Contains(t, out.String(), "kdeps [path] runs the workflow at path")
+	assert.NotContains(t, out.String(), "--agent-loop")
 }
 
-func TestRootEntry_AgentFlagNeedsAgentLoop(t *testing.T) {
+func TestRootEntry_AgentLoopFlagIsUnknown(t *testing.T) {
 	rootEntryEnv(t)
 	root := cmd.NewRootCmd()
 	var out bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&out)
-	root.SetArgs([]string{"--resume", "abc"})
+	root.SetArgs([]string{"--agent-loop"})
 	err := root.Execute()
-	require.EqualError(t, err, "--resume applies to the agent REPL: use kdeps --agent-loop --resume")
+	require.EqualError(t, err, "unknown flag: --agent-loop")
 }

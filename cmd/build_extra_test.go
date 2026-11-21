@@ -131,7 +131,6 @@ func TestCobraRunEHandlers(t *testing.T) {
 			"new",
 			func() error { return newNewCmd().RunE(&cobra.Command{}, []string{"test-agent-" + t.Name()}) },
 		},
-		{"agent-loop", func() error { return runAgentLoopCmd(t.Context(), tmp, &agentLoopFlags{}) }},
 		{
 			"exec",
 			func() error { return newExecCmd().RunE(&cobra.Command{}, []string{"missing-agent"}) },

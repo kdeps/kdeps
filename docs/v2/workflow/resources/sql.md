@@ -4,7 +4,7 @@ The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/Mari
 
 ## Where it runs
 
-The workflow runs this resource as a step. In the REPL, that workflow is one tool.
+The workflow runs this resource as a step.
 
 ## Requirements
 

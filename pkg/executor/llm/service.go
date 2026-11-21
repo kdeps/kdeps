@@ -149,17 +149,6 @@ var isOllamaReachable = func(parent context.Context, baseURL string) bool {
 	return resp.StatusCode == stdhttp.StatusOK
 }
 
-// WaitForServerReady blocks until the server at baseURL is ready to serve
-// completions or ctx is canceled. It is a no-op when baseURL is empty.
-// Intended for callers that start a local server and need to confirm
-// readiness before forwarding user requests (e.g. the REPL after /model switch).
-func WaitForServerReady(ctx context.Context, baseURL string) {
-	if baseURL == "" {
-		return
-	}
-	WaitForCompletionsReadyFunc(ctx, baseURL)
-}
-
 // LocalServerEntry describes a running local model server.
 type LocalServerEntry struct {
 	Model   string // model name (e.g. "qwen2.5:7b-q2"), empty if unknown
@@ -168,42 +157,6 @@ type LocalServerEntry struct {
 	Port    int
 	PID     int
 	Healthy bool
-}
-
-// ListLocalServers returns all running llamafile and GGUF model servers
-// started by this process.
-func ListLocalServers(ctx context.Context) []LocalServerEntry {
-	var out []LocalServerEntry
-
-	servedLlamafilesMu.Lock()
-	for path, port := range servedLlamafiles {
-		pid := servedLlamafilePIDs[path]
-		out = append(out, LocalServerEntry{
-			Model:   servedLlamafileNames[path],
-			Path:    path,
-			Backend: BackendFile,
-			Port:    port,
-			PID:     pid,
-			Healthy: isHealthy(ctx, localServerURL(port)),
-		})
-	}
-	servedLlamafilesMu.Unlock()
-
-	servedGGUFsMu.Lock()
-	for path, port := range servedGGUFs {
-		pid := servedGGUFPIDs[path]
-		out = append(out, LocalServerEntry{
-			Model:   servedGGUFNames[path],
-			Path:    path,
-			Backend: BackendGGUF,
-			Port:    port,
-			PID:     pid,
-			Healthy: isHealthy(ctx, localServerURL(port)),
-		})
-	}
-	servedGGUFsMu.Unlock()
-
-	return out
 }
 
 // killModelRegistry holds the global state for a local model server backend.

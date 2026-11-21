@@ -385,24 +385,6 @@ func EventEnabled(name string) bool {
 	return !e.Disabled
 }
 
-// SetEventEnabled persists an event's enabled/disabled state to
-// ~/.kdeps/events/<name>.yaml (the same override-file mechanism konfig
-// import already uses) and reloads the in-process registry immediately, so
-// the change takes effect without a restart. Errors if name isn't a
-// registered event -- there's nothing to toggle otherwise.
-func SetEventEnabled(name string, enabled bool) error {
-	e, ok := EventByName(name)
-	if !ok {
-		return fmt.Errorf("events: unknown event %q", name)
-	}
-	e.Disabled = !enabled
-	if err := writeKonfigEvents([]Event{e}); err != nil {
-		return err
-	}
-	initEvents()
-	return nil
-}
-
 // disabledSentinel is what every eventX/effectiveX accessor below returns
 // for a disabled event, standing in for "this threshold can never
 // realistically be crossed." Every consumer of these accessors already
@@ -710,20 +692,19 @@ func autoCompactThresholdForCtxWindow(ctxWindow int) int {
 	return autoCompactTokens()
 }
 
-// exportEventEntries returns every registered event (built-in + user,
-// merged), for konfig export -- the full effective set, not a diff, the
-// same fidelity exportThemeEntries/harnessRegistry already provide.
-func exportEventEntries() []Event {
-	return mapValuesDeref(eventRegistry)
-}
-
-// mapValuesDeref returns a slice of dereferenced values from a
-// map[string]*T, in map iteration order. Shared by exportEventEntries/
-// exportActionEntries (actions.go).
-func mapValuesDeref[T any](m map[string]*T) []T {
-	out := make([]T, 0, len(m))
-	for _, v := range m {
-		out = append(out, *v)
+// SetEventEnabled persists an event's enabled/disabled state to
+// ~/.kdeps/events/<name>.yaml and reloads the in-process registry immediately, so
+// the change takes effect without a restart. Errors if name isn't a
+// registered event -- there's nothing to toggle otherwise.
+func SetEventEnabled(name string, enabled bool) error {
+	e, ok := EventByName(name)
+	if !ok {
+		return fmt.Errorf("events: unknown event %q", name)
 	}
-	return out
+	e.Disabled = !enabled
+	if err := writeUserEvents([]Event{e}); err != nil {
+		return err
+	}
+	initEvents()
+	return nil
 }

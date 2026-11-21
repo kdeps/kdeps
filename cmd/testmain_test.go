@@ -27,15 +27,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// The desktop runner tests start this test binary as the kdeps CLI.
-	if len(os.Args) > 1 && os.Args[1] == DesktopCLIFlag {
-		os.Args = append(os.Args[:1], os.Args[2:]...)
-		if err := Execute("test", "test"); err != nil {
-			_, _ = os.Stderr.WriteString(err.Error() + "\n")
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
 	if os.Getenv("KDEPS_API_AUTH_TOKEN") == "" {
 		_ = os.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
 	}
@@ -46,7 +37,7 @@ func TestMain(m *testing.M) {
 	// Isolate config loading from the developer's real ~/.kdeps/config.yaml:
 	// any test that runs a workflow applies config values to the process env
 	// (setIfUnset, e.g. KDEPS_DEFAULT_BACKEND), which leaks into every later
-	// test and breaks model auto-detection in the REPL tests.
+	// test and breaks model auto-detection.
 	var cfgTmp string
 	if os.Getenv("KDEPS_CONFIG_PATH") == "" {
 		if tmp, err := os.MkdirTemp("", "kdeps-test-config"); err == nil {

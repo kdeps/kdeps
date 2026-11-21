@@ -46,12 +46,6 @@ func TestStartControlAPI(t *testing.T) {
 	require.ErrorContains(t, err, "start kdeps api")
 }
 
-func TestRunAgentLoopCmd_APIListenFails(t *testing.T) {
-	t.Setenv("KDEPS_API_LISTEN", "bad-listen-addr")
-	err := runAgentLoopCmd(t.Context(), "", &agentLoopFlags{})
-	require.ErrorContains(t, err, "start kdeps api")
-}
-
 func TestRunWorkflowWithFlags_APIListenFails(t *testing.T) {
 	t.Setenv("KDEPS_API_LISTEN", "bad-listen-addr")
 	err := RunWorkflowWithFlags(&cobra.Command{}, []string{"ignored"}, &RunFlags{})

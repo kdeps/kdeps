@@ -52,9 +52,6 @@ func TestEveryToolParameterIsUsableFromItsComponent(t *testing.T) {
 	toolsDir := filepath.Join("..", "..", "assets", "tools")
 	compsDir := filepath.Join("..", "..", "assets", "components")
 	for name := range toolReg {
-		if sessionOnlyTool(name) {
-			continue
-		}
 		dirName := componentName(name)
 		var tool struct {
 			Parameters map[string]struct {
@@ -93,9 +90,6 @@ func TestEveryToolParameterIsUsableFromItsComponent(t *testing.T) {
 func TestEveryToolHasShippedComponent(t *testing.T) {
 	dir := filepath.Join("..", "..", "assets", "components")
 	for name := range toolReg {
-		if sessionOnlyTool(name) {
-			continue
-		}
 		dirName := componentName(name)
 		data, err := os.ReadFile(filepath.Join(dir, dirName, "component.yaml"))
 		require.NoError(t, err, "%s must ship a component", name)
@@ -185,9 +179,8 @@ func TestEveryShippedComponentCallsTheAPI(t *testing.T) {
 	}
 }
 
-// sessionOpsTools are the tools that live only in an agent session. The kdeps
-// API reaches each through the session_ops tool operation, whose asset names
-// them.
+// sessionOpsTools are the tools that live only in an agent session. The
+// chat loop registers each one itself; they have no kdeps API route.
 var sessionOpsTools = []string{ //nolint:gochecknoglobals // fixed list
 	"identity_get", "judge_verdict", "knowledge_card_get", "knowledge_card_update",
 	"knowledge_note_save", "knowledge_recall", "load_skill", "load_tools", "plan_update",
@@ -196,15 +189,13 @@ var sessionOpsTools = []string{ //nolint:gochecknoglobals // fixed list
 
 // TestEveryToolAssetHasAPIRoute guards the YAML side of the API contract: a
 // tool asset nobody can reach is dead weight. Every asset must be a served
-// Go tool, a session tool session_ops names, or declare its own
+// Go tool, a session tool of the chat loop, or declare its own
 // http:/exec:/sql:/python: spec.
 func TestEveryToolAssetHasAPIRoute(t *testing.T) {
 	dir := filepath.Join("..", "..", "assets", "tools")
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.NotEmpty(t, entries)
-	ops, err := os.ReadFile(filepath.Join(dir, "session_ops.yaml"))
-	require.NoError(t, err)
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
 			continue
@@ -214,7 +205,6 @@ func TestEveryToolAssetHasAPIRoute(t *testing.T) {
 			continue
 		}
 		if slices.Contains(sessionOpsTools, name) {
-			require.Contains(t, string(ops), name, "session_ops.yaml must name the session tool %s", name)
 			continue
 		}
 		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
@@ -240,12 +230,3 @@ func TestEveryAPIToolHasAnAsset(t *testing.T) {
 		require.NoError(t, err, "%s tool is served but has no assets/tools/%s.yaml", name, name)
 	}
 }
-
-// sessionOnlyTools are agent-session tools served on the tools routes. They read
-// or change the active agent session, so they have no workflow caller and ship
-// no component. session_ops also runs the tools that live only in a session.
-var sessionOnlyTools = map[string]bool{ //nolint:gochecknoglobals // fixed list
-	"session_ops": true,
-}
-
-func sessionOnlyTool(name string) bool { return sessionOnlyTools[name] }

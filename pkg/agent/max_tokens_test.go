@@ -235,53 +235,6 @@ func TestCompactWithLLM_MaxTokens_KnownCloudModel(t *testing.T) {
 	assert.Equal(t, executorLLM.ModelMaxOutputTokens("gpt-4o"), *captured.Resources[0].Chat.MaxTokens)
 }
 
-func TestSummarizeBranch_MaxTokens_LocalBackend(t *testing.T) {
-	orig := executorLLM.LocalContextSize()
-	executorLLM.SetLocalContextSize(16384)
-	t.Cleanup(func() { executorLLM.SetLocalContextSize(orig) })
-
-	var captured *domain.Workflow
-	eng := executor.NewEngine(context.Background(), nil)
-	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
-		captured = wf
-		return "## Goal\nx\n\n## Progress\n### Done\n- [x] y", nil
-	})
-	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:   "test-gguf",
-		Backend: executorLLM.BackendGGUF,
-	})
-	for range compactMinTurns * 2 {
-		loop.Session().Append("q", "a")
-	}
-
-	_, err := loop.SummarizeBranch(context.Background())
-	require.NoError(t, err)
-	require.NotNil(t, captured, "branch summary workflow was not captured")
-	require.NotNil(t, captured.Resources[0].Chat.MaxTokens)
-	assert.Equal(t, 16384, *captured.Resources[0].Chat.MaxTokens)
-}
-
-func TestSummarizeBranch_MaxTokens_UnknownCloudModel(t *testing.T) {
-	var captured *domain.Workflow
-	eng := executor.NewEngine(context.Background(), nil)
-	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
-		captured = wf
-		return "## Goal\nx\n\n## Progress\n### Done\n- [x] y", nil
-	})
-	loop := New(t.Context(), eng, newTestWorkflowForSession(), tools.NewRegistry(), Config{
-		Model:   "totally-custom-unlisted-model",
-		Backend: "openai",
-	})
-	for range compactMinTurns * 2 {
-		loop.Session().Append("q", "a")
-	}
-
-	_, err := loop.SummarizeBranch(context.Background())
-	require.NoError(t, err)
-	require.NotNil(t, captured, "branch summary workflow was not captured")
-	assert.Nil(t, captured.Resources[0].Chat.MaxTokens)
-}
-
 func TestGenerateJudgeRoster_MaxTokens_LocalBackend(t *testing.T) {
 	orig := executorLLM.LocalContextSize()
 	executorLLM.SetLocalContextSize(16384)

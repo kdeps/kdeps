@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/bodylimit"
 )
@@ -97,28 +96,6 @@ func TestCheckRequestBodySizePreflight_UnboundedBackend(t *testing.T) {
 	// Exceed openai limit: 30M tokens * 4 = 120 MB + overhead >> 100 MB
 	err = CheckRequestBodySizePreflight("openai", 30_000_000, 1000)
 	assert.Error(t, err)
-}
-
-func TestRequestSizePreflightWarnings(t *testing.T) {
-	warnings := RequestSizePreflightWarnings("dashscope")
-	require.Len(t, warnings, 1)
-	assert.Contains(t, warnings[0], "dashscope")
-	// xai's limit is 50 MB, above the 10 MB threshold; another backend's
-	// limit is not shown.
-	assert.Empty(t, RequestSizePreflightWarnings("xai"))
-	assert.Empty(t, RequestSizePreflightWarnings("groq"))
-}
-
-func TestRequestSizePreflightWarnings_UseTheEvents(t *testing.T) {
-	withEvent(t, Event{Name: eventProviderBodyLimitDashscope, On: EventTrigger{Bytes: 6_291_456}, Run: actionReject})
-	withEvent(t, Event{Name: eventProviderSmallThreshold, On: EventTrigger{Bytes: 10_000_000}, Run: actionReject})
-	assert.Len(t, RequestSizePreflightWarnings("dashscope"), 1, "a small limit warns")
-	assert.Empty(t, RequestSizePreflightWarnings("ollama"), "no limit, no warning")
-
-	withEvent(t, Event{
-		Name: eventProviderSmallThreshold, On: EventTrigger{Bytes: 10_000_000}, Run: actionReject, Disabled: true,
-	})
-	assert.Empty(t, RequestSizePreflightWarnings("dashscope"), "a disabled threshold warns about nothing")
 }
 
 func TestConfigureBodyLimit(t *testing.T) {

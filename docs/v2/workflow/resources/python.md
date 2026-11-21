@@ -4,7 +4,7 @@ The `python` component runs a Python script in a managed virtualenv and returns 
 
 It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `python` tool of the kdeps API. This tool runs the native Python executor. kdeps rejects a workflow that uses `python:` directly, as primary or in a `before:`/`after:` step.
 
-It runs as a workflow step. In the REPL, it runs inside the workflow when the model calls that workflow as a tool.
+It runs as a workflow step.
 
 ```d2
 direction: right

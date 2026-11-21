@@ -51,7 +51,7 @@ func TestAssetsFS_DownloadAndRemoveReachLoaders(t *testing.T) {
 
 func TestRequiredAssets_CannotBeRemoved(t *testing.T) {
 	root := t.TempDir()
-	for _, id := range []string{"commands/help", "harness/compaction-system", "tools/judge_verdict"} {
+	for _, id := range []string{"harness/compaction-system", "tools/judge_verdict"} {
 		assert.ErrorContains(t, assets.Remove(root, id), "required", id)
 	}
 	for _, name := range requiredHarness {
@@ -78,7 +78,7 @@ func TestAssetValidators_RejectBadDownloads(t *testing.T) {
 }
 
 func TestSourceFiles_HaveVersions(t *testing.T) {
-	for _, set := range []string{"harness", "events", "actions", "presets", "tools", "commands"} {
+	for _, set := range []string{"harness", "events", "actions", "presets", "tools"} {
 		items, err := assets.Items(set, t.TempDir())
 		require.NoError(t, err, set)
 		require.NotEmpty(t, items, set)

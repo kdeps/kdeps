@@ -1,6 +1,6 @@
 # Data access (get, set, input, request)
 
-`get()` and `set()` are the two functions you use for almost everything in kdeps. `input` and `request` are property-style shorthands for the incoming HTTP request. All of them work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `guardrails.check` conditions. `get()` and `set()` work in the workflow and in the REPL. `input` and `request` read the HTTP request, so they apply to that server.
+`get()` and `set()` are the two functions you use for almost everything in kdeps. `input` and `request` are property-style shorthands for the incoming HTTP request. All of them work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `guardrails.check` conditions. `get()` and `set()` work in every workflow. `input` and `request` read the HTTP request, so they apply to that server.
 
 ## get() - read any value
 

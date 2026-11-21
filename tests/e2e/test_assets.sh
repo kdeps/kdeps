@@ -107,18 +107,6 @@ else
     test_failed "assets - update --list source state" "$OUT"
 fi
 
-# The cloud model catalog is the models/cloud asset: an entry added there is
-# offered by /model list with no code change.
-printf '  # e2e\n  - id: "e2e-cloud-model"\n    backend: openai\n    desc: "e2e catalog entry"\n    envVar: OPENAI_API_KEY\n' \
-    >> "$AS_SRC/models/cloud.yaml"
-OUT=$(printf '/model list\n/quit\n' | HOME="$DEV_HOME" KDEPS_ASSETS_SRC="$AS_SRC" KDEPS_ASSETS_DIR="$DEV_HOME/store" \
-    KDEPS_ASSETS_URL=off OPENAI_API_KEY=e2e timeout 60 "$KDEPS_BIN" --agent-loop --new 2>&1 || true)
-if output_grep "e2e-cloud-model +e2e catalog entry" "$OUT"; then
-    test_passed "assets - a models/cloud entry appears in /model list"
-else
-    test_failed "assets - models/cloud entry missing from /model list" "$OUT"
-fi
-
 if ! command -v python3 >/dev/null 2>&1; then
     test_skipped "assets - python3 not available for the local asset server"
     return 0 2>/dev/null || exit 0

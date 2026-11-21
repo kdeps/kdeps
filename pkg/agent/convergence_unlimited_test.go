@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func resetConvergenceLimitsAfter(t *testing.T) {
@@ -49,25 +48,6 @@ func TestSetConvergenceLimits_ZeroLeavesLimitAlone(t *testing.T) {
 	SetConvergenceLimits(0, 0, 0, 0)
 	_, limit := WebConvergenceCalls()
 	assert.Equal(t, 7, limit)
-}
-
-func TestToolSetting_LimitZeroStoresUnlimited(t *testing.T) {
-	for _, name := range []string{"web-limit", "bash-limit", "file-limit", "code-limit"} {
-		var cfg Config
-		msg, errMsg := toolSettingAppliers[name](&cfg, "0")
-		require.Empty(t, errMsg)
-		assert.Contains(t, msg, "unlimited")
-		assert.Equal(t, unlimitedCallLimit, map[string]int{
-			"web-limit": cfg.WebLimit, "bash-limit": cfg.BashLimit,
-			"file-limit": cfg.FileLimit, "code-limit": cfg.CodeLimit,
-		}[name])
-	}
-}
-
-func TestCallLimitLabel(t *testing.T) {
-	assert.Equal(t, "unlimited", callLimitLabel(-1))
-	assert.Equal(t, "default", callLimitLabel(0))
-	assert.Equal(t, "12", callLimitLabel(12))
 }
 
 func TestPreamble_UnlimitedWebCallsDropsStopAfterN(t *testing.T) {

@@ -4,7 +4,7 @@ One `workflow.yaml` runs as an API, a bot, a file job, or a prompt. A `chat` wit
 
 ## The same file
 
-One `workflow.yaml` is the pipeline you deploy. `kdeps --agent-loop` opens a `chat` with `loop:` as a REPL, on a local model, with no Docker. The registry is optional. It shares agents by name. See [one workflow, any input](#one-workflow-any-input). The [where to read next](/start/#where-to-read-next) table names the other docs.
+One `workflow.yaml` is the pipeline you deploy. It runs on a local model, with no Docker. The registry is optional. It shares agents by name. See [one workflow, any input](#one-workflow-any-input). The [where to read next](/start/#where-to-read-next) table names the other docs.
 
 ---
 
@@ -74,7 +74,7 @@ prompt -> W
 W -> L: "when a step is an agent"
 ```
 
-kdeps validates the inputs, runs the resources in a fixed order, and gives predictable and auditable output. A step that needs judgment is a `chat` with `loop:`: the model calls tools over many rounds inside that one step. `kdeps --agent-loop` opens the same agent as a REPL.
+kdeps validates the inputs, runs the resources in a fixed order, and gives predictable and auditable output. A step that needs judgment is a `chat` with `loop:`: the model calls tools over many rounds inside that one step.
 
 Same `workflow.yaml`, no rewrites, no re-config.
 
@@ -129,13 +129,11 @@ kdeps uses two small open-source projects that the team develops with it. Both a
 | Project | What it does | Where kdeps uses it |
 |---|---|---|
 | [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library that resolves dependent nodes. | The link/topic graph for `search_local` `graphBoost` and skill-library linking when those files are outside the knowledge vault. Inside the vault, both read the vault graph. |
-| [kdeps/turo](https://github.com/kdeps/turo) | Reduces prose to its content words to cut LLM input tokens - "point more, token less." | The optional [prompt reducer](/agent/turo) for agent mode: when the `turo` binary is on `PATH`, kdeps pipes system preamble, input, tool results, and history through it before every model call. |
+| [kdeps/turo](https://github.com/kdeps/turo) | Reduces prose to its content words to cut LLM input tokens - "point more, token less." | The optional [prompt reducer](/agent/turo) for a chat: with `harness.turo: true` and the `turo` binary on `PATH`, kdeps pipes system preamble, input, tool results, and history through it before every model call. |
 
 ## See also
 
 - [Quickstart](/workflow/quickstart) - build your first workflow API
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Data sovereignty](/start/data-sovereignty) - your prompts stay on your servers
-- [Load a workflow as a tool](/workflow/as-a-tool) - the same file, called by the model
 - [Workflow](/workflow/) - the YAML pipeline
-- [Agent REPL](/agent/) - a chat with `loop:`
+- [Agent loop](/agent/) - a chat with `loop:`

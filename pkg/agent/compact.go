@@ -62,12 +62,6 @@ const (
 `
 	compactionSummarySuffix = `
 </summary>`
-
-	branchSummaryPrefix = `The following is a summary of a branch that this conversation came back from:
-
-<summary>
-`
-	branchSummarySuffix = `</summary>`
 )
 
 // normalizeCompactionSummary drops a leading "Summary" title and any section
@@ -188,38 +182,6 @@ func filterSectionBody(lines []string) string {
 		kept = append(kept, line)
 	}
 	return strings.TrimSpace(strings.Join(kept, "\n"))
-}
-
-// summaryPreview is the one line shown after auto-compact. Headings are
-// skipped so the line is the goal sentence, not "## Goal".
-func summaryPreview(summary string) string {
-	summary = normalizeCompactionSummary(summary)
-	var b strings.Builder
-	for _, line := range strings.Split(summary, "\n") {
-		t := strings.TrimSpace(line)
-		if t == "" || strings.HasPrefix(t, "#") {
-			continue
-		}
-		b.WriteString(t)
-		b.WriteByte('\n')
-	}
-	return firstLine(b.String())
-}
-
-// formatFileOperations formats file read/modified lists as XML summary metadata.
-// Mirrors pi's formatFileOperations() from compaction/utils.ts.
-func formatFileOperations(readFiles, modifiedFiles []string) string {
-	if len(readFiles) == 0 && len(modifiedFiles) == 0 {
-		return ""
-	}
-	var parts []string
-	if len(readFiles) > 0 {
-		parts = append(parts, "<read-files>\n"+strings.Join(readFiles, "\n")+"\n</read-files>")
-	}
-	if len(modifiedFiles) > 0 {
-		parts = append(parts, "<modified-files>\n"+strings.Join(modifiedFiles, "\n")+"\n</modified-files>")
-	}
-	return "\n\n" + strings.Join(parts, "\n\n")
 }
 
 // estimateTokens returns the token count for a session message using tiktoken

@@ -66,26 +66,6 @@ func init() {
 		Required: requiredTools,
 		Context:  toolContext,
 	})
-	assets.Register("commands", assets.Spec{
-		Validate: func(data []byte, name string) error {
-			_, err := parseYAMLCommand(data, name)
-			return err
-		},
-		Required: requiredCommands,
-	})
-}
-
-// requiredCommands are the command files every agent loop keeps: the
-// commands to get help, switch model, manage the session and install more,
-// and the former built-ins that are now YAML (a YAML command exists only
-// when its file is installed). Every other built-in command still runs
-// without its file; installing the file lists it in /help and completion.
-//
-//nolint:gochecknoglobals // fixed list
-var requiredCommands = []string{
-	"help", "exit", "clear", "model", "compact", "session", "settings", "update",
-	"fold", "memory", "skills", "prompts", "reload", "judges", "harness", "efficiency", "recall", "knowledge",
-	"prompt", "search", "context", "konfig", "kartographer",
 }
 
 // requiredHarness are the standalone prompts that compaction, judges and
@@ -103,8 +83,8 @@ var requiredHarness = []string{
 // installed the assets: a tool without its definition is not offered to the
 // model, so these are what a minimum install can work with. They are the
 // file, shell, search, memory and knowledge tools, and the loop's own
-// control tools (without those, judges cannot finish), and session_ops, which /clear, /compact, /history and /copy run. Web, code-intelligence, team and other tools are installed with
-// the tools set, or one by one (kdeps install tools/<name>).
+// control tools (without those, judges cannot finish). Web,
+// code-intelligence, team and other tools are installed with the tools set, or one by one (kdeps install tools/<name>).
 //
 //nolint:gochecknoglobals // fixed list
 var requiredTools = []string{
@@ -113,7 +93,7 @@ var requiredTools = []string{
 	"memory_save", "memory_search", "memory_query", "memory_delete",
 	"knowledge_recall", "knowledge_card_get", "knowledge_card_update", "knowledge_note_save",
 	"load_skill", "load_tools", "identity_get",
-	"judge_verdict", "session_ops",
+	"judge_verdict",
 }
 
 // harnessContext is a harness entry's model-facing text: its body, unless

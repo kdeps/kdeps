@@ -4,7 +4,7 @@ The `git` component runs version-control operations (status, diff, log, show, br
 
 ## Where it runs
 
-The workflow runs this resource as a step. In the REPL, that workflow is one tool.
+The workflow runs this resource as a step.
 
 ## Requirements
 

@@ -37,19 +37,10 @@ These appliances serve OpenAI-compatible /v1 endpoints. Point any kdeps host at 
 with backend: openai and base_url (see: kdeps llm client-config).
 
 Unlike bundle/export for agents, llm commands do not take a workflow path —
-select an engine recipe and model only.
-
-With no subcommand on a TTY, launches the interactive wizard (same as: kdeps llm wizard).`,
+select an engine recipe and model only.`,
 		Args: cobra.NoArgs,
-		RunE: func(c *cobra.Command, _ []string) error {
-			// Bare "kdeps llm" → wizard on TTY, else help.
-			if isInteractiveTTY() {
-				return runLLMWizard(c)
-			}
-			return c.Help()
-		},
+		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
-	cmd.AddCommand(newLLMWizardCmd())
 	cmd.AddCommand(newLLMListCmd())
 	cmd.AddCommand(newLLMModelsCmd())
 	cmd.AddCommand(newLLMShowCmd())

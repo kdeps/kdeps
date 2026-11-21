@@ -6,7 +6,7 @@ It is a kdeps component from the `components` asset set. Call it with a `compone
 
 ## Where it runs
 
-The workflow runs this component as a step. In the REPL, the same tool is `ocr_image`, a [declared exec tool](/agent/tools#declared-exec-tools). The component and the REPL call the same route.
+The workflow runs this component as a step. In a chat loop, the same tool is `ocr_image`, a [declared exec tool](/agent/tools#declared-exec-tools). The component and the tool call the same route.
 
 ## Requirements
 

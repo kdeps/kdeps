@@ -72,18 +72,6 @@ Refreshes the OpenRouter free-model catalog (`assets/models/openrouter.yaml`) fr
 2. Select "Harvest OpenRouter" workflow
 3. Click "Run workflow"
 
-### bug-hunt.yml
-**Trigger**: Daily at 7:30 AM UTC, Manual via workflow_dispatch
-
-Runs `/auto-improve` through the kdeps binary on an OpenRouter free model from `assets/models/openrouter.yaml`. The try order is shuffled. Each task and each evaluate turn jumps to another free model at random, and a provider 429 during the capture does the same. Free-model requests wait so they stay under the account per-minute cap. An account 429 waits out the minute and retries the same id. The command files one GitHub issue. If the process dies before printing the issue URL, the job files it. A session that does not finish tries another id, up to four. When the tree has edits, the job pushes branch `bot/bug-hunt-<timestamp>` and opens a pull request with auto-merge. The merge waits for the required checks. An open bug-hunt pull request blocks a second one. No edits ends the job without a pull request. The issue is still filed.
-
-Checkout and `gh` use `RELEASE_TOKEN`, so the pull request starts Build and Test. `OPENROUTER_API_KEY` is the OpenRouter key.
-
-**Manual Trigger**:
-1. Go to Actions tab in GitHub
-2. Select "Bug Hunt" workflow
-3. Click "Run workflow"
-
 ### docs.yml
 **Trigger**: Push to main (docs changes), Manual
 
@@ -94,11 +82,8 @@ Builds and deploys the documentation site.
 The workflows require the following secrets to be configured in the repository:
 
 - `RELEASE_TOKEN`: Personal Access Token with repo and packages write permissions
-  - Used by: release.yml, nightly-release.yml, harvest-openrouter.yml, bug-hunt.yml
+  - Used by: release.yml, nightly-release.yml, harvest-openrouter.yml
   - Purpose: Push commits, create releases, trigger other workflows
-- `OPENROUTER_API_KEY`: OpenRouter API key
-  - Used by: bug-hunt.yml
-  - Purpose: The daily `/auto-improve` session, including the GitHub issue it files
 
 ## Best Practices
 

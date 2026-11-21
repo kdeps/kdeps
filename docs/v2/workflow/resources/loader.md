@@ -4,7 +4,7 @@ The `load_document` component reads a file, URL, or directory into structured `D
 
 It is a kdeps component from the `components` asset set. Call it with a `component:` resource. You do not install it. It calls the `load_document` tool of the kdeps API. This tool runs the native loader executor. kdeps rejects a workflow that uses `loader:` directly, as primary or in a `before:`/`after:` step.
 
-It runs as a workflow step. In the REPL, the same job is the `load_document` tool.
+It runs as a workflow step. In a chat loop, the same job is the `load_document` tool.
 
 ```d2
 direction: right

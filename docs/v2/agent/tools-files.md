@@ -1,6 +1,6 @@
 # File tools
 
-`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent REPL with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)) and run on the system python. Before the tool runs, kdeps compares each path argument with `KDEPS_WORKSPACE_ROOT` and the root-directory guard.
+`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent loop with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/agent/tools#tool-definitions)) and run on the system python. Before the tool runs, kdeps compares each path argument with `KDEPS_WORKSPACE_ROOT` and the root-directory guard.
 
 kdeps permits paths under `~/.kdeps` and `/tmp` with no prompt, also when the workspace root is a different folder. On Windows, the permitted temp directory is the process temp directory. kdeps blocks a directory that has only the same name, and it always blocks `/`. kdeps converts a relative path to the absolute path in the working directory. Then it checks that path and gives it to the script.
 

@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -39,7 +38,6 @@ import (
 )
 
 const (
-	binaryCheckBytes = 512 // bytes to scan for binary detection
 	// argMaxBytes carries the file-read-limit event's cap to the read_file
 	// and write_file scripts; the model never sees it.
 	argMaxBytes = "max_bytes"
@@ -656,15 +654,6 @@ func registerBashJobList(ctx context.Context, reg *kdepstools.Registry) {
 
 func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
 	registerAPITool(ctx, reg, "bash_job_wait", api.BashJobWait)
-}
-
-// isBinaryContent reports whether data appears to be binary by scanning for NUL bytes.
-func isBinaryContent(data []byte) bool {
-	check := data
-	if len(check) > binaryCheckBytes {
-		check = check[:binaryCheckBytes]
-	}
-	return bytes.IndexByte(check, 0) >= 0
 }
 
 // validateWorkspaceBoundary checks that path stays within KDEPS_WORKSPACE_ROOT when set.

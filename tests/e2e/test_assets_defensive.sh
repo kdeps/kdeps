@@ -125,27 +125,11 @@ fi
 
 # --- installing a set the profile left empty ---------------------------------------
 ad "$H" "$KDEPS_BIN" profile minimum >/dev/null
-mkdir -p "$H/work"
-printf '/quit\n' | (cd "$H/work" && env HOME="$H" USERPROFILE="$H" KDEPS_ASSETS_SRC='' KDEPS_ASSETS_DIR="$H/store" \
-    KDEPS_ASSETS_URL="http://127.0.0.1:$AD_PORT" KDEPS_CONFIG_PATH="$H/config.yaml" timeout 120 "$KDEPS_BIN" --agent-loop --new >/dev/null 2>&1)
 OUT=$(ad "$H" "$KDEPS_BIN" install events)
-OUT2=$(printf '/harness events\n/quit\n' | (cd "$H/work" && env HOME="$H" USERPROFILE="$H" KDEPS_ASSETS_SRC='' \
-    KDEPS_ASSETS_DIR="$H/store" KDEPS_ASSETS_URL=off KDEPS_CONFIG_PATH="$H/config.yaml" timeout 120 "$KDEPS_BIN" --agent-loop --new 2>&1))
-if nopanic "$OUT" && [ -n "$(find "$H/store/events" -name '*.yaml' 2>/dev/null)" ] && output_grep "auto-compact" "$OUT2"; then
-    test_passed "assets defensive - a set the profile left empty installs on request and loads"
+if nopanic "$OUT" && [ -n "$(find "$H/store/events" -name '*.yaml' 2>/dev/null)" ]; then
+    test_passed "assets defensive - a set installs on request"
 else
-    test_failed "assets defensive - install an empty-on-purpose set" "$OUT | $OUT2"
-fi
-
-# Former built-ins that are now YAML commands stay in the minimum profile: their
-# files are required.
-OUT3=$(printf '/fold\n/memory\n/skills\n/prompts\n/reload\n/harness\n/quit\n' | (cd "$H/work" && env HOME="$H" USERPROFILE="$H" KDEPS_ASSETS_SRC='' \
-    KDEPS_ASSETS_DIR="$H/store" KDEPS_ASSETS_URL=off KDEPS_CONFIG_PATH="$H/config.yaml" timeout 120 "$KDEPS_BIN" --agent-loop --new 2>&1))
-if nopanic "$OUT3" && ! output_grep_fixed "Unknown command" "$OUT3" && output_grep_fixed "threshold:" "$OUT3" \
-    && output_grep_fixed "Reloaded skills" "$OUT3"; then
-    test_passed "assets defensive - the minimum profile keeps the former built-in commands"
-else
-    test_failed "assets defensive - former built-ins in the minimum profile" "$OUT3"
+    test_failed "assets defensive - install a set on request" "$OUT"
 fi
 
 # --- kdeps info for unknown assets ------------------------------------------------------
