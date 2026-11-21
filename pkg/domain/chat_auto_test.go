@@ -38,10 +38,6 @@ context:
   prompt: hi
   contextLength: auto
 harness:
-  refine: true
-  plan: true
-  turo: true
-  efficiency: true
   promptMode: summary
 tools:
   list: auto
@@ -59,10 +55,6 @@ loop:
 	assert.Empty(t, c.Tools)
 	assert.True(t, c.JudgesAuto)
 	require.NotNil(t, c.Loop)
-	assert.True(t, c.Refine)
-	assert.True(t, c.Plan)
-	assert.True(t, c.Turo)
-	assert.True(t, c.Efficiency)
 	assert.Equal(t, "summary", c.PromptMode)
 }
 

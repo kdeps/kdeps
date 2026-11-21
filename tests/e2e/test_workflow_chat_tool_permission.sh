@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# E2E: chat.refine rewrites a workflow chat's prompt with the refine-system
-# harness before the real call, which then answers the rewrite. A chat
-
 # E2E: a workflow chat's kdeps tool calls pass the permission policy, as the
 # agent loop's do: in a read-only run (KDEPS_PERMISSION_MODE=read-only) a
 # write_file call is refused and the file is not written.

@@ -291,7 +291,7 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "chat refine",
+			name: "chat harness refine is not a key",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -306,27 +306,6 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					},
 					"harness": map[string]interface{}{
 						"refine": true,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "chat refine must be a boolean",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"actionId":   "chat-action",
-				"name":       "Chat",
-				"chat": map[string]interface{}{
-					"model": map[string]interface{}{
-						"name": "m",
-					},
-					"context": map[string]interface{}{
-						"prompt": "p",
-					},
-					"harness": map[string]interface{}{
-						"refine": "yes",
 					},
 				},
 			},

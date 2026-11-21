@@ -37,8 +37,7 @@ blank or a standard message.
 
 **kdeps makes the roster at the same time as the turn.** Auto-judges make one
 subagent call (the same synthetic JSON call that the loop uses for compaction).
-It starts with the turn, on the prompt as written. It runs at the same time as
-prompt refinement, the planning council, and the turn. When the roster call
+It starts with the turn, on the prompt as written. It runs at the same time as the turn. When the roster call
 returns nothing, the answer gets no review for that turn.
 
 or, on rejection:

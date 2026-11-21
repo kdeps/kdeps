@@ -23,7 +23,6 @@
 package failbrief
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -48,19 +47,16 @@ const (
 	defaultFailures     = 5
 	defaultContextBytes = 6000
 	defaultDirEntries   = 40
-	defaultErrorBytes   = 1500
 	editFileTool        = "edit_file"
 )
 
-// Settings are the limits a brief reads, installed by agent mode at startup
-// from the efficiency-failures, failure-context-bytes, failure-dir-entries
-// and failure-error-bytes events. A nil field or a value below 1 uses the
+// Settings are the limits a brief reads, installed at startup from the
+// failure-briefs, failure-context-bytes and failure-dir-entries events. A nil field or a value below 1 uses the
 // default.
 type Settings struct {
 	Failures     func() int
 	ContextBytes func() int
 	DirEntries   func() int
-	ErrorBytes   func() int
 }
 
 //nolint:gochecknoglobals // installed once at startup, read on every failure
@@ -88,34 +84,6 @@ func limit(pick func(*Settings) func() int, fallback int) int {
 // (workflow) get a brief.
 func Failures() int {
 	return limit(func(s *Settings) func() int { return s.Failures }, defaultFailures)
-}
-
-// ErrorText returns the message inside a {"error":...} result, or the result
-// itself when it is not that shape.
-func ErrorText(result string) string {
-	var m map[string]any
-	if json.Unmarshal([]byte(result), &m) == nil {
-		if s, ok := m["error"].(string); ok && s != "" {
-			return s
-		}
-	}
-	return result
-}
-
-// Quote quotes an error, cut to the failure-error-bytes limit.
-func Quote(s string) string {
-	s = strings.TrimSpace(s)
-	if n := limit(func(s *Settings) func() int { return s.ErrorBytes }, defaultErrorBytes); len(s) > n {
-		s = truncateUTF8(s, n) + "..."
-	}
-	return fmt.Sprintf("%q", s)
-}
-
-func truncateUTF8(s string, n int) string {
-	for n > 0 && !utf8.RuneStart(s[n]) {
-		n--
-	}
-	return s[:n]
 }
 
 // FileContext returns what a model needs to fix a failed call on a file: the

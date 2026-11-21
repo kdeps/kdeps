@@ -25,11 +25,6 @@ package agent
 // and optional RAG retrieval. No bash_exec, no MCP, no external API tools.
 // Presets map to permission modes: Audit/Explain = ReadOnly, Implement = WorkspaceWrite.
 
-import (
-	"os"
-	"strings"
-)
-
 // AgentPreset defines the available presets for lean agent mode.
 //
 //nolint:revive // stutter is intentional — Preset alone is ambiguous at package boundary.
@@ -43,15 +38,3 @@ const (
 	// PresetImplement allows read+write operations for code implementation.
 	PresetImplement AgentPreset = "implement"
 )
-
-// resolvePreset checks KDEPS_AGENT_PRESET env var and returns the preset.
-// Returns empty string and false when no preset is configured.
-func resolvePreset() (AgentPreset, bool) {
-	raw := strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_AGENT_PRESET")))
-	switch AgentPreset(raw) {
-	case PresetAudit, PresetExplain, PresetImplement:
-		return AgentPreset(raw), true
-	default:
-		return "", false
-	}
-}

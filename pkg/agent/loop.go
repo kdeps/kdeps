@@ -328,7 +328,6 @@ var activeLoop *Loop
 type Loop struct {
 	ctx               context.Context
 	knowledge         *knowledgeState // nil when no vault is configured
-	plan              *planState      // the current task's council plan; nil before one
 	knowledgeOff      bool            // /knowledge off
 	knowledgeBuild    string          // /knowledge build; empty until that command is saved
 	knowledgeBuildSet bool
@@ -432,8 +431,6 @@ type Loop struct {
 	// (e.g. folding system-role messages for chat templates that reject
 	// them). Read by the REPL's /prompt command; overwritten on every call.
 	lastSentMessages []map[string]interface{}
-	// eff is the efficiency-enforcement ledger (efficiency.go).
-	eff effLedger
 	// lastSentTools holds the exact tool definitions included in the most
 	// recent outgoing LLM request. Tools are a separate top-level request
 	// field, not part of lastSentMessages. Read by the REPL's /prompt command.
@@ -511,7 +508,6 @@ func (l *Loop) recordToolCall(name, args, result string) {
 // never does, so side loops can be built in parallel.
 func (l *Loop) becomeSessionLoop() {
 	activeLoop = l
-	l.registerPlanTool()
 	l.registerToolLoader()
 	l.registerIdentityTool()
 	l.registerSubagentTool()
@@ -1054,20 +1050,8 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	rosterReady := l.startJudgeRoster(ctx, input)
 	l.askedThisTurn = false
 
-	// Pre-turn prompt refinement: rewrite a terse or under-specified prompt
-	// into a clearer, self-contained version and run the turn on that. The
-	// refined string replaces input everywhere below (preamble, chat config,
-	// session history). It runs while the roster call is in flight.
-	input = l.applyPromptRefine(ctx, input, w)
-	// The planning council turns the (refined) task into a sorted plan the
-	// turn carries as a system message; the session keeps the task as typed.
-	planNote := l.applyPlanCouncil(ctx, input, w)
-
 	systemPreamble := l.cachedSystemPreamble()
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
-	if planNote != "" {
-		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: planNote})
-	}
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && overflow.Is(err) {
@@ -1274,7 +1258,6 @@ func (l *Loop) runToolRounds(
 	l.lastWorkFailure = nil
 	l.pendingEdit = nil
 	l.toolBudgets.reset()
-	l.efficiencyBeginTurn(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1287,9 +1270,6 @@ func (l *Loop) runToolRounds(
 	identicalRepeats := 0
 	convergenceBlocks := 0
 	forcedFinal := false
-	// llmErr is the last soft-stopped LLM-call error; if the rounds run out
-	// before a call succeeds, the turn reports it instead of ending silently.
-	var llmErr error
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -1301,17 +1281,10 @@ func (l *Loop) runToolRounds(
 		}
 
 		var roundBuf strings.Builder
-		content, toolCalls, err := l.streamChatWithRetry(ctx, l.efficiencyConfig(chatCfg, w), &roundBuf)
+		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
 		if err != nil {
-			// A failed call the model may be able to avoid is soft-stopped: the
-			// error goes to the model on the hidden channel and the round reruns.
-			if ctx.Err() == nil && l.efficiencyLLMErrorStop(err) {
-				llmErr = err
-				continue
-			}
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
-		llmErr = nil
 		finalContent = content
 
 		if len(toolCalls) == 0 {
@@ -1327,25 +1300,11 @@ func (l *Loop) runToolRounds(
 			}
 		}
 
-		// Efficiency governor: a refused call is discarded before it runs, so it
-		// leaves nothing in history, events or the terminal.
-		switch l.efficiencyAdmit(toolCalls[0]) {
-		case effDrop:
-			continue
-		case effEnd:
-			chatCfg = forceAnswerConfig(ctx, chatCfg)
-			continue
-		case effAbort:
-			return l.ensureNonSilentFinal(stripContentToolCalls(finalContent), capped, w), nil
-		case effAdmit:
-		}
-
 		if l.config.OnRoundComplete != nil {
 			l.config.OnRoundComplete()
 		}
 
 		var outcome roundOutcome
-		workBefore := l.successfulWorkToolCalls
 		// Only the first call in a multi-call round runs (see the slice below),
 		// so tell the model the rest were not executed -- otherwise they vanish
 		// from the transcript and the model has no way to know it must re-issue
@@ -1356,7 +1315,6 @@ func (l *Loop) runToolRounds(
 		}
 		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, run, w)
 		nudges.acted = true
-		l.efficiencyAfterCall(toolCalls[0], workBefore)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
@@ -1375,19 +1333,11 @@ func (l *Loop) runToolRounds(
 		identicalRepeats, lastToolSig = trackRepeat(
 			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
 		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
-			// The efficiency manager briefs the model (hidden channel) and lets it
-			// retry while it has soft stops left; only then does the turn end.
-			if !l.efficiencyRepeatStop(toolCalls[0], outcome.result, identicalRepeats) {
-				finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-				break
-			}
-			identicalRepeats, lastToolSig = 0, ""
+			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+			break
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			ctx, chatCfg, outcome, convergenceBlocks, forcedFinal, w)
-	}
-	if llmErr != nil {
-		return "", fmt.Errorf("agent loop stream: %w", llmErr)
 	}
 	return l.ensureNonSilentFinal(finalContent, capped, w), nil
 }
@@ -1458,8 +1408,8 @@ func nudgeForActionConfig(_ context.Context, cfg *domain.ChatConfig, repeat bool
 // (or <tool_output>/<observation>) block itself. That is always a hallucination
 // -- nothing ran -- so tell it to make the real call and wait for the result.
 // repeat is true on the second strike within this turn.
-func nudgeNoFakeToolResponseConfig(ctx context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	note := turoReduce(ctx, harnessText("nudge-fake-tool-response")) + invokeExample()
+func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
+	note := harnessText("nudge-fake-tool-response") + invokeExample()
 	return finishNudge(cfg, note, repeat)
 }
 
@@ -2075,7 +2025,7 @@ func (l *Loop) handleEmptyToolRound(
 	if fake && harnessOccurrenceAllowed("nudge-fake-tool-response", nudges.hallucination) {
 		repeat := nudges.hallucination > 0
 		nudges.hallucination++
-		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(ctx, chatCfg, repeat)}
+		return nil, emptyRoundResult{chatCfg: nudgeNoFakeToolResponseConfig(chatCfg, repeat)}
 	}
 	sandbox := looksLikeSandboxHallucination(content)
 	if sandbox {
@@ -2376,16 +2326,10 @@ func (l *Loop) executeToolCalls(
 		if isConvergenceBlocked(result) {
 			outcome.blocked = true
 		}
-		content := l.toolResultMessage(ctx, tc, result)
-		briefed := l.takeBriefedFailure()
+		content := l.toolResultMessage(tc, result)
 		note := ""
 		if ctx.Err() == nil {
 			note = l.toolStatusNote(tc, result, editPath, isEdit, md5Before, fileMD5(editPath))
-			if briefed {
-				// Soft-stopped failure: the status note rides the hidden brief.
-				l.attachToFailureBrief(note)
-				note = ""
-			}
 			content += note
 		}
 		l.emit(LoopEvent{
@@ -2416,11 +2360,10 @@ func (l *Loop) executeToolCalls(
 // session and building the habit (harness "tool-call-early-praise", capped by
 // that entry's own maxOccurrences).
 func (l *Loop) toolResultMessage(
-	ctx context.Context,
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
-	return l.appendReminders(l.buildToolResultMessage(ctx, tc, result))
+	return l.appendReminders(l.buildToolResultMessage(tc, result))
 }
 
 // buildToolResultMessage is toolResultMessage's original body, factored out
@@ -2428,7 +2371,6 @@ func (l *Loop) toolResultMessage(
 // passes through the single appendReminders call in toolResultMessage
 // rather than needing its own.
 func (l *Loop) buildToolResultMessage(
-	ctx context.Context,
 	tc domain.StreamedToolCall,
 	result string,
 ) string {
@@ -2436,11 +2378,6 @@ func (l *Loop) buildToolResultMessage(
 	switch {
 	case isToolErrorResult(result) && !isConvergenceBlocked(result):
 		l.lastWorkFailure = &toolFailure{tool: tc.Name, msg: shortToolError(result)}
-		// Soft stop: the error and the context to fix it reach the model on the
-		// hidden channel, so history keeps only the raw error.
-		if ctx.Err() == nil && l.efficiencyFailureStop(tc, result) {
-			return capToolResult(result)
-		}
 		return capToolResult(result) + "\n\n[TOOL FAILED] " + tc.Name +
 			" did not run. Nothing changed. Fix the cause and call it again, " +
 			"or say in your answer that this step failed. Do NOT report it as done."
@@ -3490,25 +3427,12 @@ func (l *Loop) buildChatConfig(
 	return chatCfg
 }
 
-// historyMessages returns the conversation history JSON, routing each message
-// through turo when active. Falls back to the plain history for session
-// implementations that do not support reduced serialization.
-func (l *Loop) historyMessages(ctx context.Context) string {
+// historyMessages returns the conversation history JSON.
+func (l *Loop) historyMessages(_ context.Context) string {
 	if l.session == nil {
 		return ""
 	}
-	if !turoActive(ctx) {
-		return l.session.BuildMessagesJSON()
-	}
-	reducer, ok := l.session.(interface {
-		BuildMessagesJSONReduced(func(string) string) string
-	})
-	if !ok {
-		return l.session.BuildMessagesJSON()
-	}
-	return reducer.BuildMessagesJSONReduced(func(s string) string {
-		return turoReduceCached(ctx, s)
-	})
+	return l.session.BuildMessagesJSON()
 }
 
 // preambleToolCatalog is the short text tool list for backends with no
@@ -3927,8 +3851,5 @@ func (s *stripANSIWriter) Write(p []byte) (int, error) {
 // most recent call, or nil if no call has completed yet. Used by the REPL's
 // /prompt command.
 func (l *Loop) LastSentMessages() []map[string]interface{} {
-	if EfficiencyVerbose() {
-		return l.lastSentMessages
-	}
-	return scrubEfficiency(l.lastSentMessages)
+	return l.lastSentMessages
 }

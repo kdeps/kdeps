@@ -17,31 +17,3 @@
 // license notices and attribution when redistributing derived code.
 
 package agent
-
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-)
-
-func TestResolvePreset(t *testing.T) {
-	tests := []struct {
-		envVal  string
-		wantOK  bool
-		wantVal AgentPreset
-	}{
-		{"audit", true, PresetAudit},
-		{"explain", true, PresetExplain},
-		{"implement", true, PresetImplement},
-		{"AUDIT", true, PresetAudit},
-		{"Explain", true, PresetExplain},
-		{"unknown", false, ""},
-		{"", false, ""},
-	}
-	for _, tt := range tests {
-		t.Setenv("KDEPS_AGENT_PRESET", tt.envVal)
-		got, ok := resolvePreset()
-		assert.Equal(t, tt.wantOK, ok, "preset=%q", tt.envVal)
-		assert.Equal(t, tt.wantVal, got, "preset=%q", tt.envVal)
-	}
-}

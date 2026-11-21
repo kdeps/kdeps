@@ -78,12 +78,6 @@ func BashReadOnlyMode() bool {
 	return strings.EqualFold(strings.TrimSpace(os.Getenv("KDEPS_BASH_MODE")), "read-only")
 }
 
-// CommandChangesState reports whether command is refused in read-only bash mode.
-func CommandChangesState(command string) bool {
-	blocked, _ := validateReadOnly(command)
-	return blocked
-}
-
 func bashRootAllowed() bool {
 	return strings.EqualFold(strings.TrimSpace(os.Getenv("KDEPS_ALLOW_ROOT")), "true")
 }

@@ -25,8 +25,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/efficiency"
 )
 
 func writeAsset(t *testing.T, dir, set, name, body string) {
@@ -49,23 +47,22 @@ func useProject(t *testing.T, dir string) error {
 func TestProjectAssets_LayerOrder(t *testing.T) {
 	isolateEventsAndPresetsHome(t)
 	home := os.Getenv("HOME")
-	writeAsset(t, filepath.Join(home, ".kdeps"), "events", "efficiency-reads",
-		"name: efficiency-reads\non:\n  rounds: 9\nrun: block\n")
-	writeAsset(t, filepath.Join(home, ".kdeps"), "events", "efficiency-stops",
-		"name: efficiency-stops\non:\n  rounds: 7\nrun: block\n")
+	writeAsset(t, filepath.Join(home, ".kdeps"), "events", "chat-max-rounds",
+		"name: chat-max-rounds\non:\n  rounds: 9\nrun: force_answer\n")
+	writeAsset(t, filepath.Join(home, ".kdeps"), "events", "judge-max-rounds",
+		"name: judge-max-rounds\non:\n  rounds: 7\nrun: force_answer\n")
 	initEvents()
-	assert.Equal(t, 9, effectiveRounds(eventEfficiencyReads), "~/.kdeps over the shipped value")
+	assert.Equal(t, 9, effectiveRounds(eventChatMaxRounds), "~/.kdeps over the shipped value")
 
 	project := t.TempDir()
-	writeAsset(t, project, "events", "efficiency-reads",
-		"name: efficiency-reads\non:\n  rounds: 2\nrun: block\n")
+	writeAsset(t, project, "events", "chat-max-rounds",
+		"name: chat-max-rounds\non:\n  rounds: 2\nrun: force_answer\n")
 	writeAsset(t, project, "harness", "accuracy",
 		"kind: preamble-section\norder: 10\nsummary: project summary\nbody: PROJECT ACCURACY\n")
 	require.NoError(t, useProject(t, project))
 
-	assert.Equal(t, 2, effectiveRounds(eventEfficiencyReads), "the project wins")
-	assert.Equal(t, 7, effectiveRounds(eventEfficiencyStops), "~/.kdeps still fills what the project leaves out")
-	assert.Equal(t, 2, efficiency.CurrentLimits().Reads, "a workflow chat's governor reads the project limit")
+	assert.Equal(t, 2, effectiveRounds(eventChatMaxRounds), "the project wins")
+	assert.Equal(t, 7, effectiveRounds(eventJudgeMaxRounds), "~/.kdeps still fills what the project leaves out")
 	body, ok := chatHarnessSection("accuracy")
 	assert.True(t, ok)
 	assert.Contains(t, body, "PROJECT ACCURACY")

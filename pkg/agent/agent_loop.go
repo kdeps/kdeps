@@ -376,22 +376,9 @@ func callChatFn(ctx context.Context, currentCtx *AgentContext, cfg AgentLoopConf
 	return msg
 }
 
-// reduceToolOutputForLLM returns a copy of messages with each tool result's
-// content routed through turo (cached). Returns the input unchanged when turo
-// is inactive. The stored messages are never mutated — only the copy sent to
-// the LLM carries the reduced content.
-func reduceToolOutputForLLM(ctx context.Context, messages []AgentMessage) []AgentMessage {
-	if !turoActive(ctx) {
-		return messages
-	}
-	out := make([]AgentMessage, len(messages))
-	for i, m := range messages {
-		if m.Role == RoleToolResult && m.ResultContent != "" {
-			m.ResultContent = turoReduceCached(ctx, m.ResultContent)
-		}
-		out[i] = m
-	}
-	return out
+// reduceToolOutputForLLM returns messages unchanged.
+func reduceToolOutputForLLM(_ context.Context, messages []AgentMessage) []AgentMessage {
+	return messages
 }
 
 func defaultConvertToLLM(messages []AgentMessage) []AgentMessage {
