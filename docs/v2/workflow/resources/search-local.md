@@ -212,4 +212,4 @@ Indexed-mode output rows add three fields on top of the base result shape:
 ## See also
 
 - [Search resources](/workflow/resources/search) - overview and `web_search`
-- [Knowledge](/agent/knowledge) - the vault graph `graphBoost` reads when `path` is inside the vault
+- [Knowledge](/workflow/agent-loop/knowledge) - the vault graph `graphBoost` reads when `path` is inside the vault

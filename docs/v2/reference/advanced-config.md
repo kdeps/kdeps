@@ -352,7 +352,7 @@ llm:
   subagent: current    # current | free | a model id
 ```
 
-`free` chooses a large OpenRouter free model for each extraction call. Any other id pins that model. See [Subagent channel](/agent/subagent).
+`free` chooses a large OpenRouter free model for each extraction call. Any other id pins that model. See [Subagent channel](/workflow/agent-loop/subagent).
 
 ## Knowledge vault
 
@@ -374,7 +374,7 @@ knowledge:
     per_session: 20           # changed notes read on an automatic run
 ```
 
-See [Knowledge vault](/agent/knowledge).
+See [Knowledge vault](/workflow/agent-loop/knowledge).
 
 ## Agent identity
 

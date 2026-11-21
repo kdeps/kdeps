@@ -1,6 +1,6 @@
 # Quickstart
 
-Build a two-resource LLM API from one `workflow.yaml`. With `loop:` on the chat, the same file is an [agent loop](/agent/).
+Build a two-resource LLM API from one `workflow.yaml`. With `loop:` on the chat, the same file is an [agent loop](/workflow/agent-loop/).
 
 ## The mental model
 
@@ -162,7 +162,7 @@ C -> D
 ## Next steps
 
 - [Workflow](/workflow/) - how the pipeline runs
-- [Agent loop](/agent/) - a chat with `loop:`
+- [Agent loop](/workflow/agent-loop/) - a chat with `loop:`
 - [workflow.yaml reference](/workflow/configuration) - every field
 - [Resources overview](/workflow/resources) - all resource types
 - [CLI reference](/reference/cli) - all commands and flags

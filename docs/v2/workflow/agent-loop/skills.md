@@ -1,6 +1,6 @@
 # Skills and instructions
 
-Markdown files that shape how the agent behaves: skills and instructions. They are not the [kdeps skill for coding agents](/agent/ai-assisted-authoring) that scaffolds YAML in Claude Code or Cursor.
+Markdown files that shape how the agent behaves: skills and instructions. They are not the [kdeps skill for coding agents](/reference/ai-assisted-authoring) that scaffolds YAML in Claude Code or Cursor.
 
 ## Skills
 
@@ -23,7 +23,7 @@ The system prompt lists only the name and description of each skill. It never ha
 
 When it loads or reloads, kdeps records the related skills, without a model call:
 
-- **A skill in the [knowledge vault](/agent/knowledge):** from the vault graph, refreshed first. A `references` edge either way (markdown or wiki link) or a shared tag relates two skills.
+- **A skill in the [knowledge vault](/workflow/agent-loop/knowledge):** from the vault graph, refreshed first. A `references` edge either way (markdown or wiki link) or a shared tag relates two skills.
 - **Any other skill:** from a reference/topic graph over each skill-library root, the graph `search_local` builds outside the vault. Two skills are related if the `SKILL.md` of one skill links to the other (`[other](../other/SKILL.md)`). They are also related if both have the same `topics:` or `tags:` in frontmatter:
 
 ```markdown
@@ -66,5 +66,5 @@ my-project/
 
 ## See also
 
-- [Skill for coding agents](/agent/ai-assisted-authoring) - YAML scaffolding for Claude Code, Cursor, Grok
-- [Agent loop](/agent/) - overview
+- [Skill for coding agents](/reference/ai-assisted-authoring) - YAML scaffolding for Claude Code, Cursor, Grok
+- [Agent loop](/workflow/agent-loop/) - overview

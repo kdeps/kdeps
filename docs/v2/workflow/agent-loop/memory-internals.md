@@ -1,6 +1,6 @@
 # Memory internals
 
-The agent loop decides what to remember, links entries into a graph, and injects them into every turn. For the memory tools and entry types, see [Persistent memory](/agent/memory).
+The agent loop decides what to remember, links entries into a graph, and injects them into every turn. For the memory tools and entry types, see [Persistent memory](/workflow/agent-loop/memory).
 
 ## Auto-extraction
 
@@ -32,7 +32,7 @@ kdeps saves the marker. Then it removes the marker from the reply before it show
 
 ## Memory graph
 
-Entries link into a directed graph by [type](/agent/memory#memory-entry-types):
+Entries link into a directed graph by [type](/workflow/agent-loop/memory#memory-entry-types):
 
 ```
 prompt -> purpose -> progress -> tool_result -> result -> status
@@ -164,5 +164,5 @@ Focus matching splits the prompt and each entry into stemmed words, like knowled
 
 ## See also
 
-- [Persistent memory](/agent/memory) - the memory tools and entry types
-- [Agent loop](/agent/) - how the loop works
+- [Persistent memory](/workflow/agent-loop/memory) - the memory tools and entry types
+- [Agent loop](/workflow/agent-loop/) - how the loop works

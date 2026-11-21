@@ -3,7 +3,7 @@
 Coding agents (Claude Code, Cursor, Grok, and others) can scaffold kdeps
 projects for you when you install the kdeps skill.
 
-This is the skill file for AI coding agents, not kdeps [agent skills](/agent/skills). It covers the workflow file.
+This is the skill file for AI coding agents, not kdeps [agent skills](/workflow/agent-loop/skills). It covers the workflow file.
 
 ## Install the skill
 

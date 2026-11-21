@@ -1,6 +1,6 @@
 # Fenced tools
 
-Each model gets an instruction to use the fenced kdeps tools and to say what it will do before each call. The tool list is on [Built-in tools](/agent/tools).
+Each model gets an instruction to use the fenced kdeps tools and to say what it will do before each call. The tool list is on [Built-in tools](/workflow/agent-loop/tools).
 
 When tools are registered, two instructions go into the system preamble of each model: use the fenced kdeps tools, and narrate before each call.
 

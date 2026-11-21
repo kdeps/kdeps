@@ -138,4 +138,4 @@ kdeps automatically links memory entries into a relationship graph. The graph sh
 
 - [Workflow configuration](/workflow/configuration) - Full `workflow.yaml` reference
 - [Resources overview](/workflow/resources) - Resource types and fields
-- [Agent loop](/agent/) - a chat with `loop:`
+- [Agent loop](/workflow/agent-loop/) - a chat with `loop:`

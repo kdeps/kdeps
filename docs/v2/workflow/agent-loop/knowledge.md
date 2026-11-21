@@ -26,7 +26,7 @@ A 2,000-note vault holds about a million words, more than any model can read. Wi
 | Status, next step, places on disk | the project's card: `projects/<name>/<name>.md` |
 | What happened: focus, what was built, mistakes, decisions, wins | the session note: `projects/<name>/sessions/` |
 | Why something was decided | one decision note: `projects/<name>/decisions/` |
-| What the agent remembers | memory notes: `projects/<name>/memory/` (see [Persistent memory](/agent/memory)) |
+| What the agent remembers | memory notes: `projects/<name>/memory/` (see [Persistent memory](/workflow/agent-loop/memory)) |
 | An idea, gotcha or concept | one note: `projects/<name>/notes/`, or `shared/` when it spans projects |
 | How notes connect | the link graph, under `~/.kdeps/knowledge/<vault-id>/` |
 
@@ -249,7 +249,7 @@ build: "graph build\ninferred / ambiguous edges"
 changed -> first -> rest -> cache -> build
 ```
 
-Recall waits for the link graph, not for the model. The call uses the [subagent channel](/agent/subagent): the chat's model unless `llm.subagent` names another. `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only when the channel is `current`. kdeps skips a local model that is not available.
+Recall waits for the link graph, not for the model. The call uses the [subagent channel](/workflow/agent-loop/subagent): the chat's model unless `llm.subagent` names another. `free` picks a large OpenRouter free model. `knowledge.extract.model` applies only when the channel is `current`. kdeps skips a local model that is not available.
 
 **From the shell:** `kdeps knowledge build --extract [--model <model>] [--limit N]`. The model is `--model`, then `llm.subagent`, then `knowledge.extract.model`, then the current model.
 

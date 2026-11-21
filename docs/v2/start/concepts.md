@@ -20,7 +20,7 @@ then reach for the rest as you need them.
 |---|---|---|
 | [Workflow](/workflow/) | A DAG of resources that runs in dependency order and returns a response; the one way to run kdeps | Workflow |
 | [Input sources](/workflow/input-sources) | How requests arrive: `api`, `bot`, `file`, `interactive` | Workflow |
-| [Agent loop](/agent/) | A `chat` with `loop:`: an LLM that calls tools over many rounds | Agent |
+| [Agent loop](/workflow/agent-loop/) | A `chat` with `loop:`: an LLM that calls tools over many rounds | Agent |
 | [Agencies](/agencies/) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
 | [Components](/agencies/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
 
@@ -50,5 +50,5 @@ then reach for the rest as you need them.
 | Concept | What it is | Mode |
 |---|---|---|
 | [Session storage](/workflow/sessions) | Values that persist across requests from the same caller | Workflow |
-| [Persistent memory](/agent/memory) | Project-scoped facts the agent recalls across sessions | Agent (tools also work in workflow) |
-| [Memory internals](/agent/memory-internals) | Auto-extraction, the memory graph, and prompt injection | Agent |
+| [Persistent memory](/workflow/agent-loop/memory) | Project-scoped facts the agent recalls across sessions | Agent (tools also work in workflow) |
+| [Memory internals](/workflow/agent-loop/memory-internals) | Auto-extraction, the memory graph, and prompt injection | Agent |

@@ -103,7 +103,7 @@ kdeps run ./my-agent/     # run it once / serve it
 | You want to... | Read |
 |---|---|
 | Run the YAML as an API, a bot, or a file processor | [Workflow](/workflow/) |
-| Give a `chat` tools with `loop:` | [Agent loop](/agent/) |
+| Give a `chat` tools with `loop:` | [Agent loop](/workflow/agent-loop/) |
 | Run several workflows as one system | [Agencies](/agencies/) |
 | Serve an OpenAI-compatible endpoint, with no workflow | [LLM server](/llm-server/) |
 | Ship the file as Docker, Kubernetes, an ISO, or a binary | [Deploy](/deploy/) |
@@ -117,6 +117,6 @@ step in building or running your own.
 | You want to... | Start here |
 |---|---|
 | Build a real HTTP API from YAML | [Quickstart](/workflow/quickstart) |
-| Run an AI agent locally right now | [Agent loop](/agent/) |
+| Run an AI agent locally right now | [Agent loop](/workflow/agent-loop/) |
 | Understand why kdeps works this way | [Why kdeps?](/start/why-kdeps) |
 | See the full picture of every concept | [Concepts overview](/start/concepts) |

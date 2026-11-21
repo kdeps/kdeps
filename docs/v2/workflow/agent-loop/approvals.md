@@ -1,6 +1,6 @@
 # Approval tokens
 
-When the [permission mode](/agent/tools#permission-modes) denies a tool call, the agent can request a one-time exception with an approval token. A token grants one tool+action override. The permission mode does not change. Only you grant it: the agent can request, list and revoke tokens, never grant one.
+When the [permission mode](/workflow/agent-loop/tools#permission-modes) denies a tool call, the agent can request a one-time exception with an approval token. A token grants one tool+action override. The permission mode does not change. Only you grant it: the agent can request, list and revoke tokens, never grant one.
 
 ## How it works in practice
 
@@ -38,5 +38,5 @@ Scope matching supports wildcards: an empty `Action` matches any action. The `Be
 
 ## See also
 
-- [Agent loop](/agent/) - overview
-- [Built-in tools](/agent/tools) - permission modes and the full tool catalog
+- [Agent loop](/workflow/agent-loop/) - overview
+- [Built-in tools](/workflow/agent-loop/tools) - permission modes and the full tool catalog
