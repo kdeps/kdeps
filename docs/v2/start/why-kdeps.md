@@ -129,7 +129,6 @@ kdeps uses two small open-source projects that the team develops with it. Both a
 | Project | What it does | Where kdeps uses it |
 |---|---|---|
 | [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library that resolves dependent nodes. | The link/topic graph for `search_local` `graphBoost` and skill-library linking when those files are outside the knowledge vault. Inside the vault, both read the vault graph. |
-| [kdeps/turo](https://github.com/kdeps/turo) | Reduces prose to its content words to cut LLM input tokens - "point more, token less." | The optional [prompt reducer](/agent/turo) for a chat: with `harness.turo: true` and the `turo` binary on `PATH`, kdeps pipes system preamble, input, tool results, and history through it before every model call. |
 
 ## See also
 

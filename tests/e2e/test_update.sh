@@ -195,7 +195,7 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
     OUT=$(HOME="$MIN_HOME" KDEPS_ASSETS_SRC= KDEPS_COMPONENT_DIR= KDEPS_ASSETS_DIR="$MIN_HOME/store" KDEPS_PROFILE=minimum \
         KDEPS_ASSETS_URL="http://127.0.0.1:$FR_PORT" "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot" 2>&1 </dev/null)
     if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
-        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ -f "$MIN_HOME/store/harness/refine-system.yaml" ] &&
+        [ -f "$MIN_HOME/store/schemas/v1.yaml" ] && [ -f "$MIN_HOME/store/harness/judge-system.yaml" ] &&
         [ -d "$MIN_HOME/store/events" ] && [ ! -e "$MIN_HOME/store/components" ]; then
         test_passed "KDEPS_PROFILE=minimum installs the base and chat sets only; validate works"
     else

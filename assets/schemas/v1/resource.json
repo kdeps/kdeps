@@ -549,7 +549,7 @@
         },
         "harness": {
           "type": "object",
-          "description": "System sections, prompt refine, planning council, turo, and output format.",
+          "description": "System sections, prompt mode, and output format.",
           "properties": {
             "output": {
               "type": "object",
@@ -579,22 +579,6 @@
                 "minLength": 1
               },
               "uniqueItems": true
-            },
-            "refine": {
-              "type": "boolean",
-              "description": "Rewrite the prompt into a clearer, self-contained request before the call (default false)."
-            },
-            "plan": {
-              "type": "boolean",
-              "description": "Run the planning council before the call and put the sorted plan in the system prompt (default false)."
-            },
-            "turo": {
-              "type": "boolean",
-              "description": "Reduce the system prompt and the prompt to fewer tokens with turo before the call (default false)."
-            },
-            "efficiency": {
-              "type": "boolean",
-              "description": "Soft-stop read-only runs, repeated calls and failed model calls in the tool loop (default false)."
             },
             "promptMode": {
               "type": "string",

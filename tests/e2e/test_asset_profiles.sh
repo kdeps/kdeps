@@ -76,7 +76,7 @@ OUT=$(ap "$MN" env KDEPS_PROFILE=minimum "$KDEPS_BIN" validate "$PROJECT_ROOT/ex
 if output_grep "Installing the minimum profile" "$OUT" && output_grep "Schema validation passed" "$OUT" &&
     [ "$(lock_field "$MN" profile)" = "minimum" ] && [ ! -d "$MN/store/commands" ] && [ ! -d "$MN/store/tools" ] &&
     [ ! -d "$MN/store/templates" ] && [ -d "$MN/store/harness" ] && [ -d "$MN/store/events" ] &&
-    [ -f "$MN/store/harness/refine-system.yaml" ] && [ -f "$MN/store/events/efficiency-reads.yaml" ]; then
+    [ -f "$MN/store/harness/judge-system.yaml" ] && [ -f "$MN/store/events/chat-max-rounds.yaml" ]; then
     test_passed "asset profiles - minimum installs the base sets and the workflow chat harness and events; validate works"
 else
     test_failed "asset profiles - minimum install" "$OUT $(ls "$MN/store" 2>&1)"
@@ -141,8 +141,8 @@ fi
 WF=$(ap_home workflows)
 OUT=$(ap "$WF" env KDEPS_PROFILE=workflows "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot")
 if [ "$(lock_field "$WF" profile)" = "workflows" ] && [ "$(set_count "$WF" templates)" -gt 0 ] &&
-    [ "$(set_count "$WF" components)" -gt 0 ] && [ -f "$WF/store/harness/plan-council-draft.yaml" ] &&
-    [ -f "$WF/store/events/efficiency.yaml" ]; then
+    [ "$(set_count "$WF" components)" -gt 0 ] && [ -f "$WF/store/harness/judge-system.yaml" ] &&
+    [ -f "$WF/store/events/chat-max-rounds.yaml" ]; then
     test_passed "asset profiles - workflows installs templates, components and the chat harness and events"
 else
     test_failed "asset profiles - workflows install" "$OUT $(ls "$WF/store" 2>&1)"

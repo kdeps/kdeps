@@ -47,7 +47,8 @@ func TestProjectAssets_ValidateAndPackage(t *testing.T) {
 	dir := t.TempDir()
 	writeWorkflowDir(t, dir, "limits", "action")
 	writeResourceFile(t, filepath.Join(dir, "resources"), "action")
-	writeProjectAsset(t, dir, "events/efficiency-reads.yaml", "name: efficiency-reads\non:\n  rounds: 2\nrun: block\n")
+	writeProjectAsset(t, dir, "events/chat-max-rounds.yaml",
+		"name: chat-max-rounds\non:\n  rounds: 2\nrun: force_answer\n")
 	writeProjectAsset(t, dir, "harness/accuracy.yaml", "kind: preamble-section\norder: 10\nbody: project\n")
 
 	require.NoError(t, cmd.RunValidateCmd(nil, []string{dir}))
@@ -70,7 +71,7 @@ func TestProjectAssets_ValidateAndPackage(t *testing.T) {
 		require.NoError(t, tarErr)
 		names = append(names, filepath.ToSlash(hdr.Name))
 	}
-	assert.Contains(t, names, "events/efficiency-reads.yaml")
+	assert.Contains(t, names, "events/chat-max-rounds.yaml")
 	assert.Contains(t, names, "harness/accuracy.yaml")
 
 	writeProjectAsset(t, dir, "events/broken.yaml", "name: [\n")

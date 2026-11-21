@@ -1,0 +1,10 @@
+version: 1.0.0
+# kdeps update installs these with this event: the action it runs
+requires:
+  actions/cap: ""
+name: failure-briefs
+# Failed tool calls per chat call that get a brief: the error and the context
+# to fix it (pkg/failbrief). Past this the plain [TOOL FAILED] error applies.
+# Turning the event off keeps the default.
+items: 5
+run: cap

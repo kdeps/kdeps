@@ -68,15 +68,13 @@ func init() {
 	})
 }
 
-// requiredHarness are the standalone prompts that compaction, judges and
-// prompt refinement are built on. They can be
-// updated or disabled (/harness disable), not removed.
+// requiredHarness are the standalone prompts that compaction and judges are
+// built on. They can be updated or disabled, not removed.
 //
 //nolint:gochecknoglobals // fixed list
 var requiredHarness = []string{
 	"compaction-system", "compaction-user", "compaction-update-user", "branch-summary",
 	"judge-roster-system", "judge-system",
-	"refine-system",
 }
 
 // requiredTools are the tools every agent session keeps, whatever profile

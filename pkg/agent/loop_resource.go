@@ -55,14 +55,11 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 			// narration have no terminal to land on.
 			ToolOutputWriter: io.Discard,
 			StreamFinalOnly:  true,
-			// Opt-in: harness.plan, guardrails.judges: auto, harness.refine.
-			PlanCouncil:  req.Plan,
-			AutoJudges:   req.Judges,
-			PromptRefine: req.Refine,
-			Thinking:     req.Thinking,
-			// harness.efficiency is opt-in; harness.promptMode defaults to full.
-			NoEfficiency: !req.Efficiency,
-			PromptMode:   loopPromptMode(req.PromptMode),
+			// Opt-in: guardrails.judges: auto.
+			AutoJudges: req.Judges,
+			Thinking:   req.Thinking,
+			// harness.promptMode defaults to full.
+			PromptMode: loopPromptMode(req.PromptMode),
 		}
 		key := ""
 		if req.Session != "" {
@@ -80,8 +77,7 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 		if wf == nil {
 			wf = &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "agent"}}
 		}
-		// harness.turo decides turo for this chat, not the REPL's /turo.
-		ctx := withTuro(req.Ctx, req.Turo)
+		ctx := req.Ctx
 		loop := New(ctx, newEngine(), wf, reg, cfg)
 		reply, err := loop.RunStreaming(ctx, req.Prompt, io.Discard)
 		if key != "" && loop.Session().TurnCount() > 0 {

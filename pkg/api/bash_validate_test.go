@@ -225,12 +225,3 @@ func TestValidateBashCommand_AllowsRootWhenAuthorized(t *testing.T) {
 		t.Fatal("rm -rf /")
 	}
 }
-
-func TestCommandChangesState(t *testing.T) {
-	if !CommandChangesState("rm /tmp/file") {
-		t.Fatal("rm")
-	}
-	if CommandChangesState("ls -la") {
-		t.Fatal("ls")
-	}
-}
