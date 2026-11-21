@@ -1,4 +1,4 @@
-version: 1.0.4
+version: 1.0.5
 # kdeps update installs these with this event: the action it runs
 requires:
   actions/force_answer: ""
@@ -28,5 +28,5 @@ on:
 #   accept_last     accept the last judge-panel response once the budget is spent
 # NOTE: this event works by setting the judge sub-loop's MaxToolRounds and
 # relying on the loop's own generic round-exhaustion behavior, not a
-# distinct dispatchable step -- see docs/v2/agent/events.md.
+# distinct dispatchable step -- see docs/v2/workflow/agent-loop/events.md.
 run: force_answer
