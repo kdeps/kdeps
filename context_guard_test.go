@@ -34,7 +34,7 @@ func TestProductionContextHasSingleRoot(t *testing.T) {
 		}
 		if filepath.Ext(path) != ".go" ||
 			strings.HasSuffix(path, "_test.go") ||
-			rel == filepath.FromSlash("cmd/serve.go") {
+			rel == filepath.FromSlash("cmd/process_ctx.go") {
 			return nil
 		}
 
@@ -49,7 +49,7 @@ func TestProductionContextHasSingleRoot(t *testing.T) {
 			text := scanner.Text()
 			if strings.Contains(text, "context.Background()") ||
 				strings.Contains(text, "context.TODO()") {
-				t.Errorf("%s:%d creates a context outside cmd/serve.go", rel, line)
+				t.Errorf("%s:%d creates a context outside cmd/process_ctx.go", rel, line)
 			}
 		}
 		return scanner.Err()
