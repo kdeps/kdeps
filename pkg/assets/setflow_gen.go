@@ -81,7 +81,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the loop runs tools or replies"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
-		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "plancouncil.Run", "agent.councilPrompts", "agent.harnessText"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "agent.(*Loop).startSubagents", "agent.harnessText"},
 	},
 	"k8s": {
 		Mode: "cli",

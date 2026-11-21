@@ -53,13 +53,9 @@ The same chat serves an HTTP API, a bot, or a file when you change `sources:`. S
 | Built-in tool catalog and permission modes | [Built-in tools](/agent/tools) |
 | Tool calls that a model writes as text | [Fenced tools](/agent/tools-fenced) |
 | Shell execution and background jobs | [Shell execution](/agent/shell) |
-| Prompt rewrite before the turn | [Prompt refinement](/agent/refine) |
-| A council plan before the turn | [Planning council](/agent/plan) |
 | The `subagent` tool | [Subagents](/agent/subagent) |
 | Independent review of the answer | [Judge panel](/agent/judges) |
 | One-time exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
-| Token reduction | [Prompt reduction (turo)](/agent/turo) |
-| Soft stops for wasted rounds | [Efficiency](/agent/efficiency) |
 | Persistent memory | [Persistent memory](/agent/memory) |
 | Skills and `KDEPS.md` instructions | [Skills and instructions](/agent/skills) |
 | Limits and thresholds as YAML | [Reactive LLM events](/agent/events) |

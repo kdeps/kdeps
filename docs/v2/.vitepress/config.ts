@@ -133,13 +133,9 @@ export default defineConfig({
         {
           text: 'Control',
           items: [
-            { text: 'Prompt refinement', link: '/agent/refine' },
-            { text: 'Planning council', link: '/agent/plan' },
             { text: 'Subagents', link: '/agent/subagent' },
             { text: 'Judge panel', link: '/agent/judges' },
             { text: 'Approval tokens', link: '/agent/approvals' },
-            { text: 'Prompt reduction (turo)', link: '/agent/turo' },
-            { text: 'Efficiency', link: '/agent/efficiency' },
           ]
         },
         {
@@ -505,7 +501,7 @@ export default defineConfig({
       'modes/agent-loop-approvals': '/agent/approvals',
       'modes/agent-loop-monitoring': '/agent/tools',
       'modes/agent-loop-shell': '/agent/shell',
-      'modes/agent-loop-turo': '/agent/turo',
+      'modes/agent-loop-turo': '/agent/',
       'agent/tools-handshake': '/agent/tools-fenced',
       'agent/repl-themes': '/agent/',
       'getting-started/local-agent': '/agent/',
@@ -580,6 +576,10 @@ export default defineConfig({
       'agent/konfig': '/agent/',
       'agent/monitoring': '/agent/tools',
       'workflow/as-a-tool': '/agent/',
+      'agent/plan': '/agent/',
+      'agent/refine': '/agent/',
+      'agent/turo': '/agent/',
+      'agent/efficiency': '/agent/',
       'desktop/index': '/agent/',
       'examples/agent-repl': '/agent/',
     }

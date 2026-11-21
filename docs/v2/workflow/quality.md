@@ -2,17 +2,8 @@
 
 A workflow `chat` turns on kdeps's quality features with keys in its `harness` and `guardrails` groups. They help a small local model answer better, with no cloud model. Each one is off until the chat sets it.
 
-```d2
-direction: right
-prompt: "prompt" {shape: oval}
-refine: "refine\nclearer prompt"
-plan: "plan\ncouncil job orders"
-turo: "turo\nfewer tokens"
-call: "model call"
-loop: "tool loop\nefficiency + promptMode"
-judges: "judges\nreview, revise"
-out: "output" {shape: oval}
-prompt -> refine -> plan -> turo -> call -> loop -> judges -> out
+```text
+prompt -> model call -> tool loop (promptMode) -> judges (review, revise) -> output
 ```
 
 ```yaml
@@ -24,10 +15,6 @@ chat:
     prompt: "{{ get('q') }}"
   harness:
     sections: [accuracy, honesty]   # agent mode's system-prompt sections, in this order
-    refine: true                    # rewrite the prompt into a clear request first
-    plan: true                      # a council agrees on job orders; the plan goes in the system prompt
-    turo: true                      # reduce the prompt with the turo binary; no turo, no change
-    efficiency: true                # soft-stop runs of reads, repeated calls and failed model calls
     promptMode: summary             # after the first request, one summary line per section
   tools:
     list:
@@ -39,35 +26,32 @@ chat:
 
 | Key | What it does | Cost | Details |
 |---|---|---|---|
-| `harness.refine` | Rewrites the prompt with the `refine-system` prompt and the chat history | 1 model call | [Prompt refine](/agent/refine) |
-| `harness.plan` | Members draft, revise and rank job orders. The sorted plan goes in the system prompt | several calls: draft, revise, rank | [Planning council](/agent/plan) |
-| `harness.turo` | Reduces the system prompt and the prompt to fewer tokens | none (local binary) | [turo](/agent/turo) |
-| `harness.efficiency` | Drops reads past the limit and sends the model a hidden note | none | [Efficiency](/agent/efficiency) |
-| `harness.promptMode` | `full` (default), `summary` or `auto` harness text after the first request | saves tokens | [Efficiency](/agent/efficiency#prompt-mode) |
+| `harness.sections` | Adds the agent loop's system-prompt sections | tokens | [Harness sections](/workflow/resources/llm#harness-sections) |
+| `harness.promptMode` | `full` (default), `summary` or `auto` harness text after the first request | saves tokens | [Prompt mode](/workflow/resources/llm#prompt-mode) |
 | `guardrails.judges` | Judges review the answer. A rejected answer is revised | 1 call per judge, plus revisions | [Judge panel](/agent/judges) |
 
-A failed tool call always gets a failure brief: the error and the context to repair it. The `efficiency-failures` event caps the briefs.
+A failed tool call always gets a failure brief: the error and the context to repair it. The `failure-briefs` event caps the briefs.
 
 ## The workflow ships its own limits
 
-The limits are [events](/agent/events): `efficiency-*`, `plan-council-*`, `judge-*`, `chat-max-rounds`. The prompts are harness entries: `refine-system`, `plan-council-*`, `judge-system`. A workflow ships its own copies in folders next to `resources/`, in the same format as `~/.kdeps/`:
+The limits are [events](/agent/events): `judge-*`, `chat-max-rounds`, `failure-briefs`. The prompts are harness entries: `judge-system`, `accuracy`, and the other sections. A workflow ships its own copies in folders next to `resources/`, in the same format as `~/.kdeps/`:
 
 ```text
 my-agent/
   workflow.yaml
   resources/
-  events/       # efficiency-reads.yaml, judge-iterations.yaml, ...
-  harness/      # refine-system.yaml, accuracy.yaml, ...
+  events/       # chat-max-rounds.yaml, judge-iterations.yaml, ...
+  harness/      # judge-system.yaml, accuracy.yaml, ...
   actions/
   presets/
 ```
 
 ```yaml
-# my-agent/events/efficiency-reads.yaml
-name: efficiency-reads
+# my-agent/events/chat-max-rounds.yaml
+name: chat-max-rounds
 on:
-  rounds: 2        # this workflow allows 2 reads in a row, on every machine
-run: block
+  rounds: 10       # this workflow allows 10 tool rounds, on every machine
+run: force_answer
 ```
 
 | Layer | Wins over |
