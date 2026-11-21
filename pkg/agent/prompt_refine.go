@@ -36,18 +36,6 @@ import (
 
 const refineActionID = "agent_loop_refine"
 
-// PromptRefineEnabled reports whether pre-turn prompt refinement is active.
-func (l *Loop) PromptRefineEnabled() bool {
-	return l != nil && l.config.PromptRefine
-}
-
-// SetPromptRefine turns pre-turn prompt refinement on or off.
-func (l *Loop) SetPromptRefine(enabled bool) {
-	if l != nil {
-		l.config.PromptRefine = enabled
-	}
-}
-
 // applyPromptRefine runs the refiner when enabled, announces the rewrite, and
 // returns the string the turn should use (unchanged when refinement is off or
 // produced nothing usable).

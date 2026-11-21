@@ -1,6 +1,6 @@
-version: 1.0.0
+version: 1.1.0
 category: model
-description: List the GGUF files in one HuggingFace repo with their sizes, to pick one for /model hff download.
+description: List the GGUF files in one HuggingFace repo with their sizes, to pick one to download.
 outputFormat: "a table: FILE, SIZE for each .gguf file in the repo"
 seeAlso: hf_search
 parameters:

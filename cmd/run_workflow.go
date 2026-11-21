@@ -197,6 +197,9 @@ func warmupLlamafiles(workflow *domain.Workflow) {
 	}
 }
 
+// agentBackendFile is the default LLM backend (llamafile).
+const agentBackendFile = "file"
+
 // fileBackendModels lists the chat models served by the local file backend.
 // A chat with another backend (openrouter, ollama, ...) has nothing to cache here.
 func fileBackendModels(workflow *domain.Workflow) []string {
@@ -250,9 +253,6 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 		eng := setupEngine(workflow, debugMode)
 		if flags.Memory {
 			eng = setupEngineWithMemory(eng, workflow, debugMode)
-		}
-		if agent.LoopChat(workflow) != nil {
-			return startAgentREPLMode(cmd.Context(), eng, workflow, workflowPath, flags, debugMode)
 		}
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}

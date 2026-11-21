@@ -16,31 +16,6 @@ func withRecordHome(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 }
 
-func TestModelRecord_CollectsDistinctRefusalsPerModel(t *testing.T) {
-	withRecordHome(t)
-	l := &Loop{config: Config{Backend: "openai", Model: "gpt-4o"}}
-	l.recordModelRefusal(refusalKindLimit, "I can't emit or execute the kdeps invoke blocks. They are not available.")
-	l.recordModelRefusal(refusalKindLimit, "I CAN'T emit or execute the kdeps invoke blocks.")
-	l.recordModelRefusal(refusalKindUnbacked, "Created [notes.md](https://x.invalid) containing hello")
-
-	rec := modelRecordFor("openai", "gpt-4o")
-	require.NotNil(t, rec)
-	assert.Equal(t, 3, rec.Count, "every catch counts")
-	require.Len(t, rec.Refusals, 2, "the same words are kept once")
-	assert.Equal(
-		t,
-		"I CAN'T emit or execute the kdeps invoke blocks.",
-		rec.Refusals[0].Text,
-		"first sentence, newest wording",
-	)
-	assert.Equal(t, refusalKindUnbacked, rec.Refusals[1].Kind)
-	assert.Nil(t, modelRecordFor("openai", "gpt-x"), "another model has its own record")
-
-	assert.True(t, clearModelRecord("openai", "gpt-4o"))
-	assert.Nil(t, modelRecordFor("openai", "gpt-4o"))
-	assert.False(t, clearModelRecord("openai", "gpt-4o"))
-}
-
 func TestModelRecord_BoundedByEvent(t *testing.T) {
 	withRecordHome(t)
 	withEvent(t, Event{Name: eventModelRecordLimit, Items: 2, Run: actionCap})
@@ -81,4 +56,29 @@ func TestRunStreaming_RefusalIsRecordedAndShownNextTime(t *testing.T) {
 	require.NotNil(t, rec)
 	assert.Contains(t, rec.Refusals[0].Text, "I can't access the filesystem")
 	assert.Contains(t, loop.modelRecordPreamble(), "I can't access the filesystem")
+}
+
+func TestModelRecord_CollectsDistinctRefusalsPerModel(t *testing.T) {
+	withRecordHome(t)
+	l := &Loop{config: Config{Backend: "openai", Model: "gpt-4o"}}
+	l.recordModelRefusal(refusalKindLimit, "I can't emit or execute the kdeps invoke blocks. They are not available.")
+	l.recordModelRefusal(refusalKindLimit, "I CAN'T emit or execute the kdeps invoke blocks.")
+	l.recordModelRefusal(refusalKindUnbacked, "Created [notes.md](https://x.invalid) containing hello")
+
+	rec := modelRecordFor("openai", "gpt-4o")
+	require.NotNil(t, rec)
+	assert.Equal(t, 3, rec.Count, "every catch counts")
+	require.Len(t, rec.Refusals, 2, "the same words are kept once")
+	assert.Equal(
+		t,
+		"I CAN'T emit or execute the kdeps invoke blocks.",
+		rec.Refusals[0].Text,
+		"first sentence, newest wording",
+	)
+	assert.Equal(t, refusalKindUnbacked, rec.Refusals[1].Kind)
+	assert.Nil(t, modelRecordFor("openai", "gpt-x"), "another model has its own record")
+
+	assert.True(t, clearModelRecord("openai", "gpt-4o"))
+	assert.Nil(t, modelRecordFor("openai", "gpt-4o"))
+	assert.False(t, clearModelRecord("openai", "gpt-4o"))
 }

@@ -4,7 +4,7 @@
 
 ## Where it runs
 
-[The workflow](/workflow/) only. `apiResponse:` is the terminal node that formats the HTTP response returned by a workflow. In the REPL, its `response:` is the tool result the engine returns to the LLM. The resource is not a tool. The whole workflow is.
+[The workflow](/workflow/) only. `apiResponse:` is the terminal node that formats the HTTP response returned by a workflow. The resource is not a tool. The whole workflow is.
 
 ## Basic usage
 

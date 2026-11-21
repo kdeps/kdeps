@@ -21,7 +21,6 @@ package llm
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,47 +73,6 @@ func TestLlamafileRegistryVersion(t *testing.T) {
 	assert.Equal(t, stockModelsVersion(t, llamafileRegistryItem), LlamafileRegistryVersion())
 }
 
-func TestWriteLocalRegistry_CreatesFile(t *testing.T) {
-	home := t.TempDir()
-	origHome := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origHome })
-	userHomeDirFunc = func() (string, error) { return home, nil }
-	ReloadRegistry()
-
-	entries := []LlamafileEntry{
-		{Alias: "test-model", URL: "https://example.com/test.llamafile", SizeBytes: 1000},
-	}
-	err := WriteLocalRegistry(entries)
-	require.NoError(t, err)
-
-	// Verify file exists and is readable YAML
-	localPath := filepath.Join(home, ".kdeps", "llamafile_versions.yaml")
-	_, statErr := os.Stat(localPath)
-	require.NoError(t, statErr)
-
-	// Reload and verify new entry is visible
-	ReloadRegistry()
-	known, ok := ResolveLlamafileAlias("test-model")
-	require.True(t, ok)
-	assert.Equal(t, "https://example.com/test.llamafile", known)
-}
-
-func TestWriteLocalRegistry_WritesToHome(t *testing.T) {
-	home := t.TempDir()
-	origHome := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origHome })
-	userHomeDirFunc = func() (string, error) { return home, nil }
-	ReloadRegistry()
-
-	err := WriteLocalRegistry(ListLlamafileMappings())
-	require.NoError(t, err)
-
-	localPath := filepath.Join(home, ".kdeps", "llamafile_versions.yaml")
-	data, err := os.ReadFile(localPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "llamafiles:")
-}
-
 func TestLocalRegistryNotSeeded(t *testing.T) {
 	home := t.TempDir()
 	origHome := userHomeDirFunc
@@ -127,48 +85,6 @@ func TestLocalRegistryNotSeeded(t *testing.T) {
 	assert.Contains(t, LlamafileAliasNames(), "llama3.2")
 	_, err := os.Stat(filepath.Join(home, ".kdeps", "llamafile_versions.yaml"))
 	assert.True(t, os.IsNotExist(err))
-}
-
-func TestReloadRegistry_PicksUpNewEntries(t *testing.T) {
-	home := t.TempDir()
-	origHome := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origHome })
-	userHomeDirFunc = func() (string, error) { return home, nil }
-	ReloadRegistry()
-
-	// Write a custom entry
-	entries := []LlamafileEntry{
-		{Alias: "fresh-model", URL: "https://example.com/fresh.llamafile", SizeBytes: 500},
-	}
-	require.NoError(t, WriteLocalRegistry(entries))
-
-	// Reload should see fresh-model AND keep the baked-in entries: the
-	// embedded registry is the base so binary upgrades surface new aliases
-	// even with a stale local file; local entries override or extend it.
-	ReloadRegistry()
-	_, ok := ResolveLlamafileAlias("llama3.2")
-	require.True(t, ok, "embedded aliases must survive a local-only registry file")
-	url, ok := ResolveLlamafileAlias("fresh-model")
-	require.True(t, ok)
-	assert.Equal(t, "https://example.com/fresh.llamafile", url)
-}
-
-func TestReloadRegistry_LocalOverridesEmbedded(t *testing.T) {
-	home := t.TempDir()
-	origHome := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origHome })
-	userHomeDirFunc = func() (string, error) { return home, nil }
-	ReloadRegistry()
-
-	entries := []LlamafileEntry{
-		{Alias: "llama3.2", URL: "https://example.com/custom.llamafile", SizeBytes: 500},
-	}
-	require.NoError(t, WriteLocalRegistry(entries))
-
-	ReloadRegistry()
-	url, ok := ResolveLlamafileAlias("llama3.2")
-	require.True(t, ok)
-	assert.Equal(t, "https://example.com/custom.llamafile", url, "local entry must override the embedded alias")
 }
 
 func TestRegistryLoading_WithCorruptedLocalFile(t *testing.T) {
@@ -198,15 +114,4 @@ func TestParseLlamafileYAML_Empty(t *testing.T) {
 	parsed := parseLlamafileYAML([]byte{})
 	require.NotNil(t, parsed)
 	assert.Empty(t, parsed.Llamafiles)
-}
-
-func TestWriteLocalRegistry_MarshalError(t *testing.T) {
-	if runtime.GOOS == goosWindows {
-		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
-	}
-	t.Setenv("HOME", "/dev/null/impossible")
-	err := WriteLocalRegistry([]LlamafileEntry{{Alias: "test", URL: "https://x/y.llamafile"}})
-	if err == nil {
-		t.Fatal("expected error")
-	}
 }

@@ -19,8 +19,6 @@
 package agent
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -31,19 +29,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/overflow"
 	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
-
-// isolateHarnessHome points os.UserHomeDir at a fresh temp dir and restores
-// the built-in-only registry afterward, mirroring isolateEventsHome
-// (events_test.go).
-func isolateHarnessHome(t *testing.T) {
-	t.Helper()
-	// Registered before t.Setenv below so it runs LAST -- see
-	// isolateEventsHome (events_test.go) for why the order matters.
-	t.Cleanup(initHarness)
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-}
 
 func TestHarnessText_KnownAndUnknownNames(t *testing.T) {
 	assert.NotEmpty(t, harnessText("compaction-system"))
@@ -191,52 +176,6 @@ func TestHarnessEnabled_UnknownNameFailsOpen(t *testing.T) {
 
 func TestHarnessEnabled_KnownNameDefaultsTrue(t *testing.T) {
 	assert.True(t, HarnessEnabled("compaction-system"))
-}
-
-func TestSetHarnessEnabled_UnknownNameErrors(t *testing.T) {
-	isolateHarnessHome(t)
-	err := SetHarnessEnabled("does-not-exist", false)
-	require.Error(t, err)
-}
-
-func TestSetHarnessEnabled_PreservesSummary(t *testing.T) {
-	isolateHarnessHome(t)
-	const name = "honesty"
-	before := harnessRegistry[name].summary
-	require.NotEmpty(t, before)
-	require.NoError(t, SetHarnessEnabled(name, false))
-	require.NoError(t, SetHarnessEnabled(name, true))
-	assert.Equal(t, before, harnessRegistry[name].summary)
-}
-
-func TestSetHarnessEnabled_DisableThenEnableRoundTrips(t *testing.T) {
-	isolateHarnessHome(t)
-	const name = "branch-summary"
-	require.True(t, HarnessEnabled(name))
-
-	require.NoError(t, SetHarnessEnabled(name, false))
-	assert.False(t, HarnessEnabled(name))
-	assert.Equal(t, "", harnessText(name), "a disabled standalone section must not be readable")
-
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(home, ".kdeps", "harness", name+".yaml"))
-
-	require.NoError(t, SetHarnessEnabled(name, true))
-	assert.True(t, HarnessEnabled(name))
-	assert.NotEmpty(t, harnessText(name))
-}
-
-func TestSetHarnessEnabled_DisabledPreambleSectionDroppedFromAssembly(t *testing.T) {
-	isolateHarnessHome(t)
-	// "internals" is a built-in preamble-section entry (harness/internals.yaml).
-	const name = "internals"
-	before := harnessAssembledPreamble()
-	require.Contains(t, before, harnessText(name))
-
-	require.NoError(t, SetHarnessEnabled(name, false))
-	after := harnessAssembledPreamble()
-	assert.NotContains(t, after, "internals", "disabled preamble section must not appear in the assembled preamble")
 }
 
 func TestConfigureCompaction(t *testing.T) {

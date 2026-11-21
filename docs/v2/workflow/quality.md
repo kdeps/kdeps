@@ -87,7 +87,7 @@ The folders go everywhere the workflow goes:
 
 ## In a chat with `loop:`
 
-A chat with `loop:` runs as the agent loop and reads the same keys. The agent REPL turns the same features on with slash commands (`/refine`, `/plan`, `/turo`, `/efficiency`, `/judges`).
+A chat with `loop:` runs as the agent loop and reads the same keys.
 
 ## See also
 

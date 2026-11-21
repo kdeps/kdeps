@@ -4,7 +4,7 @@
 # A fake OpenAI-compatible server plays the model: it asks for e2e_echo, a
 # tool no Go code defines, and answers with what the tool returned. The same
 # server is the HTTP API the tool calls, so the run checks the whole path:
-# asset -> registration -> agent loop -> templated request -> templated result.
+# asset -> registration -> chat loop -> templated request -> templated result.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -110,18 +110,20 @@ http:
   result: "echoed={{.response.echo}} key={{.response.key}}"
 YAML
 
-# dt_run sends one prompt to the agent loop, with E2E_ECHO_KEY set to $1.
+# dt_run sends one prompt to a workflow chat loop, with E2E_ECHO_KEY set to $1.
+loop_workflow "$DT_DIR/wf" openai fake
 dt_run() {
     local home="$DT_DIR/home-$RANDOM"
     mkdir -p "$home"
     printf 'use the e2e_echo tool\n/quit\n' | HOME="$home" KDEPS_ASSETS_SRC="$DT_SRC" \
         KDEPS_ASSETS_DIR="$home/store" KDEPS_ASSETS_URL=off E2E_ECHO_KEY="$1" OPENAI_API_KEY=e2e \
-        timeout 120 "$KDEPS_BIN" --agent-loop --new --backend openai --base-url "http://127.0.0.1:$DT_PORT/v1" --model fake 2>&1 || true
+        KDEPS_LLM_BASE_URL="http://127.0.0.1:$DT_PORT/v1" \
+        timeout 120 "$KDEPS_BIN" run "$DT_DIR/wf/workflow.yaml" 2>&1 || true
 }
 
 OUT=$(dt_run "sekret")
 if output_grep_fixed "TOOL SAID echoed=ping pong key=sekret" "$OUT"; then
-    test_passed "declared tools - the agent loop calls a YAML-only tool and gets its templated result"
+    test_passed "declared tools - a chat loop calls a YAML-only tool and gets its templated result"
 else
     test_failed "declared tools - YAML-only tool call" "$OUT $(cat "$DT_DIR/server.log")"
 fi

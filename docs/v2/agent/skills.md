@@ -1,10 +1,10 @@
-# Skills and prompt templates
+# Skills and instructions
 
-Markdown files that shape how the agent behaves: skills, prompt templates, and instructions. The REPL loads these files. They are not the [kdeps skill for coding agents](/agent/ai-assisted-authoring) that scaffolds YAML in Claude Code or Cursor.
+Markdown files that shape how the agent behaves: skills and instructions. They are not the [kdeps skill for coding agents](/agent/ai-assisted-authoring) that scaffolds YAML in Claude Code or Cursor.
 
 ## Skills
 
-Skills are markdown files with optional YAML frontmatter that teach the agent how to behave in specific contexts. Place them in `~/.kdeps/skills/` or pass `--skill <path>` at startup.
+Skills are markdown files with optional YAML frontmatter that teach the agent how to behave in specific contexts. A workflow chat lists its skill folders in `tools.skills` (see [Skills](/workflow/resources/llm#skills)).
 
 ```markdown
 ---
@@ -14,15 +14,6 @@ description: Guidelines for reviewing Go code
 
 Always check for error handling. Prefer early returns over nested conditions.
 ```
-
-kdeps finds skills in these locations:
-
-- `~/.kdeps/skills/` (global)
-- `~/.agents/skills/` (where `npx skills` installs)
-- `./.kdeps/skills/` (the project's own, see [The .kdeps folder](#the-kdeps-folder))
-- paths passed with `--skill` (explicit, repeatable)
-
-Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`. The skill's text reaches the model with its folder named first, so a relative link in it (`agents/reviewer.md`, `scripts/run.sh`) resolves.
 
 ### Progressive disclosure
 
@@ -47,27 +38,6 @@ Always check for error handling. See [testing](../testing/SKILL.md) for coverage
 
 If the graph of a skill has related skills, `load_skill` adds a hint with their names. The model can then decide if it loads them too. This only adds data. A skill with no links or topics has the same behavior as before.
 
-## Prompt templates
-
-Prompt templates are reusable named prompts loaded from `.md` files. They work exactly like skills: invoke them by name from the REPL.
-
-```markdown
----
-name: review-pr
-description: Review a GitHub pull request
-argument-hint: <PR number or URL>
----
-
-Review the pull request at $1. Check for: correctness, test coverage, and breaking changes.
-```
-
-Place templates in `~/.kdeps/prompts/` or the project's `./.kdeps/prompts/`. Templates use the same placeholder syntax as skills: `$1`, `$2`, `$@`, `${1:-default}`.
-
-```bash
-/review-pr 1234
-/summarize this document for a technical audience
-```
-
 ## Instructions
 
 The agent automatically discovers instruction files by walking up the directory tree from the current directory:
@@ -91,13 +61,10 @@ my-project/
     style.md            # read as instructions, like KDEPS.md
     architecture.md     # every *.md here is read
     skills/
-      review.md         # /review
-    prompts/
-      release-notes.md  # /release-notes
+      review.md         # a skill
 ```
 
 ## See also
 
 - [Skill for coding agents](/agent/ai-assisted-authoring) - YAML scaffolding for Claude Code, Cursor, Grok
-- [Agent REPL](/agent/) - start the loop
-- [REPL slash commands](/agent/commands) - invoking skills and templates
+- [Agent loop](/agent/) - overview

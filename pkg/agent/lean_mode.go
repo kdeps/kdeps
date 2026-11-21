@@ -28,8 +28,6 @@ package agent
 import (
 	"os"
 	"strings"
-
-	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
 // AgentPreset defines the available presets for lean agent mode.
@@ -46,60 +44,6 @@ const (
 	PresetImplement AgentPreset = "implement"
 )
 
-// PresetPermissionMode maps presets to their permission mode.
-func PresetPermissionMode(preset AgentPreset) PermissionMode {
-	switch preset {
-	case PresetAudit, PresetExplain:
-		return PermissionReadOnly
-	case PresetImplement:
-		return PermissionWorkspaceWrite
-	default:
-		return PermissionDangerFullAccess
-	}
-}
-
-// LeanModeToolFilter returns the subset of tool names to keep in lean mode.
-// All tools in the excluded set are removed; everything else is kept.
-func LeanModeToolFilter(names []string) []string {
-	leanExcluded := map[string]bool{
-		toolNameBashExec:      true,
-		"bash_job_list":       true,
-		"bash_job_wait":       true,
-		toolNameWebSearch:     true,
-		toolNameWebScraper:    true,
-		"wikipedia":           true,
-		"exa_search":          true,
-		"zapier_list_actions": true,
-		"zapier_run_action":   true,
-		"wolfram_alpha":       true,
-		"cohere_rerank":       true,
-		"voyageai_rerank":     true,
-		"jina_rerank":         true,
-		"google_cache_create": true,
-		"google_cache_delete": true,
-		"google_cache_list":   true,
-		"http_request":        true,
-		"file_ops":            true,
-		"git_ops":             true,
-		"sql_ops":             true,
-	}
-
-	filtered := make([]string, 0, len(names))
-	for _, n := range names {
-		if !leanExcluded[n] {
-			filtered = append(filtered, n)
-		}
-	}
-	return filtered
-}
-
-// ResolveLeanMode checks KDEPS_LEAN_MODE env var.
-// Returns true when the value is "1", "true", or "yes".
-func ResolveLeanMode() bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_LEAN_MODE")))
-	return v == "1" || v == "true" || v == "yes"
-}
-
 // resolvePreset checks KDEPS_AGENT_PRESET env var and returns the preset.
 // Returns empty string and false when no preset is configured.
 func resolvePreset() (AgentPreset, bool) {
@@ -110,46 +54,4 @@ func resolvePreset() (AgentPreset, bool) {
 	default:
 		return "", false
 	}
-}
-
-// ApplyPresetIfConfigured checks the preset env var and applies it to the
-// tool registry. If a preset is set, it:
-//  1. Filters tools to lean mode (removing bash/network tools)
-//  2. Returns the permission mode for the preset
-//
-// Returns the resolved permission mode and whether a preset was applied.
-func ApplyPresetIfConfigured(reg *kdepstools.Registry) (PermissionMode, bool) {
-	preset, ok := resolvePreset()
-	if !ok {
-		return "", false
-	}
-
-	mode := PresetPermissionMode(preset)
-	allTools := reg.List()
-	toolNames := make([]string, len(allTools))
-	for i, t := range allTools {
-		toolNames[i] = t.Name
-	}
-
-	kept := LeanModeToolFilter(toolNames)
-	keptSet := make(map[string]bool, len(kept))
-	for _, n := range kept {
-		keptSet[n] = true
-	}
-	for _, t := range allTools {
-		if !keptSet[t.Name] {
-			reg.Unregister(t.Name)
-		}
-	}
-	return mode, true
-}
-
-// IsLeanOrPreseted reports whether the agent should restrict its tool surface.
-// Returns true when either KDEPS_LEAN_MODE or KDEPS_AGENT_PRESET is set.
-func IsLeanOrPreseted() bool {
-	if ResolveLeanMode() {
-		return true
-	}
-	_, ok := resolvePreset()
-	return ok
 }

@@ -12,12 +12,12 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/agent/tools-data) |
 | Actions | `http_request`, `search_local`, `load_document`, `transcribe_audio`, `ocr_image`, Zapier, Google cache | [Action tools](/agent/tools-actions) |
 | Structured operations | `file_ops`, `git_ops`, `sql_ops` - the same tools behind the `file`, `git` and `sql` components | [File](/workflow/resources/file), [Git](/workflow/resources/git), [SQL](/workflow/resources/sql) |
-| Harness | `instruct` (alias `help`) | [Slash commands](/agent/commands) |
+| Harness | `instruct` (alias `help`) | [Built-in tools](/agent/tools) |
 | Subagents | `subagent`: a task for a fresh, read-only agent loop | [Subagents](/agent/subagent) |
 | Questions | `ask_question`: show the user a question (with numbered options) and end the turn; their next message is the answer | [Asking the user](#asking-the-user) |
 | Planning | `plan_update`: tick a job order, or add one, in the progress file the planning council wrote | [Planning council](/agent/plan) |
 
-Permission modes and lean mode stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced) and [Harness reminders](/agent/tools-harness).
+Permission modes stay on this page. The calling rules are their own pages: [Fenced tools](/agent/tools-fenced) and [Harness reminders](/agent/tools-harness).
 
 ## Asking the user
 
@@ -346,7 +346,7 @@ an honest admission (in all words) immediately, with no nudge.
 
 The loop makes notices about budget changes and context-window trims. kdeps
 adds these notices to the context of the model as `[kdeps] ...` messages. The
-person at the REPL cannot do anything about them, but the model can adjust.
+model can adjust to them.
 
 ## Permission modes
 
@@ -392,38 +392,6 @@ The kdeps tool calls of a workflow chat (`write_file`, `bash_exec`, ...) go thro
 
 When an instrument session records, each gate decision is a `permission_decision` event. The event has the tool, the mode that it needs (`required`), and the active mode (`mode`). It also has `decision` (`allow` or `deny`), and the `reason` if kdeps denies the call.
 
-## Lean mode
-
-kdeps registers the full tool set for each session. This set has about 61 tools: `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, and the lean set below. A cloud backend sends each tool as a native schema. A local backend (file, gguf, ollama, llamafile) also gets a short text list: name, one-line description, and parameter names. Trim the set when you want less prompt weight or a restricted surface for CI/automation:
-
-```
-/tools lean     # this session only, switch back any time
-/tools full     # switch back
-/tools          # show current mode and tool count
-```
-
-The choice persists automatically across sessions - no flag needed - the same way `/model tool set` settings do. Lean mode keeps `read_file`, `write_file`, `edit_file`, `list_files`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools).
-
-`KDEPS_LEAN_MODE`/`KDEPS_AGENT_PRESET` (below) start a session already in lean mode and take priority over the persisted `/tools` choice.
-
-## Agent presets
-
-`KDEPS_AGENT_PRESET` combines lean mode with a permission mode in one flag for common workflows:
-
-```bash
-KDEPS_AGENT_PRESET=audit       # read-only, lean tools
-KDEPS_AGENT_PRESET=explain     # read-only, lean tools
-KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
-```
-
-| Preset | Permission mode | Tool set |
-|--------|----------------|----------|
-| `audit` | ReadOnly | Lean (no bash, no network) |
-| `explain` | ReadOnly | Lean (no bash, no network) |
-| `implement` | WorkspaceWrite | Lean + file writes |
-
-`IsLeanOrPreseted()` returns `true` when either `KDEPS_LEAN_MODE` or `KDEPS_AGENT_PRESET` is set.
-
 ## See also
 
 - [Fenced tools](/agent/tools-fenced) - invoke blocks and narration
@@ -435,6 +403,4 @@ KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
 - Web and search - web_search, wikipedia, web_scraper
 - [Data tools](/agent/tools-data) - calculator, SQL, embeddings, rerank
 - [Action tools](/agent/tools-actions) - HTTP, local search, documents, Zapier, git trailer
-- [REPL slash commands](/agent/commands) - full command reference
-- [Tool execution monitoring](/agent/monitoring) - status lines and stall detection
-- [Agent REPL](/agent/) - start the REPL
+- [Agent loop](/agent/) - overview

@@ -64,31 +64,6 @@ func HarnessEnabled(name string) bool {
 	return !e.disabled
 }
 
-// SetHarnessEnabled persists a harness section's enabled/disabled state to
-// ~/.kdeps/harness/<name>.yaml (the same override-file mechanism konfig
-// import already uses) and reloads the in-process registry (and the cached
-// assembled preamble) immediately. Errors if name isn't a registered
-// section. Callers with a live Loop should also call
-// Loop.InvalidateSystemPreamble afterward so an in-progress session picks up
-// the change on its next turn -- this function only refreshes the
-// package-level registry/cache, not any Loop's own cached preamble string.
-func SetHarnessEnabled(name string, enabled bool) error {
-	key := strings.ToLower(strings.TrimSpace(name))
-	e, ok := harnessRegistry[key]
-	if !ok {
-		return fmt.Errorf("harness: unknown section %q", name)
-	}
-	entry := yamlHarnessEntry{
-		Name: key, Kind: e.kind, Order: e.order, Body: e.body, Summary: e.summary,
-		Disabled: !enabled, MaxOccurrences: e.maxOccurrences, Remind: e.remind,
-	}
-	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
-		return err
-	}
-	initHarness()
-	return nil
-}
-
 // HarnessReminderEnabled reports whether a harness section's body is forced
 // onto every LLM prompt and every tool call result (see
 // appendHarnessReminders). An unregistered name reports false -- unlike
@@ -97,28 +72,6 @@ func SetHarnessEnabled(name string, enabled bool) error {
 func HarnessReminderEnabled(name string) bool {
 	e, ok := harnessRegistry[strings.ToLower(strings.TrimSpace(name))]
 	return ok && e.remind
-}
-
-// SetHarnessReminder persists a harness section's forced-reminder state (see
-// HarnessReminderEnabled) the same way SetHarnessEnabled persists
-// enabled/disabled, and reloads the in-process registry immediately. Errors
-// if name isn't a registered section. Callers with a live Loop should also
-// call Loop.InvalidateSystemPreamble afterward, same as SetHarnessEnabled.
-func SetHarnessReminder(name string, enabled bool) error {
-	key := strings.ToLower(strings.TrimSpace(name))
-	e, ok := harnessRegistry[key]
-	if !ok {
-		return fmt.Errorf("harness: unknown section %q", name)
-	}
-	entry := yamlHarnessEntry{
-		Name: key, Kind: e.kind, Order: e.order, Body: e.body, Summary: e.summary,
-		Disabled: e.disabled, MaxOccurrences: e.maxOccurrences, Remind: enabled,
-	}
-	if err := writeKonfigHarness([]yamlHarnessEntry{entry}); err != nil {
-		return err
-	}
-	initHarness()
-	return nil
 }
 
 // harnessReminderNames returns the sorted names of every harness section
@@ -158,48 +111,7 @@ func harnessRemindersBlock() string {
 // never collides with a harness section of the same name ("tools", "memory").
 const instructReminderPrefix = "instruct:"
 
-type reminderKind int
-
-const (
-	reminderHarness reminderKind = iota
-	reminderInstruct
-)
-
-// resolveReminderName maps a user-supplied reminder name to a harness section
-// or an /instruct topic. "instruct:<topic>" is always a topic; a bare name is
-// a harness section when one exists (so "tools"/"memory" keep meaning the
-// harness section), otherwise a topic if one matches. key is the normalized
-// topic name for reminderInstruct; unresolvable names fall through as
-// reminderHarness so SetHarnessReminder reports the error.
-func resolveReminderName(name string) (reminderKind, string) {
-	n := strings.ToLower(strings.TrimSpace(name))
-	if topic, ok := strings.CutPrefix(n, instructReminderPrefix); ok {
-		return reminderInstruct, topic
-	}
-	if _, ok := harnessRegistry[n]; ok {
-		return reminderHarness, n
-	}
-	if _, ok := findInstructTopic(n); ok {
-		return reminderInstruct, n
-	}
-	return reminderHarness, n
-}
-
-// validInstructReminders keeps only known topic names, deduplicated and sorted,
-// so a stale or hand-edited settings file cannot inject unknown reminders.
-func validInstructReminders(names []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, n := range names {
-		n = strings.ToLower(strings.TrimSpace(n))
-		if _, ok := findInstructTopic(n); ok && !seen[n] {
-			seen[n] = true
-			out = append(out, n)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
+const ()
 
 // InstructReminderEnabled reports whether an /instruct topic is forced onto
 // every LLM prompt and tool result.
@@ -211,42 +123,6 @@ func (l *Loop) InstructReminderEnabled(topic string) bool {
 		}
 	}
 	return false
-}
-
-// SetInstructReminder turns the forced reminder for one /instruct topic on or
-// off for this loop. Errors for an unknown topic. The caller persists tuning
-// and invalidates the cached preamble.
-func (l *Loop) SetInstructReminder(topic string, enabled bool) error {
-	topic = strings.ToLower(strings.TrimSpace(topic))
-	if _, ok := findInstructTopic(topic); !ok {
-		return fmt.Errorf("harness: unknown instruct topic %q", topic)
-	}
-	names := l.config.InstructReminders
-	if enabled {
-		names = append(names, topic)
-	} else {
-		kept := names[:0:0]
-		for _, n := range names {
-			if n != topic {
-				kept = append(kept, n)
-			}
-		}
-		names = kept
-	}
-	l.config.InstructReminders = validInstructReminders(names)
-	return nil
-}
-
-// reminderNames returns every active reminder: harness section names followed
-// by "instruct:<topic>" entries. Drives the HUD "reminder:" segment.
-func (l *Loop) reminderNames() []string {
-	names := harnessReminderNames()
-	for _, t := range instructTopicList() {
-		if l.InstructReminderEnabled(t.name) {
-			names = append(names, instructReminderPrefix+t.name)
-		}
-	}
-	return names
 }
 
 // remindersBlock is harnessRemindersBlock plus the rendered text of every
@@ -273,18 +149,6 @@ func (l *Loop) appendReminders(content string) string {
 		return content
 	}
 	return content + "\n\n" + block
-}
-
-// harnessOccurrenceLimit returns a standalone entry's configured occurrence
-// cap (see yamlHarnessEntry.MaxOccurrences), or 0 if the entry is unknown,
-// disabled, or has no cap set. Callers must not treat a missing entry's 0 as
-// permission to fire; harnessOccurrenceAllowed does not.
-func harnessOccurrenceLimit(name string) int {
-	e, ok := harnessRegistry[name]
-	if !ok || e.disabled {
-		return 0
-	}
-	return e.maxOccurrences
 }
 
 // harnessOccurrenceAllowed reports whether a standalone entry may still fire,

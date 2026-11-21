@@ -47,7 +47,6 @@ var setTypes = map[string]string{
 	"presets":    "preset",
 	"policy":     "policy",
 	"tools":      "tool",
-	"commands":   "command",
 	"recipes":    "recipe",
 	"models":     "model",
 	"templates":  "template",

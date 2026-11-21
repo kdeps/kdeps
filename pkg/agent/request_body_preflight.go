@@ -22,9 +22,6 @@ package agent
 // an actionable error instead of a silent provider 400.
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/kdeps/kdeps/v3/pkg/bodylimit"
 )
 
@@ -83,21 +80,6 @@ func CheckRequestBodySize(backend string, estimatedBytes int64) error {
 func CheckRequestBodySizePreflight(backend string, tokenCount, messageCount int) error {
 	estimated := EstimateRequestSizeBytes(tokenCount, messageCount)
 	return CheckRequestBodySize(backend, estimated)
-}
-
-// RequestSizePreflightWarnings returns the startup warning for backend when
-// it has a low request size limit (DashScope users should know their context
-// window is limited), or nothing: a limit of a backend not in use is noise.
-func RequestSizePreflightWarnings(backend string) []string {
-	limit := providerMaxRequestBodyBytes(strings.ToLower(strings.TrimSpace(backend)))
-	threshold := effectiveBytes(eventProviderSmallThreshold, 0)
-	if threshold == disabledSentinel || limit <= 0 || limit >= int64(threshold) {
-		return nil
-	}
-	return []string{fmt.Sprintf(
-		"Backend %q has a %s request body limit — reduce MaxHistoryTokens if you hit payload errors",
-		backend, bodylimit.FormatBytes(limit),
-	)}
 }
 
 // EstimateTokenCountFromStrings approximates total token count from combined

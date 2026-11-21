@@ -160,35 +160,3 @@ func PresetNames() []string {
 	sort.Strings(names)
 	return names
 }
-
-// exportPresetEntries returns every registered preset (built-in + user,
-// merged), for konfig export.
-func exportPresetEntries() []Preset {
-	return mapValuesDeref(presetRegistry)
-}
-
-// ApplyPreset writes a preset's harness/event overrides to their normal
-// on-disk locations (see writeKonfigHarness/writeKonfigEvents) and reloads
-// both registries immediately. Scoped narrowly: unlike ApplyKonfig, it
-// never touches tuning/registry/theme/skills/actions, so switching presets
-// can never clobber a persisted setting the preset doesn't mention. A preset
-// Errors if name isn't a registered preset. A preset with judges sets them
-// on l when l is not nil.
-func ApplyPreset(name string, l *Loop) error {
-	p, ok := PresetByName(name)
-	if !ok {
-		return fmt.Errorf("presets: unknown preset %q", name)
-	}
-	if err := writeKonfigHarness(p.Harness); err != nil {
-		return err
-	}
-	if err := writeKonfigEvents(p.Events); err != nil {
-		return err
-	}
-	initHarness()
-	initEvents()
-	if l != nil && len(p.Judges) > 0 {
-		l.SetJudges(p.Judges)
-	}
-	return nil
-}

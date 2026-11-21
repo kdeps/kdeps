@@ -94,20 +94,6 @@ func TestEfficiencyFailureStop_MissingPathListsFolder(t *testing.T) {
 	assert.Contains(t, note, missing+" does not exist. Entries in "+dir+": config.yaml, src/")
 }
 
-func TestEfficiencyFailureStop_BudgetThenFallback(t *testing.T) {
-	l := effLoop(t)
-	require.NoError(t, SetEfficiencyValue("failures", 2))
-	tc := effCall("make_output", `{}`)
-	assert.True(t, l.efficiencyFailureStop(tc, `{"error":"a"}`))
-	assert.True(t, l.efficiencyFailureStop(tc, `{"error":"b"}`))
-	assert.False(t, l.efficiencyFailureStop(tc, `{"error":"c"}`), "budget spent: banner takes over")
-	assert.False(t, l.eff.Ended, "a spent failure budget must not end the turn")
-
-	require.NoError(t, SetEfficiencyLimitOff("failures"))
-	assert.True(t, l.efficiencyFailureStop(tc, `{"error":"d"}`))
-	assert.Contains(t, l.efficiencyNote(nil), "(failure 3/unlimited)")
-}
-
 func TestEfficiencyFailureStop_InactiveGovernor(t *testing.T) {
 	isolateEventsAndPresetsHome(t)
 	l := &Loop{}
@@ -170,6 +156,53 @@ func newFailingToolLoop(t *testing.T, ms Streamer, failUntil int) *Loop {
 	return New(t.Context(), executor.NewEngine(context.Background(), nil), newTestWorkflowForSession(), reg, Config{
 		Model: "test", Streamer: ms, MaxToolRounds: 20,
 	})
+}
+
+// errThenStreamer fails the first n calls, then answers.
+type errThenStreamer struct {
+	n, calls int
+	err      error
+	cfgs     []*domain.ChatConfig
+}
+
+func (s *errThenStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	cp := *cfg
+	s.cfgs = append(s.cfgs, &cp)
+	s.calls++
+	if s.calls <= s.n {
+		return "", nil, s.err
+	}
+	return "recovered", nil, nil
+}
+
+func TestRunStreaming_LLMErrorSoftStoppedAndRetried(t *testing.T) {
+	ms := &errThenStreamer{n: 1, err: errors.New("400 invalid tool_call arguments")}
+	loop := newFailingToolLoop(t, ms, 0)
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "recovered", result)
+	require.Len(t, ms.cfgs, 2)
+	assert.Contains(t, ms.cfgs[1].Prompt, "Soft stop (failure 1/")
+	assert.Contains(t, ms.cfgs[1].Prompt, "400 invalid tool_call arguments")
+	assert.NotContains(t, buf.String(), efficiencyMark)
+}
+
+func TestRunStreaming_LLMErrorReturnedWhenRoundsRunOut(t *testing.T) {
+	ms := &errThenStreamer{n: 100, err: errors.New("400 bad request")}
+	loop := newFailingToolLoop(t, ms, 0)
+	loop.config.MaxToolRounds = 2
+	_, err := loop.RunStreaming(context.Background(), "go", &bytes.Buffer{})
+	require.ErrorContains(t, err, "400 bad request", "never end silently on a swallowed error")
+}
+
+func TestBriefLimit_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
+	withEvent(t, Event{Name: eventFailureErrorBytes, Items: 7, Run: actionTruncate})
+	withEvent(t, Event{Name: eventFailureDirEntries, Items: 9, Run: actionCap, Disabled: true})
+	assert.Equal(t, 7, briefLimit(eventFailureErrorBytes))
+	assert.Equal(t, 0, briefLimit(eventFailureDirEntries), "off: the failbrief default applies")
 }
 
 // A failed edit is soft-stopped: the model gets the error and the file lines on
@@ -251,76 +284,4 @@ func TestRunStreaming_FailedEditBriefedWithFileAndRetried(t *testing.T) {
 		s, _ := m["content"].(string)
 		assert.NotContains(t, s, efficiencyMark)
 	}
-}
-
-// With the governor off (or the failure budget spent) the old banner returns.
-func TestRunStreaming_FailedToolBannerWhenGovernorOff(t *testing.T) {
-	edit := domain.StreamedToolCall{ID: "e", Name: "make_output", Arguments: `{}`}
-	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
-		{toolCalls: []domain.StreamedToolCall{edit}},
-		{content: "the edit failed"},
-	}}}
-	loop := newFailingToolLoop(t, ms, 1)
-	require.NoError(t, SetEfficiencyEnabled(false))
-	_, err := loop.RunStreaming(context.Background(), "edit", &bytes.Buffer{})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(ms.cfgs), 2)
-	assert.Contains(t, ms.cfgs[1].Messages, "[TOOL FAILED]")
-	assert.NotContains(t, ms.cfgs[1].Prompt, efficiencyMark)
-}
-
-// errThenStreamer fails the first n calls, then answers.
-type errThenStreamer struct {
-	n, calls int
-	err      error
-	cfgs     []*domain.ChatConfig
-}
-
-func (s *errThenStreamer) StreamChat(
-	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
-) (string, []domain.StreamedToolCall, error) {
-	cp := *cfg
-	s.cfgs = append(s.cfgs, &cp)
-	s.calls++
-	if s.calls <= s.n {
-		return "", nil, s.err
-	}
-	return "recovered", nil, nil
-}
-
-func TestRunStreaming_LLMErrorSoftStoppedAndRetried(t *testing.T) {
-	ms := &errThenStreamer{n: 1, err: errors.New("400 invalid tool_call arguments")}
-	loop := newFailingToolLoop(t, ms, 0)
-	var buf bytes.Buffer
-	result, err := loop.RunStreaming(context.Background(), "go", &buf)
-	require.NoError(t, err)
-	assert.Equal(t, "recovered", result)
-	require.Len(t, ms.cfgs, 2)
-	assert.Contains(t, ms.cfgs[1].Prompt, "Soft stop (failure 1/")
-	assert.Contains(t, ms.cfgs[1].Prompt, "400 invalid tool_call arguments")
-	assert.NotContains(t, buf.String(), efficiencyMark)
-}
-
-func TestRunStreaming_LLMErrorReturnedOnceBudgetSpent(t *testing.T) {
-	ms := &errThenStreamer{n: 100, err: errors.New("400 bad request")}
-	loop := newFailingToolLoop(t, ms, 0)
-	require.NoError(t, SetEfficiencyValue("failures", 2))
-	_, err := loop.RunStreaming(context.Background(), "go", &bytes.Buffer{})
-	require.ErrorContains(t, err, "400 bad request")
-	assert.Len(t, ms.cfgs, 3, "the first call plus two briefed retries")
-}
-
-func TestRunStreaming_LLMErrorReturnedWhenRoundsRunOut(t *testing.T) {
-	ms := &errThenStreamer{n: 100, err: errors.New("400 bad request")}
-	loop := newFailingToolLoop(t, ms, 0)
-	loop.config.MaxToolRounds = 2
-	_, err := loop.RunStreaming(context.Background(), "go", &bytes.Buffer{})
-	require.ErrorContains(t, err, "400 bad request", "never end silently on a swallowed error")
-}
-
-func TestBriefLimit_FromTheEventOrTheDefaultWhenOff(t *testing.T) {
-	withEvent(t, Event{Name: eventFailureErrorBytes, Items: 7, Run: actionTruncate})
-	withEvent(t, Event{Name: eventFailureDirEntries, Items: 9, Run: actionCap, Disabled: true})
-	assert.Equal(t, 7, briefLimit(eventFailureErrorBytes))
-	assert.Equal(t, 0, briefLimit(eventFailureDirEntries), "off: the failbrief default applies")
 }

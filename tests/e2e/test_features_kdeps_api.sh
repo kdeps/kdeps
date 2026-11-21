@@ -18,8 +18,7 @@
 # license notices and attribution when redistributing derived code.
 
 # E2E for the process control API (pkg/api) against the built kdeps binary.
-# kdeps run and the REPL must serve discovery, tool calls, and slash-command
-# calls on 127.0.0.1 only. The workflow apiServer and /_kdeps/ are a different listener.
+# kdeps run must serve discovery and tool calls on 127.0.0.1 only. The workflow apiServer and /_kdeps/ are a different listener.
 # command curl is required: common.sh's curl wrapper would inject KDEPS_API_AUTH_TOKEN.
 
 set -uo pipefail
@@ -226,9 +225,9 @@ elif kind == "groups":
     if doc.get("kind") != "APIGroupList" or doc.get("apiVersion") != "v1":
         die(repr(doc))
     groups = doc.get("groups")
-    if not isinstance(groups, list) or len(groups) != 2:
+    if not isinstance(groups, list) or len(groups) != 1:
         die("group count")
-    want = ["tools.kdeps.io", "commands.kdeps.io"]
+    want = ["tools.kdeps.io"]
     for group, name in zip(groups, want):
         gv = name + "/v1"
         if group.get("name") != name:
@@ -248,12 +247,10 @@ elif kind == "openapi":
         die(str(doc.get("openapi")))
     paths = doc.get("paths") or {}
     call = "/apis/tools.kdeps.io/v1/tools/{name}/call"
-    cmd = "/apis/commands.kdeps.io/v1/commands"
-    cmd_call = cmd + "/{name}/call"
-    want = {"/api", "/apis", "/openapi/v3", "/apis/tools.kdeps.io/v1/tools", call, cmd, cmd_call}
+    want = {"/api", "/apis", "/openapi/v3", "/apis/tools.kdeps.io/v1/tools", call}
     if set(paths) != want:
         die(",".join(sorted(paths)))
-    posts = {call, cmd_call}
+    posts = {call}
     for key, item in paths.items():
         verbs = {"post"} if key in posts else {"get"}
         if set(item) != verbs:
@@ -275,33 +272,16 @@ elif kind == "tools":
         "instruct", "jina_rerank", "knowledge_recall", "list_files", "load_document",
         "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
         "ocr_image", "python", "read_file", "retrieve_context", "search_local",
-        "session_ops", "sql_describe_table", "sql_list_tables", "sql_ops",
+        "sql_describe_table", "sql_list_tables", "sql_ops",
         "sql_query", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
         "zapier_list_actions", "zapier_run_action",
     ]
     if names != want:
         die(repr(names))
-    session = {"session_ops"}
     flagged = {item.get("name") for item in doc["items"] if item.get("agentOnly")}
-    if flagged != session:
+    if flagged:
         die("agentOnly " + repr(sorted(flagged)))
-elif kind == "commands":
-    if doc.get("kind") != "CommandList" or doc.get("apiVersion") != "commands.kdeps.io/v1":
-        die(repr(doc))
-    items = doc.get("items") or []
-    names = [item.get("name") for item in items]
-    if names != sorted(names):
-        die("unsorted " + repr(names))
-    for want in ("clear", "instruct-now", "explain", "harness", "review", "help"):
-        if want not in names:
-            die("missing " + want)
-    for item in items:
-        if not item.get("name") or not item.get("display"):
-            die(repr(item))
-elif kind == "command-missing":
-    if doc.get("kind") != "Status" or doc.get("code") != 404 or doc.get("message") != "command not found":
-        die(repr(doc))
 elif kind == "missing-tool":
     if doc.get("kind") != "Status" or doc.get("code") != 404 or doc.get("message") != "tool not found":
         die(repr(doc))
@@ -350,19 +330,6 @@ description: E2E hand-written tool that prints the git version.
 exec:
   command: git
   args: ["--version"]
-EOF
-    # A hand-written command in ~/.kdeps/commands whose step calls a kdeps API tool.
-    mkdir -p "$home/.kdeps/commands"
-    cat >"$home/.kdeps/commands/e2e_calc.yaml" <<'EOF'
-version: 1.0.0
-name: e2e_calc
-usage:
-  - args: "<expression>"
-    help: Evaluate an expression with the calculator tool
-run:
-  - tool: calculator
-    args:
-      expression: "$1"
 EOF
     cat >"$home/.kdeps/tools/e2e_py_tool.yaml" <<'EOF'
 version: 1.0.0
@@ -513,17 +480,6 @@ EOF
         test_passed "kdeps API - bad listen fails kdeps run"
     fi
 
-    log="$root/bad-repl.log"
-    rc=0
-    timeout 20 env -u KDEPS_API_TOKEN HOME="$home" KDEPS_API_LISTEN="bad-listen-addr" \
-        "$KDEPS_BIN" --agent-loop --new </dev/null >"$log" 2>&1 || rc=$?
-    if [ "$rc" -eq 0 ] || [ "$rc" -eq 124 ]; then
-        test_failed "kdeps API - bad listen fails the REPL" "exit $rc"
-    elif ! grep -F "kdeps api" "$log" >/dev/null; then
-        test_failed "kdeps API - bad listen fails the REPL" "log missing kdeps api: $(tail -c 200 "$log")"
-    else
-        test_passed "kdeps API - bad listen fails the REPL"
-    fi
 
     # --- kdeps run with a public-style apiServer still isolates the control API ---
     log="$root/server.log"
@@ -1202,148 +1158,6 @@ PY
     fi
     _stop
 
-    # --- REPL serves the same API and does not accept the run token ---
-    log="$root/repl.log"
-    HOME="$home" USERPROFILE="$(to_native_path "$home")" \
-        KDEPS_API_LISTEN="127.0.0.1:${repl_port}" \
-        KDEPS_API_TOKEN="$repl_tok" \
-        python3 - "$KDEPS_BIN" "$log" <<'PY' &
-import signal, subprocess, sys, time
-binp, log = sys.argv[1], sys.argv[2]
-out = open(log, "wb")
-proc = subprocess.Popen([binp, "--agent-loop", "--new"], stdin=subprocess.PIPE, stdout=out, stderr=subprocess.STDOUT)
-def stop(_sig, _frm):
-    proc.kill()
-    raise SystemExit(0)
-signal.signal(signal.SIGTERM, stop)
-signal.signal(signal.SIGINT, stop)
-try:
-    time.sleep(40)
-finally:
-    proc.kill()
-    try:
-        proc.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        pass
-PY
-    pids+=("$!")
-    if ! wait_for_http "http://127.0.0.1:${repl_port}/api" 25; then
-        test_failed "kdeps API - REPL listens" "log $(tail -c 400 "$log")"
-    else
-        test_passed "kdeps API - REPL listens"
-        _check "kdeps API - REPL GET /api" GET "http://127.0.0.1:${repl_port}/api" "Bearer ${repl_tok}" 200 versions || true
-        _check "kdeps API - REPL GET /apis" GET "http://127.0.0.1:${repl_port}/apis" "Bearer ${repl_tok}" 200 groups || true
-        _check "kdeps API - REPL rejects the kdeps run token" GET "http://127.0.0.1:${repl_port}/api" "Bearer ${ctrl_tok}" 401 denied || true
-        : >"$body"
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"topic":"modes"}' \
-            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/instruct/call" || true)
-        if [ "$got" = "200" ] && grep -F "Workflow mode" "$body" >/dev/null \
-            && ! grep -F "$repl_tok" "$body" >/dev/null; then
-            test_passed "kdeps API - REPL instruct returns a briefing section"
-        else
-            test_failed "kdeps API - REPL instruct returns a briefing section" "status $got body $(head -c 180 "$body")"
-        fi
-        _check "kdeps API - REPL lists slash commands" GET "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands" "Bearer ${repl_tok}" 200 commands || true
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"args":[]}' \
-            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/clear/call" || true)
-        if [ "$got" = "200" ]; then
-            test_passed "kdeps API - REPL runs a slash command"
-        else
-            test_failed "kdeps API - REPL runs a slash command" "status $got body $(head -c 180 "$body")"
-        fi
-        : >"$body"
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"args":["6*7"]}' \
-            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/e2e_calc/call" || true)
-        if [ "$got" = "200" ] && grep -F "42" "$body" >/dev/null; then
-            test_passed "kdeps API - a ~/.kdeps/commands tool step calls the tool"
-        else
-            test_failed "kdeps API - a ~/.kdeps/commands tool step calls the tool" "status $got body $(head -c 180 "$body")"
-        fi
-        # /refine is a setting: command; the line it prints is its asset's set: template.
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"args":["off"]}' \
-            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/refine/call" || true)
-        sleep 1
-        if [ "$got" = "200" ] && grep -F "prompt refinement disabled" "$log" >/dev/null; then
-            test_passed "kdeps API - a setting: command sets and prints from its YAML"
-        else
-            test_failed "kdeps API - a setting: command sets and prints from its YAML" "status $got body $(head -c 180 "$body") log $(tail -c 300 "$log")"
-        fi
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"args":["high"]}' \
-            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/thinking/call" || true)
-        sleep 1
-        if [ "$got" = "200" ] && grep -F "Thinking set to high (budget" "$log" >/dev/null; then
-            test_passed "kdeps API - /thinking is a setting: command from its YAML"
-        else
-            test_failed "kdeps API - /thinking is a setting: command from its YAML" "status $got body $(head -c 180 "$body") log $(tail -c 300 "$log")"
-        fi
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"operation":"messages"}' \
-            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/session_ops/call" || true)
-        if [ "$got" = "200" ] && grep -F '"turns"' "$body" >/dev/null && grep -F '"messages"' "$body" >/dev/null; then
-            test_passed "kdeps API - session_ops reads the live session"
-        else
-            test_failed "kdeps API - session_ops reads the live session" "status $got body $(head -c 300 "$body")"
-        fi
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"operation":"set","key":"autocontext","value":"off"}' \
-            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/session_ops/call" || true)
-        if [ "$got" = "200" ] && grep -F '"value"' "$body" | grep -F 'off' >/dev/null; then
-            test_passed "kdeps API - session_ops set stores a session setting"
-        else
-            test_failed "kdeps API - session_ops set stores a session setting" "status $got body $(head -c 300 "$body")"
-        fi
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"operation":"set","key":"autocontext","value":"maybe"}' \
-            "http://127.0.0.1:${repl_port}/apis/tools.kdeps.io/v1/tools/session_ops/call" || true)
-        if [ "$got" = "400" ] && grep -F 'is not a value of setting' "$body" >/dev/null; then
-            test_passed "kdeps API - session_ops set refuses a value the command asset does not list"
-        else
-            test_failed "kdeps API - session_ops set refuses an unlisted value" "status $got body $(head -c 300 "$body")"
-        fi
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 10 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{"args":[]}' \
-            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/history/call" || true)
-        sleep 1
-        if [ "$got" = "200" ] && grep -E "Conversation history|No conversation history" "$body" "$log" >/dev/null; then
-            test_passed "kdeps API - /history is a YAML command over session_ops"
-        else
-            test_failed "kdeps API - /history is a YAML command over session_ops" "status $got body $(head -c 180 "$body") log $(tail -c 300 "$log")"
-        fi
-        got=$(command curl -sS -D "$hdr" -o "$body" -w "%{http_code}" --connect-timeout 2 --max-time 5 \
-            -X POST -H "Authorization: Bearer ${repl_tok}" -H "Content-Type: application/json" \
-            --data '{}' \
-            "http://127.0.0.1:${repl_port}/apis/commands.kdeps.io/v1/commands/no_such_command/call" || true)
-        if [ "$got" = "404" ] && python3 "$root/check_api.py" command-missing "$body"; then
-            test_passed "kdeps API - unknown command is 404"
-        else
-            test_failed "kdeps API - unknown command is 404" "status $got body $(head -c 180 "$body")"
-        fi
-        if grep -F "$repl_tok" "$log" >/dev/null; then
-            test_failed "kdeps API - REPL log does not contain the token"
-        else
-            test_passed "kdeps API - REPL log does not contain the token"
-        fi
-    fi
-    _stop
-    if [ "$(http_status "http://127.0.0.1:${repl_port}/api")" = "000" ]; then
-        test_passed "kdeps API - REPL exit closes the control port"
-    else
-        test_failed "kdeps API - REPL exit closes the control port"
-    fi
 
     _finish
 }

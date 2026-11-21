@@ -235,10 +235,10 @@ Shows detailed execution logs including expression evaluation, dependency resolu
 
 ### Record a session for a model to debug
 
-`--instrument=<name>` records any kdeps run - an agent session or `kdeps run` - into a folder a model can read and fix from. Bare `--instrument` names it by its start time. Use `=`. With a space, kdeps uses the name as the path argument.
+`--instrument=<name>` records any kdeps run into a folder a model can read and fix from. Bare `--instrument` names it by its start time. Use `=`. With a space, kdeps uses the name as the path argument.
 
 ```bash
-kdeps --agent-loop --instrument=billing-bug            # agent session, recorded
+kdeps run workflow.yaml --instrument=billing-bug      # agent loop run, recorded
 kdeps run workflow.yaml --instrument=api-500
 ```
 

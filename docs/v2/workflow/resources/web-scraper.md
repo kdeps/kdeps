@@ -6,7 +6,7 @@ It comes from the `components` asset set. Call it with a `component:` resource. 
 
 ## Where it runs
 
-The workflow runs this component as a step. In the REPL, the same tool is `web_scraper`, with the aliases `fetch`, `web_fetch`, `fetch_url`, and `read_url`. The component and the REPL call the same route.
+The workflow runs this component as a step. In a chat loop, the same tool is `web_scraper`, with the aliases `fetch`, `web_fetch`, `fetch_url`, and `read_url`. The component and the tool call the same route.
 
 ## Basic usage
 

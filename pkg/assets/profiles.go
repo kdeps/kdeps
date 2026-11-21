@@ -56,7 +56,7 @@ func RunSets() []string { return append(slices.Clone(BaseSets), ChatSets...) }
 // AgentSets are what the agent loop loads besides BaseSets.
 //
 //nolint:gochecknoglobals // fixed list
-var AgentSets = []string{"harness", "tools", "commands", "events", "actions", "presets", "memory", "policy"}
+var AgentSets = []string{"harness", "tools", "events", "actions", "presets", "memory", "policy"}
 
 // Profile is a choice of what to install: whole sets, the items a set's
 // loader requires, and single items.
@@ -96,9 +96,9 @@ var Profiles = []Profile{
 	},
 	{
 		Name:        "agent",
-		Description: "minimum and the agent loop: prompts, slash commands, file/shell/web tools",
+		Description: "minimum and the agent loop tools: prompts, presets, file, shell and web tools",
 		Sets: append(slices.Clone(BaseSets),
-			"harness", "commands", "events", "actions", "presets", "memory", "policy"),
+			"harness", "events", "actions", "presets", "memory", "policy"),
 		RequiredOf: []string{"tools"},
 		Items:      toolIDs(agentTools),
 	},

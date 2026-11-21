@@ -45,7 +45,7 @@ func TestBundledAssets_RoundTrip(t *testing.T) {
 	store := os.Getenv("KDEPS_ASSETS_DIR")
 	require.NotEmpty(t, store, "the package's assets become the store")
 	assert.FileExists(t, filepath.Join(store, "lock.json"))
-	assert.FileExists(t, filepath.Join(store, "commands", "help.yaml"))
+	assert.FileExists(t, filepath.Join(store, "harness", "compaction-system.yaml"))
 
 	// The store works with no source directory: nothing is missing.
 	t.Setenv(assets.SourceEnv, t.TempDir())

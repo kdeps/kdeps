@@ -157,7 +157,7 @@ kdeps classifies entries automatically by key pattern, with the rules in the `me
 
 ## Memory in a workflow
 
-Memory tools work in the REPL and in a workflow. In a workflow, `GetOrCreateMemoryStore()` initializes the store on first use. You do not need a Loop. Memory is available to all resources and tools.
+Memory tools work in every workflow. In a workflow, `GetOrCreateMemoryStore()` initializes the store on first use. You do not need a Loop. Memory is available to all resources and tools.
 
 Workflow resources can call `memory_list()` to list the keys. The agent loop does not register that as a tool. `memory_query` uses that same call route and still needs the agent loop's live state. A workflow call with no loop returns `memory_query: agent loop is not configured (memory_query is an agent-mode tool)`.
 
@@ -169,4 +169,4 @@ Memory is on by default when the agent loop starts. You do not need YAML configu
 
 - [Memory internals](/agent/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
 - [Session configuration](/workflow/sessions) - HTTP session storage across requests from the same caller
-- [Agent REPL](/agent/) - how the loop works
+- [Agent loop](/agent/) - how the loop works

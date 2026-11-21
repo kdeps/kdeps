@@ -19,7 +19,7 @@ Eight actions ship, one per distinct behavior: `compact`, `truncate`, `reject`, 
 
 ## Behavior stays Go code
 
-The behavior of each action is Go code, because the action has a real side effect. For example, it summarizes a conversation, truncates a string, or refuses a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, and `~/.kdeps/harness/` share one embed-plus-override shape and are the source of truth for what happens and when. [konfig](./konfig.md) exports and imports them.
+The behavior of each action is Go code, because the action has a real side effect. For example, it summarizes a conversation, truncates a string, or refuses a tool call. The registry is configurable: name, `kind` and `description`. `~/.kdeps/actions/`, `~/.kdeps/events/`, and `~/.kdeps/harness/` share one embed-plus-override shape and are the source of truth for what happens and when.
 
 ## Not every action is freely swappable
 

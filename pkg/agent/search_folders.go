@@ -56,6 +56,48 @@ func listSearchFolders(w io.Writer, k *knowledgeState) error {
 	return nil
 }
 
+// AddProjectFolder adds folder to card's search folders and indexes it, so
+// recall and search_local cover it from the next turn.
+// A folder the card lists already is indexed again, not refused, so the
+// same kdeps --index can be passed on every start.
+func AddProjectFolder(v knowledge.Vault, card *knowledge.Card, folder string) (string, error) {
+	p, err := v.AddSearchFolder(card, folder)
+	if err != nil && !errors.Is(err, knowledge.ErrAlreadySearched) {
+		return "", err
+	}
+	if n := searchlocal.NewExecutor().StartIndex(p); n > 0 {
+		fmt.Fprintf(os.Stdout, "search: indexed %d files in %s\n", n, p)
+	}
+	recordIndexes(card)
+	return p, nil
+}
+
+// IndexCardFolders brings the index of each of card's places and search
+// folders up to date and records the indexes in the card.
+func IndexCardFolders(w io.Writer, v knowledge.Vault, card *knowledge.Card) {
+	var roots []string
+	for _, r := range card.SearchRoots() {
+		roots = append(roots, knowledge.ExpandPath(r, v.Root))
+	}
+	indexRoots(w, roots)
+	recordIndexes(card)
+}
+
+func indexRoots(w io.Writer, roots []string) {
+	exec := searchlocal.NewExecutor()
+	for _, root := range roots {
+		if n := exec.StartIndex(root); n > 0 {
+			fmt.Fprintf(w, "search: indexed %d files in %s\n", n, root)
+		} else {
+			fmt.Fprintf(w, "search: index of %s is up to date\n", root)
+		}
+	}
+}
+
+func init() { //nolint:gochecknoinits // wires the knowledge package to the search index location
+	knowledge.SetIndexLocator(searchlocal.IndexPath)
+}
+
 // indexNote says whether folder has a search index yet.
 func indexNote(folder string) string {
 	if fileExistsAt(searchlocal.IndexPath(folder)) {
@@ -90,22 +132,6 @@ func changeProjectFolders(w io.Writer, k *knowledgeState, op, folder string) err
 	return nil
 }
 
-// AddProjectFolder adds folder to card's search folders and indexes it, so
-// recall and search_local cover it from the next turn.
-// A folder the card lists already is indexed again, not refused, so the
-// same kdeps --index can be passed on every start.
-func AddProjectFolder(v knowledge.Vault, card *knowledge.Card, folder string) (string, error) {
-	p, err := v.AddSearchFolder(card, folder)
-	if err != nil && !errors.Is(err, knowledge.ErrAlreadySearched) {
-		return "", err
-	}
-	if n := searchlocal.NewExecutor().StartIndex(p); n > 0 {
-		fmt.Fprintf(os.Stdout, "search: indexed %d files in %s\n", n, p)
-	}
-	recordIndexes(card)
-	return p, nil
-}
-
 // indexProjectFolders brings the index of every folder the working
 // project searches up to date, or just the working directory's without a
 // project.
@@ -117,30 +143,4 @@ func indexProjectFolders(w io.Writer, k *knowledgeState, wd string) {
 		}
 	}
 	indexRoots(w, []string{wd})
-}
-
-// IndexCardFolders brings the index of each of card's places and search
-// folders up to date and records the indexes in the card.
-func IndexCardFolders(w io.Writer, v knowledge.Vault, card *knowledge.Card) {
-	var roots []string
-	for _, r := range card.SearchRoots() {
-		roots = append(roots, knowledge.ExpandPath(r, v.Root))
-	}
-	indexRoots(w, roots)
-	recordIndexes(card)
-}
-
-func indexRoots(w io.Writer, roots []string) {
-	exec := searchlocal.NewExecutor()
-	for _, root := range roots {
-		if n := exec.StartIndex(root); n > 0 {
-			fmt.Fprintf(w, "search: indexed %d files in %s\n", n, root)
-		} else {
-			fmt.Fprintf(w, "search: index of %s is up to date\n", root)
-		}
-	}
-}
-
-func init() { //nolint:gochecknoinits // wires the knowledge package to the search index location
-	knowledge.SetIndexLocator(searchlocal.IndexPath)
 }

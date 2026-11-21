@@ -212,27 +212,6 @@ func TestEffectiveDistinctCalls_UsesEventValueWhenSet(t *testing.T) {
 	assert.Equal(t, 30, effectiveDistinctCalls(eventCodeCallBudget, 1))
 }
 
-func TestApplyConvergenceCacheDefaults_SetsGlobalCachesFromEvents(t *testing.T) {
-	isolateEventsHome(t)
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	dir := filepath.Join(home, ".kdeps", "events")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "web-call-budget.yaml"), []byte(`
-name: web-call-budget
-tools: [web_search]
-on:
-  distinctCalls: 7
-run: block
-`), 0o644))
-	t.Cleanup(func() { SetConvergenceLimits(builtinWebCallBudget, 0, 0, 0) })
-
-	initEvents()
-
-	_, gotMax := globalWebCache.count()
-	assert.Equal(t, 7, gotMax)
-}
-
 func TestEffectiveBytes_FallsBackWhenEventUnset(t *testing.T) {
 	assert.Equal(t, 999, effectiveBytes("does-not-exist", 999))
 }
@@ -378,76 +357,12 @@ run: compact
 	assert.Equal(t, 1, e.On.Tokens)
 }
 
-func TestExportEventEntries_IncludesBuiltins(t *testing.T) {
-	entries := exportEventEntries()
-	names := make(map[string]bool, len(entries))
-	for _, e := range entries {
-		names[e.Name] = true
-	}
-	assert.True(t, names[eventAutoCompact])
-	assert.True(t, names[eventFold])
-}
-
 func TestEventEnabled_UnknownNameFailsOpen(t *testing.T) {
 	assert.True(t, EventEnabled("does-not-exist"))
 }
 
 func TestEventEnabled_KnownNameDefaultsTrue(t *testing.T) {
 	assert.True(t, EventEnabled(eventAutoCompact))
-}
-
-func TestSetEventEnabled_UnknownNameErrors(t *testing.T) {
-	isolateEventsHome(t)
-	err := SetEventEnabled("does-not-exist", false)
-	require.Error(t, err)
-}
-
-func TestSetEventEnabled_DisableThenEnableRoundTrips(t *testing.T) {
-	isolateEventsHome(t)
-	require.True(t, EventEnabled(eventIdenticalToolCalls))
-
-	require.NoError(t, SetEventEnabled(eventIdenticalToolCalls, false))
-	assert.False(t, EventEnabled(eventIdenticalToolCalls))
-	assert.Equal(t, disabledSentinel, effectiveRounds(eventIdenticalToolCalls),
-		"a disabled event's trigger must never fire")
-
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(home, ".kdeps", "events", eventIdenticalToolCalls+".yaml"))
-
-	require.NoError(t, SetEventEnabled(eventIdenticalToolCalls, true))
-	assert.True(t, EventEnabled(eventIdenticalToolCalls))
-	assert.Equal(t, 3, effectiveRounds(eventIdenticalToolCalls))
-}
-
-func TestSetEventEnabled_PreservesOtherFieldsOnDisable(t *testing.T) {
-	isolateEventsHome(t)
-	require.NoError(t, SetEventEnabled(eventAutoCompact, false))
-
-	e, ok := EventByName(eventAutoCompact)
-	require.True(t, ok)
-	assert.True(t, e.Disabled)
-	assert.Equal(t, 30000, e.On.Tokens, "disabling must not clobber the event's own configured values")
-	assert.Equal(t, "compact", e.Run)
-}
-
-func TestDisabledSentinel_GatesEveryAccessorKind(t *testing.T) {
-	isolateEventsHome(t)
-	require.NoError(t, SetEventEnabled(eventToolResultTruncate, false))
-	require.NoError(t, SetEventEnabled(eventWebCallBudget, false))
-	require.NoError(t, SetEventEnabled(eventMemoryFocusMax, false))
-	require.NoError(t, SetEventEnabled(eventAutoCompact, false))
-	require.NoError(t, SetEventEnabled(eventFold, false))
-	require.NoError(t, SetEventEnabled(eventMemoryPromptLimit, false))
-
-	assert.Equal(t, disabledSentinel, effectiveBytes(eventToolResultTruncate, 1))
-	assert.Equal(t, disabledSentinel, effectiveDistinctCalls(eventWebCallBudget, 1))
-	assert.Equal(t, disabledSentinel, effectiveItems(eventMemoryFocusMax, 1))
-	assert.Equal(t, disabledSentinel, autoCompactTokens())
-	assert.Equal(t, disabledSentinel, autoCompactThresholdForCtxWindow(128000))
-	assert.Equal(t, disabledSentinel, foldTokensSinceCheckpoint())
-	assert.Equal(t, disabledSentinel, foldItems())
-	assert.Equal(t, disabledSentinel, memoryPromptLimit())
 }
 
 // Each /thinking mode's reasoning budget is its thinking-budget-<mode> event.
@@ -487,17 +402,6 @@ func TestLiveNoteLimits_ReadEvents(t *testing.T) {
 	assert.Equal(t, 160, liveNoteLineChars())
 }
 
-func TestParallelEvent_SetsCap(t *testing.T) {
-	isolateEventsHome(t)
-	assert.Equal(t, 4, parallel.Limit())
-
-	require.NoError(t, SetEventEnabled(eventParallel, false))
-	assert.Equal(t, 1, parallel.Limit(), "off runs everything one at a time")
-
-	require.NoError(t, SetEventEnabled(eventParallel, true))
-	assert.Equal(t, 4, parallel.Limit())
-}
-
 // TestMaxRoundsEvents: the agent loop's and a workflow chat's default tool
 // rounds come from the agent-max-rounds and chat-max-rounds events.
 func TestMaxRoundsEvents(t *testing.T) {
@@ -516,4 +420,55 @@ func TestThinkingBudgetEvents(t *testing.T) {
 	initEvents()
 	assert.Equal(t, 16000, executorLLM.ThinkingBudget(domain.ThinkingModeHigh))
 	assert.Equal(t, thinkingBudget(domain.ThinkingModeLow), executorLLM.ThinkingBudget(domain.ThinkingModeLow))
+}
+
+func TestApplyConvergenceCacheDefaults_SetsGlobalCachesFromEvents(t *testing.T) {
+	isolateEventsHome(t)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	dir := filepath.Join(home, ".kdeps", "events")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "web-call-budget.yaml"), []byte(`
+name: web-call-budget
+tools: [web_search]
+on:
+  distinctCalls: 7
+run: block
+`), 0o644))
+	t.Cleanup(func() { SetConvergenceLimits(builtinWebCallBudget, 0, 0, 0) })
+
+	initEvents()
+
+	_, gotMax := globalWebCache.count()
+	assert.Equal(t, 7, gotMax)
+}
+
+func TestDisabledSentinel_GatesEveryAccessorKind(t *testing.T) {
+	isolateEventsHome(t)
+	require.NoError(t, SetEventEnabled(eventToolResultTruncate, false))
+	require.NoError(t, SetEventEnabled(eventWebCallBudget, false))
+	require.NoError(t, SetEventEnabled(eventMemoryFocusMax, false))
+	require.NoError(t, SetEventEnabled(eventAutoCompact, false))
+	require.NoError(t, SetEventEnabled(eventFold, false))
+	require.NoError(t, SetEventEnabled(eventMemoryPromptLimit, false))
+
+	assert.Equal(t, disabledSentinel, effectiveBytes(eventToolResultTruncate, 1))
+	assert.Equal(t, disabledSentinel, effectiveDistinctCalls(eventWebCallBudget, 1))
+	assert.Equal(t, disabledSentinel, effectiveItems(eventMemoryFocusMax, 1))
+	assert.Equal(t, disabledSentinel, autoCompactTokens())
+	assert.Equal(t, disabledSentinel, autoCompactThresholdForCtxWindow(128000))
+	assert.Equal(t, disabledSentinel, foldTokensSinceCheckpoint())
+	assert.Equal(t, disabledSentinel, foldItems())
+	assert.Equal(t, disabledSentinel, memoryPromptLimit())
+}
+
+func TestParallelEvent_SetsCap(t *testing.T) {
+	isolateEventsHome(t)
+	assert.Equal(t, 4, parallel.Limit())
+
+	require.NoError(t, SetEventEnabled(eventParallel, false))
+	assert.Equal(t, 1, parallel.Limit(), "off runs everything one at a time")
+
+	require.NoError(t, SetEventEnabled(eventParallel, true))
+	assert.Equal(t, 4, parallel.Limit())
 }

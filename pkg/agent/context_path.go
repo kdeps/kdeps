@@ -539,22 +539,6 @@ func eraseLiveStatusLocked(w io.Writer) {
 	liveStatus.logged = ""
 }
 
-// statusTail is the turn breakdown plus the session counter, as trailing
-// rows of a block that is itself redrawn in place (the thinking pane).
-func statusTail() (string, int) {
-	top, bottom := fittedStatus(statusTermWidth(), "")
-	var b strings.Builder
-	rows := 0
-	if top != "" {
-		b.WriteString(top)
-		b.WriteString("\r\n")
-		rows++
-	}
-	b.WriteString(bottom)
-	rows++
-	return b.String(), rows
-}
-
 // eraseFrame builds the escape sequence to erase whatever the last frame
 // (prevRows rows) drew, without writing a replacement -- used when a status
 // line goroutine stops and self-cleans (see runToolMonitor, drawSpinnerFrames).
@@ -573,12 +557,6 @@ func eraseFrame(prevRows int) string {
 //
 //nolint:gochecknoglobals // per-process turn baseline read by the live status frame
 var turnTokenBase struct{ in, out atomic.Int64 }
-
-// beginTurnTokens snapshots the session counters at the start of a user turn.
-func beginTurnTokens() {
-	turnTokenBase.in.Store(executorLLM.SessionInputTokens())
-	turnTokenBase.out.Store(executorLLM.SessionOutputTokens())
-}
 
 // turnTokenDelta returns the tokens sent and generated since beginTurnTokens.
 // A compaction or fold lowers the session totals mid-turn; the baseline is

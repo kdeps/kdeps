@@ -157,23 +157,6 @@ func renderInstructTopic(l *Loop, t instructTopic) string {
 	return "## " + t.title + "\n\n" + strings.TrimSpace(collapseWrap(t.body))
 }
 
-// buildInstruct renders the briefing. An empty topic renders every section;
-// otherwise just the named one. ok is false for an unknown topic name.
-func buildInstruct(l *Loop, topic string) (string, bool) {
-	if topic == "" {
-		parts := []string{"# kdeps agent briefing"}
-		for _, t := range instructTopicList() {
-			parts = append(parts, renderInstructTopic(l, t))
-		}
-		return strings.Join(parts, "\n\n"), true
-	}
-	t, ok := findInstructTopic(topic)
-	if !ok {
-		return "", false
-	}
-	return "# kdeps agent briefing\n\n" + renderInstructTopic(l, t), true
-}
-
 // collapseWrap joins the hard-wrapped lines of a paragraph back into one line
 // so the terminal renderer and the model both see natural flowing text, while
 // keeping blank lines and any indented block (the <invoke> examples) intact.
@@ -200,12 +183,6 @@ func collapseWrap(s string) string {
 	flush()
 	return strings.Join(out, "\n")
 }
-
-// instructAck is the canned assistant acknowledgement stored after a briefing
-// so the injected turn is a coherent user/assistant pair.
-const instructAck = "Understood. I will follow this kdeps briefing for the rest " +
-	"of the session and act only through the fenced kdeps tools. kdeps is a parser " +
-	"and an interpreter: a matched <invoke> block in my message is parsed at runtime and interpreted."
 
 // instructToolResult is what the instruct tool (alias help) returns.
 // A harness section wins a bare name that is also an /instruct topic

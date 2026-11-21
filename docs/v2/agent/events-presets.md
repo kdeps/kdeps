@@ -1,20 +1,19 @@
 # Event presets
 
-`/harness events` turns off one event. A preset writes a set of event overrides at the same time. The trigger list is on [Reactive LLM events](/agent/events).
+An override file turns off one event. A preset is a named set of event overrides. The trigger list is on [Reactive LLM events](/agent/events).
 
 ## Enabling and disabling
 
-You can turn off each event or harness section from the REPL. kdeps saves the change and applies it immediately, with no restart:
+Set `disabled: true` in an override file. kdeps reads it on the next run:
 
-```
-/harness events                          # list every event: trigger summary, action, enabled/disabled
-/harness events disable identical-tool-calls
-/harness events enable identical-tool-calls
+```yaml
+# ~/.kdeps/events/identical-tool-calls.yaml (or events/ in the workflow project)
+name: identical-tool-calls
+disabled: true
 ```
 
-- This writes (or removes) `disabled: true` in `~/.kdeps/events/<name>.yaml`, the file `/konfig import` writes, then reloads the registry.
 - A disabled event never starts, because its threshold becomes too high to reach. For `auto-compact` and `fold`, the loop skips the check. Their context-window branch ignores a high threshold, so the check is necessary.
-- Harness sections use `/harness list` and `/harness enable|disable <name>`. A disabled preamble section leaves the system prompt on the next turn. A disabled standalone section (e.g. `tools-reminder`) returns empty.
+- A harness section takes the same `disabled: true` in `~/.kdeps/harness/<name>.yaml`. A disabled preamble section leaves the system prompt. A disabled standalone section (for example `tools-reminder`) returns empty.
 - An unknown or corrupted event or harness name fails open (enabled). Only an explicit `disabled: true` disables a safety mechanism.
 
 ## Occurrence caps on standalone harness text
@@ -32,19 +31,11 @@ body: >-
 
 - The count is per turn for nudges, and per session for `tool-call-early-praise` (successful tool calls).
 - `0` (the default) means unlimited, but only for a present entry with a body. A missing, disabled or empty entry never fires.
-- `/harness list` shows a cap as `standalone, max Nx`.
 - State switches are not caps. After a sandbox hallucination, `tools-reminder` changes permanently to the full `use-kdeps-tools` guidance. [Events](/agent/events) control this change.
 
 ## Presets
 
-A preset is a named set of event overrides for the full token-economy cluster. It is like `/fold preset`, but for all events at the same time:
-
-```
-/harness preset                 # list built-in + user presets, with descriptions
-/harness preset frugal          # apply: minimize token usage
-/harness preset thorough        # apply: maximize context retention
-/harness preset balanced        # apply: reset every tuned event back to its shipped default
-```
+A preset is a named set of event values for the full token-economy cluster:
 
 | Preset | Use it for |
 |---|---|
@@ -57,18 +48,18 @@ A preset is a named set of event overrides for the full token-economy cluster. I
 
 Each preset requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps update` installs them with the preset. Each calls its tool through the kdeps API. Loop-wide events (compaction, truncation, history, stop rules) need no component.
 
-## Applying a preset
+## Using a preset
 
-A preset writes each tuned event to its `~/.kdeps/events/<name>.yaml` override (the same file `/harness events disable` writes) and reloads the registry. There is no separate preset state to drift. A preset never touches tuning, registry, skills or actions settings.
+A chat uses a preset's judge panel with `judgePreset:` (see [Judges](/workflow/resources/llm#judges)). To use a preset's event values, copy its `events:` entries into override files in `~/.kdeps/events/` or the workflow's `events/` folder. A workflow folder wins over `~/.kdeps` (see [Answer quality](/workflow/quality)).
 
 ## Authoring a preset
 
-Presets merge built-ins with `~/.kdeps/presets/` by name. `~/.kdeps/presets/frugal.yaml` overrides `frugal`. Another name adds a preset. A preset is a `name:`, a `description:` and an `events:` list of full event entries, the same shape as the override files. Presets round-trip through [konfig](./konfig.md) export/import.
+Presets merge built-ins with `~/.kdeps/presets/` by name. `~/.kdeps/presets/frugal.yaml` overrides `frugal`. Another name adds a preset. A preset is a `name:`, a `description:` and an `events:` list of full event entries, the same shape as the override files.
 
 ## Status
 
 Shipped events are the files in `assets/events`. The `efficiency-*` events are read by the [efficiency governor](/agent/efficiency), not fired as actions.
 
-Eight actions ship. `/harness events` lists and toggles every event. There is no REPL command for a trigger's numeric threshold. Edit the YAML file.
+Eight actions ship. To change a threshold, edit the event's YAML file.
 
 Some limits stay Go constants. These values do not measure and then start an action, and they have no `items:` count. Examples are the maximum size of the judge panel, the nudge count for each turn, the log-line limits, and the buffer size of a semaphore.

@@ -4,7 +4,7 @@
 
 ## Git commit attribution
 
-Commits that the agent creates have a co-author trailer with the names of kdeps and the model that wrote them. A model switch during a session with `/model` is normal. For this reason, the trailer records the model that made the commit:
+Commits that the agent creates have a co-author trailer with the names of kdeps and the model that wrote them. The trailer records the model that made the commit:
 
 ```text
 Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>

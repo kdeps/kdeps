@@ -1,6 +1,6 @@
 # Prompt reduction (turo)
 
-`turo` is an optional token reducer. A workflow chat turns it on with `harness.turo: true` (see [Answer quality](/workflow/quality)); the REPL's `/turo off` does not change it. In the agent REPL, when the `turo` binary is on `PATH`, kdeps sends all LLM input through `turo` first. This input is the system preamble, your input, tool results, and conversation history. `turo` keeps code, file paths, and identifiers exactly as they are. If a reduction is not smaller than the input, the original passes through unchanged.
+`turo` is an optional token reducer. A workflow chat turns it on with `harness.turo: true` (see [Answer quality](/workflow/quality)). When it is on and the `turo` binary is on `PATH`, kdeps sends all LLM input through `turo` first. This input is the system preamble, your input, tool results, and conversation history. `turo` keeps code, file paths, and identifiers exactly as they are. If a reduction is not smaller than the input, the original passes through unchanged.
 
 ```text
 system preamble + input + tool results + history  ->  turo  ->  LLM
@@ -18,25 +18,11 @@ Phrase stages run before word stages. A phrase matcher must see the full phrase.
 
 One more stage runs before the rest, also on by default:
 
-- **Arrows** - replaces multi-word causal connectives (`leads to`, `results in`, `gives rise to`) with `->` (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves a token. Disable with `/turo arrows off` or `TURO_ARROWS=off`.
+- **Arrows** - replaces multi-word causal connectives (`leads to`, `results in`, `gives rise to`) with `->` (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves a token. Disable with `TURO_ARROWS=off`.
 
 Stages 2-5 and arrows are lossy. They change words, and do not only remove filler words. For this reason, the context that the model gets is compressed. It is not the original prose. To disable one stage, use the `TURO_*` environment variables below. You can also turn off turo fully.
 
-Turo is entirely optional: if the binary is not installed, kdeps sends everything unreduced and the `/turo` command reports that it is unavailable.
-
-Control it at runtime with `/turo`:
-
-```
-/turo                # show status: state, level, and stage toggles
-/turo off            # send content unreduced (disable)
-/turo on             # re-enable
-/turo ultra          # set level: lite | full | ultra | wenyan
-/turo wenyan         # ultra reduction + swap words for Classical Chinese chars (CJK-tokenizer models only)
-/turo gloss off      # disable a lossy stage: filler | synonyms | gloss | defmatch | arrows
-/turo synonyms on    # re-enable a stage
-/turo defmatch off   # disable the defmatch stage (definition-like phrase -> headword)
-/turo arrows off     # disable the arrow stage (connective phrases -> "->")
-```
+Turo is optional. If the binary is not installed, kdeps sends everything unreduced.
 
 Environment variables that control the installation:
 
@@ -55,5 +41,4 @@ To keep agent context faithful (drop filler only, no wording changes), set `TURO
 
 ## See also
 
-- [Agent mode](/agent/) - overview and starting the REPL
-- [REPL slash commands](/agent/commands) - full command reference
+- [Agent loop](/agent/) - overview

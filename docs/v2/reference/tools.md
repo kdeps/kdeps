@@ -1,6 +1,6 @@
 # Function calling
 
-Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. It is not the agent REPL [built-in tools](/agent/tools). In the REPL, tools are whole workflows and components. This page is the workflow examples: chaining, debugging, and the patterns below.
+Function calling is the [`tools:` block](/workflow/tools) on a workflow `chat:` resource. A chat with `loop:` also gets the [built-in tools](/agent/tools). This page is the workflow examples: chaining, debugging, and the patterns below.
 
 ## Examples
 
@@ -305,7 +305,7 @@ component:
 
 ## Built-in agent tools
 
-In [the REPL](/agent/), kdeps registers these tools automatically when you configure the related API key. They are available to the LLM without any `tools:` block in your YAML.
+In a chat with `loop:`, kdeps registers these tools automatically when you configure the related API key. They are available to the LLM without any `tools:` block in your YAML.
 
 ### Google AI cache tools
 
@@ -343,9 +343,8 @@ Use `google_cache_delete` to remove a cache before its `ttl` ends and avoid stor
 These tools read or change the state of the active agent session. The tools routes serve them, and the call runs the same closure the agent uses:
 
 - `judge_verdict` - judge verdict state
-- `identity_get`, `load_skill`, `load_tools` - agent identity, skill loading, and loading tool definitions on demand ([details](/agent/repl-context#tool-definitions-on-demand))
+- `identity_get`, `load_skill`, `load_tools` - agent identity, skill loading, and loading tool definitions on demand
 - `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
-- `session_ops` - read, clear, or compact the live session. Get or set session settings. Run the tools that exist only in the session (`tool` operation). `/clear`, `/compact`, `/history`, `/copy`, and all setting commands use it (kdeps API only; the model cannot call it)
 
 A call with no agent session running returns `<tool>: no active agent session (agent-mode tool)`. They have no workflow component, so they are not in `components/`.
 

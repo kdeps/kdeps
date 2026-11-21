@@ -3,7 +3,7 @@
 Coding agents (Claude Code, Cursor, Grok, and others) can scaffold kdeps
 projects for you when you install the kdeps skill.
 
-This is the skill file for AI coding agents, not kdeps [REPL skills](/agent/skills). It covers the workflow file and the REPL.
+This is the skill file for AI coding agents, not kdeps [agent skills](/agent/skills). It covers the workflow file.
 
 ## Install the skill
 
@@ -31,7 +31,7 @@ or agency.
 
 - Choosing between a component, workflow (agent), or agency
 - All 15 primary resource actions plus `apiResponse`
-- Workflow input (`api`, `bot`, `file`, `interactive`), `webServer`, session, and agent REPL (`kdeps --agent-loop [path]`)
+- Workflow input (`api`, `bot`, `file`, `interactive`), `webServer`, session, and the agent loop (`chat` with `loop:`)
 - Expressions, validation, and error handling
 - **Registry-ready packaging** - every scaffold includes `kdeps.pkg.yaml` for
   [kdeps.io](https://kdeps.io) distribution

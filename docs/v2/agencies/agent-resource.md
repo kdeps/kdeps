@@ -4,7 +4,7 @@ The `agent:` resource calls a sibling agent's entire workflow within the same [a
 
 ## Where it runs
 
-It runs in a workflow and in the REPL. It is valid only between agents in the same `agency.yaml`. [Agencies](/agencies/) shows how to put agents in a group and how they find each other.
+It runs in a workflow. It is valid only between agents in the same `agency.yaml`. [Agencies](/agencies/) shows how to put agents in a group and how they find each other.
 
 ## Basic usage
 

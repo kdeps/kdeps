@@ -144,7 +144,8 @@ func finishBootstrap(w *fmtWriter, path string, cfg Config, setup bool) error {
 	if setup {
 		w.println("  You can edit it at any time to change models or backends.")
 	} else {
-		w.println("  Language models were left unset. Run kdeps llm wizard when you want to choose one.")
+		w.println("  Language models were left unset. " +
+			"Set llm.backend and a model in config.yaml when you want to choose one.")
 	}
 	w.println("")
 	return nil

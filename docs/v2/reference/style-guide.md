@@ -26,9 +26,9 @@ skeleton from [Contributing to docs](./contributing-docs).
 
 A workflow is the one way to run kdeps. Requests reach it through an input
 source (`api`, `bot`, `file`, `interactive`). The agent loop is a `chat` with
-`loop:` inside a workflow; `kdeps --agent-loop` opens it as a REPL.
+`loop:` inside a workflow.
 
-The directory is the label. `agent/` covers the agent loop and its REPL.
+The directory is the label. `agent/` covers the agent loop.
 `workflow/`, `deploy/`, and `examples/` cover workflows. Do not add an
 "Applies to" banner.
 
@@ -117,7 +117,7 @@ Replace these words with their STE alternatives:
   thing does.
 - No audience lines ("this page is for..."), learning objectives, "you will be
   able to", or end-of-page summaries of what the reader did.
-- Do not name a second mode. `agent/` is the REPL. `workflow/`, `deploy/`,
+- Do not name a second mode. `agent/` is the agent loop. `workflow/`, `deploy/`,
   and `examples/` are the workflow file. A shared page says that in its first sentence.
 - Every non-obvious YAML field gets an inline comment explaining purpose and
   behavior: `timeout: 30s  # hard stop - returns error, does not retry`.

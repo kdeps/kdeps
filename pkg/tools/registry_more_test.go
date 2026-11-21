@@ -25,50 +25,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
-func TestRegistryUnregisterAndToolPrompt(t *testing.T) {
-	r := NewRegistry()
-	if r.ToolPrompt() != "" {
-		t.Fatal("empty registry should produce empty prompt")
-	}
-
-	r.Register(&Tool{
-		Name:         "read_file",
-		Description:  "Read a file",
-		Category:     "file",
-		Constraints:  "path required",
-		OutputFormat: "string",
-		Parameters: map[string]domain.ToolParam{
-			"path": {Description: "file path", Required: true, Type: "string"},
-		},
-		SeeAlso: "write_file",
-	})
-	r.Register(&Tool{
-		Name:        "weird",
-		Description: "other cat",
-		Category:    "misc",
-	})
-
-	prompt := r.ToolPrompt()
-	if !strings.Contains(prompt, "available_tools") || !strings.Contains(prompt, "read_file") {
-		t.Fatalf("prompt missing tools: %s", prompt)
-	}
-	if !strings.Contains(prompt, `<invoke name="read_file">`) || !strings.Contains(prompt, `<parameter name="path">`) {
-		t.Fatalf("prompt missing invoke skeleton: %s", prompt)
-	}
-	if !strings.Contains(prompt, "Other") {
-		t.Fatalf("uncategorized section missing: %s", prompt)
-	}
-	if !strings.Contains(prompt, "write_file") {
-		t.Fatalf("seealso missing: %s", prompt)
-	}
-
-	r.Unregister("read_file")
-	if r.Get("read_file") != nil {
-		t.Fatal("unregister failed")
-	}
-	r.Unregister("missing") // no-op
-}
-
 func TestToolPromptCompact(t *testing.T) {
 	r := NewRegistry()
 	if r.ToolPromptCompact() != "" {

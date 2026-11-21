@@ -15,7 +15,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs: compact, truncate, block, cap or force an answer", Here: true},
 			{Label: "the agent loop continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.ActionByName"},
 	},
 	"codegraph": {
@@ -25,18 +25,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its rules are read from the codegraph set at start", Here: true},
 			{Label: "ranking weights, stopwords and limits apply to each query"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec"},
-		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "codegraph.Register", "codegraph.exposedNames"},
-	},
-	"commands": {
-		Mode: "both",
-		Flow: []FlowStep{
-			{Label: "you type /name in kdeps"},
-			{Label: "the command runs: built in, or its declared steps", Here: true},
-			{Label: "prompts go to the model; the output is shown"},
-		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.declaredCommand"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec", "kdeps test"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "agent.LoopResourceRunner", "codegraph.Register", "codegraph.exposedNames"},
 	},
 	"components": {
 		Mode: "both",
@@ -45,8 +35,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the component's own resources run", Here: true},
 			{Label: "its output goes back to the caller"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkflowFile", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test", "kdeps bundle build"},
+		Code:   []string{"kdeps (agent loop)", "yaml.(*Parser).ParseWorkflow", "yaml.(*Parser).loadAssetComponents"},
 	},
 	"defaults": {
 		Mode: "both",
@@ -55,8 +45,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run", "kdeps exec"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "config.GetDefaults"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec", "kdeps test"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "judge.Panel", "llm.(*Executor).reviewWithJudges", "config.GetDefaults"},
 	},
 	"docker": {
 		Mode: "cli",
@@ -78,8 +68,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs"},
 			{Label: "the turn continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "agent.eventPatternMatch"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec", "kdeps test"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "agent.(*Loop).startSubagents", "agent.eventPatternMatch"},
 	},
 	"harness": {
 		Mode: "both",
@@ -90,8 +80,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps run", "kdeps konfig export", "kdeps knowledge build", "kdeps konfig import"},
-		Code:   []string{"kdeps (agent loop)", "agent.New", "agent.harnessText"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "plancouncil.Run", "agent.councilPrompts", "agent.harnessText"},
 	},
 	"k8s": {
 		Mode: "cli",
@@ -114,7 +104,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the best notes fill the budget"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge folders remove", "kdeps knowledge build", "kdeps knowledge folders", "kdeps knowledge folders add", "kdeps knowledge folders index"},
-		Code:   []string{"kdeps (agent loop)", "agent.(*REPL).Run", "knowledge.(*Topic).Add", "knowledge.recallRules"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "agent.(*Loop).startSubagents", "knowledge.(*Topic).Add", "knowledge.recallRules"},
 	},
 	"memory": {
 		Mode: "both",
@@ -125,7 +115,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its result is captured"},
 			{Label: "the memory block flags open errors and resumes from unfinished work"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.initMemoryRules"},
 	},
 	"models": {
@@ -135,8 +125,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the registry resolves it: download, local server or provider", Here: true},
 			{Label: "the model is called"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall"},
-		Code:   []string{"kdeps (agent loop)", "llm.ReloadCloudModels", "llm.readModelRegistry"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
+		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "llm.ReloadCloudModels", "llm.readModelRegistry"},
 	},
 	"policy": {
 		Mode: "both",
@@ -146,7 +136,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its tool tier names a mode, or the default applies", Here: true},
 			{Label: "the call runs or is refused"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/auto-improve", "/editor", "/instruct", "kdeps run"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "agent.InstallStagePermission", "agent.loadPermissionPolicy"},
 	},
 	"presets": {
@@ -156,7 +146,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the preset rewrites events and harness sections", Here: true},
 			{Label: "every later turn uses them"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "kdeps run", "kdeps konfig export", "kdeps konfig import"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "judge.PresetJudges", "agent.configureJudges", "agent.PresetByName"},
 	},
 	"providers": {
@@ -168,7 +158,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the reply comes back"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps validate", "kdeps doctor", "kdeps edit", "kdeps env", "kdeps exec", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "llm.AutoRouterPick", "config.CloudLLMProviders", "config.assetProviders"},
+		Code:   []string{"kdeps (agent loop)", "config.PromptAndSaveLLMKey", "config.assetProviders"},
 	},
 	"recipes": {
 		Mode: "cli",
@@ -178,7 +168,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the LLM server starts"},
 			{Label: "workflows call it"},
 		},
-		UsedBy: []string{"kdeps llm list", "kdeps llm", "kdeps llm build", "kdeps llm export iso", "kdeps llm export k8s", "kdeps llm run", "kdeps llm show", "kdeps llm wizard"},
+		UsedBy: []string{"kdeps llm list", "kdeps llm build", "kdeps llm export iso", "kdeps llm export k8s", "kdeps llm run", "kdeps llm show"},
 		Code:   []string{"kdeps llm list", "catalog.LoadDefault", "catalog.Load"},
 	},
 	"schemas": {
@@ -188,8 +178,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the schema checks it", Here: true},
 			{Label: "the workflow is accepted, or each error is named"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/settings", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "agent.LoadWorkflowFile", "validator.NewSchemaValidator", "validator.schemaFS"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps validate", "kdeps run", "kdeps bundle package", "kdeps env", "kdeps export k8s", "kdeps test", "kdeps bundle build"},
+		Code:   []string{"kdeps (agent loop)", "validator.NewSchemaValidator", "validator.schemaFS"},
 	},
 	"templates": {
 		Mode: "both",
@@ -210,7 +200,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps runs it"},
 			{Label: "the result goes back to the model"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "/update", "/settings", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
-		Code:   []string{"kdeps (agent loop)", "agent.RegisterBuiltinTools", "agent.definedAs"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec", "kdeps test"},
+		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "judge.Panel", "agent.runJudgePanel", "agent.definedAs"},
 	},
 }

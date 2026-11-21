@@ -39,7 +39,7 @@ URL: https://go.dev/doc/tutorial/generics
 
 The search is the `web_search` tool, a `python:` block in `tools/web_search.yaml` that reads DuckDuckGo's lite HTML page (`lite.duckduckgo.com`). Set `KDEPS_WEB_SEARCH_URL` to point it at another endpoint that serves the same page.
 
-In the REPL the same tool is `web_search`. The loop caps `web_search` and `web_scraper` calls per user request (20 by default; `/model tool set web-limit <n>` changes it).
+In a chat loop the same tool is `web_search`. The loop caps `web_search` and `web_scraper` calls per request with the `web-call-budget` event.
 
 ## See also
 

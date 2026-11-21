@@ -4,7 +4,7 @@ The `file` component runs one filesystem operation (read, write, patch, list, de
 
 ## Where it runs
 
-The workflow runs this resource as a step. In the REPL, that workflow is one tool.
+The workflow runs this resource as a step.
 
 ## Requirements
 

@@ -2,7 +2,7 @@
 
 A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps install`, and custom components you build yourself in a `components/` directory.
 
-A resource calls a component with `component:`. In the REPL, kdeps registers that component as a tool. It runs only when the model calls it.
+A resource calls a component with `component:`.
 
 ## Overview
 
@@ -106,7 +106,7 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
-A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`). As a result, `kdeps update components/<name>` installs those first ([how requirements install](/agent/repl-updating)). Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
+A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`). As a result, `kdeps update components/<name>` installs those first. Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
 
 ```yaml
 # components/web_search/template.yaml (as shipped)

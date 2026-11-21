@@ -2,7 +2,7 @@
 
 Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under the top-level `session:` block.
 
-This page is HTTP session storage. REPL conversation history is a different store: JSONL under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
+This page is HTTP session storage. The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/agent/).
 
 | Type | Persistence | Use Case |
 |------|-------------|----------|

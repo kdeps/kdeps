@@ -20,12 +20,9 @@ package agent
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -143,16 +140,6 @@ func NewSessionStore(basePath string) *SessionStore {
 	return &SessionStore{basePath: basePath}
 }
 
-// SetCwd scopes the store to a project directory: sessions are stored under
-// basePath/<encoded-cwd>/. In the agent loop basePath is already the project's
-// .kdeps/sessions dir, so serve.go does not call this; it stays for callers
-// that keep several projects under one shared base (tests, workflow mode).
-func (s *SessionStore) SetCwd(cwd string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cwd = cwd
-}
-
 // openDB opens a fresh bbolt handle for this store's session file, ensuring
 // the bucket exists. Timeout turns another process's concurrent exclusive
 // lock into a fast error instead of an unbounded hang. Callers must Close it.
@@ -209,11 +196,6 @@ func (s *SessionStore) sessionBasePath() string {
 	return filepath.Join(s.basePath, encodeCwd(s.cwd))
 }
 
-// SaveAs persists the session under a fresh id (an explicit named snapshot).
-func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string, error) {
-	return s.Upsert("", session, name, model)
-}
-
 // Upsert writes the session under id, minting one when id is empty. An existing
 // row keeps its original CreatedAt; UpdatedAt and the message body are always
 // refreshed. This is how a resumed-and-continued conversation stays one row
@@ -253,10 +235,6 @@ func (s *SessionStore) Upsert(id string, session SessionReader, name, model stri
 		})
 	})
 	return id, err
-}
-
-func (s *SessionStore) Save(session SessionReader) (string, error) {
-	return s.SaveAs(session, "", "")
 }
 
 // Load loads a session from bbolt by ID.
@@ -362,270 +340,7 @@ func metaFromEntries(entries []sessionEntry, key string) *SessionMetadata {
 	}
 }
 
-// ListAllMeta returns the sessions of every project folder kept under this
-// store's base path, newest first, each with its Cwd. A session saved before
-// sessions recorded their folder is matched to one of known (folders the
-// caller has seen); failing that, its folder name is decoded when that path
-// exists. Sessions whose folder cannot be found are left out, as are folders
-// whose store cannot be opened (another process holding it).
-func (s *SessionStore) ListAllMeta(known []string) ([]SessionMetadata, error) {
-	entries, err := afero.ReadDir(AppFS, s.basePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	byKey := make(map[string]string, len(known))
-	for _, k := range known {
-		byKey[encodeCwd(k)] = k
-	}
-	var all []SessionMetadata
-	for _, e := range entries {
-		if e.IsDir() {
-			all = append(all, s.folderMeta(e.Name(), byKey)...)
-		}
-	}
-	sort.SliceStable(all, func(i, j int) bool { return sessionMetaNewer(all[i], all[j]) })
-	return all, nil
-}
-
-// sessionMetaNewer reports whether a lists before b.
-// A later UpdatedAt wins. Equal timestamps use the id's unix nano, then its
-// counter. UnixMilli can stay still across two saves, and directory order is
-// not save order.
-func sessionMetaNewer(a, b SessionMetadata) bool {
-	if a.UpdatedAt != b.UpdatedAt {
-		return a.UpdatedAt > b.UpdatedAt
-	}
-	aNano, aCount := sessionIDRank(a.ID)
-	bNano, bCount := sessionIDRank(b.ID)
-	if aNano != bNano {
-		return aNano > bNano
-	}
-	if aCount != bCount {
-		return aCount > bCount
-	}
-	return a.ID > b.ID
-}
-
-// sessionIDRank reads the unix nano and the counter that newSessionID writes.
-// Any other id ranks as zero.
-func sessionIDRank(id string) (int64, int64) {
-	rest, ok := strings.CutPrefix(id, "session-")
-	if !ok {
-		return 0, 0
-	}
-	nanoStr, countStr, ok := strings.Cut(rest, "-")
-	if !ok {
-		return 0, 0
-	}
-	nano, errNano := strconv.ParseInt(nanoStr, 10, 64)
-	count, errCount := strconv.ParseInt(countStr, 10, 64)
-	if errNano != nil || errCount != nil {
-		return 0, 0
-	}
-	return nano, count
-}
-
-// folderMeta lists the sessions of one encoded folder under the base path,
-// each with its Cwd; see ListAllMeta.
-func (s *SessionStore) folderMeta(name string, byKey map[string]string) []SessionMetadata {
-	if len(name) < 4 || !strings.HasPrefix(name, "--") || !strings.HasSuffix(name, "--") {
-		return nil
-	}
-	dir := filepath.Join(s.basePath, name)
-	if _, err := AppFS.Stat(filepath.Join(dir, "sessions.bolt")); err != nil {
-		return nil
-	}
-	metas, err := (&SessionStore{basePath: dir}).ListMeta()
-	if err != nil {
-		return nil
-	}
-	folder := byKey[name]
-	if folder == "" {
-		folder = decodeCwd(name)
-	}
-	out := make([]SessionMetadata, 0, len(metas))
-	for _, m := range metas {
-		if m.Cwd == "" {
-			m.Cwd = folder
-		}
-		if m.Cwd != "" {
-			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// decodeCwd guesses the folder an encoded name came from by reading every
-// "-" as a separator; encodeCwd is lossy, so the guess is used only when that
-// folder exists.
-func decodeCwd(name string) string {
-	inner := strings.TrimSuffix(strings.TrimPrefix(name, "--"), "--")
-	guess := string(filepath.Separator) + strings.ReplaceAll(inner, "-", string(filepath.Separator))
-	if info, err := os.Stat(guess); err == nil && info.IsDir() && encodeCwd(guess) == name {
-		return guess
-	}
-	return ""
-}
-
-// LoadFrom loads session id from the store of folder cwd.
-func (s *SessionStore) LoadFrom(cwd, id string) (*Session, error) {
-	return (&SessionStore{basePath: s.basePath, cwd: cwd}).Load(id)
-}
-
-// DeleteFrom deletes session id from the store of folder cwd.
-func (s *SessionStore) DeleteFrom(cwd, id string) error {
-	return (&SessionStore{basePath: s.basePath, cwd: cwd}).Delete(id)
-}
-
-// ListMeta returns metadata for all sessions, newest first.
-func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	var metas []SessionMetadata
-	if err := s.withDB(func(db *bolt.DB) error {
-		return db.View(func(tx *bolt.Tx) error {
-			c := tx.Bucket(agentSessionBucket).Cursor()
-			for k, v := c.First(); k != nil; k, v = c.Next() {
-				var entries []sessionEntry
-				if json.Unmarshal(v, &entries) != nil || len(entries) == 0 {
-					continue
-				}
-				if m := metaFromEntries(entries, string(k)); m != nil {
-					metas = append(metas, *m)
-				}
-			}
-			return nil
-		})
-	}); err != nil {
-		return nil, err
-	}
-
-	sort.SliceStable(metas, func(i, j int) bool { return sessionMetaNewer(metas[i], metas[j]) })
-	return metas, nil
-}
-
-func (s *SessionStore) List() ([]string, error) {
-	metas, err := s.ListMeta()
-	if err != nil {
-		return nil, err
-	}
-	if len(metas) == 0 {
-		return nil, nil
-	}
-	ids := make([]string, len(metas))
-	for i, m := range metas {
-		ids[i] = m.ID
-	}
-	return ids, nil
-}
-
-// Delete removes a stored session.
-func (s *SessionStore) Delete(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.withDB(func(db *bolt.DB) error {
-		return db.Update(func(tx *bolt.Tx) error {
-			if tx.Bucket(agentSessionBucket).Get([]byte(id)) == nil {
-				return fmt.Errorf("session store: session %q not found", id)
-			}
-			return tx.Bucket(agentSessionBucket).Delete([]byte(id))
-		})
-	})
-}
-
-// Import copies a JSONL session file from an arbitrary path into the store.
-func (s *SessionStore) Import(srcPath string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, readErr := afero.ReadFile(AppFS, srcPath)
-	if readErr != nil {
-		return "", fmt.Errorf("session store: import read %s: %w", srcPath, readErr)
-	}
-
-	id := newSessionID()
-
-	// The store holds each session as a JSON array of entries (see SaveAs);
-	// source files are newline-delimited. Storing the raw bytes would leave the
-	// session unreadable by Load and invisible to ListMeta, so normalize first.
-	entries, parseErr := parseSessionEntries(data, id)
-	if parseErr != nil {
-		return "", parseErr
-	}
-	encoded, jsonErr := json.Marshal(entries)
-	if jsonErr != nil {
-		return "", fmt.Errorf("session store: import marshal: %w", jsonErr)
-	}
-	err := s.withDB(func(db *bolt.DB) error {
-		return db.Update(func(tx *bolt.Tx) error {
-			return tx.Bucket(agentSessionBucket).Put([]byte(id), encoded)
-		})
-	})
-	return id, err
-}
-
-// parseSessionEntries decodes a session file into entries, accepting either the
-// stored JSON-array form or newline-delimited JSON. The leading session_meta is
-// repointed at id so List and Load resolve the imported session under its new
-// key.
-func parseSessionEntries(data []byte, id string) ([]sessionEntry, error) {
-	var entries []sessionEntry
-	if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
-		entries = nil
-		for _, line := range strings.Split(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			var e sessionEntry
-			if json.Unmarshal([]byte(line), &e) != nil {
-				continue // skip unparsable lines rather than failing the import
-			}
-			entries = append(entries, e)
-		}
-	}
-	if len(entries) == 0 {
-		return nil, errors.New("session store: import: no session entries in source")
-	}
-	if entries[0].Type == "session_meta" {
-		entries[0].SessionID = id
-		return entries, nil
-	}
-	meta := sessionEntry{Type: "session_meta", Timestamp: time.Now().UnixMilli(), SessionID: id}
-	return append([]sessionEntry{meta}, entries...), nil
-}
-
 // --- Legacy helpers for test compatibility ---
-
-func (s *SessionStore) findSessionFileLocked(id string) string {
-	found := false
-	_ = s.withDB(func(db *bolt.DB) error {
-		return db.View(func(tx *bolt.Tx) error {
-			if tx.Bucket(agentSessionBucket).Get([]byte(id)) != nil {
-				found = true
-			}
-			return nil
-		})
-	})
-	if found {
-		return id
-	}
-	// Fall back to checking basePath for legacy JSONL files.
-	p := filepath.Join(s.basePath, id+".jsonl")
-	if _, statErr := AppFS.Stat(p); statErr == nil {
-		return p
-	}
-	return ""
-}
-
-func (s *SessionStore) listDirsLocked() []string {
-	return []string{s.sessionBasePath()}
-}
 
 func writeJSONLine(f afero.File, v interface{}) error {
 	data, err := json.Marshal(v)
@@ -635,11 +350,4 @@ func writeJSONLine(f afero.File, v interface{}) error {
 	data = append(data, '\n')
 	_, err = f.Write(data)
 	return err
-}
-
-// Close is a no-op: the bbolt handle is opened and closed around each
-// operation (see withDB), so nothing is held open to release. Kept for API
-// compatibility with callers that defer Close() unconditionally.
-func (s *SessionStore) Close() error {
-	return nil
 }

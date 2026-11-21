@@ -82,7 +82,6 @@ func TestTools_ListAndCall(t *testing.T) {
 		toolMemorySearch,
 		toolPython,
 		toolSearchLocal,
-		"session_ops",
 		toolSQLOps,
 		testReadTool,
 		toolVectorStore,

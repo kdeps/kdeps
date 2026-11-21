@@ -4,7 +4,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 ## Where it runs
 
-Every resource type runs in the workflow. `requires:` sets the order. In the REPL, kdeps registers the whole workflow as one tool. The model calls that tool, and the same order runs inside it.
+Every resource type runs in the workflow. `requires:` sets the order.
 
 ## The shape of a resource
 

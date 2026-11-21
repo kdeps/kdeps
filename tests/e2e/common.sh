@@ -580,3 +580,38 @@ source_isolated() {
         fi
     done
 }
+
+# loop_workflow writes a workflow in $1 whose interactive prompt runs a chat
+# loop: on backend $2 and model $3 with every built-in tool. Each stdin line is
+# one turn of one conversation. Agent-loop tests run it with kdeps run.
+loop_workflow() {
+    local dir="$1" backend="$2" model="$3"
+    mkdir -p "$dir/resources"
+    cat > "$dir/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: e2e-loop
+  description: agent loop test workflow
+  version: "1.0.0"
+  targetActionId: assistant
+deploy:
+  input:
+    sources: [interactive]
+repl:
+  sessionId: e2e-loop
+YAML
+    cat > "$dir/resources/assistant.yaml" <<YAML
+actionId: assistant
+name: Assistant
+chat:
+  model:
+    name: $model
+    backend: $backend
+  context:
+    prompt: "{{ input('message') }}"
+  loop:
+    maxRounds: 25
+    session: "{{ get('session') }}"
+YAML
+}

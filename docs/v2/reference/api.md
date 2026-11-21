@@ -1,6 +1,6 @@
 # kdeps API
 
-The kdeps API is the control listener for the REPL, the desktop app, and `kdeps run`. It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
+The kdeps API is the control listener of `kdeps run`. It is not the workflow HTTP API (`apiServer`, port 16395) and it is not `/_kdeps/`.
 
 ```text
 caller -> bearer check -> handler
@@ -45,7 +45,7 @@ Two more asset sets hold business rules for the graph features. kdeps reads each
 If a set's file is missing or broken, the knowledge recall keeps every word and prints a warning. Install rejects a `vault.yaml` that leaves any name empty, so a broken override never replaces a working one. The code graph reports that it has no rules until the file loads.
 ## Traceability: API to component to YAML
 
-Every YAML file that runs reaches the kdeps API. A workflow uses a tool through a component. A slash command uses the REPL through the commands group. The agent loop reads a loop data set directly:
+Every YAML file that runs reaches the kdeps API. A workflow uses a tool through a component. The agent loop reads a loop data set directly:
 
 ```d2
 direction: right
@@ -55,25 +55,20 @@ component: "components/X/component.yaml\nrequires: tools/X"
 tools: "POST /apis/tools.kdeps.io/v1/tools/X/call"
 spec: "ToolSpec (Go)" {shape: diamond}
 declared: "assets/tools/X.yaml\nhttp: or exec:" {shape: diamond}
-command: "/name" {shape: oval}
-commands: "POST /apis/commands.kdeps.io/v1/commands/X/call"
-cmdasset: "assets/commands/X.yaml"
 loop: "agent loop reads\nharness, events, actions,\npresets" {shape: oval}
+loopdata: "assets/harness, events,\nactions, presets"
 
 workflow -> component
 component -> tools: "kdeps.api"
 tools -> spec: "Go tool"
 tools -> declared: "declared tool"
-command -> cmdasset
-cmdasset -> commands: "builtin: api:"
-loop -> cmdasset: "config data, not served"
+loop -> loopdata: "config data, not served"
 ```
 
 Chains by asset set:
 
-- **Tools**: the declared runner serves `tools/` assets with `http:`, `exec:`, `sql:`, or `python:`. Go-backed tools have a `ToolSpec`. `session_ops` reads and changes the active agent session. Its `tool` operation runs the session-only tools (`judge_verdict`, `knowledge_*`, `load_skill`, `load_tools`, `identity_get`, `subagent`, `ask_question`), which have no route of their own. The tool list marks `session_ops` `"agentOnly": true`. In workflow mode, with no agent session, a call fails.
+- **Tools**: the declared runner serves `tools/` assets with `http:`, `exec:`, `sql:`, or `python:`. Go-backed tools have a `ToolSpec`. The agent loop registers the session-only tools (`judge_verdict`, `knowledge_*`, `load_skill`, `load_tools`, `identity_get`, `subagent`, `ask_question`) itself. They have no route.
 - **Components**: each `components/` asset declares `requires:` and calls `kdeps.api`. The component invariant tests enforce this for workflow tools.
-- **Commands**: builtin commands name their operation in `api:`. kdeps publishes declared prompt commands under their own name.
 - **Loop data**: configuration only, see [Loop data sets](#loop-data-sets).
 
 ## Routes
@@ -83,12 +78,10 @@ Every route requires the bearer token. A missing or wrong token is `401`.
 | Method | Path | Body |
 | --- | --- | --- |
 | `GET` | `/api` | Core versions. `versions` is `["v1"]`. |
-| `GET` | `/apis` | Groups `tools.kdeps.io` and `commands.kdeps.io`, each at `v1`. Workflow execution is not an API group: a workflow runs through `kdeps run`. |
+| `GET` | `/apis` | Group `tools.kdeps.io` at `v1`. Workflow execution is not an API group: a workflow runs through `kdeps run`. |
 | `GET` | `/openapi/v3` | OpenAPI for the routes below. |
-| `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `session_ops` (which also runs the agent-session tools `identity_get`, `judge_verdict`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `knowledge_recall`, `load_skill`, `load_tools`, `subagent` and `ask_question`), `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the tools whose implementation is declared in their own asset (`calculator`, `clipboard_copy`, `cohere_rerank`, `edit_file`, `exa_search`, `file_ops`, `git_ops`, `google_cache_create`, `google_cache_delete`, `google_cache_list`, `hf_repo_files`, `hf_search`, `jina_rerank`, `list_files`, `md5_file`, `ocr_image`, `read_file`, `retrieve_context`, `sql_describe_table`, `sql_list_tables`, `sql_query`, `tail_file`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `web_scraper`, `web_search`, `wikipedia`, `wolfram_alpha`, `write_file`, `zapier_list_actions`, `zapier_run_action`). |
+| `GET` | `/apis/tools.kdeps.io/v1/tools` | Tool list. `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the tools whose implementation is declared in their own asset (`calculator`, `clipboard_copy`, `cohere_rerank`, `edit_file`, `exa_search`, `file_ops`, `git_ops`, `google_cache_create`, `google_cache_delete`, `google_cache_list`, `hf_repo_files`, `hf_search`, `jina_rerank`, `list_files`, `md5_file`, `ocr_image`, `read_file`, `retrieve_context`, `sql_describe_table`, `sql_list_tables`, `sql_query`, `tail_file`, `transcribe_audio`, `transcribe_audio_offline`, `voyageai_rerank`, `web_scraper`, `web_search`, `wikipedia`, `wolfram_alpha`, `write_file`, `zapier_list_actions`, `zapier_run_action`). |
 | `POST` | `/apis/tools.kdeps.io/v1/tools/{name}/call` | Tool result, `text/plain`. |
-| `GET` | `/apis/commands.kdeps.io/v1/commands` | Slash-command list: each command's operation name (`name`), the name you type (`display`), its usage lines, and the first usage line as `description`. |
-| `POST` | `/apis/commands.kdeps.io/v1/commands/{name}/call` | Command output, `text/plain`. `name` is the operation id: the builtin command's `commands/<name>.yaml` file stem, which its `api:` field repeats. Declared prompt commands (`explain`, `review`, and any `commands/` asset with `run:`) use their own name and return each model reply, separated by a blank line. Their `command:` steps print to the REPL's output and are not returned. The call runs against the active REPL session. `{"args": ["new", "ship it"]}`, `{"args": "new ship it"}` and `{"arguments": "new ship it"}` are all accepted; args not as an array are split on whitespace. |
 
 ```bash
 curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
@@ -113,17 +106,12 @@ curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
       "name": "tools.kdeps.io",
       "versions": [{"groupVersion": "tools.kdeps.io/v1", "version": "v1"}],
       "preferredVersion": {"groupVersion": "tools.kdeps.io/v1", "version": "v1"}
-    },
-    {
-      "name": "commands.kdeps.io",
-      "versions": [{"groupVersion": "commands.kdeps.io/v1", "version": "v1"}],
-      "preferredVersion": {"groupVersion": "commands.kdeps.io/v1", "version": "v1"}
     }
   ]
 }
 ```
 
-`POST /api` with a valid token is `405`. `GET` on a call route is `405` and `Allow` is `POST`. `GET /openapi/v3` lists `GET /api`, `GET /apis`, `GET /openapi/v3`, `GET /apis/tools.kdeps.io/v1/tools`, `POST /apis/tools.kdeps.io/v1/tools/{name}/call`, `GET /apis/commands.kdeps.io/v1/commands`, and `POST /apis/commands.kdeps.io/v1/commands/{name}/call`.
+`POST /api` with a valid token is `405`. `GET` on a call route is `405` and `Allow` is `POST`. `GET /openapi/v3` lists `GET /api`, `GET /apis`, `GET /openapi/v3`, `GET /apis/tools.kdeps.io/v1/tools`, and `POST /apis/tools.kdeps.io/v1/tools/{name}/call`.
 
 ## Call read_file
 
@@ -172,50 +160,9 @@ A file whose text is `line 1`, `line 2`, and `line 3` comes back as:
 
 An unknown tool name is `404` with message `tool not found`. A body without `file_path` is `400`.
 
-## Run a slash command
-
-Every builtin slash command is a `commands/<op>.yaml` asset. Its `api:` field names the operation that runs it, and the REPL publishes each operation on this API. The file stem, `api:`, and the call-route `name` are all the same string. kdeps skips a command at load if its asset does not match.
-
-```text
-/clear -> commands/clear.yaml (api: clear) -> POST /apis/commands.kdeps.io/v1/commands/clear/call -> handler
-```
-
-```bash
-curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
-  http://127.0.0.1:9095/apis/commands.kdeps.io/v1/commands
-```
-
-```json
-{
-  "kind": "CommandList",
-  "apiVersion": "commands.kdeps.io/v1",
-  "items": [
-    {
-      "name": "clear",
-      "display": "clear",
-      "description": "Clear the conversation history",
-      "usage": [{"args": "", "help": "Clear the conversation history"}]
-    }
-  ]
-}
-```
-
-`display` is the name you type in the REPL, which is not always the operation id (`/instruct!` is `instruct-now`). Run one:
-
-```bash
-curl -sS -H "Authorization: Bearer $KDEPS_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"args": [""]}' \
-  http://127.0.0.1:9095/apis/commands.kdeps.io/v1/commands/help/call
-```
-
-The call runs against the REPL that published it, so it acts on that session (`/clear` empties it). The response is the output of the command, as `text/plain`. A command that prints only to the terminal returns an empty body. A command that fails returns `400` with the error text. Arg decoding accepts a JSON array, a string (split on whitespace), or an `arguments` string. An unknown name is `404` with message `command not found`.
-
-The agent loop (`kdeps`, the desktop app) publishes the routes. A `kdeps run` process serves the routes with no commands registered: the list is empty and every call is `404`. `/update` re-registers the commands after it installs assets, so a new display name or usage line shows without a restart.
-
 ## Other calls
 
-These tools use the same call route: `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `session_ops`, `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the asset-declared tools. `session_ops` also runs the agent-session tools `identity_get`, `judge_verdict`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save`, `knowledge_recall`, `load_skill`, `load_tools`, `subagent` and `ask_question`. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
+These tools use the same call route: `bash_exec`, `bash_job_list`, `bash_job_wait`, `sql_ops`, `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `http_request`, `exec`, `python`, `search_local`, `load_document`, `vector_store`, `embedding`, `embedding_search`, `embedding_vectorize`, the four `approval_*` tools, `instruct`, and the asset-declared tools. The handler is the implementation. The agent tool and the shipped component only POST the arguments.
 
 The code-graph tools are the agent's `code_` tools: `code_find_symbol`, `code_callers`, `code_callees`, `code_impact`, `code_impact_and_risk` (files a symbol change touches, with the tests that reach it), `code_impact_of_diff` (symbols a unified diff touches and their dependents), `code_tests_for`, `code_rank_files`, `code_query`, `code_file_neighbors`, `code_node`, `code_trace`, `code_shortest_path`, `code_expand`, `code_find_seeds`, `code_search`, `code_render_subgraph`, `code_references`, `code_imports_exports` and `code_stats`. They run on the working directory and build the index on the first call. The `codegraph` asset set (`tools.yaml`) lists them. Each is the Kartographer tool with the same name and a `code_` prefix.
 
@@ -257,4 +204,3 @@ The body is `4`. A missing required argument is a `400`.
 | `search_local` | query or glob | neither: `search_local: give a query (or a glob) to search for`; path `/`: `search_local: operation on root directory '/' is blocked (set KDEPS_ALLOW_ROOT=true to permit)` |
 | `memory_save`, `memory_search`, `memory_delete` | | no store: `<tool>: memory store is not configured` (the agent attaches its store before the call) |
 | `memory_query` | `query` | empty: `memory_query: query is required`; no agent loop: `memory_query: agent loop is not configured (memory_query is an agent-mode tool)` |
-| `session_ops` | `{"operation":"tool","tool":"identity_get"}` | runs that session tool on the active loop; under `kdeps run`: `identity_get: no active agent session (agent-mode tool)` |

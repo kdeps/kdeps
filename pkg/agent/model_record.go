@@ -137,20 +137,6 @@ func modelRecordFor(backend, model string) *modelRecord {
 	return rec
 }
 
-// clearModelRecord deletes a model's record and reports whether it had one.
-func clearModelRecord(backend, model string) bool {
-	modelRecordsMu.Lock()
-	defer modelRecordsMu.Unlock()
-	recs := readModelRecords()
-	key := modelRecordKey(backend, model)
-	if _, ok := recs[key]; !ok {
-		return false
-	}
-	delete(recs, key)
-	writeModelRecords(recs)
-	return true
-}
-
 // modelRecordPreamble is the model-refusal-record harness entry rendered with
 // the current model's record, or "" when the model has none.
 func (l *Loop) modelRecordPreamble() string {
@@ -163,4 +149,18 @@ func (l *Loop) modelRecordPreamble() string {
 		Count    int
 		Refusals []modelRefusal
 	}{modelRecordKey(l.config.Backend, l.config.Model), rec.Count, rec.Refusals})
+}
+
+// clearModelRecord deletes a model's record and reports whether it had one.
+func clearModelRecord(backend, model string) bool {
+	modelRecordsMu.Lock()
+	defer modelRecordsMu.Unlock()
+	recs := readModelRecords()
+	key := modelRecordKey(backend, model)
+	if _, ok := recs[key]; !ok {
+		return false
+	}
+	delete(recs, key)
+	writeModelRecords(recs)
+	return true
 }

@@ -58,13 +58,6 @@ const (
 // PlanCouncilEnabled reports whether the planning council runs before a task.
 func (l *Loop) PlanCouncilEnabled() bool { return l != nil && l.config.PlanCouncil }
 
-// SetPlanCouncil turns the planning council on or off.
-func (l *Loop) SetPlanCouncil(on bool) {
-	if l != nil {
-		l.config.PlanCouncil = on
-	}
-}
-
 // planState is the current task's plan and its progress file.
 type planState struct {
 	mu     sync.Mutex
@@ -362,4 +355,11 @@ func configureCouncil() {
 			return harnessRender("plan-council-note", struct{ Plan string }{plan})
 		},
 	})
+}
+
+// SetPlanCouncil turns the planning council on or off.
+func (l *Loop) SetPlanCouncil(on bool) {
+	if l != nil {
+		l.config.PlanCouncil = on
+	}
 }

@@ -24,7 +24,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -308,62 +307,9 @@ func TestBuildLangchainMessages_RetrieverPreamble_NoScenarioSystemMsg(t *testing
 
 // ---- downloadFile: non-200 status triggers error ----
 
-func TestHFDownloadWithToken_NonOKStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-	}))
-	defer srv.Close()
-
-	err := hfDownloadWithToken(context.Background(), srv.URL, t.TempDir()+"/out", "tok")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "403")
-}
-
 // ---- HFRegisterGGUFEntry: write error (read-only file) ----
 
-func TestHFRegisterGGUFEntry_WriteError(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("running as root, file permission checks are bypassed")
-	}
-	dir := t.TempDir()
-	origFunc := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origFunc })
-	userHomeDirFunc = func() (string, error) { return dir, nil }
-
-	registryDir := dir + "/.kdeps"
-	require.NoError(t, os.MkdirAll(registryDir, 0o750))
-	registryFile := registryDir + "/gguf_versions.yaml"
-	require.NoError(t, os.WriteFile(registryFile, []byte("version: 1\ngguf_versions: []\n"), 0o600))
-	require.NoError(t, os.Chmod(registryFile, 0o400))
-	t.Cleanup(func() { _ = os.Chmod(registryFile, 0o600) })
-
-	entry := GGUFEntry{Alias: "test-model", URL: "http://example.com/test.gguf"}
-	err := HFRegisterGGUFEntry(entry)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "write")
-}
-
 // ---- HFRegisterGGUFEntry: replaced=true path (existing alias updated) ----
-
-func TestHFRegisterGGUFEntry_ReplaceExisting(t *testing.T) {
-	dir := t.TempDir()
-	origFunc := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origFunc })
-	userHomeDirFunc = func() (string, error) { return dir, nil }
-
-	registryDir := dir + "/.kdeps"
-	require.NoError(t, os.MkdirAll(registryDir, 0o750))
-	existing := "version: 1\ngguf_versions:\n  - alias: my-model\n    url: http://example.com/old.gguf\n"
-	require.NoError(t, os.WriteFile(registryDir+"/gguf_versions.yaml", []byte(existing), 0o600))
-
-	entry := GGUFEntry{Alias: "my-model", URL: "http://example.com/new.gguf"}
-	err := HFRegisterGGUFEntry(entry)
-	require.NoError(t, err)
-
-	data, err := os.ReadFile(registryDir + "/gguf_versions.yaml")
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "new.gguf")
-}
 
 // ---- GGUFCachedPath: alias not found ----
 
@@ -426,52 +372,9 @@ func TestBuildOpenAIResponseFormat_NoTitle(t *testing.T) {
 
 // ---- llamafile_registry.go: LlamafileCachedPath empty basename ----
 
-func TestHFDownloadGGUF_ModelsDirError(t *testing.T) {
-	// Make userHomeDirFunc fail so DefaultModelsDir returns an error
-	// (covers both the nil logger and the DefaultModelsDir error paths).
-	origFunc := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origFunc })
-	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
-
-	_, _, err := HFDownloadGGUF(context.Background(), "repo", "model.gguf", nil)
-	assert.Error(t, err)
-}
-
 // ---- hf_search.go: HFDownloadGGUF file already exists (stat succeeds, skip download) ----
 
-func TestHFDownloadGGUF_FileExists(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("KDEPS_MODELS_DIR", dir)
-
-	// Create the file at the expected destination so AppFS.Stat succeeds.
-	dest := filepath.Join(dir, "existing.gguf")
-	require.NoError(t, os.WriteFile(dest, []byte("data"), 0600))
-
-	// Override userHomeDirFunc so HFRegisterGGUFEntry write fails
-	// (exercises the registration warning path).
-	origFunc := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origFunc })
-	regDir := filepath.Join(t.TempDir(), ".kdeps")
-	require.NoError(t, os.MkdirAll(regDir, 0750))
-	regFile := filepath.Join(regDir, "gguf_versions.yaml")
-	require.NoError(t, os.WriteFile(regFile, []byte("version: 1\ngguf_versions: []\n"), 0600))
-	require.NoError(t, os.Chmod(regFile, 0400))
-	userHomeDirFunc = func() (string, error) { return filepath.Dir(regDir), nil }
-
-	_, _, err := HFDownloadGGUF(context.Background(), "test/repo", "existing.gguf", slog.Default())
-	// The file exists so download is skipped; registration warning is logged.
-	// The function still returns success since the warning is non-fatal.
-	// HFRegisterGGUFEntry will try to write the registry file which is read-only,
-	// so it logs a warning and the function succeeds.
-	assert.NoError(t, err)
-}
-
 // ---- hf_search.go: hfDownloadWithToken invalid URL ----
-
-func TestHFDownloadWithToken_InvalidURL(t *testing.T) {
-	err := hfDownloadWithToken(context.Background(), "\n", t.TempDir()+"/out", "tok")
-	assert.Error(t, err)
-}
 
 // ---- hf_search.go: HFRegisterGGUFEntry yaml.Marshal error (channel in entry) ----
 

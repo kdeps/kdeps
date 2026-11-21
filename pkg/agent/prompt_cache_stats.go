@@ -117,12 +117,6 @@ func (s *PromptCacheStats) TotalTokensServedFromCache() int64 {
 	return s.totalTokensServedFromCache.Load()
 }
 
-// TotalInputTokens returns total input tokens across all calls.
-func (s *PromptCacheStats) TotalInputTokens() int64 { return s.totalInputTokens.Load() }
-
-// TotalOutputTokens returns total output tokens across all calls.
-func (s *PromptCacheStats) TotalOutputTokens() int64 { return s.totalOutputTokens.Load() }
-
 // HitRate returns the fraction of calls that hit cache (0.0-1.0).
 // Returns 0 if no calls have been recorded.
 func (s *PromptCacheStats) HitRate() float64 {
@@ -153,19 +147,6 @@ func (s *PromptCacheStats) Records() []PromptCacheRecord {
 	out := make([]PromptCacheRecord, len(s.records))
 	copy(out, s.records)
 	return out
-}
-
-// LastRecord returns the most recent cache record, or nil if none.
-func (s *PromptCacheStats) LastRecord() *PromptCacheRecord {
-	r := s.lastRecord.Load()
-	if r == nil {
-		return nil
-	}
-	rec, ok := r.(*PromptCacheRecord)
-	if !ok {
-		return nil
-	}
-	return rec
 }
 
 // Summary returns a human-readable cache stats summary.
@@ -242,3 +223,22 @@ func formatLargeInt(n int64) string {
 func TakeLastPromptCacheRecord() *PromptCacheRecord {
 	return GlobalPromptCacheStats.LastRecord()
 }
+
+// LastRecord returns the most recent cache record, or nil if none.
+func (s *PromptCacheStats) LastRecord() *PromptCacheRecord {
+	r := s.lastRecord.Load()
+	if r == nil {
+		return nil
+	}
+	rec, ok := r.(*PromptCacheRecord)
+	if !ok {
+		return nil
+	}
+	return rec
+}
+
+// TotalInputTokens returns total input tokens across all calls.
+func (s *PromptCacheStats) TotalInputTokens() int64 { return s.totalInputTokens.Load() }
+
+// TotalOutputTokens returns total output tokens across all calls.
+func (s *PromptCacheStats) TotalOutputTokens() int64 { return s.totalOutputTokens.Load() }

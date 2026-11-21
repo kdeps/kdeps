@@ -64,7 +64,6 @@ export default defineConfig({
       { text: 'Start', link: '/start/' },
       { text: 'Workflow', link: '/workflow/' },
       { text: 'Agent', link: '/agent/' },
-      { text: 'Desktop', link: '/desktop/' },
       { text: 'Agencies', link: '/agencies/' },
       { text: 'LLM server', link: '/llm-server/' },
       { text: 'Deploy', link: '/deploy/' },
@@ -106,7 +105,7 @@ export default defineConfig({
           text: 'Read next',
           items: [
             { text: 'Workflow file', link: '/workflow/' },
-            { text: 'Agent REPL', link: '/agent/' },
+            { text: 'Agent loop', link: '/agent/' },
             { text: 'kdeps agencies', link: '/agencies/' },
             { text: 'kdeps LLM server', link: '/llm-server/' },
             { text: 'kdeps deploy', link: '/deploy/' },
@@ -117,12 +116,9 @@ export default defineConfig({
 
       '/agent/': [
         {
-          text: 'kdeps agent',
+          text: 'Agent loop',
           items: [
             { text: 'Overview', link: '/agent/' },
-            { text: 'Quickstart', link: '/agent/quickstart' },
-            { text: 'REPL features', link: '/agent/repl' },
-            { text: 'Slash commands', link: '/agent/commands' },
             { text: 'Built-in tools', link: '/agent/tools' },
             { text: 'Fenced tools', link: '/agent/tools-fenced' },
             { text: 'Harness reminders', link: '/agent/tools-harness' },
@@ -132,13 +128,6 @@ export default defineConfig({
             { text: 'Shell execution', link: '/agent/shell' },
             { text: 'Data tools', link: '/agent/tools-data' },
             { text: 'Action tools', link: '/agent/tools-actions' },
-            { text: 'Themes', link: '/agent/repl-themes' },
-            { text: 'Context window', link: '/agent/repl-context' },
-            { text: 'Sessions', link: '/agent/repl-sessions' },
-            { text: 'Updating kdeps', link: '/agent/repl-updating' },
-            { text: 'Local model management', link: '/agent/models' },
-            { text: 'Desktop app', link: '/desktop/' },
-            { text: 'Desktop app reference', link: '/agent/desktop' },
           ]
         },
         {
@@ -149,7 +138,6 @@ export default defineConfig({
             { text: 'Subagents', link: '/agent/subagent' },
             { text: 'Judge panel', link: '/agent/judges' },
             { text: 'Approval tokens', link: '/agent/approvals' },
-            { text: 'Tool execution monitoring', link: '/agent/monitoring' },
             { text: 'Prompt reduction (turo)', link: '/agent/turo' },
             { text: 'Efficiency', link: '/agent/efficiency' },
           ]
@@ -159,12 +147,11 @@ export default defineConfig({
           items: [
             { text: 'Persistent memory', link: '/agent/memory' },
             { text: 'Memory internals', link: '/agent/memory-internals' },
-            { text: 'Skills and prompt templates', link: '/agent/skills' },
+            { text: 'Skills and instructions', link: '/agent/skills' },
             { text: 'Reactive LLM events', link: '/agent/events' },
             { text: 'Event guards', link: '/agent/events-guards' },
             { text: 'Event actions', link: '/agent/events-actions' },
             { text: 'Event presets', link: '/agent/events-presets' },
-            { text: 'konfig (export/import)', link: '/agent/konfig' },
             { text: 'AI-assisted authoring', link: '/agent/ai-assisted-authoring' },
           ]
         },
@@ -218,7 +205,6 @@ export default defineConfig({
             { text: 'Quickstart', link: '/workflow/quickstart' },
             { text: 'Resource catalog', link: '/workflow/resources' },
             { text: 'Execution flow', link: '/workflow/execution-flow' },
-            { text: 'Workflow as a tool', link: '/workflow/as-a-tool' },
           ]
         },
         {
@@ -376,7 +362,6 @@ export default defineConfig({
             { text: 'Stateless bot', link: '/examples/stateless-bot/' },
             { text: 'Telegram bot', link: '/examples/telegram-bot/' },
             { text: 'Showcase', link: '/examples/showcase' },
-            { text: 'Read a file in the REPL', link: '/examples/agent-repl' },
             { text: 'Two-agent agency', link: '/examples/agency' },
             { text: 'Reusable component', link: '/examples/custom-component' },
             { text: 'Per-component env vars', link: '/examples/component-env' },
@@ -507,23 +492,23 @@ export default defineConfig({
       'configuration/cors': '/workflow/cors',
       'configuration/route-restrictions': '/workflow/route-restrictions',
       'getting-started/quickstart': '/workflow/quickstart',
-      'getting-started/workflow-as-tool': '/workflow/as-a-tool',
+      'getting-started/workflow-as-tool': '/agent/',
       'guides/execution-flow': '/workflow/execution-flow',
       // Product split (2026-09): agent-loop + getting-started -> /agent/, /start/.
       'modes/agent-loop-mode': '/agent/',
-      'modes/agent-loop-repl': '/agent/repl',
-      'modes/agent-loop-commands': '/agent/commands',
+      'modes/agent-loop-repl': '/agent/',
+      'modes/agent-loop-commands': '/agent/',
       'modes/agent-loop-tools': '/agent/tools',
-      'modes/agent-loop-models': '/agent/models',
+      'modes/agent-loop-models': '/agent/',
       'modes/agent-loop-skills': '/agent/skills',
       'modes/agent-loop-judges': '/agent/judges',
       'modes/agent-loop-approvals': '/agent/approvals',
-      'modes/agent-loop-monitoring': '/agent/monitoring',
+      'modes/agent-loop-monitoring': '/agent/tools',
       'modes/agent-loop-shell': '/agent/shell',
       'modes/agent-loop-turo': '/agent/turo',
       'agent/tools-handshake': '/agent/tools-fenced',
-      'agent/repl-themes': '/agent/repl-status',
-      'getting-started/local-agent': '/agent/quickstart',
+      'agent/repl-themes': '/agent/',
+      'getting-started/local-agent': '/agent/',
       'getting-started/agent-skills': '/agent/ai-assisted-authoring',
       'concepts/memory': '/agent/memory',
       'concepts/memory-internals': '/agent/memory-internals',
@@ -582,6 +567,21 @@ export default defineConfig({
       'reference/registry-formula-spec': '/registry/formula-spec',
       // browser component removed (2026-10); the web scraper replaces page fetching.
       'reference/browser-actions': '/workflow/resources/web-scraper',
+      // agent REPL and desktop app removed (2026-11); agent mode is a chat with loop:.
+      'agent/quickstart': '/agent/',
+      'agent/repl': '/agent/',
+      'agent/commands': '/agent/',
+      'agent/repl-context': '/agent/',
+      'agent/repl-sessions': '/agent/',
+      'agent/repl-status': '/agent/',
+      'agent/repl-updating': '/agent/',
+      'agent/models': '/agent/',
+      'agent/desktop': '/agent/',
+      'agent/konfig': '/agent/',
+      'agent/monitoring': '/agent/tools',
+      'workflow/as-a-tool': '/agent/',
+      'desktop/index': '/agent/',
+      'examples/agent-repl': '/agent/',
     }
     for (const [from, to] of Object.entries(redirects)) {
       const file = join(siteConfig.outDir, from + '.html')

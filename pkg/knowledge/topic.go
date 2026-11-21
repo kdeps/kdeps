@@ -42,9 +42,6 @@ func topicWords(text string) []string {
 	return out
 }
 
-// Empty reports whether the thread has no words yet.
-func (t *Topic) Empty() bool { return t.t.Empty() }
-
 // Related reports whether text continues the thread: a short follow-up, or a
 // request whose words the thread already has enough of. Any request continues
 // an empty thread.
@@ -55,3 +52,6 @@ func (t *Topic) Related(text string) bool {
 
 // Add adds text's words to the thread.
 func (t *Topic) Add(text string) { t.t.Add(topicWords(text)) }
+
+// Empty reports whether the thread has no words yet.
+func (t *Topic) Empty() bool { return t.t.Empty() }

@@ -1108,72 +1108,6 @@ func TestReadFile_StringOffsetAndLimit(t *testing.T) {
 	assert.Equal(t, "2\tline 2$\n3\tline 3$\n[2/5 lines shown]", result)
 }
 
-// TestReadFile_SecondWindowNotServedFromCache reproduces instrument session
-// kdeps-api-10: read lines 1-180, then ask for offset 1360 / limit 220 with no
-// file_path. The repeat must reach the new window, not return the earlier one.
-func TestReadFile_SecondWindowNotServedFromCache(t *testing.T) {
-	ResetConvergence()
-	t.Cleanup(ResetConvergence)
-	lastFileState.mu.Lock()
-	lastFileState.path = ""
-	lastFileState.mu.Unlock()
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("read_file")
-	require.NotNil(t, tool)
-
-	lines := make([]string, 400)
-	for i := range lines {
-		lines[i] = fmt.Sprintf("line %d", i+1)
-	}
-	tmpFile, err := os.CreateTemp("", "kdeps-readfile-secondwindow-*.txt")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(strings.Join(lines, "\n")+"\n"), 0o600))
-
-	first, err := tool.Execute(map[string]any{
-		"file_path": tmpFile.Name(),
-		"limit":     "180",
-	})
-	require.NoError(t, err)
-	assert.Contains(t, first, "1\tline 1$")
-	assert.NotContains(t, first, "line 300")
-
-	second, err := tool.Execute(map[string]any{
-		"offset": "300",
-		"limit":  "2",
-	})
-	require.NoError(t, err)
-	assert.Contains(t, second, "300\tline 300$")
-	assert.NotContains(t, second, "line 1$")
-}
-
-// TestReadFile_WindowedReadMarksFileSeen: a windowed read caches under a
-// composite key, so the read-before-edit gate must still see the path as read.
-func TestReadFile_WindowedReadMarksFileSeen(t *testing.T) {
-	ResetConvergence()
-	t.Cleanup(ResetConvergence)
-
-	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
-	tool := reg.Get("read_file")
-	require.NotNil(t, tool)
-
-	tmpFile, err := os.CreateTemp("", "kdeps-readfile-seen-*.txt")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("line 1\nline 2\nline 3\n"), 0o600))
-
-	_, err = tool.Execute(map[string]any{
-		"file_path": tmpFile.Name(),
-		"offset":    "2",
-		"limit":     "1",
-	})
-	require.NoError(t, err)
-	assert.True(t, fileSeenThisTurn(tmpFile.Name()))
-}
-
 func TestReadFile_MatchID_ReadsRegionAroundLine(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -1595,29 +1529,6 @@ func TestColoredDiff_EmptyContent(t *testing.T) {
 	}
 }
 
-func TestIsBinaryContent(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name string
-		data []byte
-		want bool
-	}{
-		{name: "empty", data: nil, want: false},
-		{name: "text", data: []byte("hello world"), want: false},
-		{name: "nul byte", data: []byte{0x00}, want: true},
-		{name: "nul in middle", data: []byte("hello\x00world"), want: true},
-		{name: "zip magic no nul", data: []byte("PK\x03\x04\x14\x00\x00\x00\x00\x00"), want: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := isBinaryContent(tt.data); got != tt.want {
-				t.Errorf("isBinaryContent() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestRegisterWriteFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "w.txt")
 	require.NoError(t, os.WriteFile(tmpFile, []byte("old line\n"), 0600))
@@ -1740,32 +1651,6 @@ func TestColoredDiff_NoCommonPrefixOrSuffix(t *testing.T) {
 	assert.Contains(t, got, "- old_line")
 	assert.Contains(t, got, "+ new_line")
 	assert.Contains(t, got, "f.txt")
-}
-
-func TestIsBinaryContent_TruncatedCheck(t *testing.T) {
-	t.Parallel()
-	// Data longer than binaryCheckBytes (512) but all text -> not binary
-	data := make([]byte, binaryCheckBytes+10)
-	for i := range data {
-		data[i] = 'A'
-	}
-	assert.False(t, isBinaryContent(data), "large text-only data should not be binary")
-
-	// Nul byte only appears beyond binaryCheckBytes -> not detected as binary
-	data2 := make([]byte, binaryCheckBytes+20)
-	for i := range data2 {
-		data2[i] = 'A'
-	}
-	data2[binaryCheckBytes+5] = 0
-	assert.False(t, isBinaryContent(data2), "nul beyond check window should not trigger binary detection")
-
-	// Nul byte within first binaryCheckBytes -> detected
-	data3 := make([]byte, binaryCheckBytes)
-	for i := range data3 {
-		data3[i] = 'A'
-	}
-	data3[100] = 0
-	assert.True(t, isBinaryContent(data3), "nul within check window should trigger binary detection")
 }
 
 func TestValidateWorkspaceBoundary_SubdirInRoot(t *testing.T) {
@@ -1938,37 +1823,6 @@ func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
 }
 
 // --- isBinaryContent additional edge cases ---
-
-func TestIsBinaryContent_FirstByteNUL(t *testing.T) {
-	t.Parallel()
-	assert.True(t, isBinaryContent([]byte{0x00, 'a', 'b', 'c'}))
-}
-
-func TestIsBinaryContent_Exact512NoNUL(t *testing.T) {
-	t.Parallel()
-	data := make([]byte, binaryCheckBytes)
-	for i := range data {
-		data[i] = 'A'
-	}
-	assert.False(t, isBinaryContent(data))
-}
-
-func TestIsBinaryContent_Exact512NULat511(t *testing.T) {
-	t.Parallel()
-	data := make([]byte, binaryCheckBytes)
-	for i := range data {
-		data[i] = 'A'
-	}
-	data[511] = 0
-	assert.True(t, isBinaryContent(data))
-}
-
-func TestIsBinaryContent_NULatFirstByteLarge(t *testing.T) {
-	t.Parallel()
-	data := make([]byte, binaryCheckBytes+50)
-	data[0] = 0
-	assert.True(t, isBinaryContent(data))
-}
 
 func TestColoredDiff_NewLongerThanOld(t *testing.T) {
 	t.Parallel()
@@ -2368,11 +2222,6 @@ func TestValidateWorkspaceBoundary_NonExistentPathInRoot(t *testing.T) {
 	err = validateWorkspaceBoundary("/nonexistent/path/outside")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "escapes workspace root")
-}
-
-func TestIsBinaryContent_EmptySlice(t *testing.T) {
-	t.Parallel()
-	assert.False(t, isBinaryContent([]byte{}))
 }
 
 func TestValidateWorkspaceBoundary_AutoApproved(t *testing.T) {

@@ -25,7 +25,6 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
-	"github.com/kdeps/kdeps/v3/pkg/tui"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +36,7 @@ func newLLMModelsCmd() *cobra.Command {
 		Use:   "models",
 		Short: "List available models from the llamafile/GGUF harvest",
 		Long: `Show models available from the model registries (same data as
-kdeps llamafile list). The wizard model step browses this list.
+kdeps llamafile list).
 
 Update the registries:
   kdeps update models
@@ -74,7 +73,7 @@ func runLLMModels(kind string) error {
 		return fmt.Errorf("unknown --type %q (want llamafile, gguf, or empty)", kind)
 	}
 
-	lfN, ggN := tui.HarvestCounts()
+	lfN, ggN := len(llm.ListLlamafileMappings()), len(llm.ListGGUFMappings())
 	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps update models)\n\n", lfN, ggN)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, llmModelsPad, ' ', 0)

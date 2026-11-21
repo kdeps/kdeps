@@ -342,9 +342,9 @@ for unknown keys, missing API keys, and invalid durations. It also writes a
 warning for agent profiles under `agents:` that do not match the `name:` under
 `metadata:` of an installed workflow.
 
-## Subthe REPLl
+## Subagent
 
-The subagent channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the session model.
+The subagent channel is the model for knowledge-graph extraction, prompt refinement, and judges. Empty or `current` uses the chat's model.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -401,9 +401,9 @@ agents:
 
 Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). kdeps uses them in three places:
 
-- **Git commits.** In the REPL, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
+- **Git commits.** The `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
 - **Outbound email.** The `email` component with no `from` input defaults to `identity.email`.
-- **`identity_get` tool.** The REPL registers this tool, so the model can answer "who are you" or sign its own output. It returns only `name`/`email`/`address`. No tool gives `accounts` (and its passwords) to the LLM. A model that can read a credential can leak it in its output.
+- **`identity_get` tool.** The agent loop registers this tool, so the model can answer "who are you" or sign its own output. It returns only `name`/`email`/`address`. No tool gives `accounts` (and its passwords) to the LLM. A model that can read a credential can leak it in its output.
 
 Resources that must authenticate as the agent use `accounts`. An `http_request` component call with `accountName: crm` and no `connectionName` gets Basic Auth from `identity.accounts.crm`. If you set both, `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always has priority.
 

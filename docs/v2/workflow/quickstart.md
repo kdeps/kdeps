@@ -1,6 +1,6 @@
 # Quickstart
 
-Build a two-resource LLM API from one `workflow.yaml`. The same file is the agent REPL when its chat has `loop:`.
+Build a two-resource LLM API from one `workflow.yaml`. With `loop:` on the chat, the same file is an [agent loop](/agent/).
 
 ## The mental model
 
@@ -17,10 +17,8 @@ This quickstart guides you through:
 - Creating a project
 - Writing a two-resource workflow (an LLM call and a response)
 - Running it as an HTTP API
-- Opening the same chat as the agent REPL
 
-It is for developers who have used a terminal and an HTTP API before. For the
-REPL with no YAML, see [Run locally](/agent/quickstart). For install
+It is for developers who have used a terminal and an HTTP API before. For install
 options (Windows, source, Docker), see [Installation](/start/installation).
 
 ## Before you start
@@ -161,20 +159,10 @@ C -> D
 
 `requires: [llm]` means `response` will not run until `llm` has finished. This two-resource DAG is the simplest pipeline.
 
-## Open the REPL
-
-Same file, different command. `kdeps --agent-loop .` registers this workflow as one tool named `my-agent`. Step-by-step: [Load a workflow as a tool](/workflow/as-a-tool).
-
-```bash
-kdeps --agent-loop .            # current directory; tool name is metadata.name
-kdeps --agent-loop ./agents/    # one tool per workflow in the folder
-```
-
 ## Next steps
 
-- [Load a workflow as a tool](/workflow/as-a-tool) - the same file, called by the model
 - [Workflow](/workflow/) - how the pipeline runs
-- [Agent REPL](/agent/) - a chat with `loop:`
+- [Agent loop](/agent/) - a chat with `loop:`
 - [workflow.yaml reference](/workflow/configuration) - every field
 - [Resources overview](/workflow/resources) - all resource types
 - [CLI reference](/reference/cli) - all commands and flags

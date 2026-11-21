@@ -21,6 +21,7 @@ native() { cygpath -w "$1" 2>/dev/null || printf '%s' "$1"; }
 mkdir -p "$TA_DIR/home/.kdeps" "$TA_DIR/work"
 printf 'knowledge:\n  enabled: false\n' > "$TA_DIR/home/.kdeps/config.yaml"
 printf 'the alias-file-marker line\n' > "$TA_DIR/work/notes.txt"
+loop_workflow "$TA_DIR/work" openai fake
 
 # ta_call starts a session in which the mock calls $1 with JSON args $2, and
 # prints what the session sent the mock afterwards (the tool's result).
@@ -29,7 +30,7 @@ ta_call() {
     before=$(wc -c < "$E2E_MOCK_LLM_LOG")
     (cd "$TA_DIR/work" && printf 'CALL %s %s\n/quit\n' "$1" "$2" | env HOME="$TA_DIR/home" \
         USERPROFILE="$(native "$TA_DIR/home")" KDEPS_CONFIG_PATH="$TA_DIR/home/.kdeps/config.yaml" \
-        timeout 180 "$KDEPS_BIN" --agent-loop --new --backend openai --model fake >/dev/null 2>&1)
+        timeout 180 "$KDEPS_BIN" run workflow.yaml >/dev/null 2>&1)
     tail -c +"$((before + 1))" "$E2E_MOCK_LLM_LOG"
 }
 

@@ -19,7 +19,7 @@ Always available. You do not need environment variables.
 
 kdeps keeps memory for each project as markdown notes in the knowledge vault, `<vault>/projects/<project>/memory/` (see [Persistent memory](/agent/memory)). Facts stay across sessions. kdeps extracts facts from each turn automatically. A `[MEMORY: key] value` line saves a fact with no call to `memory_save`.
 
-The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` - see [REPL slash commands](/agent/commands).
+The `memory_*` tools are how the *model* reads and writes memory during a turn.
 
 ## Identity tool
 

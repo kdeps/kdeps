@@ -20,7 +20,6 @@ package assets
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,7 +27,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
 
 // Actions reported in a Change.
@@ -541,41 +539,6 @@ func MarkInitialized(root string) error {
 }
 
 const checkFileName = "check.json"
-
-// checkCache is the last update check, so the notice costs one download a day.
-type checkCache struct {
-	CheckedAt time.Time `json:"checkedAt"`
-	Updates   []Change  `json:"updates"`
-}
-
-// AvailableUpdates returns what a bare kdeps update would install, from a
-// cache under root younger than ttl, or a fresh check (cached on success).
-func AvailableUpdates(ctx context.Context, root string, c *Client, ttl time.Duration) ([]Change, error) {
-	path := filepath.Join(root, checkFileName)
-	if data, err := os.ReadFile(path); err == nil {
-		var cc checkCache
-		if json.Unmarshal(data, &cc) == nil && time.Since(cc.CheckedAt) < ttl {
-			return cc.Updates, nil
-		}
-	}
-	changes, err := Update(ctx, root, c, nil, true)
-	if err != nil {
-		return nil, err
-	}
-	var pending []Change
-	for _, ch := range changes {
-		if ch.Pending() {
-			pending = append(pending, ch)
-		}
-	}
-	data, err := json.Marshal(checkCache{CheckedAt: time.Now().UTC(), Updates: pending})
-	if err == nil {
-		if mkErr := os.MkdirAll(root, dirPerm); mkErr == nil {
-			err = writeAtomic(path, data)
-		}
-	}
-	return pending, err
-}
 
 // ClearCheck drops the cached check, so the next notice reflects an update.
 func ClearCheck(root string) {

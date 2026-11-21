@@ -201,4 +201,4 @@ both results.
 - [Function calling](/workflow/tools) - MCP tools, multiple tools, parameter types
 - [Function calling](/reference/tools) - tool chaining, debugging
 - [python component](/workflow/resources/python) - building tool scripts
-- [Agent REPL](/agent/) - tools that are whole workflows
+- [Agent loop](/agent/) - a chat that calls tools over many rounds

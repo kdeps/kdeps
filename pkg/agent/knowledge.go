@@ -40,9 +40,6 @@ import (
 	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
 )
 
-// knowledgeRecallMarker starts the per-turn recall system item.
-const knowledgeRecallMarker = "<knowledge-recall>"
-
 // errKnowledgeOff is what the knowledge tools return while /knowledge off.
 var errKnowledgeOff = errors.New("the knowledge vault is off for this session (/knowledge on)")
 
@@ -134,16 +131,6 @@ func (k *knowledgeState) searchRoots() []string {
 func (l *Loop) knowledgeOn() bool {
 	return l.knowledge != nil && !l.knowledgeOff
 }
-
-// SetKnowledge switches recall, session notes and the knowledge tools on or
-// off for this loop (/knowledge on|off), refreshing the system preamble.
-func (l *Loop) SetKnowledge(on bool) {
-	l.knowledgeOff = !on
-	l.InvalidateSystemPreamble()
-}
-
-// KnowledgeEnabled reports whether the knowledge vault is in use.
-func (l *Loop) KnowledgeEnabled() bool { return l.knowledgeOn() }
 
 func (k *knowledgeState) sessionNotes() bool {
 	return k.cfg.SessionNotes == nil || *k.cfg.SessionNotes
@@ -472,16 +459,6 @@ func fileExistsAt(p string) bool {
 	return err == nil
 }
 
-// LastRecall is the most recent recall, for /recall.
-func (l *Loop) LastRecall() (knowledge.Recall, string, bool) {
-	if l.knowledge == nil {
-		return knowledge.Recall{}, "", false
-	}
-	l.knowledge.mu.Lock()
-	defer l.knowledge.mu.Unlock()
-	return l.knowledge.last, l.knowledge.vault.Root, true
-}
-
 // writeSessionNote writes this session's note from a compaction summary
 // and refreshes the graph. Errors are reported, never fatal.
 func (l *Loop) writeSessionNote(summary string, w io.Writer) {
@@ -714,37 +691,6 @@ func (l *Loop) sessionBaseNoteID() string {
 		}
 	}
 	return l.noteID
-}
-
-// WriteSessionNoteNow writes the session note for the turns since the last
-// one (at session end): one summary call over the session, the same call
-// compaction makes. It does nothing when no note is due.
-func (l *Loop) WriteSessionNoteNow(ctx context.Context, w io.Writer) {
-	if !l.SessionNoteDue() {
-		return
-	}
-	var fileOps []FileOpEntry
-	if l.session != nil {
-		fileOps = l.session.FileOps()
-	}
-	msgs := l.session.RawMessages()
-	if start := l.knowledge.threadMsgStart; start > 0 && start < len(msgs) {
-		msgs = msgs[start:] // only this thread: earlier topics have notes of their own
-	}
-	summary, err := l.summarizeConversation(ctx, serializeConversation(msgs, fileOps))
-	if err != nil {
-		if w != nil {
-			fmt.Fprintf(w, "knowledge: session note not written: %v\n", err)
-		}
-		return
-	}
-	l.writeSessionNote(summary, w)
-}
-
-// SessionNoteDue reports whether turns happened since the last session note.
-func (l *Loop) SessionNoteDue() bool {
-	k := l.knowledge
-	return l.knowledgeOn() && k.sessionNotes() && l.session != nil && l.session.TurnCount() > k.notedTurns
 }
 
 // registerKnowledgeTools offers the card and note tools when a vault is set.
@@ -1072,21 +1018,6 @@ func (l *Loop) knowledgeBuildMode() string {
 	return KnowledgeBuildManual
 }
 
-// SetKnowledgeBuild stores manual, auto, or off.
-func (l *Loop) SetKnowledgeBuild(v string) error {
-	if l == nil {
-		return errors.New("no session")
-	}
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case KnowledgeBuildManual, KnowledgeBuildAuto, KnowledgeBuildOff:
-		l.knowledgeBuild = strings.ToLower(strings.TrimSpace(v))
-		l.knowledgeBuildSet = true
-		return nil
-	default:
-		return fmt.Errorf("%s is not a knowledge build mode", v)
-	}
-}
-
 // extractBackground starts one bounded model pass when graph building is
 // automatic. It returns immediately. The pass keeps running after the
 // caller goes on, and recall does not wait for it.
@@ -1149,80 +1080,6 @@ func (l *Loop) runBackgroundExtract() {
 		return
 	}
 	_ = k.rebuild()
-}
-
-// knowledgeExtractRuns reports whether this call should read notes.
-// Session end passes all=false and runs only in automatic mode. An explicit
-// request prints why a disabled mode did not run.
-func (l *Loop) knowledgeExtractRuns(w io.Writer, all bool) bool {
-	if !l.knowledgeOn() || l.config.SubagentEngine == nil {
-		return false
-	}
-	mode := l.knowledgeBuildMode()
-	if mode == KnowledgeBuildOff {
-		if all && w != nil {
-			fmt.Fprintln(w, "knowledge: model build is off (/knowledge build manual, or knowledge.build)")
-		}
-		return false
-	}
-	return all || mode == KnowledgeBuildAuto
-}
-
-// ExtractKnowledge runs the model pass over notes that changed since their
-// last extraction (at most per_session of them, unless all is set) and
-// rebuilds the graph with what it found. It reports on w.
-func (l *Loop) ExtractKnowledge(ctx context.Context, w io.Writer, all bool) {
-	k := l.knowledge
-	if !l.knowledgeExtractRuns(w, all) {
-		return
-	}
-	model, backend, baseURL := l.extractModel()
-	if model == "" {
-		if all && w != nil {
-			fmt.Fprintln(w, "knowledge: no model for extraction (/subagent, llm.subagent, or knowledge.extract.model)")
-		}
-		return
-	}
-	limit := k.cfg.Extract.PerSession
-	if limit <= 0 {
-		limit = itemsOr(eventKnowledgeExtractPerSession, defaultExtractPerSession)
-	}
-	if all {
-		limit = 0
-	}
-	// A background pass owns the extract cache until it finishes.
-	k.extracts.Wait()
-	ctx, cancel := context.WithTimeout(ctx, knowledgeExtractTimeout())
-	defer cancel()
-	k.waitBuilds()
-	st, err := knowledge.Extract(
-		ctx,
-		k.vault,
-		k.dir,
-		KnowledgeAsk(l.config.SubagentEngine, model, backend, baseURL),
-		knowledge.ExtractOptions{
-			Model:   model,
-			Workers: k.cfg.Extract.Workers,
-			Limit:   limit,
-			System:  harnessText("knowledge-extract-system"),
-		},
-	)
-	if err != nil {
-		if w != nil {
-			fmt.Fprintf(w, "knowledge: extraction failed: %v\n", err)
-		}
-		return
-	}
-	if st.Done+st.Failed == 0 {
-		return
-	}
-	if buildErr := k.build(); buildErr != nil && w != nil {
-		fmt.Fprintf(w, "knowledge: graph not rebuilt: %v\n", buildErr)
-	}
-	if w != nil {
-		fmt.Fprintf(w, "knowledge: %s read %d notes (%d failed, %d still pending)\n",
-			model, st.Done+st.Failed, st.Failed, st.Pending-st.Done-st.Failed)
-	}
 }
 
 // HarnessText returns a standalone harness prompt by name (for callers

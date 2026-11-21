@@ -155,12 +155,6 @@ func ActionByName(name string) (Action, bool) {
 	return *a, true
 }
 
-// exportActionEntries returns every registered action (built-in + user,
-// merged), for konfig export.
-func exportActionEntries() []Action {
-	return mapValuesDeref(actionRegistry)
-}
-
 // validateEventActions warns (to stderr, once per mismatch, never fatal)
 // about every registered event whose declared "run:" name is not a known
 // action -- a typo or a bad override must be loud, not a silent no-op. Does

@@ -153,18 +153,3 @@ func TestRecordToolCall_TagsASideLoop(t *testing.T) {
 	require.Len(t, calls, 1)
 	assert.Equal(t, "judge:critic", calls[0]["loop"])
 }
-
-func TestCaptureErrorLine_ShowsTheLoop(t *testing.T) {
-	raw := map[string]json.RawMessage{
-		"ts": json.RawMessage(`"t0"`), "kind": json.RawMessage(`"tool_call"`),
-		"name": json.RawMessage(`"read_file"`), "loop": json.RawMessage(`"judge:critic"`),
-		"error": json.RawMessage(`"not found"`),
-	}
-	line, ok := captureErrorLine(raw)
-	require.True(t, ok)
-	assert.Equal(t, "t0 kind=tool_call model= name=read_file loop=judge:critic error=not found", line)
-
-	delete(raw, "loop")
-	line, _ = captureErrorLine(raw)
-	assert.Equal(t, "t0 kind=tool_call model= name=read_file error=not found", line)
-}

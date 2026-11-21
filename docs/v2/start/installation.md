@@ -2,7 +2,7 @@
 
 Install the `kdeps` CLI to start building agents locally. Docker is optional - only needed if you want to build container images for deployment.
 
-Already installed? [Quickstart](/workflow/quickstart) or [Run locally](/agent/quickstart).
+Already installed? [Quickstart](/workflow/quickstart).
 
 ## Installing the kdeps CLI
 
@@ -12,14 +12,11 @@ Already installed? [Quickstart](/workflow/quickstart) or [Run locally](/agent/qu
 brew install kdeps/tap/kdeps
 ```
 
-Desktop app (standalone, no CLI needed): `brew install --cask kdeps/tap/kdeps-desktop`. Linux and Windows (Scoop, packages, or manual) install steps are in [Desktop app](../agent/desktop#install).
-
 ## Windows (Scoop)
 
 ```powershell
 scoop bucket add kdeps https://github.com/kdeps/scoop-bucket
-scoop install kdeps           # CLI
-scoop install kdeps-desktop   # desktop app, standalone
+scoop install kdeps
 ```
 
 ## Linux packages (deb, rpm, apk, Arch)
@@ -33,7 +30,7 @@ sudo pacman -U kdeps_<version>_linux_amd64.pkg.tar.zst        # Arch
 sudo apk add --allow-untrusted ./kdeps_<version>_linux_amd64.apk   # Alpine
 ```
 
-Use `linux_arm64` in the name on ARM machines. The desktop app has its own `.deb`, `.rpm` and Arch package that pull in the GTK and WebKit libraries for you. See [Desktop app](../agent/desktop#install).
+Use `linux_arm64` in the name on ARM machines.
 
 ## Linux, macOS, and Windows (curl)
 
@@ -108,7 +105,7 @@ The binary ships no prompts, schemas, templates or tool definitions. The first c
 What will you use kdeps for? (change it later with kdeps profile)
   1) minimum                kdeps run and validate: chat, httpClient, python, exec, apiResponse
   2) workflows  ~3.0k tok    minimum, kdeps new templates and the components (sql, ...)
-  3) agent      ~11.1k tok   minimum and the agent loop: prompts, slash commands, file/shell/web tools
+  3) agent      ~11.1k tok   minimum and the agent loop tools: prompts, presets, file, shell and web tools
   4) deploy     ~3.0k tok    workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes
   5) full       ~19.4k tok   every asset set
   6) custom                 tick the asset sets, or single items, yourself
@@ -116,7 +113,7 @@ What will you use kdeps for? (change it later with kdeps profile)
 Choice [5]:
 ```
 
-If a later command needs more, kdeps installs only the parts that its loader needs. A small profile stays small and does not stop you. With `minimum`, the agent loop adds 23 core commands and these core tools:
+If a later command needs more, kdeps installs only the parts that its loader needs. A small profile stays small and does not stop you. With `minimum`, a chat with `loop:` adds these core tools:
 
 - Files: `read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`.
 - Shell: `bash_exec` and its job tools.
@@ -126,8 +123,6 @@ If a later command needs more, kdeps installs only the parts that its loader nee
 - `kdeps install <set>` adds a set. `kdeps profile <name>` switches profile and prunes the rest.
 - CI or Docker: no prompt. Set `KDEPS_PROFILE=agent` (or another profile), or leave it unset to install only what each command loads.
 - A [shelf](/reference/glossary#shelf) files the same items by category: `kdeps list rag` shows one. The id stays `set/name`.
-
-Details: [Updating assets](/agent/repl-updating#updating-assets).
 
 ## Docker (optional)
 
@@ -260,7 +255,7 @@ sudo usermod -aG docker $USER
 ## See also
 
 - [Quickstart](/workflow/quickstart) - build your first workflow API
-- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
+- [Agent loop](/agent/) - a chat that calls tools
 - [CLI reference](/reference/cli) - Complete command reference
 - [Workflow configuration](/workflow/configuration) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

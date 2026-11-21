@@ -41,11 +41,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
 )
 
-//nolint:gochecknoglobals // test-replaceable factory hook
-var newModelServiceFunc = func(ctx context.Context) executorLLM.ModelServiceInterface {
-	return executorLLM.NewModelService(ctx, nil)
-}
-
 // StartHTTPServer starts the HTTP API server (exported for testing).
 func StartHTTPServer(
 	workflow *domain.Workflow,
@@ -124,30 +119,6 @@ func newExecutorRegistry(ctx context.Context) *executor.Registry {
 	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(ctx, getOllamaURL()))
 	return registry
-}
-
-// prefetchModel starts a local model server when the model is already cached.
-// Uncached models are not downloaded here — first-use confirm + download
-// happens when the user sends a message or runs /model (see ConfirmModelDownload).
-// That keeps startup fast and avoids multi-GB blocks / CI SIGTERM on open.
-// Errors are ignored; the executor retries on the first prompt.
-func prefetchModel(ctx context.Context, backend, model string) {
-	if model == "" {
-		return
-	}
-	// Uncached local models: skip at startup (confirm + download on first use).
-	if backend == agentBackendFile || backend == agentBackendGGUF {
-		if !localModelAlreadyCached(backend, model) {
-			return
-		}
-	}
-	svc := newModelServiceFunc(ctx)
-	if err := svc.DownloadModel(ctx, backend, model); err != nil {
-		return
-	}
-	if backend == agentBackendFile || backend == agentBackendGGUF {
-		_ = svc.ServeModel(ctx, backend, model, "", 0)
-	}
 }
 
 // localModelAlreadyCached reports whether a file/gguf model is fully on disk

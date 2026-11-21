@@ -30,7 +30,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -242,32 +241,6 @@ func TestClient_FallbackChecksumAndDisabled(t *testing.T) {
 	assert.Len(t, NewClient().sources, 2, "registry API first, kdeps/packages raw files as fallback")
 	assert.Equal(t, registryBase+"/index", NewClient().sources[0].index())
 	assert.Equal(t, registryBase+"/harness/x/1.0.0", NewClient().sources[0].file("harness/x", "1.0.0"))
-}
-
-func TestAvailableUpdates_CachesAndInitialized(t *testing.T) {
-	withSource(t, fstest.MapFS{"harness/safety.yaml": {Data: []byte("version: 1.0.0\n")}})
-	c := publishedServer(t, map[string]map[string]string{"harness/safety": {"1.1.0": "version: 1.1.0\n"}}, nil)
-	root := t.TempDir()
-	ctx := context.Background()
-
-	ups, err := AvailableUpdates(ctx, root, c, time.Hour)
-	require.NoError(t, err)
-	require.Len(t, ups, 1)
-	assert.Equal(t, "1.1.0", ups[0].To)
-
-	// Served from the cache even with downloads off.
-	t.Setenv("KDEPS_ASSETS_URL", "off")
-	ups, err = AvailableUpdates(ctx, root, NewClient(), time.Hour)
-	require.NoError(t, err)
-	assert.Len(t, ups, 1)
-	ClearCheck(root)
-	_, err = AvailableUpdates(ctx, root, NewClient(), time.Hour)
-	require.ErrorIs(t, err, ErrDisabled)
-
-	assert.False(t, Initialized(root))
-	require.NoError(t, MarkInitialized(root))
-	assert.True(t, Initialized(root))
-	require.NoError(t, MarkInitialized(root))
 }
 
 func TestUpdate_ManyItemsInParallelAndOneFails(t *testing.T) {

@@ -2,7 +2,7 @@
 
 `onError` sets what happens when a resource fails: retry, use a fallback value, or log and continue. Without it, any error stops the workflow.
 
-Set per resource. When the REPL calls this workflow as a tool, the same `onError` rules apply inside that run.
+Set per resource.
 
 ## Complete reference
 

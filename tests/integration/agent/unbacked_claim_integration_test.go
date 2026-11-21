@@ -29,7 +29,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/agent"
-	"github.com/kdeps/kdeps/v3/pkg/api"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/tools"
@@ -93,42 +92,4 @@ func TestUnbackedClaim_DrawsARealToolCall(t *testing.T) {
 	require.GreaterOrEqual(t, len(ms.prompts), 2)
 	assert.True(t, strings.Contains(ms.prompts[1], "You made no tool call this turn"),
 		"the second call carries the nudge")
-}
-
-// A caught refusal is saved in the model's record under ~/.kdeps, and /model
-// record shows it through the kdeps API; record clear deletes it.
-func TestModelRecord_RefusalReachesSlashModelRecord(t *testing.T) {
-	t.Cleanup(agent.ReloadAssets)
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	reg := tools.NewRegistry()
-	reg.Register(&tools.Tool{
-		Name: "write_note", Description: "writes the note", Parameters: map[string]domain.ToolParam{},
-		Execute: func(_ map[string]any) (string, error) { return "ok", nil },
-	})
-	wf := &domain.Workflow{
-		APIVersion: "kdeps.io/v1", Kind: "Workflow",
-		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
-	}
-	loop := agent.New(t.Context(), executor.NewEngine(context.Background(), nil), wf, reg,
-		agent.Config{Model: "itmodel", Backend: "openai", Streamer: &claimThenActStreamer{}, MaxToolRounds: 10})
-	var buf bytes.Buffer
-	_, err := loop.RunStreaming(context.Background(), "create notes.md", &buf)
-	require.NoError(t, err)
-
-	repl := agent.NewREPL(t.Context(), loop)
-	repl.RegisterCommandAPI()
-	t.Cleanup(func() { api.SetSessionOps(nil) })
-	out, err := api.CallCommand(t.Context(), "model", map[string]any{"args": []string{"record"}})
-	require.NoError(t, err)
-	assert.Contains(t, out, "openai/itmodel: 1 caught refusals")
-	assert.Contains(t, out, "Created [notes.md]")
-
-	out, err = api.CallCommand(t.Context(), "model", map[string]any{"args": []string{"record", "clear"}})
-	require.NoError(t, err)
-	assert.Contains(t, out, "Cleared the refusal record of openai/itmodel")
-	out, err = api.CallCommand(t.Context(), "model", map[string]any{"args": []string{"record"}})
-	require.NoError(t, err)
-	assert.Contains(t, out, "no refusals on record")
 }

@@ -15,8 +15,3 @@ func TestDefaultName(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
-
-func TestIsInteractiveTTY(_ *testing.T) {
-	// CI / pipes: typically false; just call
-	_ = isInteractiveTTY()
-}

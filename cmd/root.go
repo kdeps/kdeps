@@ -96,7 +96,6 @@ func NewRootCmd() *cobra.Command {
 // createRootCommand creates the root cobra command with all subcommands.
 func createRootCommand() *cobra.Command {
 	kdeps_debug.Log("enter: createRootCommand")
-	flags := &agentLoopFlags{}
 
 	rootCmd := &cobra.Command{
 		Use:   "kdeps [path]",
@@ -104,7 +103,7 @@ func createRootCommand() *cobra.Command {
 		Long: `Build AI agents with YAML configuration.
 
 kdeps [path] runs the workflow at path, or ./workflow.yaml (help when there is
-none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
+none), as kdeps run does.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.MaximumNArgs(1),
@@ -118,9 +117,7 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 			runRootPersistentPreRun(cmd)
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRoot(cmd, args, flags)
-		},
+		RunE: runRoot,
 	}
 
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
@@ -130,8 +127,6 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 			"bare --instrument picks a timestamp): every log line, model call and tool call, for a model to read")
 	rootCmd.PersistentFlags().Lookup("instrument").NoOptDefVal = instrumentAuto
 
-	rootCmd.Flags().Bool(agentLoopFlag, false,
-		"Open the agent REPL (on path's workflows and components when given) instead of running a workflow")
 	rootCmd.Flags().Bool("upgrade", false, "Check for and install the latest kdeps release, then exit")
 	rootCmd.Flags().Bool(
 		"nightly", false,
@@ -143,94 +138,28 @@ none), as kdeps run does. kdeps --agent-loop [path] opens the agent REPL.`,
 			"(can be older than the running build, i.e. a downgrade); takes priority over --nightly",
 	)
 
-	rootCmd.Flags().StringVar(
-		&flags.Model, "model", "",
-		"LLM model to use (default: KDEPS_AGENT_MODEL env or llama3.2:1b)",
-	)
-	rootCmd.Flags().StringVar(
-		&flags.Backend, "backend", "",
-		"LLM backend (default: KDEPS_AGENT_BACKEND env or file)",
-	)
-	rootCmd.Flags().StringVar(
-		&flags.BaseURL, "base-url", "",
-		"LLM API base URL (default: KDEPS_AGENT_BASE_URL env)",
-	)
-	rootCmd.Flags().StringVar(
-		&flags.SystemPrompt, "system", "",
-		"System prompt injected at the start of every conversation",
-	)
-	rootCmd.Flags().StringArrayVar(
-		&flags.SkillPaths, "skill", nil,
-		"Path to a skill file or directory (can be specified multiple times)",
-	)
-	rootCmd.Flags().StringVar(
-		&flags.Resume, "resume", "",
-		"Session ID to resume a previous conversation",
-	)
-	rootCmd.Flags().BoolVar(
-		&flags.NewSession, "new", false,
-		"Start a clean session, skipping the resume picker for this folder",
-	)
-	rootCmd.Flags().StringArrayVar(
-		&flags.Index, "index", nil,
-		"Search a folder with this project: add it to the project card and index it before "+
-			"the session starts (can be specified multiple times)",
-	)
-	rootCmd.Flags().StringVar(
-		&flags.Konfig, "konfig", "",
-		"Import a konfig file (tuning, harness, skills) before starting, "+
-			"materializing it to ~/.kdeps (see kdeps konfig)",
-	)
-
 	addSubcommands(rootCmd)
 
 	return rootCmd
 }
 
-// runRoot is bare kdeps [path]: --upgrade, the agent REPL with
-// --agent-loop, else the workflow at path or ./workflow.yaml, else help.
-func runRoot(cmd *cobra.Command, args []string, flags *agentLoopFlags) error {
+// runRoot is bare kdeps [path]: --upgrade, else the workflow at path or
+// ./workflow.yaml, else help.
+func runRoot(cmd *cobra.Command, args []string) error {
 	if up, _ := cmd.Flags().GetBool("upgrade"); up {
 		nightly, _ := cmd.Flags().GetBool("nightly")
 		targetVersion, _ := cmd.Flags().GetString("target-version")
 		return runUpgradeCmd(cmd.OutOrStdout(), nightly, targetVersion)
 	}
-	debugMode, _ := cmd.Flags().GetBool("debug")
-	flags.Debug = debugMode
 	path := ""
 	if len(args) == 1 {
 		path = args[0]
-	}
-	if loop, _ := cmd.Flags().GetBool(agentLoopFlag); loop {
-		return runAgentLoopCmd(processParent(cmd.Context()), path, flags)
-	}
-	if name := changedAgentLoopFlag(cmd); name != "" {
-		return fmt.Errorf("--%s applies to the agent REPL: use kdeps --agent-loop --%s", name, name)
 	}
 	target, ok := rootWorkflowTarget(path)
 	if !ok {
 		return cmd.Help()
 	}
 	return RunWorkflowWithFlags(cmd, []string{target}, &RunFlags{Port: domain.DefaultPort})
-}
-
-// agentLoopFlag opens the agent REPL; the flags in agentLoopOnlyFlags apply
-// only with it.
-const agentLoopFlag = "agent-loop"
-
-//nolint:gochecknoglobals // fixed list
-var agentLoopOnlyFlags = []string{
-	"model", "backend", "base-url", "system", "skill", "resume", "new", "index", "konfig",
-}
-
-// changedAgentLoopFlag names an agent-REPL flag set without --agent-loop.
-func changedAgentLoopFlag(cmd *cobra.Command) string {
-	for _, name := range agentLoopOnlyFlags {
-		if cmd.Flags().Changed(name) {
-			return name
-		}
-	}
-	return ""
 }
 
 // rootWorkflowTarget is what bare kdeps [path] runs: path, else
@@ -262,7 +191,7 @@ var assetFreeCommands = []string{
 }
 
 // commandSets are the asset sets each top-level command loads; a command
-// not listed loads every set, the agent loop (no command) loads the agent's.
+// not listed loads every set, bare kdeps [path] loads what kdeps run loads.
 //
 //nolint:gochecknoglobals // fixed table
 var commandSets = map[string][]string{
@@ -277,7 +206,6 @@ var commandSets = map[string][]string{
 	"export":    append(slices.Clone(assets.BaseSets), "docker", "k8s"),
 	"llm":       append(slices.Clone(assets.BaseSets), "docker", "k8s", "recipes"),
 	"llamafile": {"models"},
-	"konfig":    append(slices.Clone(assets.BaseSets), assets.AgentSets...),
 	"knowledge": {"templates"},
 }
 
@@ -288,7 +216,7 @@ func setsFor(cmd *cobra.Command) ([]string, bool) {
 		top = top.Parent()
 	}
 	if !top.HasParent() {
-		return append(slices.Clone(assets.BaseSets), assets.AgentSets...), true
+		return assets.RunSets(), true
 	}
 	if slices.Contains(assetFreeCommands, top.Name()) {
 		return nil, false
@@ -442,7 +370,6 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newEnvCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
-	addCommandToGroup(rootCmd, groupDevelop, newKonfigCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newKnowledgeCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newInstrumentCmd())
 }

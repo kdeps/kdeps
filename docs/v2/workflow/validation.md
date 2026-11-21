@@ -2,7 +2,7 @@
 
 The `validations:` block controls if a resource runs and what it accepts. It operates before the action: before an LLM call, an HTTP request, or a script.
 
-Set per resource. When the REPL calls this workflow as a tool, the same `validations:` rules apply inside that run.
+Set per resource.
 
 ```yaml
 # resources/example.yaml

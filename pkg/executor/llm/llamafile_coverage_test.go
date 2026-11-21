@@ -21,12 +21,9 @@ package llm
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"testing"
 	"time"
 
@@ -62,49 +59,6 @@ func TestMergeLlamafileRegistries_NilEmbedded(t *testing.T) {
 	merged := mergeLlamafileRegistries(nil, local)
 	require.Len(t, merged.Llamafiles, 1)
 	assert.Equal(t, "only-local", merged.Llamafiles[0].Alias)
-}
-
-func TestWriteLocalRegistry_NoHomeFallsBackToCwd(t *testing.T) {
-	orig := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = orig })
-	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
-	t.Chdir(t.TempDir())
-
-	require.NoError(t, WriteLocalRegistry([]LlamafileEntry{{Alias: "a", URL: "https://x/a.llamafile"}}))
-	assert.FileExists(t, "llamafile_versions.yaml")
-}
-
-func TestWriteLocalRegistry_MkdirError(t *testing.T) {
-	if runtime.GOOS == goosWindows {
-		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
-	}
-	t.Setenv("HOME", "/dev/null")
-	err := WriteLocalRegistry([]LlamafileEntry{{Alias: "a", URL: "https://x/a.llamafile"}})
-	require.Error(t, err)
-}
-
-func TestResolve_AliasDownloads(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("fake llamafile"))
-	}))
-	defer srv.Close()
-
-	home := t.TempDir()
-	origHome := userHomeDirFunc
-	t.Cleanup(func() { userHomeDirFunc = origHome })
-	userHomeDirFunc = func() (string, error) { return home, nil }
-	require.NoError(t, WriteLocalRegistry([]LlamafileEntry{
-		{Alias: "cov-alias", URL: srv.URL + "/cov-alias-model.llamafile", SizeBytes: 14},
-	}))
-	ReloadRegistry()
-	t.Cleanup(ReloadRegistry)
-
-	modelsDir := t.TempDir()
-	mgr := NewLlamafileManagerWithDir(nil, modelsDir)
-	path, err := mgr.Resolve(context.Background(), "cov-alias")
-	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(modelsDir, "cov-alias-model.llamafile"), path)
-	assert.FileExists(t, path)
 }
 
 func TestServe_StartErrorBranch(t *testing.T) {
@@ -284,24 +238,6 @@ func TestShutdownLocalServers_ClearsAllMaps(t *testing.T) {
 func TestShutdownLocalServers_EmptyMaps(t *testing.T) {
 	t.Parallel()
 	ShutdownLocalServers() // must not panic when maps are empty
-}
-
-// Regression: Ctrl+C in the interactive REPL cancels only the current turn
-// and must not also kill the running local model server via the process-wide
-// SIGINT shutdown hook. SIGTERM must still shut servers down unconditionally.
-func TestShouldShutdownOnSignal_InteractiveSuppressesSIGINT(t *testing.T) {
-	SetInteractiveSignalOwner(true)
-	t.Cleanup(func() { SetInteractiveSignalOwner(false) })
-
-	assert.False(t, shouldShutdownOnSignal(syscall.SIGINT))
-	assert.True(t, shouldShutdownOnSignal(syscall.SIGTERM))
-}
-
-func TestShouldShutdownOnSignal_NonInteractiveShutsDownOnSIGINT(t *testing.T) {
-	SetInteractiveSignalOwner(false)
-
-	assert.True(t, shouldShutdownOnSignal(syscall.SIGINT))
-	assert.True(t, shouldShutdownOnSignal(syscall.SIGTERM))
 }
 
 func TestKillLocalProcess_InvalidPID(t *testing.T) {

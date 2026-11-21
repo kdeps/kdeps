@@ -71,14 +71,6 @@ var shutdownOnce sync.Once
 //nolint:gochecknoglobals // process-wide one-time toggle
 var interactiveSignalOwner atomic.Bool
 
-// SetInteractiveSignalOwner tells the local-server shutdown hook that SIGINT
-// is already handled by an interactive caller (the REPL) which does not
-// terminate the process on Ctrl+C. Call once before starting any local model
-// server from an interactive context.
-func SetInteractiveSignalOwner(v bool) {
-	interactiveSignalOwner.Store(v)
-}
-
 // shouldShutdownOnSignal reports whether the given signal should trigger
 // ShutdownLocalServers. SIGINT is suppressed when an interactive caller (the
 // REPL) owns SIGINT handling and does not terminate the process on Ctrl+C;

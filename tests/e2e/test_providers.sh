@@ -2,7 +2,7 @@
 # E2E: an LLM provider that exists only as a providers/ asset.
 #
 # The provider file points kdeps at a fake OpenAI-compatible server; its key
-# lives in config.yaml under the provider's configKey. The agent loop must
+# lives in config.yaml under the provider's configKey. A workflow chat loop must
 # call the server at the declared chat path with that key as the bearer token.
 set -uo pipefail
 
@@ -75,14 +75,16 @@ YAML
 
 PV_HOME="$PV_DIR/home"
 mkdir -p "$PV_HOME/.kdeps"
+loop_workflow "$PV_DIR/wf" e2eprov fake
+loop_workflow "$PV_DIR/fbwf" e2efb fake
 printf 'llm:\n  e2eprov_api_key: sk-e2e-provider\n' > "$PV_HOME/.kdeps/config.yaml"
 
 OUT=$(printf 'say hi\n/quit\n' | env -u E2EPROV_API_KEY HOME="$PV_HOME" KDEPS_CONFIG_PATH="$PV_HOME/.kdeps/config.yaml" \
     KDEPS_ASSETS_SRC="$PV_SRC" KDEPS_ASSETS_DIR="$PV_HOME/store" KDEPS_ASSETS_URL=off \
-    timeout 120 "$KDEPS_BIN" --agent-loop --new --backend e2eprov --model fake 2>&1 || true)
+    timeout 120 "$KDEPS_BIN" run "$PV_DIR/wf/workflow.yaml" 2>&1 || true)
 
 if output_grep_fixed "PROVIDER OK" "$OUT"; then
-    test_passed "providers - the agent loop talks to a provider declared only in YAML"
+    test_passed "providers - a chat loop talks to a provider declared only in YAML"
 else
     test_failed "providers - YAML-only provider reply" "$OUT $(cat "$PV_DIR/server.log")"
 fi
@@ -108,7 +110,7 @@ FB_HOME="$PV_DIR/fbhome"
 mkdir -p "$FB_HOME/.kdeps"
 OUT=$(printf 'say hi\n/quit\n' | env -u E2EFB_API_KEY HOME="$FB_HOME" KDEPS_CONFIG_PATH="$FB_HOME/.kdeps/config.yaml" \
     KDEPS_ASSETS_SRC="$PV_SRC" KDEPS_ASSETS_DIR="$FB_HOME/store" KDEPS_ASSETS_URL=off \
-    E2EFB_SHARED_KEY=sk-e2e-fallback timeout 120 "$KDEPS_BIN" --agent-loop --new --backend e2efb --model fake 2>&1 || true)
+    E2EFB_SHARED_KEY=sk-e2e-fallback timeout 120 "$KDEPS_BIN" run "$PV_DIR/fbwf/workflow.yaml" 2>&1 || true)
 if grep -q "path=/fb/v1/chat/completions auth=Bearer sk-e2e-fallback" "$PV_DIR/server.log"; then
     test_passed "providers - keyFallbacks supplies the key when the provider's own is unset"
 else

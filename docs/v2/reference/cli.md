@@ -37,7 +37,6 @@ kdeps run workflow.yaml
 |---|---|---|
 | `kdeps run` | [Dev commands](/reference/cli-dev#kdeps-run) | Run a workflow locally |
 | `kdeps [path]` | [Dev commands](/reference/cli-dev#kdeps-path-run-a-workflow) | Run `path` or `./workflow.yaml`, as `kdeps run` |
-| `kdeps --agent-loop [path]` | [Dev commands](/reference/cli-dev#kdeps-agent-loop-path-agent-repl) | Agent REPL |
 | `kdeps validate` | [Dev commands](/reference/cli-dev#kdeps-validate) | Validate workflow config |
 | `kdeps test` | [Dev commands](/reference/cli-dev#kdeps-test) | Run the workflow's `evals:` in-process, no port bound |
 | `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |
@@ -45,9 +44,8 @@ kdeps run workflow.yaml
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
 | `kdeps instrument` | [Dev commands](/reference/cli-dev#kdeps-instrument) | List, show and remove sessions recorded with `--instrument` |
 | `kdeps --upgrade` | [Dev commands](/reference/cli-dev#kdeps-upgrade) | Check for and install a newer kdeps release |
-| `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, slash commands, recipes, model registries and templates; `kdeps list <shelf>` filters by shelf; `kdeps profile` picks what is installed |
+| `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, recipes, model registries and templates; `kdeps list <shelf>` filters by shelf; `kdeps profile` picks what is installed |
 | `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
-| `kdeps konfig export` | [Dev commands](/reference/cli-dev#kdeps-konfig-export) | Export the full agent-loop config to one YAML file |
 | `kdeps knowledge` | [Dev commands](/reference/cli-dev#kdeps-knowledge) | Knowledge vault: `init`, `build`, `check`, `recall`, `report` |
 | `kdeps install/search/info/submit/verify` | [Registry commands](/registry/cli) | Search, install, publish packages (and the assets above) |
 | `kdeps bundle package` | [Packaging commands](/deploy/cli#kdeps-bundle-package) | Package for distribution |

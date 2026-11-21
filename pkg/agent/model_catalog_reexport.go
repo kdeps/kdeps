@@ -34,10 +34,3 @@ import (
 func BackendForModel(modelID string) string {
 	return executorLLM.BackendForModel(modelID)
 }
-
-// BuildProviderStatus returns a map from backend name to true when that
-// provider is usable: either its API key env var is set to a non-empty
-// value, or the model declares no EnvVar at all.
-func BuildProviderStatus() map[string]bool {
-	return executorLLM.BuildProviderStatus()
-}

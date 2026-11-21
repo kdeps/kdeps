@@ -22,10 +22,6 @@ import (
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
-func TestBuildProviderStatus_Reexport(t *testing.T) {
-	assert.Equal(t, executorLLM.BuildProviderStatus(), BuildProviderStatus())
-}
-
 func TestBackendForModel_Reexport(t *testing.T) {
 	assert.Equal(t, executorLLM.BackendForModel("gpt-4"), BackendForModel("gpt-4"))
 	assert.Equal(t, executorLLM.BackendForModel("not-a-known-model"), BackendForModel("not-a-known-model"))

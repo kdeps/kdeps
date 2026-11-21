@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -145,37 +144,4 @@ func printProjectFolders(w io.Writer, v knowledge.Vault, card *knowledge.Card) {
 	if len(card.SearchFolders()) == 0 {
 		fmt.Fprintln(w, "  no search folders: kdeps knowledge folders add <folder>")
 	}
-}
-
-// indexFoldersFlag handles kdeps --index: it adds each folder to the
-// working directory's project and indexes it before the session starts.
-func indexFoldersFlag(folders []string) error {
-	if len(folders) == 0 {
-		return nil
-	}
-	vault, kc := knowledge.Configured()
-	if kc != nil && kc.Enabled != nil && !*kc.Enabled {
-		return errors.New("--index records folders in the project card: enable the knowledge vault " +
-			"(knowledge.enabled in ~/.kdeps/config.yaml)")
-	}
-	v := knowledge.Vault{Root: vault}
-	if _, err := os.Stat(v.Root); errors.Is(err, os.ErrNotExist) {
-		if _, initErr := knowledge.Init(v); initErr != nil {
-			return initErr
-		}
-	}
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	card, _, err := v.EnsureProject(wd, time.Now())
-	if err != nil {
-		return err
-	}
-	for _, f := range folders {
-		if _, err = agent.AddProjectFolder(v, card, f); err != nil {
-			return fmt.Errorf("--index %s: %w", f, err)
-		}
-	}
-	return nil
 }

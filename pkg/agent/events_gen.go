@@ -7,7 +7,6 @@ const (
 	eventAgentMaxRounds             = "agent-max-rounds"
 	eventAutoCompact                = "auto-compact"
 	eventBashCallBudget             = "bash-call-budget"
-	eventBugCaptureMaxErrors        = "bug-capture-max-errors"
 	eventChatMaxRounds              = "chat-max-rounds"
 	eventChatRetries                = "chat-retries"
 	eventCodeCallBudget             = "code-call-budget"

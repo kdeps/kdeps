@@ -362,13 +362,7 @@ func (l *Loop) continueOnFreeModelRateLimit(
 		return false
 	}
 	tried[model] = struct{}{}
-	var next string
-	var ok bool
-	if l.bugCapture {
-		next, ok = randomBugCaptureID(model, tried)
-	} else {
-		next, ok = executorLLM.NextOpenRouterFreeID(model, tried)
-	}
+	next, ok := executorLLM.NextOpenRouterFreeID(model, tried)
 	if !ok {
 		return false
 	}

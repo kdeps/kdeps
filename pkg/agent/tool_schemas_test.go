@@ -32,7 +32,7 @@ func withCoreTools(t *testing.T, names ...string) {
 // and load_tools.
 func schemaTestLoop(t *testing.T) *Loop {
 	t.Helper()
-	l := makeTestLoop(nil)
+	l := makeTestLoop()
 	l.registry = kdepstools.NewRegistry()
 	for _, tool := range []*kdepstools.Tool{
 		{Name: "read_file", Description: "Read a file.", OnDemand: true},

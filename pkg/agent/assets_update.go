@@ -38,12 +38,6 @@ import (
 const (
 	// firstRunAssetTimeout bounds the first-run download.
 	firstRunAssetTimeout = 60 * time.Second
-	// assetNoticeTimeout bounds the startup update check behind the notice.
-	assetNoticeTimeout = 3 * time.Second
-	// assetCheckTTL is how long an update check is reused.
-	assetCheckTTL = 24 * time.Hour
-	// assetNoticeNames is how many item names the notice lists.
-	assetNoticeNames = 3
 )
 
 // ReloadAssets re-reads every asset set (harness, events, actions, presets,
@@ -56,7 +50,6 @@ func ReloadAssets() {
 	initToolSchemaPolicy()
 	initMemoryRules()
 	initPresets()
-	initCommands()
 	toolDefinitions = loadToolDefinitions()
 	toolAliases = aliasesOf(toolDefinitions)
 	registerDeclaredAPIRoutes()
@@ -71,32 +64,6 @@ func ReloadAssets() {
 // Its build and run actions start the CLI, which installs what they need.
 func EnsureAssets(ctx context.Context, w io.Writer) error {
 	return EnsureSets(ctx, w, nil, append(append(slices.Clone(assets.BaseSets), assets.AgentSets...), "templates"))
-}
-
-// AssetUpdateNotice returns a one-line notice when published asset updates
-// are available, or "" (also on any error: a failed check never blocks or
-// clutters startup).
-func AssetUpdateNotice(ctx context.Context) string {
-	root := assets.Root()
-	if !assets.Initialized(root) {
-		return ""
-	}
-	ctx, cancel := context.WithTimeout(ctx, assetNoticeTimeout)
-	defer cancel()
-	ups, err := assets.AvailableUpdates(ctx, root, assets.NewClient(), assetCheckTTL)
-	if err != nil || len(ups) == 0 {
-		return ""
-	}
-	names := make([]string, 0, assetNoticeNames)
-	for i, u := range ups {
-		if i == assetNoticeNames {
-			names = append(names, "...")
-			break
-		}
-		names = append(names, u.ID+" "+u.To)
-	}
-	return fmt.Sprintf("%d asset updates available (%s). Run kdeps update.",
-		len(ups), strings.Join(names, ", "))
 }
 
 // UpdateOptions selects what RunAssetUpdate does.

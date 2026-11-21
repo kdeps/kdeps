@@ -49,7 +49,6 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/kdeps/kdeps/v3/pkg/api"
 	"github.com/kdeps/kdeps/v3/pkg/config"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
@@ -421,9 +420,6 @@ type Loop struct {
 	// freePace counts OpenRouter free-model calls so requests stay under the
 	// account per-minute cap.
 	freePace freeModelPace
-	// bugCapture is set for /auto-improve. A provider 429 then continues on
-	// a random free id. Other sessions keep catalog order.
-	bugCapture bool
 	// onUnofferedTool, when set, runs when the model calls a tool this loop was
 	// not offered. A judge sets it to end its review at once.
 	onUnofferedTool func()
@@ -562,7 +558,6 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 		}
 	}
 
-	api.SetSessionToolBackend(sessionToolBridge{loop: l})
 	l.registerSkillLoader()
 	if !cfg.Nested {
 		l.becomeSessionLoop()
@@ -676,23 +671,10 @@ func (l *Loop) registerIdentityTool() {
 	}))
 }
 
-// Store returns the session store, or nil if none was configured.
-func (l *Loop) Store() *SessionStore {
-	return l.store
-}
-
 // MemoryStore returns the memory store, or nil if none was configured.
 func (l *Loop) MemoryStore() *MemoryStore {
 	return l.memoryStore
 }
-
-// SessionID returns the store id of the current session ("" until the first
-// persist mints one).
-func (l *Loop) SessionID() string { return l.sessionID }
-
-// SetSessionID binds the loop to an existing stored session so continuing it
-// updates that row.
-func (l *Loop) SetSessionID(id string) { l.sessionID = id }
 
 // persistSession upserts the current session into the store under
 // l.sessionID (minting an id on first use). A no-op without a store or turns.
@@ -726,41 +708,6 @@ func (l *Loop) saveSessionConfig() {
 	if data, err := json.Marshal(sc); err == nil {
 		_ = l.memoryStore.Set("session:config", string(data))
 	}
-}
-
-// RestoreSessionConfig applies saved LLM config from memory to a Config pointer.
-func RestoreSessionConfig(ms *MemoryStore, cfg *Config) {
-	if ms == nil {
-		return
-	}
-	entry, ok := ms.Get("session:config")
-	if !ok {
-		return
-	}
-	var sc sessionConfigJSON
-	if err := json.Unmarshal([]byte(entry.Value), &sc); err != nil {
-		return
-	}
-	if sc.Model != "" {
-		cfg.Model = sc.Model
-	}
-	if sc.Backend != "" {
-		cfg.Backend = sc.Backend
-	}
-	if sc.BaseURL != "" {
-		cfg.BaseURL = sc.BaseURL
-	}
-}
-
-// Thinking returns the current thinking config (nil = disabled).
-func (l *Loop) Thinking() *domain.ThinkingConfig {
-	return l.config.Thinking
-}
-
-// SetThinking updates the thinking config for subsequent turns.
-// Pass nil to disable thinking.
-func (l *Loop) SetThinking(cfg *domain.ThinkingConfig) {
-	l.config.Thinking = cfg
 }
 
 // SkillByName returns the skill with the given name, or nil if not found.
@@ -823,16 +770,6 @@ func (l *Loop) refreshSkills() {
 	l.relatedSkills = computeRelatedSkills(l.ctx, l.skillList, dirs)
 	l.skills = formatSkillsForPrompt(l.skillList)
 	l.InvalidateSystemPreamble()
-}
-
-// PromptByName returns the prompt template with the given name, or nil if not found.
-func (l *Loop) PromptByName(name string) *PromptTemplate {
-	for i := range l.prompts {
-		if l.prompts[i].Name == name {
-			return &l.prompts[i]
-		}
-	}
-	return nil
 }
 
 // detectDefaultModelAndBackend returns a compatible model+backend pair by
@@ -1082,97 +1019,6 @@ func envOrDefault(key, fallback string) string {
 		return v
 	}
 	return fallback
-}
-
-// Run executes one agent turn: the input is sent as the user prompt to a
-// synthetic single-chat-resource workflow. All registry tools are attached so
-// the engine's existing tool-call loop can dispatch them. Conversation history
-// is preserved across calls. Returns the final LLM text response.
-func (l *Loop) Run(ctx context.Context, input string) (string, error) {
-	const actionID = "agent_loop_chat"
-
-	// First use: confirm + download + serve local model when not yet running.
-	l.ensureLocalModelReady(ctx)
-
-	// Auto-compact before the LLM call when history exceeds the token
-	// threshold, or when enough new conversation has accumulated since the
-	// last checkpoint to justify a lighter "fold" (see shouldFold) -- either
-	// condition runs the same compaction call, just at a different cadence.
-	if msgs := l.session.RawMessages(); l.shouldAutoCompactNow(msgs) || l.shouldFoldNow(msgs) {
-		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
-			if l.onAutoCompact != nil {
-				l.onAutoCompact(summary)
-			}
-		}
-	}
-
-	// Build system prompt preamble: skills + instructions + user system prompt.
-	// Built once on the first turn, then reused verbatim so the system prefix
-	// stays cache-hittable on subsequent turns.
-	systemPreamble := l.cachedSystemPreamble()
-
-	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
-	l.captureCallOutputs(chatCfg)
-
-	// Request body size preflight: check before sending to the engine's LLM call.
-	// The engine path (vs runToolRounds) does not have its own preflight check.
-	if backendName := l.config.Backend; backendName != "" {
-		var systemTexts []string
-		for _, s := range chatCfg.Scenario {
-			systemTexts = append(systemTexts, s.Prompt)
-		}
-		preflightTokenCount := EstimateTokenCountFromStrings(
-			append(systemTexts, chatCfg.Prompt, chatCfg.Messages)...,
-		)
-		if err := CheckRequestBodySizePreflight(backendName, preflightTokenCount, 1); err != nil {
-			return "", err
-		}
-	}
-
-	single := l.buildSyntheticWorkflow(actionID, chatCfg)
-
-	result, err := l.engine.Execute(single, nil)
-	if err != nil {
-		return "", fmt.Errorf("agent loop: %w", err)
-	}
-
-	response := formatLoopResult(result)
-
-	// Extract [MEMORY:] markers into the store, then strip them before the
-	// answer is shown or stored.
-	if l.memoryStore != nil {
-		l.memoryStore.ExtractTurn(input, response)
-	}
-	response = reply.Clean(response)
-
-	// Preserve conversation history
-	l.session.Append(input, response)
-	l.resumeNote = ""
-	l.UpdateSessionNote()
-
-	if l.memoryStore != nil {
-		// Mechanical memory_save: persist a structured turn record so the
-		// next model (after a switch) knows what happened this turn.
-		now := time.Now().Format(time.RFC3339)
-		summary := fmt.Sprintf(
-			"turn at %s | input: %.200s | response: %.200s",
-			now,
-			input,
-			response,
-		)
-		_ = l.memoryStore.Set("turn:last", summary)
-	}
-
-	// Persist the session after every turn so the resume picker survives a
-	// crash or kill, not just a clean /quit.
-	l.persistSession()
-
-	return response, nil
-}
-
-// IsStreaming reports whether the loop has a streaming backend configured.
-func (l *Loop) IsStreaming() bool {
-	return l.streamer != nil
 }
 
 // autoCompactIfDue runs compaction before the LLM call when history exceeds
@@ -2133,24 +1979,6 @@ func (l *Loop) captureCallOutputs(cfg *domain.ChatConfig) {
 	if cfg != nil {
 		cfg.ToolsOut = &l.lastSentTools
 	}
-}
-
-// LastSentMessages returns the exact messages array sent to the LLM on the
-// most recent call, or nil if no call has completed yet. Used by the REPL's
-// /prompt command.
-func (l *Loop) LastSentMessages() []map[string]interface{} {
-	if EfficiencyVerbose() {
-		return l.lastSentMessages
-	}
-	return scrubEfficiency(l.lastSentMessages)
-}
-
-// LastSentTools returns the exact tool definitions sent to the LLM on the
-// most recent call, or nil if no call has completed yet (or no tools were
-// registered). Tools are a separate request field, not part of
-// LastSentMessages. Used by the REPL's /prompt command.
-func (l *Loop) LastSentTools() []domain.Tool {
-	return l.lastSentTools
 }
 
 // preflightRequestSize estimates the payload size before the first LLM call.
@@ -3261,18 +3089,6 @@ func (l *Loop) PromptMode() string {
 	return promptModeAuto
 }
 
-// SetPromptMode sets the harness prompt mode. The next request honors it.
-// The full text is still sent on the first request after an invalidate or
-// a compaction, even in summary mode.
-func (l *Loop) SetPromptMode(mode string) error {
-	norm, ok := normalizePromptMode(mode)
-	if !ok || strings.TrimSpace(mode) == "" {
-		return errors.New("prompt mode must be auto, full, or summary")
-	}
-	l.config.PromptMode = norm
-	return nil
-}
-
 const (
 	promptModeAuto    = harness.ModeAuto
 	promptModeFull    = harness.ModeFull
@@ -3893,21 +3709,12 @@ func stripContentToolCalls(content string) string {
 	return cleaned
 }
 
-// SetOnAutoCompact registers a callback invoked when auto-compaction fires
-// during Run(). The callback receives the compaction summary text.
-func (l *Loop) SetOnAutoCompact(fn func(summary string)) {
-	l.onAutoCompact = fn
-}
-
 // Session returns the loop's conversation session via the SessionReadWriter interface.
 // Callers that need concrete *Session methods not in the interface (e.g. RecordFileOps)
 // should work through the REPL or loop helpers rather than down-casting.
 func (l *Loop) Session() SessionReadWriter {
 	return l.session
 }
-
-// Config returns a copy of the loop's configuration.
-func (l *Loop) Config() Config { return l.config }
 
 // shouldFoldNow reports whether a "fold" should run now: FoldOff or the
 // "fold" event being disabled (see EventEnabled) both disable it outright;
@@ -3947,14 +3754,6 @@ func (l *Loop) shouldAutoCompactNow(msgs []SessionMessage) bool {
 // summary text. Falls back to truncation-only Compact() if the LLM call fails.
 func (l *Loop) CompactWithLLM(ctx context.Context) (string, error) {
 	return l.compactWithLLM(ctx, false)
-}
-
-// ForceCompact summarizes the older turns on demand (the /compact command). It
-// keeps only the most recent few turns regardless of the token budget, so a
-// manual compact always does something when there is history to compact --
-// unlike auto-compaction, which only fires once the session exceeds the budget.
-func (l *Loop) ForceCompact(ctx context.Context) (string, error) {
-	return l.compactWithLLM(ctx, true)
 }
 
 func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
@@ -4092,24 +3891,6 @@ func (l *Loop) resetCountersToCurrentContext() {
 	executorLLM.ResetSessionTokens(sent, generated)
 }
 
-// CompactIfNeeded compacts the session if it exceeds the configured
-// AutoCompactThreshold. No-op if compaction is disabled or not needed.
-func (l *Loop) CompactIfNeeded(ctx context.Context) {
-	msgs := l.session.RawMessages()
-	if l.shouldAutoCompactNow(msgs) {
-		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
-			if l.onAutoCompact != nil {
-				l.onAutoCompact(summary)
-			}
-		}
-	}
-}
-
-// Skills returns the loaded skills block (empty if none).
-func (l *Loop) Skills() string {
-	return l.skills
-}
-
 // ToolCatalog returns the full grouped catalog (name, constraints, invoke
 // skeleton). Instruct and explicit catalog requests use this. The system
 // preamble uses the short list, and only on backends without a native tool
@@ -4119,40 +3900,6 @@ func (l *Loop) ToolCatalog() string {
 		return ""
 	}
 	return l.registry.ToolPrompt()
-}
-
-// ReloadSkills reloads skills from the given paths and updates the system prompt.
-// This is called when /settings saves new skill selections.
-func (l *Loop) ReloadSkills(skillPaths []string) {
-	slice, dirs := loadSkillSliceWithDirs(resolveAbsPaths(skillPaths))
-	l.skillList = slice
-	l.relatedSkills = computeRelatedSkills(l.ctx, slice, dirs)
-	l.skills = formatSkillsForPrompt(slice)
-	l.config.SkillPaths = skillPaths
-	l.registerSkillLoader()      // (re)register load_skill for the new skill set
-	l.InvalidateSystemPreamble() // rebuild the cached preamble with the new skill list
-}
-
-// SetPendingFiles sets files to attach to the next LLM call as multimodal content.
-// The files are consumed by buildChatConfig and cleared afterwards.
-// Matches pi's optional images parameter on Agent.prompt/steer/followUp.
-func (l *Loop) SetPendingFiles(files []string) {
-	l.pendingFiles = files
-}
-
-// Reload re-reads skills, prompt templates, and instructions from disk.
-// Matches pi's /reload command: picks up any changes without restarting.
-func (l *Loop) Reload() {
-	if len(l.config.SkillPaths) > 0 {
-		slice := loadSkillSlice(resolveAbsPaths(l.config.SkillPaths))
-		l.skillList = slice
-		l.skills = formatSkillsForPrompt(slice)
-		l.registerSkillLoader()
-	}
-	if len(l.config.PromptPaths) > 0 {
-		l.prompts = loadPromptTemplateSlice(l.config.PromptPaths)
-	}
-	l.InvalidateSystemPreamble()
 }
 
 func resolveAbsPaths(paths []string) []string {
@@ -4174,4 +3921,14 @@ func (s *stripANSIWriter) Write(p []byte) (int, error) {
 	}
 	_, err := s.w.Write(cleaned)
 	return len(p), err
+}
+
+// LastSentMessages returns the exact messages array sent to the LLM on the
+// most recent call, or nil if no call has completed yet. Used by the REPL's
+// /prompt command.
+func (l *Loop) LastSentMessages() []map[string]interface{} {
+	if EfficiencyVerbose() {
+		return l.lastSentMessages
+	}
+	return scrubEfficiency(l.lastSentMessages)
 }
