@@ -3,7 +3,8 @@ name: Real LLM
 # Pull requests test every chat call against a mock LLM (see build-test.yml).
 # This job tests what a mock cannot: downloading, starting and serving real
 # local models (llamafile, ollama) and kdeps's default file backend with a
-# real 1B model. Not a required check: a slow or broken model download never
+# real 1B model, and an offline appliance: a prepackaged binary with the
+# model inside, run with no network. Not a required check: a slow or broken model download never
 # blocks a pull request.
 
 permissions:
@@ -78,3 +79,39 @@ jobs:
             done
             echo "passed=$PASSED failed=$FAILED skipped=$SKIPPED"
             [ "$FAILED" -eq 0 ]'
+
+  offline-appliance:
+    # The appliance promise: one workflow.yaml becomes a binary that answers
+    # with no network. scripts/offline-smoke.sh prepackages the api-service
+    # template with --include-models and runs it under unshare --net with an
+    # empty HOME.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Cache llamafile models
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.kdeps/models
+          key: llamafiles-${{ hashFiles('assets/models/llamafile.yaml') }}
+
+      - name: Pre-download default llamafile
+        run: |
+          mkdir -p ~/.kdeps/models
+          FILE=~/.kdeps/models/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+          if [ ! -f "$FILE" ]; then
+            curl -fL --retry 3 -o "$FILE" \
+              https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+          fi
+          chmod +x "$FILE"
+
+      - name: Build
+        run: make build
+
+      - name: Offline appliance smoke test
+        run: scripts/offline-smoke.sh ./kdeps
