@@ -338,7 +338,7 @@ func printPendingExtraction(w io.Writer, v knowledge.Vault, dir string) {
 		return
 	}
 	fmt.Fprintf(w, "%d notes waiting for extraction "+
-		"(kdeps knowledge build --extract, or /knowledge build auto)\n", n)
+		"(kdeps knowledge build --extract)\n", n)
 }
 
 func newKnowledgeCheckCmd() *cobra.Command {

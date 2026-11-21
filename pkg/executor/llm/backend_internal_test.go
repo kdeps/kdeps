@@ -54,7 +54,8 @@ func TestServeFileModelIfNeeded_SetsBaseURLFromHealthyPort(t *testing.T) {
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
 	cfg := &domain.ChatConfig{Model: modelPath, Backend: BackendFile}
 	mgr.serveFileModelIfNeeded(context.Background(), cfg, port)
-	assert.Contains(t, cfg.BaseURL, "127.0.0.1")
+	assert.Equal(t, fmt.Sprintf("http://127.0.0.1:%d/v1", port), cfg.BaseURL,
+		"the OpenAI client posts to <base>/chat/completions, which the server serves under /v1")
 }
 
 func TestResolveBackend_Defaults(t *testing.T) {

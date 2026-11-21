@@ -121,7 +121,7 @@ var generatedFlows = map[string]SetInfo{
 	"models": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "a chat resource or /model names a model"},
+			{Label: "a chat resource names a model"},
 			{Label: "the registry resolves it: download, local server or provider", Here: true},
 			{Label: "the model is called"},
 		},
@@ -142,9 +142,9 @@ var generatedFlows = map[string]SetInfo{
 	"presets": {
 		Mode: "both",
 		Flow: []FlowStep{
-			{Label: "/harness preset or /efficiency preset"},
-			{Label: "the preset rewrites events and harness sections", Here: true},
-			{Label: "every later turn uses them"},
+			{Label: "a chat names judgePreset"},
+			{Label: "the preset's judge panel loads", Here: true},
+			{Label: "the judges review the answer"},
 		},
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "judge.PresetJudges", "agent.configureJudges", "agent.PresetByName"},

@@ -67,4 +67,21 @@ test_package() {
 # Run tests
 test_package "$PROJECT_ROOT/examples/chatbot" "Package chatbot workflow"
 
+# kdeps bundle package . from inside the project: the archive holds the
+# workflow, and not the archive itself (it is written into that folder).
+DOT_DIR=$(mktemp -d)
+cp -R "$PROJECT_ROOT/examples/chatbot/." "$DOT_DIR/"
+if (cd "$DOT_DIR" && "$KDEPS_BIN" bundle package . > /dev/null 2>&1); then
+    DOT_PKG=$(ls "$DOT_DIR"/*.kdeps 2>/dev/null | head -1)
+    DOT_LIST=$(tar -tzf "$DOT_PKG" 2>/dev/null)
+    if printf '%s\n' "$DOT_LIST" | grep -qx 'workflow.yaml' && ! printf '%s\n' "$DOT_LIST" | grep -q '\.kdeps$'; then
+        test_passed "Package from inside the project (bundle package .)"
+    else
+        test_failed "Package from inside the project (bundle package .)" "archive: $DOT_LIST"
+    fi
+else
+    test_failed "Package from inside the project (bundle package .)" "Packaging failed"
+fi
+rm -rf "$DOT_DIR"
+
 echo ""

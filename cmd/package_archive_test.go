@@ -586,3 +586,36 @@ func TestCreatePackageArchiveWithKdepsignore(t *testing.T) {
 	assert.NotContains(t, foundFiles, "data/temp.tmp")
 	assert.NotContains(t, foundFiles, ".kdepsignore")
 }
+
+// "kdeps bundle package ." passes "." as the source; the root's name is "."
+// and must not count as a hidden directory, or the archive comes out empty.
+func TestCreatePackageArchive_DotSource(t *testing.T) {
+	src := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(src, "workflow.yaml"), []byte("kind: Workflow\n"), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(src, "resources"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(src, "resources", "llm.yaml"), []byte("actionId: llm\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(src, ".env"), []byte("SECRET=1\n"), 0o600))
+	t.Chdir(src)
+	archive := "a.kdeps" // written inside the folder being archived
+	require.NoError(t, cmd.CreatePackageArchive(".", archive, nil))
+
+	f, err := os.Open(archive)
+	require.NoError(t, err)
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	require.NoError(t, err)
+	tr := tar.NewReader(gz)
+	var names []string
+	for {
+		h, nextErr := tr.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		require.NoError(t, nextErr)
+		names = append(names, filepath.ToSlash(h.Name))
+	}
+	assert.Contains(t, names, "workflow.yaml")
+	assert.Contains(t, names, "resources/llm.yaml")
+	assert.NotContains(t, names, ".env", "hidden files stay out")
+	assert.NotContains(t, names, "a.kdeps", "the archive does not contain itself")
+}

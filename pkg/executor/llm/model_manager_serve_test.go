@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,4 +128,5 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	m.serveGGUFModelIfNeeded(context.Background(), config, 0)
 	assert.NotEmpty(t, config.BaseURL)
 	assert.Contains(t, config.BaseURL, "127.0.0.1")
+	assert.True(t, strings.HasSuffix(config.BaseURL, "/v1"), config.BaseURL)
 }

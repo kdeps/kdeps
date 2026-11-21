@@ -193,3 +193,11 @@ func TestIsIgnored(t *testing.T) {
 		})
 	}
 }
+
+// "kdeps bundle package ." reads the .kdepsignore of "." too.
+func TestParseKdepsIgnore_DotFolder(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n"), 0o600))
+	t.Chdir(dir)
+	assert.Equal(t, []string{"*.log"}, cmd.ParseKdepsIgnore("."))
+}

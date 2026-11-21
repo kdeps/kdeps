@@ -56,8 +56,16 @@ func CreatePackageArchive(sourceDir, archivePath string, _ *domain.Workflow) err
 	// Parse .kdepsignore patterns
 	ignorePatterns := ParseKdepsIgnore(sourceDir)
 
-	// Walk through source directory and add files
-	return filepath.Walk(sourceDir, CreateArchiveWalkFunc(sourceDir, tarWriter, ignorePatterns))
+	// Walk through source directory and add files. The archive itself is
+	// written inside sourceDir when the output folder is the project.
+	walk := CreateArchiveWalkFunc(sourceDir, tarWriter, ignorePatterns)
+	self, _ := filepath.Abs(archivePath)
+	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
+		if abs, absErr := filepath.Abs(path); absErr == nil && abs == self {
+			return nil
+		}
+		return walk(path, info, walkErr)
+	})
 }
 
 // GenerateDockerCompose generates a docker-compose.yml for the package.
@@ -103,7 +111,8 @@ func CreateArchiveWalkFunc(
 			return walkErr
 		}
 
-		if ShouldSkipFile(info) {
+		// The root is never skipped: with "." as the source its name is ".".
+		if path != sourceDir && ShouldSkipFile(info) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}

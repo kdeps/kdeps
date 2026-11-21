@@ -41,7 +41,7 @@ func ParseKdepsIgnore(dir string) []string {
 			return err
 		}
 		// Skip dotfiles/dirs except .kdepsignore itself
-		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+		if info.IsDir() && path != dir && strings.HasPrefix(info.Name(), ".") {
 			return filepath.SkipDir
 		}
 		if info.Name() == ".kdepsignore" {
