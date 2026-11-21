@@ -84,6 +84,11 @@ else
         test_failed "API Auth - Startup without token rejected" "$(head -5 "$NO_AUTH_LOG")"
     fi
 fi
+if grep -q "Server ready" "$NO_AUTH_LOG"; then
+    test_failed "API Auth - No ready banner without token" "$(grep -n 'Server ready' "$NO_AUTH_LOG")"
+else
+    test_passed "API Auth - No ready banner without token"
+fi
 rm -f "$NO_AUTH_LOG"
 
 # Test 2: start with token and verify 401 vs authorized access

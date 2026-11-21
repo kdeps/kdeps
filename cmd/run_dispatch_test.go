@@ -1349,3 +1349,24 @@ func TestStartInteractiveMode_SingleRunIsNotDispatched(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, dispatched.Load(), "no background run for a single-run workflow")
 }
+
+func TestStartHTTPServerWithEngine_MissingTokenFailsBeforeReady(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+	orig := httpServerStartFunc
+	t.Cleanup(func() { httpServerStartFunc = orig })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		t.Fatal("server started without a token")
+		return nil
+	}
+	wf := &domain.Workflow{
+		Metadata:  domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
+		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)}},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	var err error
+	out := captureStdout(t, func() {
+		err = startHTTPServerWithEngine(executor.NewEngine(t.Context(), nil), wf, t.TempDir(), false, false)
+	})
+	require.ErrorContains(t, err, "KDEPS_API_AUTH_TOKEN")
+	require.NotContains(t, out, "Server ready")
+}

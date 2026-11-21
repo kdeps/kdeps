@@ -37,6 +37,9 @@ func startHTTPServerWithEngine(
 	devMode, debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: startHTTPServerWithEngine")
+	if err := http.CheckAPIAuthToken(workflow); err != nil {
+		return err
+	}
 	addr, err := resolveServerBindAddress(workflow)
 	if err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
@@ -80,6 +83,9 @@ func startBothServersWithEngine(
 	devMode, debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: startBothServersWithEngine")
+	if err := http.CheckAPIAuthToken(workflow); err != nil {
+		return err
+	}
 	httpServer, err := createHTTPServerWithEngineFunc(
 		eng,
 		workflow,
