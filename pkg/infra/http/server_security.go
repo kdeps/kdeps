@@ -20,6 +20,16 @@ package http
 
 import "github.com/kdeps/kdeps/v3/pkg/domain"
 
+// CheckAPIAuthToken returns the error Start would return for a missing API
+// auth token, so the caller can fail before it prints that the server is ready.
+func CheckAPIAuthToken(workflow *domain.Workflow) error {
+	if skipSecurityIfNoAPI(workflow) {
+		return nil
+	}
+	_, err := apiAuthTokenFromEnv()
+	return err
+}
+
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {

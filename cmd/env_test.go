@@ -72,7 +72,7 @@ func TestPrintEnvExportsNilAndAPI(t *testing.T) {
 		t.Fatalf("stderr: %s", errB)
 	}
 
-	_ = os.Unsetenv("KDEPS_API_AUTH_TOKEN")
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w

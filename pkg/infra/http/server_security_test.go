@@ -433,3 +433,18 @@ func TestAuthMiddleware_PublicPathValidatesPresentedToken(t *testing.T) {
 func TestPublicAPIRoutePatterns_NilAPI(t *testing.T) {
 	assert.Nil(t, publicAPIRoutePatterns(nil))
 }
+
+func TestCheckAPIAuthToken(t *testing.T) {
+	api := &domain.Workflow{Settings: domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}}}
+	t.Setenv(apiAuthTokenEnvVar, "")
+	if err := CheckAPIAuthToken(api); err == nil {
+		t.Fatal("missing token: want error")
+	}
+	if err := CheckAPIAuthToken(&domain.Workflow{}); err != nil {
+		t.Fatalf("no apiServer: want nil, got %v", err)
+	}
+	t.Setenv(apiAuthTokenEnvVar, "tok")
+	if err := CheckAPIAuthToken(api); err != nil {
+		t.Fatalf("token set: want nil, got %v", err)
+	}
+}
