@@ -124,7 +124,7 @@ For more data, see the [agent docs](https://kdeps.com/workflow/agent-loop/).
 ```bash
 kdeps bundle build .                                          # container image
 kdeps export k8s .                                            # Kubernetes manifests
-kdeps export iso .                                            # bootable ISO
+KDEPS_API_AUTH_TOKEN=... kdeps export iso .                   # bootable ISO; the token goes into the image
 kdeps bundle package .                                        # my-agent-1.0.0.kdeps
 kdeps bundle prepackage my-agent-1.0.0.kdeps --include-models # binary with the model
 ```

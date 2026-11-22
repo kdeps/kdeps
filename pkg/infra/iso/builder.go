@@ -74,6 +74,7 @@ type Builder struct {
 	Format              string              // Output format: "iso-efi" (default), "raw-bios", "qcow2-bios", etc.
 	Arch                string              // Target architecture: "amd64" (default), "arm64".
 	Size                string              // Disk image size (e.g. "4096M"). Empty = linuxkit default (1024M).
+	Env                 []string            // Extra KEY=VALUE env for the kdeps service, such as the API auth token.
 	RawBIOSAssembleFunc RawBIOSAssembleFunc // Override for testing; nil = use Docker-based assembleRawBIOS.
 }
 

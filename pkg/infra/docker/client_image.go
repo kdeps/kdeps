@@ -50,6 +50,18 @@ func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error)
 	return inspect.Size, nil
 }
 
+// ImageEnv returns the KEY=VALUE env baked into a Docker image.
+func (c *Client) ImageEnv(ctx context.Context, imageName string) ([]string, error) {
+	inspect, err := c.Cli.ImageInspect(ctx, imageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect image %s: %w", imageName, err)
+	}
+	if inspect.Config == nil {
+		return nil, nil
+	}
+	return inspect.Config.Env, nil
+}
+
 // PruneDanglingImages removes all dangling (untagged) images.
 // This is useful after builds to clean up intermediate images.
 func (c *Client) PruneDanglingImages(ctx context.Context) (uint64, error) {

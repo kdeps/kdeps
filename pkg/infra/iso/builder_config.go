@@ -94,7 +94,7 @@ func (b *Builder) GenerateConfigYAMLExtended(
 		hostname = defaultHostname
 	}
 
-	config, err := GenerateConfigExtended(kdepsImageName, hostname, b.Arch, workflow, thin)
+	config, err := GenerateConfigExtended(kdepsImageName, hostname, b.Arch, workflow, thin, b.Env...)
 	if err != nil {
 		return "", err
 	}

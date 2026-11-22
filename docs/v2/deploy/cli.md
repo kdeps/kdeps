@@ -135,6 +135,23 @@ Export a workflow as a bootable image (ISO, raw disk, or qcow2) using LinuxKit.
 kdeps export iso [path] [flags]
 ```
 
+The ISO boots offline. It has no login console and installs no packages at boot.
+
+An ISO cannot take env at boot. For a workflow with an `apiServer`, kdeps writes the API auth token into the image at build time:
+
+```bash
+export KDEPS_API_AUTH_TOKEN="$(openssl rand -hex 32)"
+kdeps export iso .                               # reads KDEPS_API_AUTH_TOKEN
+
+ISO_TOKEN=... kdeps export iso . --api-token-env ISO_TOKEN   # read another env var
+```
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--api-token-env` | `KDEPS_API_AUTH_TOKEN` | Env var that holds the API auth token. The export stops when the workflow has an `apiServer` and this var is empty. `--show-config` prints a placeholder, not the token. |
+
+The token is inside the image. Store the ISO as a secret.
+
 See `kdeps export iso --help` for the full list of formats and flags.
 
 ---

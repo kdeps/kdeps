@@ -110,6 +110,9 @@ Examples:
 		StringVar(&flags.Arch, "arch", "", "Target architecture: amd64 (default), arm64")
 	isoCmd.Flags().
 		StringVar(&flags.Size, "size", "", "Disk image size (e.g. 4096M, 8G). Auto-computed from Docker image if not set.")
+	isoCmd.Flags().
+		StringVar(&flags.APITokenEnv, "api-token-env", "KDEPS_API_AUTH_TOKEN",
+			"Env var that holds the API auth token; its value is written into the image (needed with apiServer)")
 
 	return isoCmd
 }

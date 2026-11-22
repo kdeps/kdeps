@@ -106,5 +106,42 @@ else
     fi
 fi
 
+# ── Test 6: an apiServer ISO needs a build-time token; no login console ──────
+ISO_API_DIR="$TMP_DIR/iso-api"
+mkdir -p "$ISO_API_DIR"
+cat > "$ISO_API_DIR/workflow.yaml" <<'WFEOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: iso-token
+  version: "1.0.0"
+  targetActionId: main
+deploy:
+  apiServer:
+    portNum: 8080
+    routes:
+      - path: /api
+        methods: [POST]
+WFEOF
+
+OUTPUT=$(ISO_E2E_TOKEN="" "$KDEPS_BIN" export iso "$ISO_API_DIR" --api-token-env ISO_E2E_TOKEN 2>&1 || true)
+if output_grep_i "set ISO_E2E_TOKEN, or name another env var with --api-token-env" "$OUTPUT"; then
+    test_passed "export iso - apiServer without a token stops before the build"
+else
+    test_failed "export iso - apiServer without a token stops before the build" "Output: $OUTPUT"
+fi
+
+OUTPUT=$(ISO_E2E_TOKEN="e2e-secret" "$KDEPS_BIN" export iso "$ISO_API_DIR" --api-token-env ISO_E2E_TOKEN --show-config 2>&1 || true)
+if echo "$OUTPUT" | grep -q "KDEPS_API_AUTH_TOKEN=<value of ISO_E2E_TOKEN>" && ! echo "$OUTPUT" | grep -q "e2e-secret"; then
+    test_passed "export iso --show-config - masks the token"
+else
+    test_failed "export iso --show-config - masks the token" "Output: $OUTPUT"
+fi
+if ! echo "$OUTPUT" | grep -q "getty" && ! echo "$OUTPUT" | grep -q "apk add"; then
+    test_passed "export iso --show-config - no login console, no boot-time package install"
+else
+    test_failed "export iso --show-config - no login console, no boot-time package install" "Output: $OUTPUT"
+fi
+
 echo ""
 echo "bundle export E2E tests complete."
