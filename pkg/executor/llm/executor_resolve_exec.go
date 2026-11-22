@@ -32,9 +32,9 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 )
 
-// DefaultBuiltinModel is the zero-config file-backend model (~1.1 GB).
-// Interactive first use confirms, then auto-downloads into ~/.kdeps/models/.
-const DefaultBuiltinModel = "llama3.2:1b"
+// DefaultBuiltinModel is the model of a chat that names none: PyBot, a
+// rule-based chatbot (a 14 MB download, no weights) on the file backend.
+const DefaultBuiltinModel = PybotModel
 
 // defaultBuiltinModel is the internal alias used by empty-model resolution.
 const defaultBuiltinModel = DefaultBuiltinModel

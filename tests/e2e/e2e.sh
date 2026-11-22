@@ -121,6 +121,7 @@ scenario test_workflow_chat_openrouter_free.sh
 scenario test_workflow_chat_loop.sh
 scenario test_workflow_chat_auto.sh
 scenario test_entry_points.sh
+scenario test_pybot_default.sh
 scenario test_workflow_chat_tool_permission.sh
 scenario test_workflow_failure_brief.sh
 scenario test_workflow_overflow_compaction.sh

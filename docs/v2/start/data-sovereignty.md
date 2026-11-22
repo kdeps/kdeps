@@ -43,7 +43,7 @@ The first row is the default. The other rows use the same workflow with a differ
 
 ### 1. A local model on your own machine
 
-A workflow `chat` uses a local llamafile model by default. kdeps sends no data to an external API.
+A workflow `chat` with no `model:` runs on PyBot, a local rule-based chatbot. A `model:` alias runs a local llamafile. Neither sends data to an external API.
 
 ```bash
 kdeps new my-agent --template assistant   # a chat with loop: on a local model

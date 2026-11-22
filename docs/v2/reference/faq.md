@@ -19,7 +19,8 @@ No. You write workflows in YAML. The only code is optional inline Python or shel
 ## What LLM providers are supported?
 
 Any provider compatible with the OpenAI API format. This includes:
-- llamafile (local, the default - models run as self-contained binaries, no server install)
+- PyBot (local, the model of a chat with no `model:` - a rule-based chatbot in plain Python, no weights)
+- llamafile (local - models run as self-contained binaries, no server install)
 - Ollama (local, opt-in)
 - OpenAI
 - Anthropic

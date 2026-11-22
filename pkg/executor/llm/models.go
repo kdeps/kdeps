@@ -50,7 +50,13 @@ func init() {
 		Validate: validateModelRegistry,
 		// Default models and aliases resolve through these; they can be
 		// updated but not removed.
-		Required: []string{llamafileRegistryItem, ggufRegistryItem, cloudRegistryItem, openrouterRegistryItem},
+		Required: []string{
+			llamafileRegistryItem,
+			ggufRegistryItem,
+			cloudRegistryItem,
+			openrouterRegistryItem,
+			pybotRegistryItem,
+		},
 	})
 }
 
@@ -65,6 +71,11 @@ func validateModelRegistry(data []byte, name string) error {
 		if v := parseGGUFYAML(data); v != nil {
 			n = len(v.GGUFs)
 		}
+	case pybotRegistryItem:
+		if _, err := parsePybotSpec(data); err != nil {
+			return err
+		}
+		n = 1
 	case cloudRegistryItem, openrouterRegistryItem:
 		c, err := parseCloudCatalog(data)
 		if err != nil {

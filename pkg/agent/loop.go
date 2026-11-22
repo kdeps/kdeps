@@ -912,7 +912,7 @@ func detectDefaultModelAndBackend() (string, string) {
 	}
 	// Priority 4: ollama
 	if _, err := exec.LookPath("ollama"); err == nil {
-		return defaultModelName, "ollama"
+		return defaultOllamaModel, "ollama"
 	}
 	// Nothing installed yet: first-run file backend + builtin model.
 	return defaultModelName, executorLLM.BackendFile
@@ -987,6 +987,7 @@ const (
 	defaultToolStallTimeout            = 10 * time.Minute
 	defaultAutoToolAllocationIncrement = 100
 	defaultModelName                   = executorLLM.DefaultBuiltinModel
+	defaultOllamaModel                 = "llama3.2:1b" // pybot runs on the file backend only
 
 	// syntheticCallTimeout is the deadline for the loop's synthetic
 	// single-chat-resource calls: the main turn's non-streaming path and the

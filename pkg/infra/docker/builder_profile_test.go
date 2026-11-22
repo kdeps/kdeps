@@ -95,3 +95,27 @@ func TestBuilder_GenerateDockerfile_ollamaSkipsCopy(t *testing.T) {
 	assert.NotContains(t, dockerfile, "COPY --from=alpine/ollama")
 	assert.Contains(t, dockerfile, "Ollama included in base image")
 }
+
+// A chat that names no model runs on PyBot, so the image bakes it in.
+func TestBuilder_GenerateDockerfile_bakesPybotForChatWithoutModel(t *testing.T) {
+	t.Setenv("KDEPS_LLM_MODELS", "")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	for _, base := range []string{"alpine", "ubuntu"} {
+		builder := &docker.Builder{BaseOS: base}
+		workflow := &domain.Workflow{
+			Metadata:  domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+			Resources: []*domain.Resource{{ActionID: "llm", Chat: &domain.ChatConfig{Prompt: "hi"}}},
+		}
+		dockerfile, err := builder.GenerateDockerfile(t.Context(), workflow)
+		require.NoError(t, err)
+		assert.Contains(t, dockerfile, "codeload.github.com/huggingface/pybot", base)
+		assert.Contains(t, dockerfile, "sha256sum -c -", base)
+		assert.Contains(t, dockerfile, "KDEPS_MODELS_DIR=/app/.kdeps/models", base)
+
+		workflow.Resources[0].Chat.Model = "ministral3"
+		dockerfile, err = builder.GenerateDockerfile(t.Context(), workflow)
+		require.NoError(t, err)
+		assert.NotContains(t, dockerfile, "huggingface/pybot", base)
+	}
+}

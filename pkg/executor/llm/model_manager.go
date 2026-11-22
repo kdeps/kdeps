@@ -103,6 +103,9 @@ func (m *ModelManager) EnsureModel(ctx context.Context, config *domain.ChatConfi
 		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
 			return nil
 		}
+		if IsPybotModel(config.Model) {
+			return m.servePybotIfNeeded(ctx, config, port)
+		}
 		m.downloadModelIfOnline(ctx, backend, config.Model)
 		m.serveFileModelIfNeeded(ctx, config, port)
 		return nil
