@@ -510,3 +510,37 @@ func TestLlamafileManager_Download_HTTP500(t *testing.T) {
 		t.Errorf("expected 'download failed (HTTP 500)', got: %v", err)
 	}
 }
+
+// llamafile 0.10 rejects --nobrowser; Serve starts the file again without it.
+func TestLlamafileManager_Serve_RetriesWithoutNoBrowser(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script binary not supported on Windows")
+	}
+	mgr, dir := newMgrWithDir(t)
+	mark := filepath.Join(dir, "started-without-nobrowser")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := os.Stat(mark); r.URL.Path == "/health" && err == nil {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	var port int
+	fmt.Sscanf(srv.URL, "http://127.0.0.1:%d", &port)
+
+	bin := filepath.Join(dir, "new.llamafile")
+	script := "#!/bin/sh\ncase \"$*\" in *--nobrowser*) echo 'error: invalid argument: --nobrowser'; exit 1;; esac\n" +
+		"touch '" + mark + "'\nsleep 2\n"
+	if err := os.WriteFile(bin, []byte(script), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := mgr.Serve(context.Background(), bin, port)
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	if got != port {
+		t.Errorf("port = %d, want %d", got, port)
+	}
+}

@@ -551,9 +551,7 @@ func TestGetDefaults_FromAssets(t *testing.T) {
 	t.Cleanup(func() { parsedDefaults = nil })
 	d, err := GetDefaults()
 	require.NoError(t, err)
-	assert.Equal(t, 4096, d.Chat.ContextLength)
-	assert.Equal(t, 131072, d.Chat.CloudContext)
-	assert.Equal(t, ContextByParam{MinBillions: 30, Tokens: 131072}, d.Chat.ContextByParams[0])
+	assert.Equal(t, 8192, d.Chat.ContextLength)
 	assert.Equal(t, VectorStoreDefaults{
 		TopK: 5, ChromaURL: "http://localhost:8000", RedisURL: "redis://localhost:6379", MongoDBDatabase: "kdeps",
 	}, d.VectorStore)

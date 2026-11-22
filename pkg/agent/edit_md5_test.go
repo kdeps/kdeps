@@ -166,7 +166,25 @@ func TestEditWorkflowHarnessOrdersMemoryThenReadThenEdit(t *testing.T) {
 	iSearch := strings.Index(body, "memory_search")
 	iQuery := strings.Index(body, "memory_query")
 	iRead := strings.Index(body, "read_file")
-	iEdit := strings.Index(body, "4. edit_file")
+	iEdit := strings.Index(body, "- edit_file")
 	assert.True(t, iSearch >= 0 && iSearch < iQuery && iQuery < iRead && iRead < iEdit)
 	assert.Contains(t, body, "md5")
+}
+
+// The prompt names a tool only when the loop offers it: a loop.tools list
+// without the memory tools gets no memory text.
+func TestPreambleNamesOnlyOfferedMemoryTools(t *testing.T) {
+	without := renderAssembledPreamble(
+		harnessPreambleData{Tools: map[string]bool{"read_file": true, "edit_file": true}},
+	)
+	assert.NotContains(t, without, "memory_search")
+	assert.NotContains(t, without, "memory_query")
+	assert.NotContains(t, without, "<memory>")
+	assert.Contains(t, without, "read_file (or edit_file view)")
+
+	with := renderAssembledPreamble(harnessPreambleData{Tools: map[string]bool{
+		"read_file": true, "edit_file": true, "memory_search": true, "memory_query": true, "memory_save": true,
+	}})
+	assert.Contains(t, with, "<memory>")
+	assert.Contains(t, with, "memory_search (fuzzy)")
 }

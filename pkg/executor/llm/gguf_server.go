@@ -211,7 +211,7 @@ func startGGUFServer(ctx context.Context, path string, port int) (int, error) {
 		"--model", path,
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),
-		"--ctx-size", strconv.Itoa(localContextSize),
+		"--ctx-size", strconv.Itoa(LocalContextSize()),
 	}
 	if !ggufCPUFallbackActive() {
 		args = append(args, "--n-gpu-layers", ggufGPULayers)

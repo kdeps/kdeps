@@ -262,7 +262,7 @@ func buildNativeOllamaLLM(cfg *domain.ChatConfig) (llms.Model, error) {
 		numCtx = cfg.ContextSize
 	}
 	if numCtx == 0 {
-		numCtx = localContextSize
+		numCtx = LocalContextSize()
 	}
 	if numCtx > 0 {
 		opts = append(opts, lcollama.WithRunnerNumCtx(numCtx))

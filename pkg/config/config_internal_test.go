@@ -127,7 +127,7 @@ func TestGetDefaults_ReturnsValues(t *testing.T) {
 	assert.Equal(t, "30s", d.HTTP.Timeout)
 	assert.Equal(t, "60s", d.Python.Timeout)
 	assert.Equal(t, "30s", d.Exec.Timeout)
-	assert.Equal(t, 4096, d.Chat.ContextLength)
+	assert.Equal(t, 8192, d.Chat.ContextLength)
 }
 
 func TestGetDefaults_SyncOnce(t *testing.T) {

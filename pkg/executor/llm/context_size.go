@@ -21,36 +21,41 @@ package llm
 import (
 	"os"
 	"strconv"
+	"sync/atomic"
+
+	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 )
 
-const defaultLocalCtxSize = 4096
-
-// localContextSize is the --ctx-size passed to all local model servers
-// (llamafile and llama-server). Override with KDEPS_CTX_SIZE or
-// SetLocalContextSize at runtime.
+// localContextOverride is the --ctx-size set at runtime (a chat's
+// contextSize). 0 means none: KDEPS_CTX_SIZE, then chat.context_length in
+// the executor defaults asset, decide.
 //
-//nolint:gochecknoglobals // configurable via env + runtime
-var localContextSize = func() int {
-	if v := os.Getenv("KDEPS_CTX_SIZE"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return n
-		}
-	}
-	return defaultLocalCtxSize
-}()
+//nolint:gochecknoglobals // runtime override shared by every local server start
+var localContextOverride atomic.Int64
 
 // SetLocalContextSize overrides the --ctx-size used when starting local model
 // servers (both llamafile and llama-server). Takes effect on the next server
 // start (e.g. after KillModel + ServeModel).
 func SetLocalContextSize(n int) {
 	if n > 0 {
-		localContextSize = n
+		localContextOverride.Store(int64(n))
 	}
 }
 
-// LocalContextSize returns the --ctx-size currently used for local model
-// servers (llamafile, llama-server/GGUF, and Ollama's num_ctx). Reflects the
-// most recent SetLocalContextSize call or the KDEPS_CTX_SIZE env var.
+// LocalContextSize returns the --ctx-size for local model servers (llamafile,
+// llama-server/GGUF, and Ollama's num_ctx): the runtime override, then
+// KDEPS_CTX_SIZE, then chat.context_length in the executor defaults asset.
+// The agent loop's own prompt needs several thousand tokens, so that asset
+// sets a window the loop fits in.
 func LocalContextSize() int {
-	return localContextSize
+	if n := localContextOverride.Load(); n > 0 {
+		return int(n)
+	}
+	if v := os.Getenv("KDEPS_CTX_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	defaults, _ := kdepsconfig.GetDefaults()
+	return defaults.Chat.ContextLength
 }

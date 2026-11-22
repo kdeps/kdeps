@@ -153,7 +153,7 @@ Known GGUF aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `qwen3
 
 Environment overrides:
 - `KDEPS_LLAMA_SERVER_BIN` - path to the `llama-server` binary
-- `KDEPS_CTX_SIZE` - context window size
+- `KDEPS_CTX_SIZE` - context window size of the local model server. The default is 8192 tokens (`chat.context_length` in the executor defaults). A chat with `loop:` needs about 4000 tokens for its own prompt.
 
 ---
 
