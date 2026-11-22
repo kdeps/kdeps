@@ -681,17 +681,24 @@ func TestDownloadFile_InvalidRequest(t *testing.T) {
 }
 
 func TestLocalContextSize_Default(t *testing.T) {
-	if localContextSize <= 0 {
-		t.Error("expected positive default context size")
+	orig := localContextOverride.Swap(0)
+	t.Cleanup(func() { localContextOverride.Store(orig) })
+	t.Setenv("KDEPS_CTX_SIZE", "")
+	if got := LocalContextSize(); got != 8192 {
+		t.Errorf("chat.context_length in the defaults asset: want 8192, got %d", got)
 	}
 }
 
-func TestLocalContextSize_SetLocalContextSize(t *testing.T) {
-	orig := localContextSize
-	t.Cleanup(func() { localContextSize = orig })
-	SetLocalContextSize(8192)
-	if localContextSize != 8192 {
-		t.Errorf("expected 8192, got %d", localContextSize)
+func TestLocalContextSize_EnvAndOverride(t *testing.T) {
+	orig := localContextOverride.Swap(0)
+	t.Cleanup(func() { localContextOverride.Store(orig) })
+	t.Setenv("KDEPS_CTX_SIZE", "16384")
+	if got := LocalContextSize(); got != 16384 {
+		t.Errorf("KDEPS_CTX_SIZE: want 16384, got %d", got)
+	}
+	SetLocalContextSize(32768)
+	if got := LocalContextSize(); got != 32768 {
+		t.Errorf("override wins: want 32768, got %d", got)
 	}
 }
 

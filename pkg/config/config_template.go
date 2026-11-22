@@ -88,7 +88,7 @@ defaults:
 # resource_defaults:
 #   chat:
 #     timeout: "60s"
-#     context_length: 4096
+#     context_length: 8192
 #     streaming: false
 #     temperature: 0.7
 #     max_tokens: 4096

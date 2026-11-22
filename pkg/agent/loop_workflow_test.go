@@ -39,3 +39,21 @@ func TestRequestTools_AllowedToolsLimitTheBuiltins(t *testing.T) {
 	assert.ElementsMatch(t, []string{"read_file", "bash_exec", "my-workflow"}, got,
 		"listed built-ins and project tools; no other built-in and no load_tools")
 }
+
+// The text catalog and the not-found hint name only the offered tools, not
+// every registered one.
+func TestPromptNamesOnlyOfferedTools(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	for _, name := range []string{"read_file", "identity_get", "memory_query"} {
+		reg.Register(&kdepstools.Tool{Name: name, OnDemand: true})
+	}
+	l := &Loop{registry: reg, config: Config{Backend: "file", AllowedTools: []string{"read_file"}}}
+	l.registerToolLoader()
+
+	catalog := l.preambleToolCatalog()
+	assert.Contains(t, catalog, "- read_file")
+	assert.NotContains(t, catalog, "identity_get")
+	assert.NotContains(t, catalog, "memory_query")
+	assert.Equal(t, "read_file", l.offeredToolNames())
+	assert.False(t, l.preambleData().Tools["memory_query"])
+}

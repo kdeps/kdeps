@@ -39,6 +39,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -238,21 +239,10 @@ type Config struct {
 	// CodeLimit caps search_local calls per user request (0=use
 	// the "code-call-budget" event's default; <0=unlimited).
 	CodeLimit int
-	// PromptRefine runs a pre-turn LLM call that rewrites the user's prompt
-	// into a clearer, self-contained version before the real turn.
-	// Off by default in the REPL; /refine on enables it. Persisted via
-	// ToolTuning. A saved session that already stored refine-on stays on.
-	PromptRefine bool
 	// AllowedTools, when set, is the only built-in tools the model is offered
 	// (a workflow chat's loop.tools). Project, component and MCP tools stay;
 	// load_tools is not offered, so nothing outside the list can be loaded.
 	AllowedTools []string
-	// PlanCouncil runs the planning council before a task (after refine).
-	// Off by default: /plan on, or loop.plan: true on a workflow chat.
-	PlanCouncil bool
-	// NoEfficiency turns the efficiency governor off for this loop: a
-	// workflow loop chat without harness.efficiency.
-	NoEfficiency bool
 	// Subagent is the model for subagent calls: knowledge-graph extraction,
 	// prompt refinement, the planning council, and judges. Empty or "current" uses this loop's
 	// model. "free" picks a large OpenRouter free model for each call.
@@ -2619,13 +2609,14 @@ func (l *Loop) gateToolCall(tc domain.StreamedToolCall) string {
 	return ""
 }
 
-// offeredToolNames lists the registered tool names, so a "not found" error
+// offeredToolNames lists the offered tool names, so a "not found" error
 // tells the model which calls it can make instead of retrying a missing one.
 func (l *Loop) offeredToolNames() string {
 	names := make([]string, 0)
-	for _, t := range l.registry.List() {
-		names = append(names, t.Name)
+	for name := range l.offeredToolSet() {
+		names = append(names, name)
 	}
+	slices.Sort(names)
 	if len(names) == 0 {
 		return "none"
 	}
@@ -3441,7 +3432,18 @@ func (l *Loop) preambleToolCatalog() string {
 	if l == nil || l.registry == nil || !needsTextToolCatalog(l.config.Backend) {
 		return ""
 	}
-	return l.registry.ToolPromptCompact()
+	offered := l.offeredToolSet()
+	return l.registry.ToolPromptCompactWhere(func(t *tools.Tool) bool { return offered[t.Name] })
+}
+
+// offeredToolSet is the set of tools the next request offers the model
+// (loop.tools applied). The prompt names only these tools.
+func (l *Loop) offeredToolSet() map[string]bool {
+	names := map[string]bool{}
+	for _, t := range l.requestTools() {
+		names[t.Name] = true
+	}
+	return names
 }
 
 // needsTextToolCatalog reports whether the system preamble should include

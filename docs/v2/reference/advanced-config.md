@@ -307,7 +307,7 @@ defaults:
 resource_defaults:               # applied to every resource of that type
   chat:
     timeout: 60s                 # hard stop per LLM call
-    context_length: 4096
+    context_length: 8192
     streaming: false
     max_output_bytes: 1048576
   http:

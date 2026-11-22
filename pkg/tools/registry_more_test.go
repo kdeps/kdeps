@@ -76,3 +76,16 @@ func TestOneLineDescription(t *testing.T) {
 		t.Fatalf("no-space cap: len %d", len(got))
 	}
 }
+
+func TestToolPromptCompactWhere(t *testing.T) {
+	r := NewRegistry()
+	r.Register(&Tool{Name: "read_file"})
+	r.Register(&Tool{Name: "identity_get"})
+	got := r.ToolPromptCompactWhere(func(t *Tool) bool { return t.Name == "read_file" })
+	if got != "<available_tools>\n- read_file\n</available_tools>" {
+		t.Fatalf("filtered catalog:\n%s", got)
+	}
+	if r.ToolPromptCompactWhere(func(*Tool) bool { return false }) != "" {
+		t.Fatal("no kept tool should produce an empty catalog")
+	}
+}

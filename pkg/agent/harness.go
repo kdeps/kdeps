@@ -348,12 +348,7 @@ func currentPreambleData() harnessPreambleData {
 // preambleData is currentPreambleData plus the tools this loop was given.
 func (l *Loop) preambleData() harnessPreambleData {
 	d := currentPreambleData()
-	d.Tools = map[string]bool{}
-	if l.registry != nil {
-		for _, t := range l.registry.List() {
-			d.Tools[t.Name] = true
-		}
-	}
+	d.Tools = l.offeredToolSet()
 	return d
 }
 

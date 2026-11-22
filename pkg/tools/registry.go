@@ -190,7 +190,17 @@ func (r *Registry) ToolPrompt() string {
 // native tool channel. One line of name and description, then parameter
 // names. The full ToolPrompt catalog stays for instruct and explicit use.
 func (r *Registry) ToolPromptCompact() string {
-	tools := r.List()
+	return r.ToolPromptCompactWhere(func(*Tool) bool { return true })
+}
+
+// ToolPromptCompactWhere is ToolPromptCompact for the tools keep accepts.
+func (r *Registry) ToolPromptCompactWhere(keep func(*Tool) bool) string {
+	var tools []*Tool
+	for _, t := range r.List() {
+		if keep(t) {
+			tools = append(tools, t)
+		}
+	}
 	if len(tools) == 0 {
 		return ""
 	}

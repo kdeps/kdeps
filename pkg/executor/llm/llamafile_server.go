@@ -327,6 +327,12 @@ func (m *LlamafileManager) Serve(ctx context.Context, path string, port int) (in
 	}
 	alreadyOnCPUFallback := llamafileCPUFallbackActive()
 	servedPort, err := serveLocalProcess(ctx, m.logger, cfg, path, port)
+	if err != nil && strings.Contains(err.Error(), "invalid argument: --nobrowser") {
+		// llamafile 0.10 serves without a browser and rejects the flag that
+		// older builds need. Start this file again without it.
+		markLlamafileNoBrowserRejected(path)
+		servedPort, err = serveLocalProcess(ctx, m.logger, cfg, path, port)
+	}
 	remediated := false
 	servedPort, remediated, err = maybeRemediateCrash(ctx, m.logger, cfg, path, port, servedPort, err, remediated)
 	if err == nil || alreadyOnCPUFallback || !isRetryableServeErr(err) {
@@ -451,8 +457,10 @@ func startLlamafileServer(ctx context.Context, path string, port int) (int, erro
 		"--server",
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),
-		"--nobrowser",
-		"--ctx-size", strconv.Itoa(localContextSize),
+		"--ctx-size", strconv.Itoa(LocalContextSize()),
+	}
+	if !llamafileNoBrowserRejected(path) {
+		args = append(args, "--nobrowser")
 	}
 	if !llamafileCPUFallbackActive() {
 		args = append(args, "-ngl", llamafileGPULayers)
@@ -623,3 +631,15 @@ func ResolvedLlamafileURL(ctx context.Context, model string) string {
 	}
 	return ""
 }
+
+// llamafileNoBrowser holds the llamafiles that reject --nobrowser.
+//
+//nolint:gochecknoglobals // process-wide record of launched files
+var llamafileNoBrowser sync.Map
+
+func llamafileNoBrowserRejected(path string) bool {
+	_, ok := llamafileNoBrowser.Load(path)
+	return ok
+}
+
+func markLlamafileNoBrowserRejected(path string) { llamafileNoBrowser.Store(path, true) }
