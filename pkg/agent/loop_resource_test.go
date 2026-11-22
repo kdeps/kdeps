@@ -19,6 +19,10 @@
 package agent
 
 import (
+	"bytes"
+	"log/slog"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -57,4 +61,19 @@ func TestLoopSessionKey_ScopedByWorkflow(t *testing.T) {
 	assert.Equal(t, "loop:agent:42", loopSessionKey(nil, "42"))
 	assert.NotEqual(t, loopSessionKey(wf, "42"),
 		loopSessionKey(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "other"}}, "42"))
+}
+
+// A chat with loop: on PyBot warns once that PyBot does not call tools.
+func TestWarnPybotLoop(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	pybotLoopWarning = sync.Once{}
+
+	warnPybotLoop(t.Context(), "ministral3")
+	assert.Empty(t, buf.String())
+	warnPybotLoop(t.Context(), executorLLM.PybotModel)
+	warnPybotLoop(t.Context(), executorLLM.PybotModel)
+	assert.Equal(t, 1, strings.Count(buf.String(), "does not call tools"))
 }

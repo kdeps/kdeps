@@ -843,7 +843,9 @@ func langchainPartsPreview(parts []llms.ContentPart) string {
 // sent into cfg.MessagesOut/cfg.ToolsOut for the REPL's /prompt command.
 func buildLangchainMessagesForBackend(cfg *domain.ChatConfig, backend string) []llms.MessageContent {
 	messages := buildLangchainMessages(cfg)
-	if backend == BackendFile || backend == BackendGGUF {
+	// PyBot has no chat template and reads only the user turns, so its system
+	// prompt stays a separate message it can skip.
+	if (backend == BackendFile || backend == BackendGGUF) && !IsPybotModel(cfg.Model) {
 		messages = foldSystemLangchainMessages(messages)
 	}
 	captureSentLangchainMessages(cfg, messages)

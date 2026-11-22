@@ -99,7 +99,7 @@ func registerShutdownHookOnce() {
 	})
 }
 
-// ShutdownLocalServers kills all llamafile and llama-server (gguf) processes
+// ShutdownLocalServers kills all llamafile, llama-server (gguf) and pybot processes
 // started by this process. Safe to call multiple times or from multiple goroutines.
 func ShutdownLocalServers() {
 	servedLlamafilesMu.Lock()
@@ -121,6 +121,15 @@ func ShutdownLocalServers() {
 	servedGGUFs = map[string]int{}
 	servedGGUFNames = map[string]string{}
 	servedGGUFsMu.Unlock()
+
+	servedPybotMu.Lock()
+	for path, pid := range servedPybotPIDs {
+		killLocalProcess(pid)
+		removeServerPortFile(path)
+	}
+	servedPybotPIDs = map[string]int{}
+	servedPybot = map[string]int{}
+	servedPybotMu.Unlock()
 }
 
 var killLocalProcess = func(pid int) { //nolint:gochecknoglobals // test-replaceable hook

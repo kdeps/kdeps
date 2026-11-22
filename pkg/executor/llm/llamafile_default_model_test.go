@@ -28,7 +28,7 @@ import (
 )
 
 func TestDefaultBuiltinModel(t *testing.T) {
-	assert.Equal(t, "llama3.2:1b", DefaultBuiltinModel)
+	assert.Equal(t, "pybot", DefaultBuiltinModel)
 	assert.Equal(t, DefaultBuiltinModel, defaultBuiltinModel)
 }
 

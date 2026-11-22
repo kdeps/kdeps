@@ -147,6 +147,7 @@ func (b *Builder) buildTemplateData(ctx context.Context, workflow *domain.Workfl
 		OllamaImageTag:       ollamaTag,
 		UVImageTag:           uvTag,
 		LlamafileModels:      llamafileModels,
+		Pybot:                pybotArchive(workflow, installOllama),
 	}, nil
 }
 
@@ -293,4 +294,29 @@ func resolveModelSettings(
 func (b *Builder) GenerateDockerfile(ctx context.Context, workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: GenerateDockerfile")
 	return b.generateDockerfile(ctx, workflow)
+}
+
+// pybotArchive is the PyBot tarball to bake in when a chat runs on PyBot: it
+// names no model (and KDEPS_LLM_MODELS sets none), or it names pybot.
+func pybotArchive(workflow *domain.Workflow, installOllama bool) *PybotArchive {
+	if installOllama || workflow == nil {
+		return nil
+	}
+	uses := false
+	for _, r := range workflow.Resources {
+		if r.Chat == nil || r.Chat.Backend != "" && r.Chat.Backend != llm.BackendFile {
+			continue
+		}
+		if llm.IsPybotModel(r.Chat.Model) || r.Chat.Model == "" && os.Getenv("KDEPS_LLM_MODELS") == "" {
+			uses = true
+		}
+	}
+	if !uses {
+		return nil
+	}
+	url, sum, dir, ok := llm.PybotArchive()
+	if !ok {
+		return nil
+	}
+	return &PybotArchive{URL: url, SHA256: sum, Dir: dir}
 }

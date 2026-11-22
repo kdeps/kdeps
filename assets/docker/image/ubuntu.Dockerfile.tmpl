@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/opt/venv/bin:$PATH \
     KDEPS_BIND_HOST=0.0.0.0 \
     KDEPS_ASSETS_DIR=/app/.kdeps/assets \
-    {{- if .LlamafileModels }}
+    {{- if or .LlamafileModels .Pybot }}
     KDEPS_MODELS_DIR=/app/.kdeps/models \
     {{- end }}
     {{- if .InstallOllama }}
@@ -149,6 +149,16 @@ RUN mkdir -p /app/.kdeps/models && \
     chmod +x /app/.kdeps/models/{{ .File }} && \
     {{- end }}
     true
+{{- end }}
+
+{{- if .Pybot }}
+
+# Pre-bake PyBot, the rule-based default model (pinned, sha256-checked)
+RUN mkdir -p /app/.kdeps/models && \
+    curl -fL --retry 3 -o /tmp/pybot.tar.gz "{{ .Pybot.URL }}" && \
+    echo "{{ .Pybot.SHA256 }}  /tmp/pybot.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/pybot.tar.gz -C /app/.kdeps/models && \
+    rm -f /tmp/pybot.tar.gz
 {{- end }}
 
 WORKDIR /app

@@ -24,6 +24,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 // GetBackendPort returns the default port for Ollama.
@@ -59,5 +60,5 @@ func (b *Builder) getDefaultModel(_ *domain.Workflow) string {
 			return models[0]
 		}
 	}
-	return "llama3.2:1b"
+	return llm.DefaultBuiltinModel
 }

@@ -15,14 +15,30 @@ kdeps supports two local backends: llamafile (the default, with no installation)
 
 Llamafile is a model + server packaged into a single self-contained binary. It runs on any OS - Mac, Linux, Windows - without a GPU requirement, no server to install separately.
 
-kdeps uses llamafile by default. The first time you run a `chat:` resource with no backend configured, kdeps downloads the model automatically and caches it in `~/.kdeps/models/`.
+kdeps uses the file backend by default. It downloads a model on first use and caches it in `~/.kdeps/models/`.
+
+## PyBot (the model when a chat names none)
+
+A `chat` with no `model:` runs on [PyBot](https://github.com/huggingface/pybot). PyBot is a rule-based chatbot in plain Python, with no model weights. kdeps downloads a pinned copy (14 MB) on first use and runs it on a local port. It needs `python3`.
+
+```yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"   # no model: -> pybot answers; set model: for a language model
+```
+
+- PyBot reads only the user turns. It ignores system prompts.
+- PyBot does not call tools. A chat with `loop:` on PyBot only answers, and kdeps logs a warning. Set `model:` (for example `ministral3`) for an agent.
+- An image built for such a workflow contains PyBot, so it answers offline.
+
+## Pick a llamafile
 
 **Pick a model by alias** in the chat resource:
 
 ```yaml
 chat:
   model:
-    name: llama3.2:1b    # the default, ~1.1 GB; llama3.2:3b is 2.2 GB, llama3.1:8b is 5.2 GB
+    name: llama3.2:1b    # ~1.1 GB; llama3.2:3b is 2.2 GB, llama3.1:8b is 5.2 GB
 ```
 
 **See all available aliases:**
@@ -36,7 +52,7 @@ Known aliases and their sizes:
 
 | Alias | Model | Size |
 |-------|-------|------|
-| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct (default) | ~1.1 GB |
+| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct | ~1.1 GB |
 | `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct (default of the `assistant` template; calls tools) | ~3.1 GB |
 | `llama3.2:3b` | Llama 3.2 3B Instruct | ~2.2 GB |
 | `llama3.1:8b` | Llama 3.1 8B Instruct | ~5.2 GB |

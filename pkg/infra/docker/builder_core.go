@@ -67,6 +67,7 @@ type DockerfileData struct {
 	OllamaImageTag       string            // Docker image tag for Ollama COPY --from sources
 	UVImageTag           string            // Docker image tag for uv COPY --from sources
 	LlamafileModels      []LlamafileModel  // Llamafiles to pre-bake (file backend, not Ollama)
+	Pybot                *PybotArchive     // PyBot to pre-bake: a chat names no model, or names pybot
 }
 
 // Builder builds Docker images from workflows.
@@ -147,4 +148,11 @@ func (b *Builder) Build(ctx context.Context, workflow *domain.Workflow, _ string
 	}
 
 	return imageName, nil
+}
+
+// PybotArchive is the pinned PyBot tarball an image bakes in.
+type PybotArchive struct {
+	URL    string
+	SHA256 string
+	Dir    string
 }

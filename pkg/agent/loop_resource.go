@@ -19,8 +19,10 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -44,6 +46,7 @@ func LoopResourceRunner(newEngine func() *executor.Engine, store *SessionStore) 
 		if err != nil {
 			return "", err
 		}
+		warnPybotLoop(req.Ctx, req.Model)
 		cfg := Config{
 			Model:         req.Model,
 			Backend:       req.Backend,
@@ -139,4 +142,20 @@ func loopPromptMode(mode string) string {
 		return promptModeFull
 	}
 	return mode
+}
+
+//nolint:gochecknoglobals // one warning per process
+var pybotLoopWarning sync.Once
+
+// warnPybotLoop warns once that a chat with loop: runs on PyBot, which does
+// not call tools.
+func warnPybotLoop(ctx context.Context, model string) {
+	if !executorLLM.IsPybotModel(model) {
+		return
+	}
+	pybotLoopWarning.Do(func() {
+		slog.WarnContext(ctx, "this chat with loop: runs on pybot, a rule-based chatbot. "+
+			"It does not call tools, so the loop only answers. "+
+			"Set model: in the chat for an agent that uses tools.")
+	})
 }

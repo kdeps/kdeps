@@ -8,7 +8,7 @@ Every model here is probabilistic: the same prompt can return different text eac
 
 ## Local backends
 
-kdeps runs models locally with no API key: `file` (llamafile, the default),
+kdeps runs models locally with no API key: `file` (llamafile, and PyBot for a chat with no `model:`),
 `gguf` (llama.cpp), or `ollama` (opt-in, requires the Ollama server). Setup,
 model alias tables, and the Docker `installOllama` flag live on one page - see
 [LLM backends - local backends](/workflow/resources/llm-backends#the-default-llamafile-file-backend).
