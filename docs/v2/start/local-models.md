@@ -37,9 +37,11 @@ Known aliases and their sizes:
 | Alias | Model | Size |
 |-------|-------|------|
 | `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct (default) | ~1.1 GB |
-| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct | ~3.1 GB |
+| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct (default of the `assistant` template; calls tools) | ~3.1 GB |
 | `llama3.2:3b` | Llama 3.2 3B Instruct | ~2.2 GB |
 | `llama3.1:8b` | Llama 3.1 8B Instruct | ~5.2 GB |
+
+A chat with `loop:` needs a model that calls tools. A 1B model does not. Use `ministral3` or larger.
 
 The registry has 100+ aliases. Use `kdeps llamafile list` to see the full list.
 

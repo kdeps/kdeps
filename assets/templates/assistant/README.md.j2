@@ -14,6 +14,6 @@ kdeps run workflow.yaml
 > /quit
 ```
 
-- `resources/assistant.yaml`: the model and the tools the agent may call (`loop.tools`).
+- `resources/assistant.yaml`: the model and the tools the agent may call (`loop.tools`). The default model is `ministral3`, a local 3B llamafile. A 1B model does not call tools.
 - `repl.sessionId` in `workflow.yaml`: the stored conversation. Change it to start a new one.
 - File tools stay inside the folder you run from (or `KDEPS_WORKSPACE_ROOT`).

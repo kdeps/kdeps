@@ -37,6 +37,13 @@ else
     test_failed "entry points - the assistant template scaffolds a valid workflow" "$(ls -R "$EP_DIR" 2>&1 | head -20)"
 fi
 
+# A 1B model does not call tools; the agent template starts on a 3B model.
+if grep -q 'name: ministral3 ' "$EP_DIR/asst/resources/assistant.yaml" 2>/dev/null; then
+    test_passed "entry points - the assistant template uses a model that calls tools"
+else
+    test_failed "entry points - the assistant template uses a model that calls tools" "$(cat "$EP_DIR/asst/resources/assistant.yaml" 2>&1 | head -10)"
+fi
+
 # --- bare kdeps in the project runs it: the prompt drives the chat loop -----
 if [ -n "${E2E_MOCK_LLM_LOG:-}" ] && [ -f "$EP_DIR/asst/workflow.yaml" ]; then
     echo "ENTRYSECRET 9" > "$EP_DIR/asst/note.txt"

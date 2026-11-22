@@ -77,7 +77,7 @@ const files = [
       `    ${K('message')}${O(': ')}${S('"\'q\' is required"')}`,
       `${K('chat')}${O(':')}`,
       `  ${K('model')}${O(':')}`,
-      `    ${K('name')}${O(': ')}${S('llama3.2:1b')}   ${D('# local, no API key')}`,
+      `    ${K('name')}${O(': ')}${S('ministral3')}   ${D('# local, no API key')}`,
       `  ${K('context')}${O(':')}`,
       `    ${K('prompt')}${O(': ')}${S('"{{ get(\'q\') }}"')}`,
       `  ${K('loop')}${O(':')}   ${D('# a bounded agent step')}`,
