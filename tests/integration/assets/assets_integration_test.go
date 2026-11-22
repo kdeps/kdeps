@@ -88,7 +88,11 @@ func TestModels_UpdateReplacesRegistryAndKeepsUserEntries(t *testing.T) {
 	for _, it := range items {
 		ids = append(ids, it.ID)
 	}
-	assert.ElementsMatch(t, []string{"models/cloud", "models/gguf", "models/llamafile", "models/openrouter", "models/pybot"}, ids)
+	assert.ElementsMatch(
+		t,
+		[]string{"models/cloud", "models/gguf", "models/llamafile", "models/openrouter", "models/pybot"},
+		ids,
+	)
 	require.Error(t, assets.Remove(root, "models/gguf"), "model registries are required")
 
 	llm.ReloadGGUFRegistry()
