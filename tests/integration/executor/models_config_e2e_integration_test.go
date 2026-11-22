@@ -229,7 +229,7 @@ func TestE2E_EmbeddedDefaults(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, defaults)
 	assert.Equal(t, "60s", defaults.Chat.Timeout)
-	assert.Equal(t, 4096, defaults.Chat.ContextLength)
+	assert.Equal(t, 8192, defaults.Chat.ContextLength)
 	assert.Equal(t, "30s", defaults.HTTP.Timeout)
 	assert.True(t, defaults.HTTP.FollowRedirects)
 	assert.Equal(t, "60s", defaults.Python.Timeout)
