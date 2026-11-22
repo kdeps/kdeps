@@ -79,6 +79,7 @@ func TestModelRegistry_Required(t *testing.T) {
 	require.Error(t, assets.Remove(root, "models/gguf"))
 	require.Error(t, assets.Remove(root, "models/llamafile"))
 	require.Error(t, assets.Remove(root, "models/openrouter"))
+	require.Error(t, assets.Remove(root, "models/pybot"))
 }
 
 func TestModelRegistry_InstallRejectsInvalid(t *testing.T) {
