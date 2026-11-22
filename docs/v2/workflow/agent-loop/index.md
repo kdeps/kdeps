@@ -28,7 +28,7 @@ actionId: assistant
 name: Assistant
 chat:
   model:
-    name: llama3.2:1b                  # local llamafile; set backend: for a cloud provider
+    name: ministral3                   # local 3B llamafile; a 1B model does not call tools
   context:
     prompt: "{{ input('message') }}"
   loop:
