@@ -11,12 +11,13 @@ package iso
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
 
-func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
+func addThinBuildSteps(config *LinuxKitConfig, imageName string, extraEnv []string) {
 	kdeps_debug.Log("enter: addThinBuildSteps")
 	config.Onboot = append(config.Onboot, LinuxKitImage{
 		Name:  "mount-data",
@@ -46,8 +47,8 @@ func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
 		Command: []string{
 			"sh", "-c",
 			fmt.Sprintf(
-				"ctr -n services containers create --net-host %s kdeps && ctr -n services tasks start -d kdeps",
-				imageName,
+				"ctr -n services containers create --net-host%s %s kdeps && ctr -n services tasks start -d kdeps",
+				ctrEnvFlags(extraEnv), imageName,
 			),
 		},
 		Binds: []string{"/run/containerd:/run/containerd"},
@@ -102,7 +103,7 @@ func buildKdepsBinds(workflow *domain.Workflow) []string {
 	return binds
 }
 
-func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {
+func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow, extraEnv []string) {
 	kdeps_debug.Log("enter: addFatBuildService")
 	config.Services = append(config.Services, LinuxKitImage{
 		Name:         "kdeps",
@@ -110,7 +111,7 @@ func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *doma
 		Net:          "host",
 		Capabilities: []string{"all"},
 		Binds:        buildKdepsBinds(workflow),
-		Env:          buildKdepsEnvList(workflow),
+		Env:          mergeEnv(extraEnv, buildKdepsEnvList(workflow)),
 		Command: []string{
 			"/entrypoint.sh",
 			"/usr/bin/supervisord",
@@ -118,4 +119,38 @@ func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *doma
 			"/etc/supervisord.conf",
 		},
 	})
+}
+
+// ctrEnvFlags renders extra env as ctr --env flags, each value single-quoted
+// for the onboot shell.
+func ctrEnvFlags(env []string) string {
+	var b strings.Builder
+	for _, kv := range env {
+		b.WriteString(" --env '")
+		b.WriteString(strings.ReplaceAll(kv, "'", `'"'"'`))
+		b.WriteString("'")
+	}
+	return b.String()
+}
+
+// mergeEnv joins KEY=VALUE lists. A later list wins for a key; the order of
+// first appearance is kept. A LinuxKit service env replaces the image env, so
+// the image env (PATH, KDEPS_ASSETS_DIR) must be part of the list.
+func mergeEnv(lists ...[]string) []string {
+	var keys []string
+	vals := map[string]string{}
+	for _, list := range lists {
+		for _, kv := range list {
+			k, _, _ := strings.Cut(kv, "=")
+			if _, seen := vals[k]; !seen {
+				keys = append(keys, k)
+			}
+			vals[k] = kv
+		}
+	}
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, vals[k])
+	}
+	return out
 }

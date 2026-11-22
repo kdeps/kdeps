@@ -52,6 +52,9 @@ func exportISOInternal(cmd *cobra.Command, args []string, flags *ExportFlags) er
 	if flags.ShowConfig {
 		return showLinuxKitConfig(workflow, flags)
 	}
+	if _, tokenErr := isoTokenEnv(workflow, flags, false); tokenErr != nil {
+		return tokenErr
+	}
 
 	enableISOOfflineMode()
 	injectConfigEnv(workflow)
@@ -74,6 +77,7 @@ func showLinuxKitConfig(workflow *domain.Workflow, flags *ExportFlags) error {
 	if flags.Arch != "" {
 		isoBuilder.Arch = flags.Arch
 	}
+	isoBuilder.Env, _ = isoTokenEnv(workflow, flags, true)
 	imageName := fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
 
 	configYAML, err := isoGenerateConfigYAMLFunc(isoBuilder, imageName, workflow)
@@ -156,6 +160,17 @@ func performISOBuild(
 
 	isoBuilder.Hostname = flags.Hostname
 	isoBuilder.Format = linuxkitFormat
+	tokenEnv, err := isoTokenEnv(workflow, flags, false)
+	if err != nil {
+		return err
+	}
+	// A LinuxKit service env replaces the image env, so carry the image env
+	// (PATH, KDEPS_ASSETS_DIR) into the service.
+	imageEnv, err := isoImageEnvFunc(ctx, builder, imageName)
+	if err != nil {
+		return err
+	}
+	isoBuilder.Env = append(append([]string{}, imageEnv...), tokenEnv...)
 	if flags.Arch != "" {
 		isoBuilder.Arch = flags.Arch
 	}
@@ -180,3 +195,27 @@ func performISOBuild(
 }
 
 // resolveOutputPath determines the output file path.
+
+// isoTokenEnv returns the kdeps service env that carries the API auth token.
+// A bootable image cannot take env at boot, so the token is read from the
+// --api-token-env variable at build time and written into the image. A
+// workflow without an apiServer needs none. masked replaces the value, for
+// --show-config.
+func isoTokenEnv(workflow *domain.Workflow, flags *ExportFlags, masked bool) ([]string, error) {
+	if workflow == nil || workflow.Settings.APIServer == nil {
+		return nil, nil
+	}
+	name := flags.APITokenEnv
+	if name == "" {
+		name = "KDEPS_API_AUTH_TOKEN"
+	}
+	token := os.Getenv(name)
+	if masked {
+		return []string{"KDEPS_API_AUTH_TOKEN=<value of " + name + ">"}, nil
+	}
+	if token == "" {
+		return nil, fmt.Errorf("the workflow has an apiServer, which needs an API auth token: "+
+			"set %s, or name another env var with --api-token-env (its value is written into the image)", name)
+	}
+	return []string{"KDEPS_API_AUTH_TOKEN=" + token}, nil
+}

@@ -117,13 +117,26 @@ func TestGenerateConfig_Basic(t *testing.T) {
 	assert.Contains(t, config.Kernel.Image, "linuxkit/kernel:")
 	assert.Contains(t, config.Kernel.Cmdline, iso.KernelCmdline(runtime.GOARCH))
 	assert.Len(t, config.Init, 4)     // init + runc + containerd + ca-certificates
-	assert.Len(t, config.Services, 3) // dhcpcd + getty + kdeps
+	assert.Len(t, config.Services, 2) // dhcpcd + kdeps; no login console
 	assert.Equal(t, "dhcpcd", config.Services[0].Name)
-	assert.Equal(t, "getty", config.Services[1].Name)
-	assert.Equal(t, "kdeps", config.Services[2].Name)
-	assert.Equal(t, "test-app:1.0.0", config.Services[2].Image)
-	assert.Equal(t, "host", config.Services[2].Net)
-	assert.Contains(t, config.Services[2].Capabilities, "all")
+	assert.Equal(t, "kdeps", config.Services[1].Name)
+	assert.Equal(t, "test-app:1.0.0", config.Services[1].Image)
+	assert.Equal(t, "host", config.Services[1].Net)
+	assert.Contains(t, config.Services[1].Capabilities, "all")
+	// An appliance boots offline: no step fetches packages at boot.
+	assert.Empty(t, config.Onboot)
+}
+
+func TestGenerateConfig_ExtraEnvReachesKdeps(t *testing.T) {
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "a", Version: "1"}}
+	fat, err := iso.GenerateConfigExtended("a:1", "kdeps", "", wf, false, "KDEPS_API_AUTH_TOKEN=s3cret")
+	require.NoError(t, err)
+	assert.Contains(t, fat.Services[len(fat.Services)-1].Env, "KDEPS_API_AUTH_TOKEN=s3cret")
+
+	thin, err := iso.GenerateConfigExtended("a:1", "kdeps", "", wf, true, "KDEPS_API_AUTH_TOKEN=it's")
+	require.NoError(t, err)
+	start := thin.Onboot[len(thin.Onboot)-1].Command[2]
+	assert.Contains(t, start, `--env 'KDEPS_API_AUTH_TOKEN=it'"'"'s'`, "quoted for the onboot shell")
 }
 
 func TestGenerateConfig_WithEnvVars(t *testing.T) {
@@ -144,7 +157,7 @@ func TestGenerateConfig_WithEnvVars(t *testing.T) {
 	config, err := iso.GenerateConfig("env-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	kdepsService := config.Services[2]
+	kdepsService := config.Services[1]
 	assert.Contains(t, kdepsService.Env, "KDEPS_BIND_HOST=0.0.0.0")
 	assert.Contains(t, kdepsService.Env, "BAZ=qux")
 	assert.Contains(t, kdepsService.Env, "FOO=bar")
@@ -219,7 +232,7 @@ func TestGenerateConfig_WithOllama(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ollama images should have /dev bind mount and ollama env vars
-	kdepsService := config.Services[2]
+	kdepsService := config.Services[1]
 	assert.Contains(t, kdepsService.Binds, "/dev:/dev")
 	assert.Contains(t, kdepsService.Env, "OLLAMA_HOST=127.0.0.1")
 	assert.Contains(t, kdepsService.Env, "OLLAMA_MODELS=/root/.ollama/models")
@@ -235,7 +248,7 @@ func TestGenerateConfig_WithoutOllama(t *testing.T) {
 	config, err := iso.GenerateConfig("simple-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	kdepsService := config.Services[2]
+	kdepsService := config.Services[1]
 	assert.NotContains(t, kdepsService.Binds, "/dev:/dev")
 	assert.Contains(t, kdepsService.Binds, "/var/run:/var/run")
 }
@@ -265,8 +278,8 @@ func TestGenerateConfig_YAMLRoundtrip(t *testing.T) {
 	assert.Equal(t, config.Kernel.Image, parsed.Kernel.Image)
 	assert.Equal(t, config.Kernel.Cmdline, parsed.Kernel.Cmdline)
 	assert.Equal(t, config.Init, parsed.Init)
-	assert.Len(t, parsed.Services, 3)
-	assert.Equal(t, "roundtrip-app:1.0.0", parsed.Services[2].Image)
+	assert.Len(t, parsed.Services, 2)
+	assert.Equal(t, "roundtrip-app:1.0.0", parsed.Services[1].Image)
 	assert.Equal(t, "test-host", parsed.Files[0].Contents)
 }
 
@@ -503,7 +516,7 @@ func TestOllamaDetection_ExplicitFlag(t *testing.T) {
 
 	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-	assert.Contains(t, config.Services[2].Binds, "/dev:/dev")
+	assert.Contains(t, config.Services[1].Binds, "/dev:/dev")
 }
 
 func TestOllamaDetection_BackendOllama(t *testing.T) {
@@ -521,7 +534,7 @@ func TestOllamaDetection_BackendOllama(t *testing.T) {
 
 	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-	assert.Contains(t, config.Services[2].Binds, "/dev:/dev")
+	assert.Contains(t, config.Services[1].Binds, "/dev:/dev")
 }
 
 func TestOllamaDetection_OnlineProvider(t *testing.T) {
@@ -536,7 +549,7 @@ func TestOllamaDetection_OnlineProvider(t *testing.T) {
 
 	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-	assert.NotContains(t, config.Services[2].Binds, "/dev:/dev")
+	assert.NotContains(t, config.Services[1].Binds, "/dev:/dev")
 }
 
 // ========================
@@ -977,7 +990,7 @@ func TestOllamaDetection_RouterConfig(t *testing.T) {
 	config, err := iso.GenerateConfig("router-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	kdepsService := config.Services[2]
+	kdepsService := config.Services[1]
 	assert.Contains(t, kdepsService.Binds, "/dev:/dev")
 	assert.Contains(t, kdepsService.Env, "OLLAMA_HOST=127.0.0.1")
 	assert.Contains(t, kdepsService.Env, "OLLAMA_MODELS=/root/.ollama/models")
@@ -1003,3 +1016,16 @@ func TestBuilder_GenerateConfigYAMLExtended_EmptyImageName(t *testing.T) {
 // TestBuilder_Build_WriteStringError moved to builder_write_error_internal_test.go:
 // the WriteString error path is now triggered via the osCreateTemp seam instead of
 // RLIMIT_FSIZE, which broke the test runtime's own bookkeeping writes.
+
+func TestGenerateConfig_ImageEnvKeptAndOverridden(t *testing.T) {
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "a", Version: "1"}}
+	cfg, err := iso.GenerateConfigExtended("a:1", "kdeps", "", wf, false,
+		"PATH=/usr/bin", "KDEPS_ASSETS_DIR=/app/.kdeps/assets", "KDEPS_BIND_HOST=127.0.0.1", "KDEPS_API_AUTH_TOKEN=t")
+	require.NoError(t, err)
+	env := cfg.Services[len(cfg.Services)-1].Env
+	assert.Contains(t, env, "PATH=/usr/bin")
+	assert.Contains(t, env, "KDEPS_ASSETS_DIR=/app/.kdeps/assets")
+	assert.Contains(t, env, "KDEPS_API_AUTH_TOKEN=t")
+	assert.Contains(t, env, "KDEPS_BIND_HOST=0.0.0.0", "the kdeps env wins over the image env")
+	assert.NotContains(t, env, "KDEPS_BIND_HOST=127.0.0.1")
+}

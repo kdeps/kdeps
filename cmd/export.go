@@ -43,6 +43,9 @@ type ExportFlags struct {
 	Format     string
 	Arch       string
 	Size       string
+	// APITokenEnv names the env var whose value becomes the image's API auth
+	// token (kdeps export iso). An ISO cannot take env at boot.
+	APITokenEnv string
 }
 
 // newExportCmd creates the export parent command.
@@ -100,6 +103,13 @@ var isoGenerateConfigYAMLFunc = func(b *iso.Builder, imageName string, wf *domai
 //nolint:gochecknoglobals // test-replaceable hook
 var isoBuilderBuildFunc = func(b *iso.Builder, ctx context.Context, imageName string, wf *domain.Workflow, outputPath string, noCache bool) error {
 	return b.Build(ctx, imageName, wf, outputPath, noCache)
+}
+
+// isoImageEnvFunc reads the env baked into the built image (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var isoImageEnvFunc = func(ctx context.Context, b *docker.Builder, imageName string) ([]string, error) {
+	return b.Client.ImageEnv(ctx, imageName)
 }
 
 // performISOBuildDockerFunc builds Docker images for ISO export (overridable in tests).

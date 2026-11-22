@@ -85,6 +85,7 @@ func GenerateConfigExtended(
 	imageName, hostname, arch string,
 	workflow *domain.Workflow,
 	thin bool,
+	extraEnv ...string,
 ) (*LinuxKitConfig, error) {
 	kdeps_debug.Log("enter: GenerateConfigExtended")
 	if err := validateGenerateConfigArgs(imageName, workflow); err != nil {
@@ -103,10 +104,10 @@ func GenerateConfigExtended(
 
 	// For thin builds, we don't bundle the image in the initrd.
 	if thin {
-		addThinBuildSteps(config, imageName)
+		addThinBuildSteps(config, imageName, extraEnv)
 	} else {
 		// Bundle the app image directly in the initrd (fat build).
-		addFatBuildService(config, imageName, workflow)
+		addFatBuildService(config, imageName, workflow, extraEnv)
 	}
 
 	return config, nil
@@ -141,25 +142,6 @@ func buildBaseConfig(hostname, arch string) *LinuxKitConfig {
 			{
 				Name:  "dhcpcd",
 				Image: fmt.Sprintf("linuxkit/dhcpcd:%s", linuxkitComponentTag),
-			},
-			{
-				Name:  "getty",
-				Image: fmt.Sprintf("linuxkit/getty:%s", linuxkitComponentTag),
-				Env:   []string{"INSECURE=true"},
-			},
-		},
-		Onboot: []LinuxKitImage{
-			{
-				Name:  "utils",
-				Image: "alpine:3.19",
-				Command: []string{
-					"sh",
-					"-c",
-					"apk add --no-cache ncurses curl busybox-extras && cp /usr/bin/curl /usr/bin/telnet /usr/local/bin/",
-				},
-				Binds: []string{
-					"/usr/local/bin:/usr/local/bin",
-				},
 			},
 		},
 		Files: []LinuxKitFile{

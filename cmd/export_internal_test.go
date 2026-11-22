@@ -94,6 +94,7 @@ func TestPerformISOBuild_ArchSet(t *testing.T) {
 		newISOBuilderFunc = origISO
 		isoBuilderBuildFunc = origBuilder
 	})
+	isoImageEnvFunc = func(context.Context, *docker.Builder, string) ([]string, error) { return nil, nil }
 	performISOBuildDockerFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
@@ -118,6 +119,7 @@ func TestPerformISOBuild_LinuxKitError(t *testing.T) {
 		newISOBuilderFunc = origISO
 		isoBuilderBuildFunc = origBuild
 	})
+	isoImageEnvFunc = func(context.Context, *docker.Builder, string) ([]string, error) { return nil, nil }
 	performISOBuildDockerFunc = func(_ context.Context, _ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
 		return "img:1", nil
 	}
@@ -234,4 +236,25 @@ func TestExportISOInternal_PrepareError(t *testing.T) {
 func TestShowLinuxKitConfig_EmptyMetadata(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "", Version: ""}}
 	require.NoError(t, showLinuxKitConfig(wf, &ExportFlags{}))
+}
+
+func TestISOTokenEnv(t *testing.T) {
+	plain := &domain.Workflow{}
+	env, err := isoTokenEnv(plain, &ExportFlags{}, false)
+	require.NoError(t, err)
+	assert.Nil(t, env, "no apiServer, no token")
+
+	api := &domain.Workflow{Settings: domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}}}
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+	_, err = isoTokenEnv(api, &ExportFlags{}, false)
+	require.ErrorContains(t, err, "set KDEPS_API_AUTH_TOKEN, or name another env var with --api-token-env")
+
+	t.Setenv("ISO_TOKEN", "s3cret")
+	env, err = isoTokenEnv(api, &ExportFlags{APITokenEnv: "ISO_TOKEN"}, false)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"KDEPS_API_AUTH_TOKEN=s3cret"}, env)
+
+	env, err = isoTokenEnv(api, &ExportFlags{APITokenEnv: "ISO_TOKEN"}, true)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"KDEPS_API_AUTH_TOKEN=<value of ISO_TOKEN>"}, env, "--show-config never prints the token")
 }
