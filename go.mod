@@ -23,7 +23,7 @@ require (
 	github.com/kdeps/kartographer v0.3.1-0.20261103084127-b6172ec64567
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.52
-	github.com/microsoft/go-mssqldb v1.11.2
+	github.com/microsoft/go-mssqldb v1.12.0
 	github.com/minio/selfupdate v0.6.0
 	github.com/moby/moby/api v1.57.0
 	github.com/moby/moby/client v0.6.3
