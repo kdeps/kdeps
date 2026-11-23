@@ -57,9 +57,6 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-// IndexPath is where the search index of dir lives (under ~/.kdeps).
-func IndexPath(dir string) string { return indexDBPath(dir) }
-
 // Hit is one file a search index matched.
 type Hit struct {
 	Path    string
@@ -284,7 +281,7 @@ func (e *Executor) walkIndex(root string, glob string, idx *kgsearch.InvertedInd
 }
 
 // StartIndex builds or updates an inverted index of the given directory.
-// It is called by kdeps knowledge folders index. Only changed files
+// Only changed files
 // (different ModTime) are re-indexed; unchanged files are skipped.
 // Returns the number of files indexed (new or changed).
 func (e *Executor) StartIndex(path string) int {

@@ -21,30 +21,12 @@ package agent
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
-	"github.com/kdeps/kdeps/v3/pkg/executor/searchlocal"
 	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
-
-// recordIndexes adds an index row to the card for each of its places and
-// search folders that has a search index, so the card says where
-// everything about it lives.
-func recordIndexes(card *knowledge.Card) {
-	for _, place := range card.SearchRoots() {
-		if p := searchlocal.IndexPath(place); fileExistsAt(p) {
-			_ = card.AddLink(knowledge.Layout().Sources.Index, p)
-		}
-	}
-}
-
-func fileExistsAt(p string) bool {
-	_, err := os.Stat(p)
-	return err == nil
-}
 
 // Extraction defaults.
 const (

@@ -326,7 +326,7 @@ kdeps knowledge build --extract     # the subagent model reads changed notes fir
 kdeps knowledge build --export      # also copy GRAPH_REPORT.md and graph.html into the vault
 kdeps knowledge check-update        # rebuild only when notes changed outside kdeps
 kdeps knowledge check               # structural one-home: duplicate summaries, canonical ids, dangling links
-kdeps knowledge recall "why monthly billing"   # what recall would hand the agent, with the relation chain
+kdeps knowledge recall "why monthly billing"   # what recall would give a chat, with the relation chain
 kdeps knowledge explain "billing"   # matching edges, with the file and line each one came from
 kdeps knowledge report              # print GRAPH_REPORT.md (deterministic communities)
 ```

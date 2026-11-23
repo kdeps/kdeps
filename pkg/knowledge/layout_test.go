@@ -41,7 +41,6 @@ func TestParseLayout_ShippedFileIsComplete(t *testing.T) {
 	assert.Equal(t, "projects", l.Folders.Projects)
 	assert.Equal(t, ".auto", l.Project.Auto)
 	assert.Equal(t, "archived", l.Card.Archived)
-	assert.Equal(t, "search", l.Sources.Search)
 	assert.Equal(t, "summary", l.Note.Summary)
 	assert.Equal(t, []string{"canonical", "fact_id"}, l.Note.Canonical, "the first set key wins")
 	assert.Equal(t, []string{"type", "status", "next", "updated"}, l.CardFields(), "card fields keep their order")

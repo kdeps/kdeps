@@ -1,4 +1,4 @@
-version: 1.1.0
+version: 2.0.0
 # The knowledge vault's layout: the folders kdeps keeps notes in, the front
 # matter keys a project card carries, and the places a card links to. The code
 # holds none of these names; every one must be set.
@@ -37,5 +37,3 @@ sources:  # link kinds a card maps to the project's places on disk
   repo: repo  # a code repository
   folder: folder  # a folder of files
   workflow: workflow  # a kdeps workflow
-  index: index  # a search index of one of the places (under ~/.kdeps)
-  search: search  # a folder outside the project, searched with it

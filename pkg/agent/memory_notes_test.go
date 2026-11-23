@@ -141,11 +141,6 @@ func TestProjectMemoryDir_FollowsTheNameClashRule(t *testing.T) {
 	require.NoError(t, err)
 	cwd := filepath.Join(t.TempDir(), "clash", "work")
 	require.NoError(t, os.MkdirAll(cwd, 0o750))
-	dir := projectMemoryDir(root, cwd)
-	card, created, err := v.EnsureProject(cwd, time.Now())
-	require.NoError(t, err)
-	assert.True(t, created)
-	assert.Equal(t, "clash-work", card.Name)
-	assert.Equal(t, filepath.Join(card.Dir(), "memory"), dir,
-		"memory saved before the project exists lands in the folder the project then gets")
+	assert.Equal(t, filepath.Join(root, "projects", "clash-work", "memory"), projectMemoryDir(root, cwd),
+		"a name another project holds gets its parent folder's name in front")
 }

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -46,12 +45,8 @@ func registerHTTPTool(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 // registerSearchLocalTool registers a local file search tool (search_local).
-// Indexing is deferred to first use. Run 'kdeps knowledge folders index' to build the
-// inverted index for faster ranked searches.
+// A folder's inverted index is built on its first search.
 func registerSearchLocalTool(ctx context.Context, reg *kdepstools.Registry) {
-	fmt.Fprintln(os.Stderr,
-		"searchLocal: files auto-indexed on read/search; kdeps knowledge folders index builds the full index")
-
 	tool := defined(&kdepstools.Tool{Name: toolNameSearchLocal})
 	if tool == nil {
 		return

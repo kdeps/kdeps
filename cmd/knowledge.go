@@ -37,40 +37,36 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
-// newKnowledgeCmd is "kdeps knowledge": the vault the agent recalls from.
+// newKnowledgeCmd is "kdeps knowledge": the vault a workflow chat recalls from.
 func newKnowledgeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "knowledge",
 		Short: "Knowledge vault: project cards, notes and graph recall for workflow chats",
-		Long: `The knowledge vault is a folder of markdown notes the agent knows without
-reading: each turn, kdeps walks the vault's link graph from the words of the
-request and names the few notes worth reading. It is on by default for agent
-sessions, in ~/.kdeps/notes (set up on first use); turn it off with
-knowledge.enabled: false in config.yaml, or /knowledge off in a session.
+		Long: `The knowledge vault is a folder of markdown notes a workflow chat knows
+without reading: on each call, kdeps walks the vault's link graph from the
+words of the prompt and names the few notes worth reading. It is on by
+default, in ~/.kdeps/notes (set up on first use); turn it off with
+knowledge.enabled: false in config.yaml.
 
-The structural graph stays current on its own: an agent session, a workflow
-chat call, a search inside the vault, and skill linking when a skill file
-is a vault note. kdeps knowledge build runs that same build by hand. The
-model pass is knowledge.build: manual (the default, only when you ask),
-auto (also at session end and before a background build), or off.
+A chat call refreshes the structural graph before recall. kdeps knowledge
+build runs that build by hand. knowledge.build is manual (the default: the
+model pass runs only with build --extract) or off.
 
   kdeps knowledge init [folder]     scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
   kdeps knowledge build             (re)build the link graph, changed notes only
   kdeps knowledge check-update      rebuild only when vault notes changed externally
   kdeps knowledge check             structural one-home violations: duplicate summaries, canonical ids, dangling links
-  kdeps knowledge recall "query"    show what recall would give the agent
+  kdeps knowledge recall "query"    show what recall would give a chat
   kdeps knowledge explain "query"   show matching edges with the file and line each one came from
   kdeps knowledge report            print GRAPH_REPORT.md: god nodes, communities, surprising connections
-  kdeps knowledge folders [add|remove] <folder>
-                                    folders outside the project that its recall and search cover
 
-Every place kdeps runs is a project with one folder, filled in by kdeps:
-projects/<name>/<name>.md (the card: status, next step), sessions/, memory/,
-decisions/ and notes/. One home per fact: status lives in the card, the
-story in notes, the connections in the graph (~/.kdeps/knowledge/<vault-id>).
-kdeps knowledge check reports structural duplicates. It does not decide that
-two different wordings are the same fact. An optional canonical or fact_id
-in frontmatter gives a fact a stable id.`,
+A project is one folder of the vault: projects/<name>/<name>.md (the card:
+status, next step), sessions/ (workflow run logs), memory/, decisions/ and
+notes/. One home per fact: status lives in the card, the story in notes,
+the connections in the graph (~/.kdeps/knowledge/<vault-id>). kdeps
+knowledge check reports structural duplicates. It does not decide that two
+different wordings are the same fact. An optional canonical or fact_id in
+frontmatter gives a fact a stable id.`,
 	}
 	c.PersistentFlags().
 		String("vault", "", "vault folder (default: knowledge.vault in ~/.kdeps/config.yaml, else ~/.kdeps/notes)")
@@ -82,7 +78,6 @@ in frontmatter gives a fact a stable id.`,
 		newKnowledgeRecallCmd(),
 		newKnowledgeExplainCmd(),
 		newKnowledgeReportCmd(),
-		newKnowledgeFoldersCmd(),
 	)
 	return c
 }
