@@ -26,8 +26,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v3/pkg/agent"
 	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	"github.com/kdeps/kdeps/v3/pkg/config"
 )
 
@@ -61,8 +61,8 @@ func splitRefs(args []string) ([]string, []string) {
 }
 
 // runAssets runs one asset operation and prints its changes.
-func runAssets(cmd *cobra.Command, opts agent.UpdateOptions) error {
-	return agent.RunAssetUpdate(cmd.Context(), cmd.OutOrStdout(), opts)
+func runAssets(cmd *cobra.Command, opts assetsetup.UpdateOptions) error {
+	return assetsetup.RunAssetUpdate(cmd.Context(), cmd.OutOrStdout(), opts)
 }
 
 // newRegistryProfileCmd is "kdeps profile": choose what kdeps
@@ -87,7 +87,7 @@ func newRegistryProfileCmd() *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			return agent.SelectProfile(cmd.Context(), cmd.OutOrStdout(), in, name)
+			return assetsetup.SelectProfile(cmd.Context(), cmd.OutOrStdout(), in, name)
 		},
 	}
 }

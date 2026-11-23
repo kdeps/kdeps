@@ -31,6 +31,7 @@ import (
 
 	"github.com/kdeps/kdeps/v3/pkg/agent"
 	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	"github.com/kdeps/kdeps/v3/pkg/config"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
@@ -88,11 +89,11 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 	t.Setenv("KDEPS_ASSETS_URL", srv.URL)
 	root := t.TempDir()
 	t.Setenv("KDEPS_ASSETS_DIR", root)
-	t.Setenv(agent.ProfileEnv, "minimum")
+	t.Setenv(assetsetup.ProfileEnv, "minimum")
 	t.Cleanup(agent.ReloadAssets)
 	t.Cleanup(func() { assets.SetOnDemand(nil) })
 
-	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, assets.RunSets()))
+	require.NoError(t, assetsetup.EnsureSets(t.Context(), io.Discard, nil, assets.RunSets()))
 	assert.Empty(t, assets.MissingOf(assets.RunSets()), "kdeps run gets the chat harness and events too")
 	assert.ElementsMatch(t, []string{"templates", "components", "docker", "k8s", "recipes"},
 		assets.MissingOf([]string{"templates", "components", "docker", "k8s", "recipes"}), "not in minimum")
@@ -103,13 +104,13 @@ func TestFirstRun_MinimumProfileThenOnDemand(t *testing.T) {
 	assert.Equal(t, "minimum", lock.Profile)
 
 	// A component a workflow calls is installed on first use, with its requires.
-	assets.SetOnDemand(agent.InstallComponentOnDemand(t.Context(), io.Discard))
+	assets.SetOnDemand(assetsetup.InstallComponentOnDemand(t.Context(), io.Discard))
 	assert.True(t, assets.InstallOnDemand("components/web_search"))
 	_, err = assets.Open("components").ReadFile("components/web_search/component.yaml")
 	require.NoError(t, err)
 
 	// A later command needing more sets installs just those.
-	require.NoError(t, agent.EnsureSets(t.Context(), io.Discard, nil, []string{"docker"}))
+	require.NoError(t, assetsetup.EnsureSets(t.Context(), io.Discard, nil, []string{"docker"}))
 	assert.Empty(t, assets.MissingOf([]string{"docker"}))
 	assert.NotEmpty(t, assets.MissingOf([]string{"k8s"}))
 
@@ -158,11 +159,11 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 
 	// Offline: kdeps refuses to start without its assets.
 	t.Setenv("KDEPS_ASSETS_URL", "off")
-	require.ErrorContains(t, agent.EnsureAssets(t.Context(), io.Discard), "run kdeps update")
+	require.ErrorContains(t, assetsetup.EnsureSets(t.Context(), io.Discard, nil, allStartSets()), "run kdeps update")
 
 	t.Setenv("KDEPS_ASSETS_URL", srv.URL)
-	t.Setenv(agent.ProfileEnv, "full")
-	require.NoError(t, agent.EnsureAssets(t.Context(), io.Discard))
+	t.Setenv(assetsetup.ProfileEnv, "full")
+	require.NoError(t, assetsetup.EnsureSets(t.Context(), io.Discard, nil, allStartSets()))
 	assert.Empty(t, assets.Missing())
 	assert.Contains(t, agent.PresetNames(), "frugal")
 	assert.NotEmpty(t, llm.GGUFAliasNames())
@@ -187,5 +188,11 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 
 	// Once filled, a start makes no request.
 	srv.Close()
-	require.NoError(t, agent.EnsureAssets(t.Context(), io.Discard))
+	require.NoError(t, assetsetup.EnsureSets(t.Context(), io.Discard, nil, allStartSets()))
+}
+
+// allStartSets is what a full start needs: the base and agent sets and the
+// project templates.
+func allStartSets() []string {
+	return append(append(slices.Clone(assets.BaseSets), assets.AgentSets...), "templates")
 }

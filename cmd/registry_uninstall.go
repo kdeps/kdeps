@@ -25,7 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
@@ -48,7 +48,7 @@ project) or ~/.kdeps/components/<name>/ (global install).`,
 			kdeps_debug.Log("enter: registryUninstallCmd.RunE")
 			assetRefs, pkgRefs := splitRefs(args)
 			if len(assetRefs) > 0 {
-				if err := runAssets(cmd, agent.UpdateOptions{Remove: assetRefs}); err != nil {
+				if err := runAssets(cmd, assetsetup.UpdateOptions{Remove: assetRefs}); err != nil {
 					return err
 				}
 			}

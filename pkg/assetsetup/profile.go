@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package assetsetup
 
 import (
 	"bufio"
@@ -80,7 +80,7 @@ func EnsureSets(ctx context.Context, w io.Writer, in io.Reader, need []string) e
 		return err
 	}
 	_ = assets.MarkInitialized(root)
-	ReloadAssets()
+	onChange()
 	if still := unmet(need); len(still) > 0 {
 		return notInstalled(still, nil)
 	}
@@ -597,7 +597,7 @@ func SelectProfile(ctx context.Context, w io.Writer, in io.Reader, name string) 
 	}
 	printChanges(w, changes, false)
 	assets.ClearCheck(root)
-	ReloadAssets()
+	onChange()
 	return nil
 }
 
