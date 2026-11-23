@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -68,7 +69,8 @@ func runRegistryUpdate(cmd *cobra.Command, args []string, check bool) error {
 	if check && len(pkgRefs) > 0 {
 		return errCheckPackages
 	}
-	if !check && (len(args) == 0 || len(pkgRefs) > 0) {
+	formulaRef := slices.ContainsFunc(pkgRefs, func(r string) bool { return !isLocalFilePath(r) })
+	if !check && (len(args) == 0 || formulaRef) {
 		if err := refreshRegistries(cmd); err != nil {
 			return err
 		}
