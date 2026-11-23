@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"regexp"
@@ -190,7 +191,10 @@ func initMemoryRules() {
 		memoryRules, err = parseMemoryRules(data)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "memory: rules: %v\n", err)
+		// A missing file is normal before the first asset download.
+		if !errors.Is(err, fs.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "memory: rules: %v\n", err)
+		}
 		memoryRules = MemoryRules{DefaultType: memTypeNote}
 	}
 }

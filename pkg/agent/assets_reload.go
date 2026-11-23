@@ -19,7 +19,13 @@
 package agent
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+
 	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
+	"github.com/kdeps/kdeps/v3/pkg/codegraph"
 	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
 	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
@@ -36,6 +42,9 @@ func ReloadAssets() {
 	initPermissionPolicy()
 	initToolSchemaPolicy()
 	initMemoryRules()
+	if err := codegraph.Configure(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		fmt.Fprintf(os.Stderr, "codegraph: rules: %v\n", err)
+	}
 	initPresets()
 	toolDefinitions = loadToolDefinitions()
 	toolAliases = aliasesOf(toolDefinitions)

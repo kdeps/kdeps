@@ -58,6 +58,16 @@ else
     test_skipped "entry points - bare kdeps runs the assistant (needs the mock LLM)"
 fi
 
+# --- a fresh machine: asset-free commands print no asset errors ------------
+mkdir -p "$EP_DIR/fresh"
+OUT=$(cd "$EP_DIR" && HOME="$EP_DIR/fresh" USERPROFILE="$EP_DIR/fresh" KDEPS_ASSETS_SRC= KDEPS_ASSETS_URL=off \
+    "$KDEPS_BIN" --version 2>&1)
+if output_grep "kdeps version" "$OUT" && ! output_grep "file does not exist" "$OUT"; then
+    test_passed "entry points - kdeps --version on a fresh machine prints only the version"
+else
+    test_failed "entry points - kdeps --version on a fresh machine" "$OUT"
+fi
+
 # --- no workflow.yaml: help -------------------------------------------------
 mkdir -p "$EP_DIR/empty"
 OUT=$(cd "$EP_DIR/empty" && "$KDEPS_BIN" < /dev/null 2>&1)

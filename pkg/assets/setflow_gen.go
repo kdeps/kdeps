@@ -25,8 +25,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its rules are read from the codegraph set at start", Here: true},
 			{Label: "ranking weights, stopwords and limits apply to each query"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "agent.LoopResourceRunner", "codegraph.Register", "codegraph.exposedNames"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade", "kdeps exec"},
+		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "codegraph.Configure"},
 	},
 	"components": {
 		Mode: "both",

@@ -31,14 +31,11 @@ import (
 // workspaceTemplate is the templates bundle Init copies.
 const workspaceTemplate = "templates/knowledge"
 
-// vaultDirs are the top-level folders Init creates.
-//
-//nolint:gochecknoglobals // fixed list
-var vaultDirs = []string{
-	Layout().Folders.Projects,
-	Layout().Folders.Shared,
-	Layout().Folders.Inbox,
-	Layout().Folders.Archive,
+// vaultDirs are the top-level folders Init creates. They are read when Init
+// runs: at package load the knowledge assets may not be installed yet.
+func vaultDirs() []string {
+	f := Layout().Folders
+	return []string{f.Projects, f.Shared, f.Inbox, f.Archive}
 }
 
 // Init prepares a vault: its top-level folders, and KDEPS.md and schema.md
@@ -47,7 +44,7 @@ var vaultDirs = []string{
 // It returns what it created.
 func Init(v Vault) ([]string, error) {
 	var created []string
-	for _, d := range vaultDirs {
+	for _, d := range vaultDirs() {
 		if err := mkdirNew(v.Root, d, &created); err != nil {
 			return created, err
 		}
