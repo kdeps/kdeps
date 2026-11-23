@@ -39,14 +39,13 @@ const (
 	msgDuplicateSummary = "duplicate_summary"
 	msgDuplicateCanon   = "duplicate_canonical"
 	msgDanglingLink     = "dangling_link"
-	msgSearchFolderGone = "search_folder_gone"
 )
 
 // checkMessages lists every message check.yaml must set.
 func checkMessages() []string {
 	return []string{
 		msgCardMissingField, msgCardProse, msgNextOutsideCard, msgNoSummary,
-		msgDuplicateSummary, msgDuplicateCanon, msgDanglingLink, msgSearchFolderGone,
+		msgDuplicateSummary, msgDuplicateCanon, msgDanglingLink,
 	}
 }
 

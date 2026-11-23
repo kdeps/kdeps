@@ -62,3 +62,6 @@ func QueryIndex(dir, query string, limit int) []Hit {
 	}
 	return out
 }
+
+// IndexPath is where dir's search index lives.
+func IndexPath(dir string) string { return indexDBPath(dir) }

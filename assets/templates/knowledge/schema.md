@@ -45,16 +45,11 @@ links: ["[[Other note]]"]
   Write it so the reader can decide whether to open it.
 - Link with `[[Note title]]`, or the full path `[[projects/app/notes/Title]]`.
   Links written in a note are facts; the graph marks them as extracted.
-  kdeps writes every link with its full vault path: sessions and decisions
-  link their card as `[[projects/<name>/<name>]]`.
+  kdeps writes every link with its full vault path: a run log links its card
+  as `[[projects/<name>/<name>]]`.
 
 ## Written by kdeps
 
-- Session note (`sessions/`): `## Focus`, `## What was built`, `## Mistakes`,
-  `## Decisions`, `## Wins`. Updated after every turn; rewritten from the
-  model's summary at compaction and session end.
-- Decision note (`decisions/`): one per item of a summary's Key Decisions,
-  titled by its bold lead.
 - Memory note (`memory/`): one per `[MEMORY: key]`; the frontmatter keeps the
   key, type and dates.
 - Workflow run note (`sessions/<date> <name> runs.md`): one line per chat

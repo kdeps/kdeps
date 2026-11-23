@@ -28,7 +28,7 @@ import (
 )
 
 func TestSetBranch(t *testing.T) {
-	v, card, _ := searchFixture(t)
+	v, card := projectFixture(t)
 	require.NoError(t, card.SetBranch("feat/a"))
 	assert.Equal(t, "feat/a", card.Branch())
 	require.NoError(t, card.SetBranch("feat/a"), "same branch: unchanged")

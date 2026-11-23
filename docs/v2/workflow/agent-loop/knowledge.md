@@ -60,11 +60,7 @@ fallback_max_confidence: 0.49  # ...at most this sure, so it is marked ambiguous
 
 ## Projects
 
-A project is one folder of the vault with a card. kdeps creates it the first time something writes for a place no card covers:
-
-- a workflow run log (`workflow_notes: true`), named after the workflow;
-- [persistent memory](/workflow/agent-loop/memory) (`kdeps run --memory`), named after the git repository root or the folder;
-- `kdeps knowledge folders add`, for the working folder.
+A project is one folder of the vault with a card. The first workflow run log (`workflow_notes: true`) creates it, named after the workflow. [Persistent memory](/workflow/agent-loop/memory) (`kdeps run --memory`) writes into `projects/<name>/memory/`, named after the git repository root or the folder.
 
 ```text
 ~/.kdeps/notes/                       # the vault (knowledge.vault)
@@ -126,10 +122,8 @@ Card rows:
 |---|---|
 | `repo` | a git repository; its Go packages join the graph |
 | `folder`, `workflow` | another place that belongs to this project; the deepest matching row wins |
-| `search` | a [search folder](#search-folders): searched with the project, not one of its places |
-| `index` | a place's search index (built by `kdeps knowledge folders index`, kept under `~/.kdeps`); added by kdeps |
 
-You edit cards by hand. `kdeps knowledge folders` changes the `search` rows.
+You edit cards by hand.
 
 ## Notes
 
@@ -263,31 +257,6 @@ Notes in the knowledge vault related to this request, from its link graph (best 
 
 kdeps adds recall as a system message after the chat's system prompt. To test recall from the shell, run `kdeps knowledge recall "why monthly billing"`.
 
-## Search folders
-
-A search folder is a folder outside the project (docs, specs, a shared library) that the project's card records. kdeps indexes it under `~/.kdeps`. It writes nothing into the folder. `search_local` with `path` set to the folder reads that index.
-
-```bash
-kdeps knowledge folders                           # list the project's folders and their indexes
-kdeps knowledge folders add ~/docs/billing-specs  # add and index now
-kdeps knowledge folders index                     # update every folder's index
-kdeps knowledge folders remove ~/docs/billing-specs
-```
-
-The card stores it as a `search` row, and the index as an `index` row:
-
-```markdown
-| Source | Path |
-|---|---|
-| repo | /home/me/code/my-app |
-| search | /home/me/docs/billing-specs |
-| index | /home/me/.kdeps/projects/billing-specs-3f2a91c0/index.db |
-```
-
-kdeps refuses: your home folder, a filesystem root, the vault, the project's own folder, a folder inside one already searched, and a non-folder path.
-
-Key and credential files (SSH keys, `.env`, `*.pem`, `credentials`, anything in `.ssh`, `.aws` or `.gnupg`) are never indexed or returned, in any folder. The lists are in the set's `search.yaml` (`secret_names`, `secret_prefixes`, `secret_extensions`, `secret_dirs`). Without that file, kdeps indexes nothing. A deleted search folder shows up in `kdeps knowledge check`.
-
 ## Check
 
 ```bash
@@ -300,7 +269,6 @@ kdeps knowledge check
   shared/Pricing.md: has the same summary as shared/Tiers.md; keep the fact in one note and link it
   projects/app/notes/Alpha.md: claims canonical id ship-monthly, also claimed by /home/me/notes/projects/app/notes/Beta.md; one fact has one home
   projects/web/web.md: card holds 9 lines of prose; move the story to a vault note and link it
-  projects/my-app/my-app.md: search folder /home/me/old-specs is gone; remove it with kdeps knowledge folders remove /home/me/old-specs
 ```
 
 It exits non-zero on any finding, so it can run in CI.

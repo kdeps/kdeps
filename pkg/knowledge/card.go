@@ -184,16 +184,6 @@ func safeName(s string) string {
 	return s
 }
 
-// EnsureProject returns dir's project card (archived ones included),
-// creating projects/<name>/ and its card when no card covers dir.
-func (v Vault) EnsureProject(dir string, now time.Time) (*Card, bool, error) {
-	if c := v.CardForDir(dir); c != nil {
-		return c, false, nil
-	}
-	name, place, source := v.NewProjectName(dir)
-	return v.CreateProject(name, source, place, now)
-}
-
 // NewProjectName is the name, place and link source the project kdeps
 // creates for dir gets: ProjectName's, with the parent folder's name in
 // front when a card already has that name. Memory and the project use it

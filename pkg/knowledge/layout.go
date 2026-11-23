@@ -69,8 +69,6 @@ type VaultLayout struct {
 		Repo     string `yaml:"repo"`
 		Folder   string `yaml:"folder"`
 		Workflow string `yaml:"workflow"`
-		Index    string `yaml:"index"`
-		Search   string `yaml:"search"`
 	} `yaml:"sources"`
 }
 
@@ -92,8 +90,7 @@ func (l VaultLayout) validate() error {
 		{"note.type", l.Note.Type}, {"note.status", l.Note.Status}, {"note.summary", l.Note.Summary},
 		{"note.tags", l.Note.Tags}, {"note.aliases", l.Note.Aliases}, {"note.links", l.Note.Links},
 		{"sources.repo", l.Sources.Repo}, {"sources.folder", l.Sources.Folder},
-		{"sources.workflow", l.Sources.Workflow}, {"sources.index", l.Sources.Index},
-		{"sources.search", l.Sources.Search},
+		{"sources.workflow", l.Sources.Workflow},
 	} {
 		if f.value == "" {
 			return fmt.Errorf("%s is not set", f.key)
