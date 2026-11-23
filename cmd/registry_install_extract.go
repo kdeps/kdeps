@@ -123,6 +123,6 @@ func extractFile(target string, r io.Reader) (retErr error) {
 
 // DoRegistryInstall is an exported wrapper for doRegistryInstall, for use in
 // integration and external tests.
-func DoRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
-	return doRegistryInstall(cmd, pkg, baseURL)
+func DoRegistryInstall(cmd *cobra.Command, pkg string) error {
+	return doRegistryInstall(cmd, pkg)
 }

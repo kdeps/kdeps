@@ -311,5 +311,8 @@ type Config struct {
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
 	Identity          *IdentityConfig                   `yaml:"identity,omitempty"`
 	Knowledge         *KnowledgeConfig                  `yaml:"knowledge,omitempty"`
-	Agents            map[string]Config                 `yaml:"agents,omitempty"`
+	// Registries are GitHub repositories (owner/repo) of formulas that
+	// search, info and install read after kdeps/registry.
+	Registries []string          `yaml:"registries,omitempty"`
+	Agents     map[string]Config `yaml:"agents,omitempty"`
 }

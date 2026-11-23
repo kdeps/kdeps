@@ -19,25 +19,24 @@
 package cmd
 
 import (
-	"os"
+	"context"
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 )
 
-// registryBaseURL is the default kdeps registry endpoint.
-var registryBaseURL = "https://registry.kdeps.io" //nolint:gochecknoglobals // overridable in tests
-
-// newRegistryCmd creates the registry subcommand.
 // registryCommands are the package and asset commands: install, update,
 // uninstall, list, profile, search, info, submit, verify. Packages
-// (workflows, agencies, components) and kdeps assets come from one catalog
-// on kdeps.io; an argument naming an asset set or set/name item is an asset.
+// (workflows, agencies, components) come from formula registries: GitHub
+// repositories kdeps keeps a copy of under ~/.kdeps/registries. An argument
+// naming an asset set or set/name item is a kdeps asset.
 func registryCommands() []*cobra.Command {
 	kdeps_debug.Log("enter: registryCommands")
-	cmds := []*cobra.Command{
+	return []*cobra.Command{
 		newRegistryInstallCmd(),
 		newRegistryUpdateCmd(),
 		newRegistryUninstallCmd(),
@@ -48,37 +47,42 @@ func registryCommands() []*cobra.Command {
 		newRegistrySubmitCmd(),
 		newRegistryVerifyCmd(),
 	}
-	for _, c := range cmds {
-		c.Flags().String("registry", "", "Registry base URL (overrides KDEPS_REGISTRY_URL)")
-	}
-	return cmds
 }
 
-func registryURL(cmd *cobra.Command) string {
-	kdeps_debug.Log("enter: registryURL")
-	if u := resolveRegistryFlagURL(cmd); u != "" {
-		return u
-	}
-	if u := resolveRegistryEnvURL(); u != "" {
-		return u
-	}
-	return registryBaseURL
+// formulaFinder finds and searches formulas; formulas.Source is the real one.
+type formulaFinder interface {
+	Find(ctx context.Context, ref string) (formulas.Formula, error)
+	Search(ctx context.Context, query string) ([]formulas.Formula, error)
+	Update(ctx context.Context) error
 }
 
-// resolveRegistryFlagURL reads the --registry flag when set.
-func resolveRegistryFlagURL(cmd *cobra.Command) string {
-	u, _ := cmd.Flags().GetString("registry")
-	if u == "" {
-		return ""
+// formulaSource reads formulas from the configured registries
+// (test-replaceable).
+//
+//nolint:gochecknoglobals // test hook
+var formulaSource = func() (formulaFinder, error) { return formulas.Configured() }
+
+// findFormula returns the formula ref names (a bare name, or owner/repo/name).
+func findFormula(ctx context.Context, ref string) (formulas.Formula, error) {
+	src, err := formulaSource()
+	if err != nil {
+		return formulas.Formula{}, err
 	}
-	return strings.TrimRight(u, "/")
+	return src.Find(ctx, ref)
 }
 
-// resolveRegistryEnvURL reads KDEPS_REGISTRY_URL when set.
-func resolveRegistryEnvURL() string {
-	u := strings.TrimSpace(os.Getenv("KDEPS_REGISTRY_URL"))
-	if u == "" {
-		return ""
+// refreshRegistries downloads every registry again, so the formulas are the
+// newest; it names the registries it refreshed.
+func refreshRegistries(cmd *cobra.Command) error {
+	src, err := formulaSource()
+	if err != nil {
+		return err
 	}
-	return strings.TrimRight(u, "/")
+	if err = src.Update(processParent(cmd.Context())); err != nil {
+		return fmt.Errorf("update registries: %w", err)
+	}
+	if s, ok := src.(formulas.Source); ok {
+		fmt.Fprintf(cmd.OutOrStdout(), "Updated registries: %s\n", strings.Join(s.Registries, ", "))
+	}
+	return nil
 }

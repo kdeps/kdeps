@@ -244,7 +244,7 @@ _kdeps_curl_needs_auth() {
     [[ "$url" == *"/health"* ]] && return 1
     [[ "$url" == *"/_kdeps/"* ]] && return 1
     [[ "$url" == *":11434"* ]] && return 1
-    [[ -n "${KDEPS_REGISTRY_URL:-}" && "$url" == "${KDEPS_REGISTRY_URL}"* ]] && return 1
+    [[ -n "${KDEPS_REGISTRY_ARCHIVE_URL:-}" && "$url" == "${KDEPS_REGISTRY_ARCHIVE_URL}"* ]] && return 1
     [[ "$url" == http://127.0.0.1:* || "$url" == http://localhost:* ]]
 }
 
@@ -261,7 +261,7 @@ curl() {
 export -f curl _kdeps_curl_find_url _kdeps_curl_has_auth_header _kdeps_curl_needs_auth
 
 # Start a local mock registry server that immediately returns 404 for all
-# requests, so no e2e test ever calls the real registry.kdeps.io server.
+# requests, so no e2e test downloads a real registry.
 # Guard against being sourced multiple times (each sub-script sources common.sh).
 if [ -z "${_KDEPS_MOCK_REGISTRY_STARTED:-}" ]; then
     export _KDEPS_MOCK_REGISTRY_STARTED=1
@@ -314,7 +314,9 @@ PYEOF
         esac
     }
     trap '_stop_mocks; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
-    export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
+    # Registry archives come from the mock (404): a formula lookup fails fast
+    # instead of downloading kdeps/registry from GitHub.
+    export KDEPS_REGISTRY_ARCHIVE_URL="http://127.0.0.1:$_MOCK_PORT"
 fi
 
 # Match patterns in command output without pipefail SIGPIPE from echo|grep pipelines.

@@ -19,15 +19,12 @@
 package cmd
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/infra/registry"
 )
 
 func TestFetchReadmeURL_ReadError(t *testing.T) {
@@ -39,10 +36,6 @@ func TestFetchReadmeURL_ReadError(t *testing.T) {
 	defer srv.Close()
 	_, err := fetchReadmeURL(srv.URL)
 	require.Error(t, err)
-}
-
-func TestGithubURLToRef_EmptyPath(t *testing.T) {
-	assert.Equal(t, "", githubURLToRef("https://github.com/"))
 }
 
 func TestFetchReadmeURL_ReadBodyError_Final(t *testing.T) {
@@ -79,86 +72,9 @@ func TestFormatRemoteRef(t *testing.T) {
 	assert.Equal(t, "owner/repo/subdir", formatRemoteRef("owner", "repo", "subdir"))
 }
 
-func TestGithubURLToRef_BasicHTTPS(t *testing.T) {
-	assert.Equal(t, "owner/repo", githubURLToRef("https://github.com/owner/repo"))
-}
-
-func TestGithubURLToRef_HTTP(t *testing.T) {
-	assert.Equal(t, "owner/repo", githubURLToRef("http://github.com/owner/repo"))
-}
-
-func TestGithubURLToRef_WithSubdir(t *testing.T) {
-	assert.Equal(
-		t,
-		"owner/repo:subdir/path",
-		githubURLToRef("https://github.com/owner/repo/tree/main/subdir/path"),
-	)
-}
-
-func TestGithubURLToRef_NonGithub(t *testing.T) {
-	assert.Equal(t, "", githubURLToRef("https://gitlab.com/owner/repo"))
-}
-
-func TestGithubURLToRef_NoHost(t *testing.T) {
-	assert.Equal(t, "", githubURLToRef("https:///owner/repo"))
-}
-
-func TestGithubURLToRef_SingleSegment(t *testing.T) {
-	assert.Equal(t, "", githubURLToRef("https://github.com/onlyowner"))
-}
-
-func TestGithubURLToRef_Empty(t *testing.T) {
-	assert.Equal(t, "", githubURLToRef(""))
-}
-
-func TestPrintPackageReadme_HomepageGitHub(t *testing.T) {
-	srv := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = w.Write([]byte("# GitHub README\nRemote content."))
-		}),
-	)
-	defer srv.Close()
-
-	orig := githubRawBaseURL
-	githubRawBaseURL = srv.URL
-	t.Cleanup(func() { githubRawBaseURL = orig })
-
-	var buf bytes.Buffer
-	printPackageReadme(&buf, "test-pkg", &registry.PackageDetail{
-		Name:     "test-pkg",
-		Homepage: "https://github.com/owner/repo",
-	})
-	assert.Contains(t, buf.String(), "GitHub README")
-}
-
-func TestPrintPackageReadme_HomepageGitHubFetchError(t *testing.T) {
-	srv := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		}),
-	)
-	defer srv.Close()
-
-	orig := githubRawBaseURL
-	githubRawBaseURL = srv.URL
-	t.Cleanup(func() { githubRawBaseURL = orig })
-
-	var buf bytes.Buffer
-	printPackageReadme(&buf, "test-pkg", &registry.PackageDetail{
-		Name:     "test-pkg",
-		Homepage: "https://github.com/owner/repo",
-	})
-	assert.Empty(t, buf.String())
-}
-
 func TestFetchRemoteReadme_Errors(t *testing.T) {
 	_, err := fetchRemoteReadme("bad")
 	require.Error(t, err)
 	_, err = fetchReadmeURL("://bad")
 	require.Error(t, err)
-}
-
-func TestGithubURLToRef_TreePath(t *testing.T) {
-	ref := githubURLToRef("https://github.com/o/r/tree/main/subdir")
-	assert.Equal(t, "o/r:subdir", ref)
 }

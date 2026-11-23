@@ -20,7 +20,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"os"
@@ -188,7 +187,7 @@ func TestRegistryUpdate_RemoveError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(tmp, 0750) })
 
 	cmd := &cobra.Command{}
-	err := doRegistryUpdate(cmd, "locked-agent", "http://localhost")
+	err := doRegistryUpdate(cmd, "locked-agent")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "remove existing installation")
 }
@@ -226,17 +225,8 @@ func TestRegistryUpdate_ViaCobraCmd(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentDir, 0750))
 
 	archive := testWorkflowArchive(t, "cobra-agent2")
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/cobra-agent2":
-			info := map[string]string{
-				"latestVersion": "2.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			}
-			_ = json.NewEncoder(w).Encode(info)
-		default:
-			_, _ = w.Write(archive)
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		_, _ = w.Write(archive)
 	}))
 	defer srv.Close()
 
@@ -246,7 +236,8 @@ func TestRegistryUpdate_ViaCobraCmd(t *testing.T) {
 	var out bytes.Buffer
 	regCmd.SetOut(&out)
 	regCmd.SetErr(&out)
-	regCmd.SetArgs([]string{"update", "--registry", srv.URL, "cobra-agent2"})
+	useFormulas(t, packageFormula("cobra-agent2", "1.0.0", "workflow", srv.URL+"/cobra-agent2.kdeps"))
+	regCmd.SetArgs([]string{"update", "cobra-agent2"})
 
 	require.NoError(t, regCmd.Execute())
 	assert.Contains(t, out.String(), "Removing existing installation")
@@ -322,7 +313,7 @@ func TestDoRegistryUpdate_FindPackageError(t *testing.T) {
 	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	cmd := &cobra.Command{}
-	err := doRegistryUpdate(cmd, "x", "http://localhost")
+	err := doRegistryUpdate(cmd, "x")
 	require.Error(t, err)
 }
 
@@ -447,16 +438,8 @@ func TestDoRegistryUpdate_Wrapper(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentDir, 0750))
 
 	archive := testWorkflowArchive(t, "wrap-agent2")
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/wrap-agent2":
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"latestVersion": "2.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-		default:
-			_, _ = w.Write(archive)
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		_, _ = w.Write(archive)
 	}))
 	defer srv.Close()
 
@@ -464,6 +447,7 @@ func TestDoRegistryUpdate_Wrapper(t *testing.T) {
 	c := &cobra.Command{}
 	c.SetOut(&out)
 
-	require.NoError(t, DoRegistryUpdate(c, "wrap-agent2", srv.URL))
+	useFormulas(t, packageFormula("wrap-agent2", "2.0.0", "", srv.URL+"/archive.tar.gz"))
+	require.NoError(t, DoRegistryUpdate(c, "wrap-agent2"))
 	assert.Contains(t, out.String(), "Removing existing installation")
 }

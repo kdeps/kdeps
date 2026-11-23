@@ -31,6 +31,6 @@ func TestDoRegistryUpdate_LocalPath(t *testing.T) {
 	tmp := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
 	cmd := &cobra.Command{}
-	err := doRegistryUpdate(cmd, tmp, "http://example.com")
+	err := doRegistryUpdate(cmd, tmp)
 	require.NoError(t, err)
 }

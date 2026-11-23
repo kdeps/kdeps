@@ -1,17 +1,40 @@
 # Registry commands
 
-Search, install, and publish packages from the kdeps registry. Install, update, and remove kdeps assets (harness prompts, tool definitions, commands, templates, schemas, model registries). An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
+Search, install, and publish packages from formula registries. Install, update, and remove kdeps assets (harness prompts, tool definitions, commands, templates, schemas, model registries). An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
+
+## Registries
+
+A registry is a GitHub repository of formula files (`formulas/<name>.yaml`). kdeps reads `kdeps/registry` first, then each repository listed under `registries:`. It keeps a copy of each one under `~/.kdeps/registries/<owner>/<repo>`, so search, info and install need no server.
+
+```yaml
+# ~/.kdeps/config.yaml
+registries:
+  - acme/tools   # github.com/acme/tools, read after kdeps/registry
+```
+
+```text
+search, info, install -> ~/.kdeps/registries/<owner>/<repo>/formulas -> tarball URL -> install
+                          (downloaded from GitHub on first use)
+```
+
+| Name | Meaning |
+|---|---|
+| `scraper` | the formula `scraper`, first match in registry order |
+| `acme/tools/scraper` | the formula `scraper` in registry `acme/tools` (downloaded on first use) |
+| `owner/repo` | a GitHub repository itself, not a formula |
+
+`KDEPS_REGISTRY_ARCHIVE_URL` replaces `https://codeload.github.com` as the source of registry archives, for a mirror or GitHub Enterprise.
 
 ## Commands
 
-Each is a top-level `kdeps` command. `--registry <url>` (or `KDEPS_REGISTRY_URL`) points it at another registry.
+Each is a top-level `kdeps` command.
 
 | Command | Description |
 |---|---|
-| `kdeps search` | Search for packages in the kdeps registry |
-| `kdeps info` | Show what a kdeps asset is for and where it runs (`kdeps info tools/read_file`, `kdeps info events`), or the metadata and README of a package, component, agent, or GitHub repo |
-| `kdeps install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from the registry, a GitHub repo (`owner/repo`; `github:owner/repo` when the owner is named like an asset set), or a local archive (`.kdeps` `.kagency` `.komponent`) |
-| `kdeps uninstall` | Remove assets, or an agent or component installed from the registry |
+| `kdeps search` | Search the formulas of every registry: `TEXT` matches a name, description or tag without case; `/REGEX/` is a regular expression; `--type` and `--limit` narrow the list |
+| `kdeps info` | Show what a kdeps asset is for and where it runs (`kdeps info tools/read_file`, `kdeps info events`), a formula and where it comes from, a local component or agent, or a GitHub repo's README |
+| `kdeps install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from a formula (`name`, `owner/repo/name`; `@version` must be the formula's version), a GitHub repo (`owner/repo`; `github:owner/repo` when the owner is named like an asset set), or a local archive (`.kdeps` `.kagency` `.komponent`) |
+| `kdeps uninstall` | Remove assets, or an installed agent or component |
 | `kdeps update` | Update assets (no args: the profile and every installed asset; `--check` lists updates), or an installed agent or component |
 | `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset with its version, state, shelf and context tokens; `kdeps list <shelf>` shows one shelf |
 | `kdeps submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
@@ -33,7 +56,9 @@ $ kdeps install scraper-native
 
 ```bash
 kdeps search scraper
+kdeps search '/^scraper-/'
 kdeps install scraper-native
+kdeps install acme/tools/scraper
 kdeps install scraper-native@1.0.0
 kdeps install ./my-component-1.0.0.komponent
 kdeps list
@@ -56,7 +81,7 @@ kdeps profile agent                # install the agent profile
 
 ## Publishing a package
 
-The kdeps registry is GitHub-hosted. Packages live in the author's own GitHub repo. The registry indexes a formula file per package.
+A registry is a GitHub repository. Packages live in the author's own GitHub repo; the registry holds one formula file per package. Publish to `kdeps/registry`, or to a registry of your own that users list under `registries:`.
 
 ```bash
 # 1. Tag a release in your repo

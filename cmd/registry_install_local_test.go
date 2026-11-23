@@ -85,23 +85,12 @@ func TestFindPackageDir(t *testing.T) {
 }
 
 func TestDoRegistryInstall_DownloadError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(
-			[]byte(`{"latestVersion":"1.0.0","tarbullUrl":"http://example.com/x.kdeps"}`),
-		)
-	}))
-	defer srv.Close()
-	orig := registryHTTPClient
+	useFormulas(t, packageFormula("testpkg", "1.0.0", "workflow", "http://example.com/x.kdeps"))
 	origDL := downloadArchiveFunc
-	t.Cleanup(func() {
-		registryHTTPClient = orig
-		downloadArchiveFunc = origDL
-	})
-	registryHTTPClient = srv.Client()
+	t.Cleanup(func() { downloadArchiveFunc = origDL })
 	downloadArchiveFunc = func(_, _ string) error { return errors.New("dl fail") }
 	cmd := &cobra.Command{}
-	err := doRegistryInstall(cmd, "testpkg", srv.URL)
+	err := doRegistryInstall(cmd, "testpkg")
 	require.Error(t, err)
 }
 
@@ -312,23 +301,6 @@ func TestDownloadRegistryArchive_VerifyErr(t *testing.T) {
 	if cleanup != nil {
 		cleanup()
 	}
-}
-
-func TestResolvePackageInfo_ReadBodyErr(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		hj, ok := w.(http.Hijacker)
-		if ok {
-			conn, _, _ := hj.Hijack()
-			_ = conn.Close()
-		}
-	}))
-	defer srv.Close()
-	orig := registryHTTPClient
-	t.Cleanup(func() { registryHTTPClient = orig })
-	registryHTTPClient = srv.Client()
-	_, err := resolvePackageInfo("pkg", srv.URL)
-	require.Error(t, err)
 }
 
 func TestRegistryListRunE_GlobalErr(t *testing.T) {

@@ -32,15 +32,13 @@ import (
 )
 
 const (
-	registryInstallTimeout             = 10 * time.Minute
-	registryInstallMaxResponseSize     = 500 * 1024 * 1024
-	registryInstallInfoTimeout         = 30 * time.Second
-	registryInstallMaxInfoResponseSize = 1 * 1024 * 1024
-	registryInstallDirPerm             = 0750
-	registryInstallFilePerm            = 0600
-	registryInstallVersionParts        = 2
-	registryInstallManifestMaxSize     = 64 * 1024
-	pkgTypeComponent                   = "component"
+	registryInstallTimeout         = 10 * time.Minute
+	registryInstallMaxResponseSize = 500 * 1024 * 1024
+	registryInstallDirPerm         = 0750
+	registryInstallFilePerm        = 0600
+	registryInstallVersionParts    = 2
+	registryInstallManifestMaxSize = 64 * 1024
+	pkgTypeComponent               = "component"
 )
 
 // newRegistryInstallCmd creates the registry install subcommand.
@@ -82,7 +80,7 @@ Behavior depends on package type:
 				}
 			}
 			for _, ref := range pkgRefs {
-				if err := doRegistryInstall(cmd, ref, registryURL(cmd)); err != nil {
+				if err := doRegistryInstall(cmd, ref); err != nil {
 					return err
 				}
 			}

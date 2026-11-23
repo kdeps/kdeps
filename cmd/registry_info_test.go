@@ -20,7 +20,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"os"
@@ -29,8 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/infra/registry"
 )
 
 // TestDoRegistryInfo_GithubRef tests the GitHub owner/repo path that calls fetchRemoteReadme.
@@ -48,7 +45,7 @@ func TestDoRegistryInfo_GithubRef(t *testing.T) {
 	c := &cobra.Command{}
 	c.SetOut(&out)
 
-	err := doRegistryInfo(c, "owner/repo", "http://localhost")
+	err := doRegistryInfo(c, "owner/repo")
 	require.NoError(t, err)
 }
 
@@ -64,63 +61,51 @@ func TestDoRegistryInfo_GithubRef_FetchError(t *testing.T) {
 	t.Cleanup(func() { githubRawBaseURL = orig })
 
 	c := &cobra.Command{}
-	err := doRegistryInfo(c, "owner/missing-repo", "http://localhost")
+	err := doRegistryInfo(c, "owner/missing-repo")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "info:")
 }
 
-// TestDoRegistryInfo_RegistrySuccess tests the happy path where the registry returns metadata.
-// The registry client uses /api/packages/<name> with PackageDetail JSON field names.
-func TestDoRegistryInfo_RegistrySuccess(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		// PackageDetail JSON: latestVersion, authorName, downloadsCount.
-		resp := map[string]interface{}{
-			"name":           "my-pkg",
-			"latestVersion":  "1.0.0",
-			"type":           "workflow",
-			"description":    "Test package",
-			"authorName":     "tester",
-			"license":        "Apache-2.0",
-			"downloadsCount": 42,
-			"tags":           []string{"ai", "test"},
-			"homepage":       "https://example.com",
-			"versions":       []string{"1.0.0"},
-			"updatedAt":      "2026-01-01",
-		}
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+// TestDoRegistryInfo_FormulaSuccess shows a formula from the registries.
+func TestDoRegistryInfo_FormulaSuccess(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	f := packageFormula("my-pkg", "1.0.0", "workflow", "https://example.com/my-pkg.kdeps")
+	f.Description, f.License, f.Tags, f.Homepage = "Test package", "Apache-2.0", []string{
+		"ai",
+		"test",
+	}, "https://example.com"
+	useFormulas(t, f)
 
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
 
-	err := doRegistryInfo(c, "my-pkg", srv.URL)
-	require.NoError(t, err)
+	require.NoError(t, doRegistryInfo(c, "my-pkg"))
 	assert.Contains(t, out.String(), "my-pkg")
 	assert.Contains(t, out.String(), "Test package")
-	assert.Contains(t, out.String(), "tester")
 	assert.Contains(t, out.String(), "ai, test")
 	assert.Contains(t, out.String(), "https://example.com")
+	assert.Contains(t, out.String(), "https://github.com/kdeps/registry/blob/HEAD/formulas/my-pkg.yaml")
 }
 
-// TestDoRegistryInfo_RegistrySuccess_WithLocalReadme verifies that an installed component's
-// README is appended after the registry metadata.
-func TestDoRegistryInfo_RegistrySuccess_WithLocalReadme(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		resp := map[string]interface{}{
-			"name":          "rich-pkg",
-			"latestVersion": "1.0.0",
-			"type":          "workflow",
-		}
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
+// TestDoRegistryInfo_FormulaInAnotherRegistry reads owner/repo/name.
+func TestDoRegistryInfo_FormulaInAnotherRegistry(t *testing.T) {
+	f := packageFormula("scraper", "2.0.0", "component", "https://example.com/s.komponent")
+	f.Registry = "acme/tools"
+	useFormulas(t, f)
 
-	// Install a fake component so resolveLocalReadme finds its README.
+	var out bytes.Buffer
+	c := &cobra.Command{}
+	c.SetOut(&out)
+	require.NoError(t, doRegistryInfo(c, "acme/tools/scraper"))
+	assert.Contains(t, out.String(), "Registry:    acme/tools")
+	require.ErrorContains(t, doRegistryInfo(c, "nope"), "info: no formula named")
+}
+
+// TestDoRegistryInfo_LocalReadmeBeforeFormula: an installed component's
+// README wins over the formula of the same name.
+func TestDoRegistryInfo_LocalReadmeBeforeFormula(t *testing.T) {
+	useFormulas(t, packageFormula("rich-pkg", "1.0.0", "workflow", "https://example.com/r.kdeps"))
 	compDir := t.TempDir()
 	t.Setenv("KDEPS_COMPONENT_DIR", compDir)
 	pkgDir := compDir + "/rich-pkg"
@@ -131,52 +116,8 @@ func TestDoRegistryInfo_RegistrySuccess_WithLocalReadme(t *testing.T) {
 	c := &cobra.Command{}
 	c.SetOut(&out)
 
-	err := doRegistryInfo(c, "rich-pkg", srv.URL)
-	require.NoError(t, err)
-	assert.Contains(t, out.String(), "rich-pkg")
-}
-
-// TestDoRegistryInfo_RegistryFail_LocalFallback tests that when the registry fails,
-// resolveLocalReadme's fallback (minimal README) is shown and no error is returned.
-// Note: resolveLocalReadme always returns nil error (returns a generated fallback).
-func TestDoRegistryInfo_RegistryFail_LocalFallback(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	// Install a real component README so the local fallback is non-minimal.
-	compDir := t.TempDir()
-	t.Setenv("KDEPS_COMPONENT_DIR", compDir)
-	pkgDir := compDir + "/local-pkg"
-	require.NoError(t, os.MkdirAll(pkgDir, 0750))
-	require.NoError(t, os.WriteFile(pkgDir+"/README.md", []byte("# local-pkg\nFallback content."), 0600))
-
-	var out bytes.Buffer
-	c := &cobra.Command{}
-	c.SetOut(&out)
-
-	// Registry fails but local README is found — no error.
-	err := doRegistryInfo(c, "local-pkg", srv.URL)
-	require.NoError(t, err)
-}
-
-// TestDoRegistryInfo_RegistryFail_NoRealReadme tests that when registry fails and only
-// the generated fallback README is available, it is still printed (no error).
-func TestDoRegistryInfo_RegistryFail_NoRealReadme(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	tmp := t.TempDir()
-	t.Setenv("KDEPS_COMPONENT_DIR", tmp)
-	t.Setenv("HOME", tmp)
-
-	c := &cobra.Command{}
-	// resolveLocalReadme always returns nil error (generated fallback), so no error expected.
-	err := doRegistryInfo(c, "ghost-pkg", srv.URL)
-	require.NoError(t, err)
+	require.NoError(t, doRegistryInfo(c, "rich-pkg"))
+	assert.Contains(t, out.String(), "Real docs.")
 }
 
 // TestNewRegistryInfoCmd_Structure verifies cobra metadata on newRegistryInfoCmd.
@@ -185,68 +126,6 @@ func TestNewRegistryInfoCmd_Structure(t *testing.T) {
 	assert.Contains(t, c.Use, "info")
 	assert.NoError(t, c.Args(c, []string{"x"}))
 	assert.Error(t, c.Args(c, []string{}))
-}
-
-// TestReadmeFromRegistryArchive_EmptySearch verifies that empty search results return "".
-func TestReadmeFromRegistryArchive_EmptySearch(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		resp := map[string]interface{}{"packages": []interface{}{}}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(stdhttp.StatusOK)
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	client := registry.NewClient("", srv.URL)
-	result := readmeFromRegistryArchive(t.Context(), client, "unknown-pkg")
-	assert.Empty(t, result)
-}
-
-// TestReadmeFromRegistryArchive_NoMatch tests when search returns packages but none
-// match the requested name.
-func TestReadmeFromRegistryArchive_NoMatch(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		resp := map[string]interface{}{
-			"packages": []map[string]interface{}{
-				{"name": "other-pkg", "latestVersion": "1.0.0"},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(stdhttp.StatusOK)
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	client := registry.NewClient("", srv.URL)
-	result := readmeFromRegistryArchive(t.Context(), client, "test-pkg")
-	assert.Empty(t, result)
-}
-
-// TestReadmeFromRegistryArchive_DownloadError tests that a download failure returns "".
-func TestReadmeFromRegistryArchive_DownloadError(t *testing.T) {
-	var callCount int
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		callCount++
-		if callCount == 1 {
-			// First call: Search - return matching entry
-			resp := map[string]interface{}{
-				"packages": []map[string]interface{}{
-					{"name": "test-pkg", "latestVersion": "1.0.0"},
-				},
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_ = json.NewEncoder(w).Encode(resp)
-			return
-		}
-		// Second call: Download - return error
-		w.WriteHeader(stdhttp.StatusNotFound)
-	}))
-	defer srv.Close()
-
-	client := registry.NewClient("", srv.URL)
-	result := readmeFromRegistryArchive(t.Context(), client, "test-pkg")
-	assert.Empty(t, result)
 }
 
 // A bare name that is both a local component and an asset set shows the
@@ -258,12 +137,12 @@ func TestDoRegistryInfo_LocalComponentBeforeSameNamedSet(t *testing.T) {
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
-	require.NoError(t, doRegistryInfo(c, "memory", "http://127.0.0.1:1"))
+	require.NoError(t, doRegistryInfo(c, "memory"))
 	assert.Contains(t, out.String(), "memory store", "no component: the memory asset set")
 
 	require.NoError(t, os.MkdirAll(compDir+"/memory", 0750))
 	require.NoError(t, os.WriteFile(compDir+"/memory/README.md", []byte("# Memory Component\nKV store."), 0600))
 	out.Reset()
-	require.NoError(t, doRegistryInfo(c, "memory", "http://127.0.0.1:1"))
+	require.NoError(t, doRegistryInfo(c, "memory"))
 	assert.Contains(t, out.String(), "Memory Component")
 }

@@ -21,14 +21,15 @@ package cmd
 import (
 	"fmt"
 	"io"
-	stdhttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 )
 
 // installLocalFile installs a package from a local archive path.
@@ -129,11 +130,6 @@ var extractArchiveAbsDestFunc = filepath.Abs
 //nolint:gochecknoglobals // test-replaceable hook
 var extractFileIOCopyFunc = io.Copy
 
-// registryHTTPClient is the HTTP client for registry API calls (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var registryHTTPClient = &stdhttp.Client{Timeout: registryInstallInfoTimeout}
-
 // downloadRegistryArchive downloads and optionally verifies a registry package archive.
 func downloadRegistryArchive(info *packageInfo, name, version string) (string, func(), error) {
 	tmpDir, err := osMkdirTempInstallFunc("", "kdeps-install-*")
@@ -163,25 +159,31 @@ func downloadRegistryArchive(info *packageInfo, name, version string) (string, f
 	return archivePath, cleanup, nil
 }
 
-func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
+func doRegistryInstall(cmd *cobra.Command, pkg string) error {
 	kdeps_debug.Log("enter: doRegistryInstall")
 
 	if isLocalFilePath(pkg) {
 		return installLocalFile(cmd, pkg)
 	}
 
-	if strings.Contains(pkg, "/") {
+	name, version := parseRegistryPackageRef(pkg)
+	// owner/repo[:subdir] is a GitHub repository; owner/repo/name a formula.
+	if strings.Contains(pkg, "/") && (strings.HasPrefix(pkg, githubPrefix) || strings.Count(name, "/") != 2) {
 		return cloneFromRemote(strings.TrimPrefix(pkg, githubPrefix))
 	}
 
-	name, version := parseRegistryPackageRef(pkg)
-	info, err := resolvePackageInfo(name, baseURL)
+	info, err := resolvePackageInfo(processParent(cmd.Context()), name)
 	if err != nil {
 		return err
 	}
-	if version == "" {
-		version = info.LatestVersion
+	if info.AssetID != "" {
+		return runAssets(cmd, assetsetup.UpdateOptions{Items: []string{info.AssetID}})
 	}
+	if version != "" && version != info.LatestVersion {
+		return fmt.Errorf("%s: the registry has version %s, not %s", name, info.LatestVersion, version)
+	}
+	version = info.LatestVersion
+	_, name = formulas.SplitRef(name)
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Downloading %s@%s from registry...\n", name, version)
 

@@ -115,7 +115,8 @@ func TestExtractFileRegistry_CopyError(t *testing.T) {
 
 func TestDoRegistryInstall_InfoError(t *testing.T) {
 	cmd := &cobra.Command{}
-	err := doRegistryInstall(cmd, "nonexistent-pkg", "http://127.0.0.1:1")
+	useFormulas(t)
+	err := doRegistryInstall(cmd, "nonexistent-pkg")
 	require.Error(t, err)
 }
 
