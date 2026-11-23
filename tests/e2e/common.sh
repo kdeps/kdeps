@@ -46,15 +46,32 @@ export NULL_PATH
 # kill stops each target's whole process tree with taskkill /T first, then
 # calls the builtin; kill -0 (a liveness check) and job specs pass straight
 # through.
+#
+# A target that is this shell or one of its parents is never killed: Windows
+# reuses process ids, and taskkill /T on a reused id that names the shell
+# would end the whole suite (a CI shard then stops with exit code 3840).
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*)
+        _e2e_own_tree() {
+            local p=$$
+            while [ -n "$p" ] && [ "$p" -gt 1 ] && [ -r "/proc/$p/ppid" ]; do
+                echo "$p"
+                p=$(cat "/proc/$p/ppid" 2>/dev/null)
+            done
+        }
         kill() {
-            local a check=0
+            local a check=0 own
+            own=" $(_e2e_own_tree | tr '\n' ' ') "
+            local args=()
             for a in "$@"; do
                 [ "$a" = "-0" ] && check=1
+                case "$own" in
+                    *" $a "*) echo "=== kill: skipped pid $a, it is this shell or a parent" >&2; continue ;;
+                esac
+                args+=("$a")
             done
             if [ "$check" = 0 ] && command -v taskkill >/dev/null 2>&1; then
-                for a in "$@"; do
+                for a in "${args[@]}"; do
                     case "$a" in
                         -* | %*) ;;
                         *[!0-9]*) ;;
@@ -63,7 +80,7 @@ case "$(uname -s)" in
                     esac
                 done
             fi
-            builtin kill "$@"
+            builtin kill "${args[@]}"
         }
         ;;
 esac
@@ -557,6 +574,9 @@ source_isolated() {
         fi
     done
     outer=$(trap -p EXIT)
+    # Each script sets its own server pids; one left by an earlier script must
+    # not reach this script's cleanup trap.
+    unset KDEPS_PID SERVER_PID MOCK_PID
     procs0=$(_win_procs)
     # shellcheck disable=SC1090
     source "$file"

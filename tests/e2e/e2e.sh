@@ -55,6 +55,10 @@ echo ""
 # E2E_SHARD=k/n runs every n-th scenario starting at the k-th, so CI can
 # split the suite across runners. Unset runs them all.
 _scenario_idx=0
+_e2e_scenario=""
+# A TERM to this shell ends the suite with no test failure (exit code 3840 on
+# Windows); name the scenario that was running so the log shows where.
+trap 'echo "=== e2e shell got SIGTERM during ${_e2e_scenario:-setup}" >&2; exit 143' TERM
 
 scenario() {
     local i=$_scenario_idx
@@ -65,6 +69,7 @@ scenario() {
     # A start line per scenario: when a shard stalls and its step times out,
     # the log names the scenario that was running.
     echo "=== scenario $1 ($(date -u +%H:%M:%S))"
+    _e2e_scenario=$1
     source_isolated "$SCRIPT_DIR/$1" "$1"
 }
 
