@@ -46,6 +46,7 @@ Troubleshooting:
   kdeps config
   kdeps doctor
   kdeps install --verbose --debug NAME
+  kdeps run workflow.yaml --instrument=NAME
 
 Contributing:
   kdeps create URL [--no-fetch]
