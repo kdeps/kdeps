@@ -38,7 +38,8 @@ Each is a top-level `kdeps` command.
 | `kdeps update` | Download every registry again, then list the installed assets that have a newer version; installs nothing |
 | `kdeps upgrade` | Upgrade assets (no args: the profile and every installed asset), or an installed agent or component to its formula's version |
 | `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset with its version, state, shelf and context tokens; `kdeps list <shelf>` shows one shelf |
-| `kdeps submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
+| `kdeps create URL` | Print a formula for the package archive at URL: kdeps downloads it, computes sha256 and reads `kdeps.pkg.yaml`; `--no-fetch` skips the download |
+| `kdeps edit NAME...` | Open a formula in the local registry copy to test a change; prints the GitHub link to publish it |
 | `kdeps verify` | Run LLM-agnostic verification on a package directory |
 | `kdeps profile` | Choose what assets kdeps installs: `minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or sets and items; no name opens the picker. Items the new profile leaves out are removed |
 
@@ -67,7 +68,7 @@ kdeps info scraper-native
 kdeps info tools/read_file           # an asset: its purpose, where kdeps runs it, its state
 kdeps uninstall scraper-native
 kdeps upgrade scraper-native
-kdeps submit --tag v1.2.0
+kdeps create https://github.com/acme/scraper/archive/refs/tags/v1.2.0.tar.gz
 kdeps verify .
 
 # kdeps assets
@@ -88,8 +89,8 @@ A registry is a GitHub repository. Packages live in the author's own GitHub repo
 # 1. Tag a release in your repo
 git tag v1.2.0 && git push --tags
 
-# 2. Generate the formula YAML (downloads the tarball and computes SHA256)
-kdeps submit --tag v1.2.0
+# 2. Print the formula (downloads the archive, computes sha256, reads kdeps.pkg.yaml)
+kdeps create https://github.com/<owner>/<repo>/archive/refs/tags/v1.2.0.tar.gz
 
 # 3. Open a PR to https://github.com/kdeps/registry
 #    adding the printed formula as formulas/<your-package-name>.yaml

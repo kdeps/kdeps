@@ -100,6 +100,11 @@ func validPart(s string) bool {
 	return s != "" && s != "." && s != ".." && !strings.ContainsAny(s, `\: `)
 }
 
+// File is the path of formula name in registry's local copy.
+func File(root, registry, name string) string {
+	return filepath.Join(Dir(root, registry), formulasDir, name+".yaml")
+}
+
 // Dir is the local copy of registry under root (~/.kdeps/registries).
 func Dir(root, registry string) string {
 	return filepath.Join(root, filepath.FromSlash(registry))

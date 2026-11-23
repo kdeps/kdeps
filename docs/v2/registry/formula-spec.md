@@ -15,7 +15,7 @@ version: 1.2.0                         # required - semantic version
 type: agent                            # required - component | workflow | agency
 github: owner/repo                     # required - GitHub owner/repo containing the release
 tarball: https://github.com/owner/repo/archive/refs/tags/v1.2.0.tar.gz  # required
-sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps submit
+sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps create
 description: A one-line summary.       # required
 tags: [llm, chat]                      # optional - search keywords
 license: Apache-2.0                    # optional - SPDX identifier
@@ -30,7 +30,7 @@ license: Apache-2.0                    # optional - SPDX identifier
 | `type` | yes | `component`, `workflow`, or `agency`. Must match the manifest `kind` in the tarball. The asset types (`harness`, `event`, `action`, `preset`, `tool`, `recipe`, `model`, `template`) are reserved for kdeps's own assets. |
 | `github` | yes | `owner/repo` string. The repo containing the tagged release. |
 | `tarball` | yes | Full URL to the release tarball. Use GitHub's `/archive/refs/tags/v{version}.tar.gz` pattern. |
-| `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps submit --tag`. |
+| `sha256` | yes | Hex-encoded SHA256 of the tarball. Computed by `kdeps create`. |
 | `description` | yes | One sentence describing what the package does. |
 | `tags` | no | List of search keywords. Use lowercase, no spaces. |
 | `license` | no | SPDX license identifier (`MIT`, `Apache-2.0`, etc.). |
@@ -117,14 +117,13 @@ The tag must match the `version` field in the formula.
 
 ### 2. Generate the formula
 
-Run `kdeps submit` from your package directory:
+Run `kdeps create` with the release archive URL:
 
 ```bash
-cd my-package/
-kdeps submit --tag v1.2.0
+kdeps create https://github.com/<owner>/<repo>/archive/refs/tags/v1.2.0.tar.gz
 ```
 
-This downloads the tarball, computes the SHA256, and prints the formula YAML.
+This downloads the archive, computes the SHA256, reads `kdeps.pkg.yaml`, and prints the formula YAML. `--no-fetch` skips the download; fill in `sha256` and `type` yourself.
 
 ### 3. Submit a PR
 

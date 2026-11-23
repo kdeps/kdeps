@@ -20,6 +20,7 @@ import (
 	"os/exec"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 
 	"github.com/spf13/cobra"
 
@@ -29,22 +30,42 @@ import (
 func newEditCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newEditCmd")
 	return &cobra.Command{
-		Use:   "edit",
-		Short: "Edit the global kdeps configuration file (~/.kdeps/config.yaml)",
-		Long: `Open ~/.kdeps/config.yaml in your editor.
+		Use:   "edit NAME...",
+		Short: "Open a formula in your editor",
+		Long: `Open each formula NAME (name or owner/repo/name) in your editor, in the
+local copy of its registry under ~/.kdeps/registries. kdeps install reads the
+changed formula at once, so you can test it. kdeps update replaces the copy;
+publish the change on GitHub (kdeps prints the link).
 
-The editor is chosen from, in order:
-  1. $KDEPS_EDITOR
-  2. $VISUAL
-  3. $EDITOR
-  4. vi (fallback)`,
+The editor is $KDEPS_EDITOR, $VISUAL, $EDITOR, then vi. kdeps config --edit
+opens ~/.kdeps/config.yaml.`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: runEdit,
 	}
 }
 
-func runEdit(_ *cobra.Command, _ []string) error {
+func runEdit(cmd *cobra.Command, args []string) error {
 	kdeps_debug.Log("enter: runEdit")
+	for _, ref := range args {
+		f, err := findFormula(processParent(cmd.Context()), ref)
+		if err != nil {
+			return err
+		}
+		root, err := formulas.Root()
+		if err != nil {
+			return err
+		}
+		if err = launchEditorFunc(formulas.File(root, f.Registry, f.Name)); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "To publish the change, edit https://github.com/%s/blob/HEAD/formulas/%s.yaml\n",
+			f.Registry, f.Name)
+	}
+	return nil
+}
 
+// editConfig opens ~/.kdeps/config.yaml (kdeps config --edit).
+func editConfig() error {
 	path, err := prepareConfigForEdit()
 	if err != nil {
 		return err

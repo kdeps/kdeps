@@ -38,7 +38,7 @@ func TestDoRegistryVerify_CleanDir(t *testing.T) {
 	c.SetOut(&buf)
 	err := doRegistryVerify(c, dir)
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Ready to submit")
+	assert.Contains(t, buf.String(), "Ready to publish")
 }
 
 func TestDoRegistryVerify_WithErrors(t *testing.T) {

@@ -61,7 +61,7 @@ fi
 # --- no workflow.yaml: help -------------------------------------------------
 mkdir -p "$EP_DIR/empty"
 OUT=$(cd "$EP_DIR/empty" && "$KDEPS_BIN" < /dev/null 2>&1)
-if output_grep_fixed "kdeps [path] runs the workflow at path" "$OUT"; then
+if output_grep_fixed "Example usage:" "$OUT"; then
     test_passed "entry points - bare kdeps with no workflow.yaml prints help"
 else
     test_failed "entry points - bare kdeps with no workflow.yaml prints help" "$(printf '%s' "$OUT" | tail -c 400)"

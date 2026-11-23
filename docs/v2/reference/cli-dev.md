@@ -186,7 +186,7 @@ Print the kdeps setup: version and platform, the config file, the LLM backend an
 
 ```bash
 kdeps config          # print the setup
-kdeps config --edit   # open ~/.kdeps/config.yaml in your editor, as kdeps edit
+kdeps config --edit   # open ~/.kdeps/config.yaml in your editor (created when missing)
 ```
 
 ```text
@@ -206,17 +206,21 @@ Registries: /Users/me/.kdeps/registries
 
 ## `kdeps edit`
 
-Open the global kdeps configuration file (`~/.kdeps/config.yaml`) in your editor. Scaffolded if it does not exist.
+Open a formula in the local copy of its registry (`~/.kdeps/registries/<owner>/<repo>/formulas/<name>.yaml`). `kdeps install` reads the changed file at once, so you can test the change. `kdeps update` replaces the copy, so publish the change on GitHub: kdeps prints the link.
 
 ```bash
-kdeps edit [flags]
+kdeps edit invoice-bot                       # a formula by name
+KDEPS_EDITOR=code kdeps edit acme/tools/scraper
 ```
 
 **Editor resolution:** `$KDEPS_EDITOR` > `$VISUAL` > `$EDITOR` > `vi`
 
+## `kdeps commands`
+
+List every command with its one-line summary. `kdeps`, `kdeps help` and `kdeps --help` print the short help; `kdeps help COMMAND` prints the full help of one command.
+
 ```bash
-kdeps edit
-KDEPS_EDITOR=code kdeps edit                # Open in VS Code
+kdeps commands
 ```
 
 ---

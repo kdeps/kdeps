@@ -64,5 +64,5 @@ func TestRoot_NothingToRunPrintsHelp(t *testing.T) {
 	require.NoError(t, f.Close())
 	data, err := os.ReadFile(out)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "kdeps [path] runs the workflow at path")
+	assert.Contains(t, string(data), "Example usage:")
 }

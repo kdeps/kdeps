@@ -47,7 +47,7 @@ func TestRootEntry_NoWorkflowPrintsHelp(t *testing.T) {
 	root.SetErr(&out)
 	root.SetArgs(nil)
 	require.NoError(t, root.Execute())
-	assert.Contains(t, out.String(), "kdeps [path] runs the workflow at path")
+	assert.Contains(t, out.String(), "Example usage:")
 	assert.NotContains(t, out.String(), "--agent-loop")
 }
 

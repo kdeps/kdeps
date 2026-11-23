@@ -111,5 +111,37 @@ else
     test_failed "formula registries - kdeps config" "$OUT"
 fi
 
+# kdeps create reads the manifest of a served release archive.
+mkdir -p "$FR_DIR/rel/invoice-bot-1.0.0"
+cp "$FR_DIR/pkg/kdeps.pkg.yaml" "$FR_DIR/pkg/workflow.yaml" "$FR_DIR/rel/invoice-bot-1.0.0/"
+(cd "$FR_DIR/rel" && tar -czf "$FR_DIR/www/release.tar.gz" invoice-bot-1.0.0)
+OUT=$(fr create "http://127.0.0.1:$FR_PORT/release.tar.gz")
+if output_grep "^name: invoice-bot" "$OUT" && output_grep "^type: workflow" "$OUT" && output_grep "^sha256: [0-9a-f]{64}" "$OUT"; then
+    test_passed "formula registries - create writes a formula from an archive's manifest"
+else
+    test_failed "formula registries - create" "$OUT"
+fi
+
+OUT=$(fr create --no-fetch "https://github.com/acme/invoice-bot/archive/refs/tags/v2.0.0.tar.gz")
+if output_grep "^version: 2.0.0" "$OUT" && output_grep "^github: acme/invoice-bot" "$OUT"; then
+    test_passed "formula registries - create --no-fetch names the package from a GitHub release URL"
+else
+    test_failed "formula registries - create --no-fetch" "$OUT"
+fi
+
+OUT=$(KDEPS_EDITOR=true fr edit acme/tools/scraper)
+if output_grep "github.com/acme/tools/blob/HEAD/formulas/scraper.yaml" "$OUT"; then
+    test_passed "formula registries - edit opens the formula and prints where to publish the change"
+else
+    test_failed "formula registries - edit" "$OUT"
+fi
+
+OUT=$(fr commands)
+if output_grep "^create +" "$OUT" && output_grep "^upgrade +" "$OUT"; then
+    test_passed "formula registries - kdeps commands lists every command"
+else
+    test_failed "formula registries - kdeps commands" "$OUT"
+fi
+
 echo ""
 echo "Formula registry E2E tests complete."
