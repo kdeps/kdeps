@@ -60,7 +60,7 @@ func sourceHeaders(t *testing.T) map[string]Header {
 	return out
 }
 
-// Every requires: entry names an item kdeps ships, so kdeps update can
+// Every requires: entry names an item kdeps ships, so kdeps upgrade can
 // install it.
 func TestAssetGraph_EveryRequiresEdgeResolves(t *testing.T) {
 	headers := sourceHeaders(t)
@@ -75,7 +75,7 @@ func TestAssetGraph_EveryRequiresEdgeResolves(t *testing.T) {
 var toolCallRoute = regexp.MustCompile(`tools\.kdeps\.io/v1/tools/([A-Za-z0-9_-]+)/call`)
 
 // Every component reaches the kdeps API through the tool it calls, and
-// requires that tool so kdeps update installs it with the component.
+// requires that tool so kdeps upgrade installs it with the component.
 func TestAssetGraph_EveryComponentRequiresTheToolItCalls(t *testing.T) {
 	headers := sourceHeaders(t)
 	src := sourceFS()

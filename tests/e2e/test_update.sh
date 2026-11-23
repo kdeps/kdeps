@@ -9,7 +9,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-echo "Testing kdeps update..."
+echo "Testing kdeps update and upgrade..."
 
 if ! command -v python3 >/dev/null 2>&1; then
     test_skipped "update - python3 not available for the local asset server"
@@ -53,10 +53,11 @@ mkdir -p "$UPD_DIR/reg/registry-HEAD/formulas" "$UPD_PUB/kdeps/registry/tar.gz"
 printf 'name: e2e\nversion: 1.0.0\ntype: workflow\ntarball: http://127.0.0.1/e2e.kdeps\n' > "$UPD_DIR/reg/registry-HEAD/formulas/e2e.yaml"
 (cd "$UPD_DIR/reg" && tar -czf "$UPD_PUB/kdeps/registry/tar.gz/HEAD" registry-HEAD)
 
-# upd runs the kdeps asset command for: --list (list --assets), --remove (uninstall), else update.
+# upd runs the kdeps asset command for: --check (update), --list (list --assets), --remove (uninstall), else upgrade.
 upd() {
-    local sub=(update)
+    local sub=(upgrade)
     case "${1:-}" in
+    --check) sub=(update); shift ;;
     --list) sub=(list --assets); shift ;;
     --remove) sub=(uninstall); shift ;;
     esac
@@ -66,14 +67,14 @@ upd() {
 
 OUT=$(upd --check)
 if output_grep "tools/md5_file +available +[0-9.]+ -> 2\.1\.0" "$OUT" && output_grep "harness/safety +available" "$OUT" && [ ! -f "$UPD_ROOT/lock.json" ]; then
-    test_passed "update --check lists updates without installing"
+    test_passed "update downloads the registries and lists updates without installing"
 else
     test_failed "update --check" "$OUT"
 fi
 
 OUT=$(upd)
 if output_grep "tools/md5_file +install" "$OUT" && grep -q "Updated md5 description" "$UPD_ROOT/tools/md5_file.yaml" 2>/dev/null; then
-    test_passed "update installs newer versions"
+    test_passed "upgrade installs newer versions"
 else
     test_failed "update" "$OUT"
 fi
@@ -166,7 +167,7 @@ h.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), functools.partial(h.Simpl
 
     if OUT=$(fr env KDEPS_ASSETS_URL=off "$KDEPS_BIN" llamafile list); then
         test_failed "first run offline refuses to start" "$OUT"
-    elif output_grep "run kdeps update" "$OUT"; then
+    elif output_grep "run kdeps (install|upgrade)" "$OUT"; then
         test_passed "first run offline refuses to start"
     else
         test_failed "first run offline message" "$OUT"

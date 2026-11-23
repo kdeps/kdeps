@@ -70,7 +70,7 @@ A missing `tesseract` binary fails the call: the API returns `400`, and the comp
 
 ## The component itself
 
-`kdeps update components/ocr_image` refreshes it. To change how it runs, copy it into your project's `components/ocr_image/component.yaml` - a local component with the same name wins:
+`kdeps upgrade components/ocr_image` refreshes it. To change how it runs, copy it into your project's `components/ocr_image/component.yaml` - a local component with the same name wins:
 
 ```yaml
 # components/ocr_image/component.yaml (as shipped, abridged)

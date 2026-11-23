@@ -69,7 +69,7 @@ Example: `cv-matcher`, `research-pipeline`
 
 ### kdeps assets
 
-kdeps publishes its own versioned assets through the same registry. The assets are harness sections, events, actions, presets, tool definitions, LLM server recipes, model registries, project templates, schemas, components, and providers. CI writes one formula for each item, with the name `kdeps-<set>-<name>`. The `tarball` is the YAML file of the item in `kdeps/packages`, not an archive. `kdeps update` installs and updates them, and the items under `requires:` of each item. The formula has those items as `dependencies`. The asset index records each item's [shelf](/reference/glossary#shelf) as `category`.
+kdeps publishes its own versioned assets through the same registry. The assets are harness sections, events, actions, presets, tool definitions, LLM server recipes, model registries, project templates, schemas, components, and providers. CI writes one formula for each item, with the name `kdeps-<set>-<name>`. The `tarball` is the YAML file of the item in `kdeps/packages`, not an archive. `kdeps upgrade` installs and updates them, and the items under `requires:` of each item. The formula has those items as `dependencies`. The asset index records each item's [shelf](/reference/glossary#shelf) as `category`.
 
 ```yaml
 # formulas/kdeps-components-web_search.yaml  (written by kdeps CI, not by hand)

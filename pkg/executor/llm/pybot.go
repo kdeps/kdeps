@@ -74,7 +74,7 @@ func parsePybotSpec(data []byte) (pybotSpec, error) {
 func loadPybotSpec() (pybotSpec, error) {
 	data := readModelRegistry(pybotRegistryItem)
 	if data == nil {
-		return pybotSpec{}, errors.New("models/pybot is not installed; run kdeps update models")
+		return pybotSpec{}, errors.New("models/pybot is not installed; run kdeps install models")
 	}
 	return parsePybotSpec(data)
 }
@@ -87,7 +87,7 @@ var pybotMu sync.Mutex
 
 // ensurePybot returns PyBot's folder under modelsDir, downloading and
 // extracting the pinned tarball the first time. It writes the serve script
-// from the asset on every call, so a kdeps update takes effect.
+// from the asset on every call, so a kdeps upgrade takes effect.
 func ensurePybot(ctx context.Context, modelsDir string, offline bool) (string, error) {
 	spec, err := loadPybotSpec()
 	if err != nil {

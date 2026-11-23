@@ -41,7 +41,7 @@ part of the alias so you can trade size for quality:
 
 ```bash
 kdeps llamafile list      # all known aliases (the registry has 100+ models)
-kdeps update models       # newest registry (harvested nightly from HuggingFace)
+kdeps upgrade models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 A `chat:` resource's `model:` also accepts a direct URL, an absolute or relative path to
@@ -124,7 +124,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 
 ## OpenAI-compatible providers
 
-OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps. Each is a file in the `providers` asset set (`kdeps update providers`) that declares the chat endpoint and the key's source. kdeps registers a chat backend with that name and exports the key from `config.yaml`. It lists the provider in setup, in `kdeps doctor`, and in the permitted values of the `backend:` field. The free text models of OpenRouter are in `models/openrouter` (collected each day; `kdeps update models/openrouter`). Its provider file sets no `defaultModel`, so OpenRouter stays out of the auto-router's cloud fallback.
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps. Each is a file in the `providers` asset set (`kdeps upgrade providers`) that declares the chat endpoint and the key's source. kdeps registers a chat backend with that name and exports the key from `config.yaml`. It lists the provider in setup, in `kdeps doctor`, and in the permitted values of the `backend:` field. The free text models of OpenRouter are in `models/openrouter` (collected each day; `kdeps upgrade models/openrouter`). Its provider file sets no `defaultModel`, so OpenRouter stays out of the auto-router's cloud fallback.
 
 ```text
 providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath

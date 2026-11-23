@@ -110,7 +110,7 @@ kdeps run my-agent/workflow.yaml                       # [4/5] prints: Every cha
 
 ## Stock recipes
 
-Stock recipes are the `recipes` asset set, installed and updated by `kdeps update` (`kdeps llm list`):
+Stock recipes are the `recipes` asset set, installed and updated by `kdeps upgrade` (`kdeps llm list`):
 
 | ID | Engine | Model strategy | GPU | Notes |
 |----|--------|----------------|-----|-------|

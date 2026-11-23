@@ -45,7 +45,7 @@ chat:
 
 ```bash
 kdeps llamafile list          # show known model aliases and sizes
-kdeps update models           # newest registry (harvested nightly from HuggingFace)
+kdeps upgrade models           # newest registry (harvested nightly from HuggingFace)
 ```
 
 Known aliases and their sizes:

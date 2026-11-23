@@ -126,7 +126,7 @@ func ensureRegistryLoaded() {
 	loadLlamafileRegistry()
 }
 
-// ReloadRegistry re-reads the registry (after `kdeps update models` or a
+// ReloadRegistry re-reads the registry (after `kdeps upgrade models` or a
 // local registration).
 func ReloadRegistry() {
 	llamafileRegistryLoaded = false

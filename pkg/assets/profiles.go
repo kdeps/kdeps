@@ -137,7 +137,7 @@ func ProfileByName(name string) (Profile, error) {
 	return Profile{}, fmt.Errorf("unknown profile %q (profiles: %s, custom)", name, strings.Join(ProfileNames(), ", "))
 }
 
-// Targets lists what the profile installs as kdeps update arguments: sets,
+// Targets lists what the profile installs as kdeps upgrade arguments: sets,
 // then the published items required by the RequiredOf sets, then Items.
 func (p Profile) Targets(idx Index) []string {
 	if p.All {
@@ -158,7 +158,7 @@ func (p Profile) Targets(idx Index) []string {
 }
 
 // Select installs targets and records them in the lock as the selection a
-// bare kdeps update keeps current. Downloaded items the selection does not
+// bare kdeps upgrade keeps current. Downloaded items the selection does not
 // cover are dropped (required ones stay), so a smaller profile loads less.
 func Select(ctx context.Context, root string, c *Client, profile string, targets []string) ([]Change, error) {
 	changes, err := Update(ctx, root, c, targets, false)

@@ -35,7 +35,8 @@ Each is a top-level `kdeps` command.
 | `kdeps info` | Show what a kdeps asset is for and where it runs (`kdeps info tools/read_file`, `kdeps info events`), a formula and where it comes from, a local component or agent, or a GitHub repo's README |
 | `kdeps install` | Install assets (`set`, `set/name[@version]`, with what they require), or a package from a formula (`name`, `owner/repo/name`; `@version` must be the formula's version), a GitHub repo (`owner/repo`; `github:owner/repo` when the owner is named like an asset set), or a local archive (`.kdeps` `.kagency` `.komponent`) |
 | `kdeps uninstall` | Remove assets, or an installed agent or component |
-| `kdeps update` | Update assets (no args: the profile and every installed asset; `--check` lists updates), or an installed agent or component |
+| `kdeps update` | Download every registry again, then list the installed assets that have a newer version; installs nothing |
+| `kdeps upgrade` | Upgrade assets (no args: the profile and every installed asset), or an installed agent or component to its formula's version |
 | `kdeps list` | List installed and local components and agents, each with the tokens its agent-mode tool definition adds to the LLM context; `--assets` lists every asset with its version, state, shelf and context tokens; `kdeps list <shelf>` shows one shelf |
 | `kdeps submit` | Generate a registry formula YAML for submitting a package via GitHub PR |
 | `kdeps verify` | Run LLM-agnostic verification on a package directory |
@@ -43,7 +44,7 @@ Each is a top-level `kdeps` command.
 
 ## LLM context tokens
 
-`kdeps install`, `kdeps update` and `kdeps list` estimate what each item adds to the model's context (about 4 bytes per token). A package installed from the registry is a tool of a chat loop, so its name, description, and input schema count:
+`kdeps install`, `kdeps upgrade` and `kdeps list` estimate what each item adds to the model's context (about 4 bytes per token). A package installed from the registry is a tool of a chat loop, so its name, description, and input schema count:
 
 ```text
 $ kdeps install scraper-native
@@ -65,14 +66,14 @@ kdeps list
 kdeps info scraper-native
 kdeps info tools/read_file           # an asset: its purpose, where kdeps runs it, its state
 kdeps uninstall scraper-native
-kdeps update scraper-native
+kdeps upgrade scraper-native
 kdeps submit --tag v1.2.0
 kdeps verify .
 
 # kdeps assets
 kdeps install tools/bash_exec      # one asset, with what it requires; prints ~tokens it adds to the LLM context
-kdeps update                       # every installed asset to its newest version
-kdeps update --check               # what would change
+kdeps update                       # newest formulas; lists what kdeps upgrade would change
+kdeps upgrade                      # every installed asset to its newest version
 kdeps uninstall presets/frugal
 kdeps list --assets                # version, state, shelf, ~context tokens
 kdeps list rag                     # one shelf; the id stays tools/embedding_search

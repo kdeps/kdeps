@@ -37,7 +37,7 @@ Reply with a number, or with your own answer.
 
 ## Tool definitions
 
-Each built-in tool is a YAML definition in the `tools` asset set. `kdeps update`
+Each built-in tool is a YAML definition in the `tools` asset set. `kdeps upgrade`
 installs it. The definition has the description, category, usage notes, and
 parameter schema that the model sees. Most built-ins also have their
 implementation in the same file. The implementation is an `http:` or `python:`
@@ -192,7 +192,7 @@ http:
   paths: [file]
 ```
 
-Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index; a missing level gives nothing). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. `kdeps update` rejects an `http:` block whose templates do not parse, so a broken download never replaces a working tool.
+Template helpers: `json` (encode), `fromJSON` (decode a string argument), `urlquery`, `urlpath`, `trimSuffix`, `int`, `add`, `min`, and `get` (nested lookup by key or index; a missing level gives nothing). A non-2xx status returns `<tool>: API error <status>: <body>` to the model. `kdeps upgrade` rejects an `http:` block whose templates do not parse, so a broken download never replaces a working tool.
 
 ## Declared SQL tools
 

@@ -215,7 +215,7 @@ func TestRegistryUninstall_ViaCobraCmd(t *testing.T) {
 	assert.Contains(t, out.String(), "Uninstalled agent")
 }
 
-// TestRegistryUpdate_ViaCobraCmd exercises newRegistryUpdateCmd RunE.
+// TestRegistryUpdate_ViaCobraCmd exercises newRegistryUpgradeCmd RunE.
 func TestRegistryUpdate_ViaCobraCmd(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
@@ -237,7 +237,7 @@ func TestRegistryUpdate_ViaCobraCmd(t *testing.T) {
 	regCmd.SetOut(&out)
 	regCmd.SetErr(&out)
 	useFormulas(t, packageFormula("cobra-agent2", "1.0.0", "workflow", srv.URL+"/cobra-agent2.kdeps"))
-	regCmd.SetArgs([]string{"update", "cobra-agent2"})
+	regCmd.SetArgs([]string{"upgrade", "cobra-agent2"})
 
 	require.NoError(t, regCmd.Execute())
 	assert.Contains(t, out.String(), "Removing existing installation")

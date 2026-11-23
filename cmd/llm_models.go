@@ -39,7 +39,7 @@ func newLLMModelsCmd() *cobra.Command {
 kdeps llamafile list).
 
 Update the registries:
-  kdeps update models
+  kdeps upgrade models
 
 Filter:
   kdeps llm models --type llamafile
@@ -74,7 +74,7 @@ func runLLMModels(kind string) error {
 	}
 
 	lfN, ggN := len(llm.ListLlamafileMappings()), len(llm.ListGGUFMappings())
-	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps update models)\n\n", lfN, ggN)
+	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (upgrade: kdeps upgrade models)\n\n", lfN, ggN)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, llmModelsPad, ' ', 0)
 	fmt.Fprintln(w, "TYPE\tALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS")

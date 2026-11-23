@@ -20,7 +20,7 @@
 // events, actions, presets, tool definitions, slash commands, LLM
 // server recipes, model registries and project templates. None of them is
 // compiled into the binary: they are published to the registry and installed
-// into ~/.kdeps/assets by kdeps update (Ensure runs it on first start). A
+// into ~/.kdeps/assets by kdeps upgrade (Ensure runs it on first start). A
 // source directory ($KDEPS_ASSETS_SRC, the repo's assets/ under go test, or
 // the repo's assets/ when the process starts inside this module) sits under
 // the store, for developing assets. An empty $KDEPS_ASSETS_SRC disables the
@@ -88,7 +88,7 @@ type Header struct {
 	// ">=2.59.0". Empty means any.
 	Kdeps string `yaml:"kdeps,omitempty" json:"kdeps,omitempty"`
 	// Requires maps each item this one needs ("<set>/<name>") to the versions
-	// it accepts (">=X.Y.Z", or "" for any). kdeps update installs them with it.
+	// it accepts (">=X.Y.Z", or "" for any). kdeps upgrade installs them with it.
 	Requires map[string]string `yaml:"requires,omitempty" json:"requires,omitempty"`
 }
 

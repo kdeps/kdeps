@@ -22,6 +22,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
+	"errors"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"testing"
@@ -129,4 +131,23 @@ func TestRefreshRegistries_RealSource(t *testing.T) {
 
 	srv.Close()
 	require.ErrorContains(t, refreshRegistries(cmd), "update registries:")
+}
+
+type failingUpdate struct{ fakeFormulas }
+
+func (failingUpdate) Update(context.Context) error { return errors.New("offline") }
+
+// kdeps upgrade downloads the registries only for a formula package.
+func TestRunRegistryUpgrade_RegistriesOnlyForFormulas(t *testing.T) {
+	orig := formulaSource
+	t.Cleanup(func() { formulaSource = orig })
+	formulaSource = func() (formulaFinder, error) { return failingUpdate{}, nil }
+
+	cmd, _ := searchCmd()
+	err := runRegistryUpgrade(cmd, []string{"./components/missing"})
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "update registries")
+
+	err = runRegistryUpgrade(cmd, []string{"invoice-bot"})
+	require.ErrorContains(t, err, "update registries: offline")
 }

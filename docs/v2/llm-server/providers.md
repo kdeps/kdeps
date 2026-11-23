@@ -2,7 +2,7 @@
 
 Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing, allowlists, and streaming.
 
-These OpenAI-compatible providers are YAML files in the `providers` asset set, not code: OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie. `kdeps update providers` refreshes their endpoints. To add a provider, add a file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
+These OpenAI-compatible providers are YAML files in the `providers` asset set, not code: OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie. `kdeps upgrade providers` refreshes their endpoints. To add a provider, add a file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
 
 Every model here is probabilistic: the same prompt can return different text each call. Determinism comes from the [workflow](/workflow/) around the model, not from the model. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 
@@ -189,7 +189,7 @@ llm:
 
 ## OpenRouter
 
-One backend for the models OpenRouter hosts. `/model list` shows the free ones: text models whose prompt and completion prices are both zero. That list is `models/openrouter`, harvested daily from the public models API (`make harvest-openrouter`) and refreshed with `kdeps update models/openrouter`. A model you name yourself still works, including a paid id and `openrouter/free`. OpenRouter has no single default model, so it stays out of auto-router's cloud fallback.
+One backend for the models OpenRouter hosts. `/model list` shows the free ones: text models whose prompt and completion prices are both zero. That list is `models/openrouter`, harvested daily from the public models API (`make harvest-openrouter`) and refreshed with `kdeps upgrade models/openrouter`. A model you name yourself still works, including a paid id and `openrouter/free`. OpenRouter has no single default model, so it stays out of auto-router's cloud fallback.
 
 ```yaml
 # ~/.kdeps/config.yaml

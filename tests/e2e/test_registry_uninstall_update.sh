@@ -22,7 +22,7 @@
 # Tests:
 #   - kdeps uninstall removes an installed agent
 #   - kdeps uninstall errors on unknown package
-#   - kdeps update errors when package not installed
+#   - kdeps upgrade errors when package not installed
 #   - kdeps update --help displays usage
 #   - kdeps uninstall --help displays usage
 #   - kdeps --help lists install, uninstall and update
@@ -51,12 +51,12 @@ else
     test_failed "update --help shows usage" "output: $OUTPUT"
 fi
 
-# --- Test: kdeps --help lists the uninstall and update commands ---
+# --- Test: kdeps --help lists the uninstall, update and upgrade commands ---
 OUTPUT=$("$KDEPS_BIN" --help 2>&1) || true
-if output_grep_fixed "uninstall" "$OUTPUT" && output_grep_fixed "update" "$OUTPUT"; then
-    test_passed "kdeps --help lists uninstall and update"
+if output_grep_fixed "uninstall" "$OUTPUT" && output_grep_fixed "update" "$OUTPUT" && output_grep_fixed "upgrade" "$OUTPUT"; then
+    test_passed "kdeps --help lists uninstall, update and upgrade"
 else
-    test_failed "kdeps --help lists uninstall and update" "output: $OUTPUT"
+    test_failed "kdeps --help lists uninstall, update and upgrade" "output: $OUTPUT"
 fi
 
 # --- Test: uninstall a locally installed agent ---
@@ -94,11 +94,11 @@ rm -rf "$AGENTS_DIR2"
 # --- Test: update a non-existent package returns error ---
 AGENTS_DIR3=$(mktemp -d)
 EXIT_CODE=0
-OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR3" "HOME=$AGENTS_DIR3" "$KDEPS_BIN" update "no-such-pkg-xyz" 2>&1) || EXIT_CODE=$?
+OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR3" "HOME=$AGENTS_DIR3" "$KDEPS_BIN" upgrade "no-such-pkg-xyz" 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "not installed|install|error" "$OUTPUT"; then
-    test_passed "registry update - error when package not installed"
+    test_passed "registry upgrade - error when package not installed"
 else
-    test_failed "registry update - error when package not installed" "exit=$EXIT_CODE output=$OUTPUT"
+    test_failed "registry upgrade - error when package not installed" "exit=$EXIT_CODE output=$OUTPUT"
 fi
 rm -rf "$AGENTS_DIR3"
 
@@ -109,11 +109,11 @@ mkdir -p "$AGENTS_DIR4/$AGENT4"
 
 EXIT_CODE=0
 OUTPUT=$(echo "" | env "KDEPS_AGENTS_DIR=$AGENTS_DIR4" "HOME=$AGENTS_DIR4" \
-    "$KDEPS_BIN" update "${AGENT4}@9.9.9" --registry "http://127.0.0.1:19999" 2>&1) || EXIT_CODE=$?
+    "$KDEPS_BIN" upgrade "${AGENT4}@9.9.9" 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ] && output_grep_i "Removing existing|download|connect|error" "$OUTPUT"; then
-    test_passed "registry update - version-pinned update removes existing before downloading"
+    test_passed "registry upgrade - version-pinned upgrade removes existing before downloading"
 else
-    test_failed "registry update - version-pinned update removes existing before downloading" "exit=$EXIT_CODE output=$OUTPUT"
+    test_failed "registry upgrade - version-pinned upgrade removes existing before downloading" "exit=$EXIT_CODE output=$OUTPUT"
 fi
 rm -rf "$AGENTS_DIR4"
 

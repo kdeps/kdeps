@@ -120,6 +120,15 @@ func Fetched(root, registry string) bool {
 	return err == nil
 }
 
+// FetchedAt is when registry's local copy was downloaded (RFC 3339), or "".
+func FetchedAt(root, registry string) string {
+	data, err := os.ReadFile(filepath.Join(Dir(root, registry), fetchedFile))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
 // Fetch downloads registry's formulas into root, replacing the local copy.
 func Fetch(ctx context.Context, root, registry string) error {
 	if !ValidRegistry(registry) {

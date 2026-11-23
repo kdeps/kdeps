@@ -128,7 +128,7 @@ func GetDefaults() (*ExecutorDefaults, error) {
 	}
 	data, err := readDefaults()
 	if err != nil {
-		return &ExecutorDefaults{}, fmt.Errorf("read executor defaults (run kdeps update): %w", err)
+		return &ExecutorDefaults{}, fmt.Errorf("read executor defaults (run kdeps upgrade): %w", err)
 	}
 	var d ExecutorDefaults
 	if err = yaml.Unmarshal(data, &d); err != nil {

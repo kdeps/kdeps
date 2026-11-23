@@ -40,6 +40,7 @@ kdeps run workflow.yaml
 | `kdeps validate` | [Dev commands](/reference/cli-dev#kdeps-validate) | Validate workflow config |
 | `kdeps test` | [Dev commands](/reference/cli-dev#kdeps-test) | Run the workflow's `evals:` in-process, no port bound |
 | `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |
+| `kdeps config` | [Dev commands](/reference/cli-dev#kdeps-config) | Print the setup: version, backend, models, folders, registries |
 | `kdeps edit` | [Dev commands](/reference/cli-dev#kdeps-edit) | Edit global config |
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
 | `kdeps instrument` | [Dev commands](/reference/cli-dev#kdeps-instrument) | List, show and remove sessions recorded with `--instrument` |
@@ -149,7 +150,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_ON_ERROR_ACTION` | Default error action: `fail`, `continue`, `retry` |
 | `KDEPS_ON_ERROR_MAX_RETRIES` | Default max retries for `retry` action |
 | `KDEPS_ON_ERROR_RETRY_DELAY` | Default delay between retries |
-| `KDEPS_ASSETS_URL` | Where `kdeps update` downloads from (a mirror laid out like `assets/` in kdeps/packages); `off` disables asset downloads |
+| `KDEPS_ASSETS_URL` | Where `kdeps install` and `kdeps upgrade` download assets from (a mirror laid out like `assets/` in kdeps/packages); `off` disables asset downloads |
 | `KDEPS_ASSETS_DIR` | Where downloaded assets and `lock.json` live (default `~/.kdeps/assets`) |
 | `KDEPS_ASSETS_SRC` | A directory laid out like `assets/` in the kdeps repo, loaded under the store; to develop assets. Set empty to turn off the automatic checkout fallback |
 | `KDEPS_PROFILE` | Install profile for a first run without a terminal: `minimum`, `workflows`, `agent`, `deploy`, `full`, or a comma-separated list of sets and `set/name` items; unset installs only the sets the command loads |
