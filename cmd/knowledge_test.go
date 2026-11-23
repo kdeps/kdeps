@@ -80,13 +80,13 @@ func TestKnowledgeCmd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "shared/Graph recall.md")
 
-	out, err = runKnowledge(t, "check-update")
+	out, err = runKnowledge(t, "build")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Graph is current.")
+	assert.Regexp(t, `\d+ notes \(0 changed\)`, out, "a current graph re-reads nothing")
 
 	require.NoError(t, os.WriteFile(filepath.Join(vault, "shared", "One home.md"),
 		[]byte("---\nsummary: One canonical home per fact.\n---\n"), 0o600))
-	out, err = runKnowledge(t, "check-update")
+	out, err = runKnowledge(t, "build")
 	require.NoError(t, err)
 	assert.Regexp(t, `\d+ notes \(1 changed\)`, out)
 

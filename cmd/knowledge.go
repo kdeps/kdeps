@@ -54,7 +54,6 @@ model pass runs only with build --extract) or off.
 
   kdeps knowledge init [folder]     scaffold projects/, shared/, inbox/, archive/, KDEPS.md (default ~/.kdeps/notes)
   kdeps knowledge build             (re)build the link graph, changed notes only
-  kdeps knowledge check-update      rebuild only when vault notes changed externally
   kdeps knowledge check             structural one-home violations: duplicate summaries, canonical ids, dangling links
   kdeps knowledge recall "query"    show what recall would give a chat
   kdeps knowledge explain "query"   show matching edges with the file and line each one came from
@@ -73,7 +72,6 @@ frontmatter gives a fact a stable id.`,
 	c.AddCommand(
 		newKnowledgeInitCmd(),
 		newKnowledgeBuildCmd(),
-		newKnowledgeCheckUpdateCmd(),
 		newKnowledgeCheckCmd(),
 		newKnowledgeRecallCmd(),
 		newKnowledgeExplainCmd(),
@@ -255,43 +253,6 @@ func runKnowledgeExtract(
 	}
 	fmt.Fprintf(out, "%d notes read (%d failed), %d were pending\n", st.Done+st.Failed, st.Failed, st.Pending)
 	return nil
-}
-
-func newKnowledgeCheckUpdateCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "check-update",
-		Short: "Rebuild the graph only when vault notes changed externally",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			v, _, err := knowledgeTarget(cmd)
-			if err != nil {
-				return err
-			}
-			dir := knowledge.GraphDir(v.Root)
-			start := time.Now()
-			changed, st, err := knowledge.CheckUpdate(cmd.Context(), v, dir, time.Now())
-			if err != nil {
-				return err
-			}
-			if !changed {
-				fmt.Fprintln(cmd.OutOrStdout(), "Graph is current.")
-				return nil
-			}
-			fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"%d notes (%d changed), %d code files -> %d nodes, %d edges, %d communities in %s\n",
-				st.Notes,
-				st.Changed,
-				st.CodeFiles,
-				st.Nodes,
-				st.Edges,
-				st.Communities,
-				time.Since(start).Round(time.Millisecond),
-			)
-			fmt.Fprintf(cmd.OutOrStdout(), "Graph: %s\n", knowledge.GraphPath(dir))
-			printPendingExtraction(cmd.OutOrStdout(), v, dir)
-			return nil
-		},
-	}
 }
 
 func printKnowledgeBuild(
