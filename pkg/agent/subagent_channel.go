@@ -194,12 +194,3 @@ func pickLargeFreeModel() string {
 	}
 	return ids[n%len(ids)]
 }
-
-// localExtractUnserved reports a local backend that has no server URL yet.
-// Ollama is called without one. A cloud backend is never unserved here.
-func localExtractUnserved(backend, baseURL string) bool {
-	if baseURL != "" || backend == "ollama" {
-		return false
-	}
-	return backend == "" || backend == "file" || backend == "gguf"
-}

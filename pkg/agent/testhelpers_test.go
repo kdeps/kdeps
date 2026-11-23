@@ -22,13 +22,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/config"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/tools"
@@ -136,37 +131,6 @@ func makeTestLoop() *Loop {
 		config:  Config{Model: "test-model"},
 		session: NewSession(0),
 	}
-}
-
-// knowledgeLoop returns a loop with a sample vault whose card covers the
-// test's working directory, and its graph built.
-func knowledgeLoop(t *testing.T) (*Loop, string) {
-	t.Helper()
-	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
-	vault := t.TempDir()
-	wd := t.TempDir()
-	t.Chdir(wd)
-	files := map[string]string{
-		"projects/app/app.md":                        "---\ntype: project\nstatus: active\nnext: ship\nupdated: 2026-10-01\n---\n| Source | Path |\n|---|---|\n| repo | " + wd + " |\n",
-		"projects/app/decisions/Billing decision.md": "---\ntype: decision\nsummary: Bill monthly.\n---\nSee [[Stripe gotcha]].\n",
-		"shared/Stripe gotcha.md":                    "---\ntype: gotcha\nsummary: Webhooks retry for 3 days.\n---\n",
-		"KDEPS.md":                                   "# Workspace routing\n",
-	}
-	for p, c := range files {
-		abs := filepath.Join(vault, filepath.FromSlash(p))
-		require.NoError(t, os.MkdirAll(filepath.Dir(abs), 0o750))
-		require.NoError(t, os.WriteFile(abs, []byte(c), 0o600))
-	}
-	l := &Loop{registry: tools.NewRegistry(), session: NewSession(10)}
-	l.knowledge = newKnowledgeState(t.Context(), &config.KnowledgeConfig{Vault: vault})
-	require.NotNil(t, l.knowledge)
-	require.NoError(t, l.knowledge.build())
-	l.registerKnowledgeTools()
-	t.Cleanup(func() {
-		l.knowledge.waitBuilds()
-		l.knowledge.extracts.Wait()
-	})
-	return l, vault
 }
 
 // transientStreamer fails the first N calls with a transient error, then succeeds.

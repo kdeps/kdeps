@@ -21,15 +21,12 @@ package knowledge
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/spf13/fileflow"
 
 	kgnotes "github.com/kdeps/kartographer/notes"
 )
@@ -236,98 +233,6 @@ func (v Vault) CreateProject(name, source, place string, now time.Time) (*Card, 
 	}
 	c, err := ReadCard(file)
 	return c, true, err
-}
-
-// moveProject moves a card's whole project folder under top (projects or
-// archive) and returns the card read from its new place.
-func (v Vault) moveProject(c *Card, top string) (*Card, error) {
-	dst := filepath.Join(v.Root, top, c.Name)
-	if _, err := os.Stat(dst); err == nil {
-		return nil, fmt.Errorf("%s already exists", dst)
-	}
-	if err := os.MkdirAll(filepath.Dir(dst), dirPerm); err != nil {
-		return nil, err
-	}
-	if err := renameRetry(c.Dir(), dst); err != nil {
-		return nil, err
-	}
-	return ReadCard(filepath.Join(dst, c.Name+mdExt))
-}
-
-// renameRetry moves a folder: a rename, retried for a few seconds (on
-// Windows a folder cannot be renamed while a file in it is open - an
-// indexer, a virus scanner), then a copy of every file and a removal of
-// the original. When the original cannot be removed either, the copy is
-// removed and the folder stays where it was.
-func renameRetry(from, to string) error {
-	var err error
-	for range renameAttempts {
-		if err = os.Rename(from, to); err == nil {
-			return nil
-		}
-		time.Sleep(renameBackoff)
-	}
-	if copyErr := copyTree(from, to); copyErr != nil {
-		_ = os.RemoveAll(to)
-		return fmt.Errorf("move %s: %w (copy: %w)", from, err, copyErr)
-	}
-	if rmErr := os.RemoveAll(from); rmErr != nil {
-		_ = os.RemoveAll(to)
-		return fmt.Errorf("move %s: %w (remove: %w)", from, err, rmErr)
-	}
-	return nil
-}
-
-// copyTree copies every file under from to the same place under to.
-func copyTree(from, to string) error {
-	return filepath.WalkDir(from, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(from, p)
-		dst := filepath.Join(to, rel)
-		if d.IsDir() {
-			return os.MkdirAll(dst, dirPerm)
-		}
-		_, copyErr := fileflow.Copy(p, dst)
-		return copyErr
-	})
-}
-
-const (
-	renameAttempts = 20
-	renameBackoff  = 250 * time.Millisecond
-)
-
-// SetStatus updates the card and moves the project to archive/ when its
-// status becomes archived, or back to projects/ when it stops being.
-func (v Vault) SetStatus(c *Card, status, next string, now time.Time) error {
-	if err := c.Update(status, next, now); err != nil {
-		return err
-	}
-	archived := strings.EqualFold(c.Status, Layout().Card.Archived)
-	if archived == c.Archived() {
-		return nil
-	}
-	top := Layout().Folders.Projects
-	if archived {
-		top = Layout().Folders.Archive
-	}
-	moved, err := v.moveProject(c, top)
-	if err != nil {
-		return err
-	}
-	*c = *moved
-	return nil
-}
-
-// Reopen moves an archived project back to projects/ with status active;
-// an active project is left alone.
-func (v Vault) Reopen(c *Card, now time.Time) error {
-	if !c.Archived() {
-		return nil
-	}
-	return v.SetStatus(c, "active", "", now)
 }
 
 // IsCardPath reports whether a vault-relative note path is a project card.

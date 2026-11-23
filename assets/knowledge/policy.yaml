@@ -1,4 +1,4 @@
-version: 1.2.0
+version: 2.0.0
 # Limits and thresholds of the knowledge graph: how much of a note, a repo or a
 # report is read, kept or shown. The code holds none of these values.
 
@@ -11,11 +11,7 @@ mention_confidence: 0.9  # Confidence of an entity the note states outright.
 ambiguous_below: 0.5  # An extracted link under this confidence is marked ambiguous.
 default_workers: 2  # Concurrent extraction requests when none is configured.
 max_note_size: 2097152  # Notes larger than this many bytes are skipped (2 MiB).
-max_summary: 120  # Characters of a session note's summary line.
-max_slug: 60  # Longest file name slug of a session note.
-title_words: 8  # Words of a session's first message used as its title.
-follow_up_words: 3  # Words of a topic's follow-up question kept.
-related_share: 0.2  # Share of a topic's related notes shown.
+max_summary: 120  # Characters of a note's summary line.
 report_top: 10  # Entries of each top list in the graph report.
 community_top: 5  # Communities listed in the graph report.
 missing_top: 20  # Missing links listed in the graph report.
@@ -29,7 +25,7 @@ recall_max_hits: 8  # notes a recall returns at most
 recall_hop_decay: 0.5  # score kept per hop, before the edge weight and the node's fan-out
 label_match_boost: 2.0  # multiplier of a query word that is in a note's label
 full_label_boost: 3.0  # multiplier when a note's whole label appears in the query
-session_note_weight: 0.4  # weight of a session note in recall, against 1 for a curated note
+session_note_weight: 0.4  # weight of a run log (kind session) in recall, against 1 for a curated note
 memory_note_weight: 0.6  # weight of a project memory note in recall, against 1 for a curated note
 bytes_per_token: 4  # bytes per token when a recalled note's cost is estimated
 community_method: louvain  # how the graph is grouped: louvain, or leiden (its communities are always connected)

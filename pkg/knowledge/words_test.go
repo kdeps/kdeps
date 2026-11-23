@@ -16,21 +16,9 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package knowledge
 
-import (
-	"testing"
+import kword "github.com/kdeps/kartographer/text"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/kdeps/kdeps/v3/pkg/knowledge"
-)
-
-// The knowledge tools' replies, as kdeps sent them before they moved to prompts.yaml.
-func TestKnowledgeToolReplies_KeepTheirText(t *testing.T) {
-	c := &knowledge.Card{Name: "app", File: "/v/projects/app/app.md", Type: "project", Status: "active",
-		Next: "ship", Updated: "2026-10-01", Links: []knowledge.Link{{Source: "repo", Path: "/src/app"}}}
-	assert.Equal(t, "card: app (/v/projects/app/app.md)\ntype: project\nstatus: active\nnext: ship\n"+
-		"updated: 2026-10-01\nrepo: /src/app\n", formatCard(c))
-	assert.Equal(t, "card: x ()\ntype: \nstatus: \nnext: \nupdated: \n", formatCard(&knowledge.Card{Name: "x"}))
-}
+// words is the recall tokenizer's words for s; tests use it to check the rules.
+func words(s string) []string { return kword.Words(s, wordOptions()) }

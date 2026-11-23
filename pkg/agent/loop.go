@@ -243,7 +243,7 @@ type Config struct {
 	// (a workflow chat's loop.tools). Project, component and MCP tools stay;
 	// load_tools is not offered, so nothing outside the list can be loaded.
 	AllowedTools []string
-	// Subagent is the model for subagent calls: knowledge-graph extraction,
+	// Subagent is the model for subagent calls:
 	// prompt refinement, the planning council, and judges. Empty or "current" uses this loop's
 	// model. "free" picks a large OpenRouter free model for each call.
 	// Any other value is a model name, or the catalog model_id stored for one.
@@ -282,14 +282,8 @@ type Config struct {
 	// (commit trailers, outbound email) falls back to its existing synthetic
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
-	// Knowledge is the knowledge vault (config.yaml knowledge:). Nil means
-	// none: no recall, no session notes, no knowledge tools.
-	Knowledge *config.KnowledgeConfig
-	// KnowledgeCtx is the parent context of the vault's background graph
-	// builds; the vault stays off without it.
-	KnowledgeCtx context.Context
 	// SubagentEngine makes an engine for one subagent call that runs beside
-	// the turn: knowledge extraction and judge-roster generation. A fresh one
+	// the turn: judge-roster generation. A fresh one
 	// each, because Engine.Execute keeps per-run state and two calls must not
 	// share an engine. Nil: no model extraction, and the roster call runs on
 	// the loop's engine before the turn.
@@ -316,26 +310,21 @@ var activeLoop *Loop
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
-	ctx               context.Context
-	knowledge         *knowledgeState // nil when no vault is configured
-	knowledgeOff      bool            // /knowledge off
-	knowledgeBuild    string          // /knowledge build; empty until that command is saved
-	knowledgeBuildSet bool
-	noteID            string // session note id before the session is saved
-	engine            *executor.Engine
-	registry          *tools.Registry
-	workflow          *domain.Workflow
-	config            Config
-	session           SessionReadWriter
-	skills            string              // pre-formatted skill XML block for the system prompt
-	skillList         []Skill             // raw skill structs for name lookup (/skill-name invocation)
-	relatedSkills     map[string][]string // skill name -> related skill names (vault graph, else kartographer)
-	prompts           []PromptTemplate    // loaded prompt templates
-	onAutoCompact     func(summary string)
-	store             *SessionStore // optional persistence
-	sessionID         string        // store id for the current session (continuity across turns/exit)
-	memoryStore       *MemoryStore  // optional memory persistence
-	streamer          Streamer      // optional streaming LLM caller
+	ctx           context.Context
+	engine        *executor.Engine
+	registry      *tools.Registry
+	workflow      *domain.Workflow
+	config        Config
+	session       SessionReadWriter
+	skills        string              // pre-formatted skill XML block for the system prompt
+	skillList     []Skill             // raw skill structs for name lookup (/skill-name invocation)
+	relatedSkills map[string][]string // skill name -> related skill names (vault graph, else kartographer)
+	prompts       []PromptTemplate    // loaded prompt templates
+	onAutoCompact func(summary string)
+	store         *SessionStore // optional persistence
+	sessionID     string        // store id for the current session (continuity across turns/exit)
+	memoryStore   *MemoryStore  // optional memory persistence
+	streamer      Streamer      // optional streaming LLM caller
 	// modelNotes are loop-generated notices (goal transitions, budget changes,
 	// forced task failures) queued to be injected into the model's next request
 	// as a [kdeps] system message. The human sees them on the terminal; the
@@ -507,7 +496,7 @@ func (l *Loop) becomeSessionLoop() {
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
 // then to sensible defaults.
 func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
-	cfg = applyConfigDefaults(cfg)
+	cfg = applyConfigDefaults(ctx, cfg)
 	skillSlice, skillDirs := loadSkillSliceWithDirs(cfg.SkillPaths)
 
 	var session SessionReadWriter
@@ -548,18 +537,6 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 	if !cfg.Nested {
 		l.becomeSessionLoop()
 	}
-	if l.knowledge = newKnowledgeState(cfg.KnowledgeCtx, cfg.Knowledge); l.knowledge != nil {
-		// A project folder that moves (archived, or back) takes its memory along.
-		l.knowledge.moved = func() {
-			if l.memoryStore != nil {
-				l.memoryStore.Rebase()
-			}
-		}
-		l.registerKnowledgeTools()
-		l.knowledge.beforeBuild = func() { l.extractBackground() }
-		l.knowledge.buildAsync()
-	}
-
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
 		_ = cfg.MemoryStore.Load()
@@ -918,8 +895,8 @@ func detectDefaultModelAndBackend() (string, string) {
 	return defaultModelName, executorLLM.BackendFile
 }
 
-func applyConfigDefaults(cfg Config) Config {
-	cfg.Model, cfg.Backend = resolveModelAndBackend(cfg.KnowledgeCtx, cfg.Model, cfg.Backend)
+func applyConfigDefaults(ctx context.Context, cfg Config) Config {
+	cfg.Model, cfg.Backend = resolveModelAndBackend(ctx, cfg.Model, cfg.Backend)
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
 	}
@@ -1086,7 +1063,6 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 
 	l.session.Append(input, response)
 	l.resumeNote = ""
-	l.UpdateSessionNote()
 
 	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
@@ -3094,7 +3070,9 @@ func (l *Loop) composeSystemPreamble(harness string) string {
 	// Only loaded in agent loop mode (when a tool registry is present); skipped
 	// for synthetic/internal LLM calls like compaction and command injection.
 	if l.registry != nil && len(l.registry.List()) > 0 {
-		parts = append(parts, l.instructionParts()...)
+		if instructions := discoverInstructions(""); instructions != "" {
+			parts = append(parts, instructions)
+		}
 		parts = append(parts, l.commitTrailerPreamble())
 		// dateAndWDPreamble is appended fresh by cachedSystemPreamble on every
 		// call, not here, so it never goes stale after a mid-session cd.
@@ -3403,14 +3381,10 @@ func (l *Loop) buildChatConfig(
 			domain.ScenarioItem{Role: "system", Prompt: reminders})
 	}
 
-	// Memory, the cards' status and knowledge recall go on every turn, never
-	// into the cached preamble: they change during the session and depend on
-	// this request.
+	// Memory goes on every turn, never into the cached preamble: it changes
+	// during the session and depends on this request.
 	if state := l.turnStateBlock(input); state != "" {
 		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: state})
-	}
-	if item := l.knowledgeRecallItem(input, l.config.ProgressWriter); item != nil {
-		chatCfg.Scenario = append(chatCfg.Scenario, *item)
 	}
 	if l.resumeNote != "" {
 		chatCfg.Scenario = append(chatCfg.Scenario, domain.ScenarioItem{Role: "system", Prompt: l.resumeNote})
@@ -3514,8 +3488,7 @@ func (l *Loop) buildSyntheticWorkflow(
 	// matching the pattern) that must reach the model unchanged rather than
 	// being re-parsed as a template. See domain.ChatConfig.LiteralPrompt.
 	chatCfg.LiteralPrompt = true
-	// The loop adds knowledge recall to user turns itself (knowledgeRecallItem);
-	// its internal calls (compaction, refine) must get none.
+	// The loop's internal calls (compaction, judges) get no vault recall.
 	off := false
 	chatCfg.Knowledge = &off
 	return &domain.Workflow{
@@ -3737,7 +3710,6 @@ func (l *Loop) compactWithLLM(ctx context.Context, force bool) (string, error) {
 	if l.memoryStore != nil {
 		l.memoryStore.AutoCapture(summary)
 	}
-	l.writeSessionNote(summary, l.config.ProgressWriter)
 
 	// The cumulative sent/generated totals still describe the conversation
 	// that was just folded away. Replace them with the context that remains.

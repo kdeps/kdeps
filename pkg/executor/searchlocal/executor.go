@@ -27,7 +27,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	kgsearch "github.com/kdeps/kartographer/search"
 
@@ -65,43 +64,6 @@ func IndexPath(dir string) string { return indexDBPath(dir) }
 type Hit struct {
 	Path    string
 	Preview string
-}
-
-// queryWait bounds how long QueryIndex waits for an index being built.
-const queryWait = 200 * time.Millisecond
-
-// QueryIndex returns up to limit files of dir's search index that match
-// query, best first; nil when dir has no index, it is busy being built, or
-// nothing matches. It never builds or changes an index.
-func QueryIndex(dir, query string, limit int) []Hit {
-	dbPath := indexDBPath(dir)
-	if !fileExists(dbPath) || limit <= 0 {
-		return nil
-	}
-	tok, tokErr := knowledge.SearchTokenizer()
-	if tokErr != nil {
-		return nil
-	}
-	terms := tok.TokenizeToStrings(query)
-	if len(terms) == 0 {
-		return nil
-	}
-	idx, err := kgsearch.OpenReadOnly(dbPath, queryWait)
-	if err != nil {
-		return nil
-	}
-	defer idx.Close()
-	var out []Hit
-	for _, r := range idx.Search(terms) {
-		if r.Document == nil || r.MatchCount < (len(terms)+1)/2 {
-			continue // most of the request's words must appear
-		}
-		out = append(out, Hit{Path: r.Document.Path, Preview: r.Document.Preview})
-		if len(out) == limit {
-			break
-		}
-	}
-	return out
 }
 
 // indexDBPath returns the default index database path for a directory. It
@@ -319,11 +281,6 @@ func (e *Executor) walkIndex(root string, glob string, idx *kgsearch.InvertedInd
 			read, unchanged = p.Read, p.Unchanged
 		},
 	})
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 // StartIndex builds or updates an inverted index of the given directory.

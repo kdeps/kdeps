@@ -41,7 +41,7 @@ import (
 func newKnowledgeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "knowledge",
-		Short: "Knowledge vault: routing cards, session notes and graph recall for the agent",
+		Short: "Knowledge vault: project cards, notes and graph recall for workflow chats",
 		Long: `The knowledge vault is a folder of markdown notes the agent knows without
 reading: each turn, kdeps walks the vault's link graph from the words of the
 request and names the few notes worth reading. It is on by default for agent
@@ -250,7 +250,10 @@ func runKnowledgeExtract(
 		return setupEngineAt(slog.LevelWarn, false)
 	}, model, backend, baseURL)
 	st, err := knowledge.Extract(cmd.Context(), v, dir, ask, knowledge.ExtractOptions{
-		Model: model, Workers: kc.Extract.Workers, Limit: limit, System: agent.HarnessText("knowledge-extract-system"),
+		Model:   model,
+		Workers: kc.Extract.Workers,
+		Limit:   limit,
+		System:  agent.HarnessText(agent.HarnessKnowledgeExtract),
 	})
 	if err != nil {
 		return err
@@ -380,7 +383,7 @@ func printFindings(w io.Writer, root string, findings []knowledge.Finding) {
 func newKnowledgeRecallCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "recall <query>",
-		Short: "Show the notes recall would give the agent for a request",
+		Short: "Show the notes recall would give a chat for a prompt",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, kc, err := knowledgeTarget(cmd)

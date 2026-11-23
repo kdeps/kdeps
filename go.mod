@@ -40,7 +40,6 @@ require (
 	github.com/tmc/langchaingo v0.1.15
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.etcd.io/bbolt v1.5.0
-	go.mongodb.org/mongo-driver v1.17.10
 	go.mongodb.org/mongo-driver/v2 v2.9.2
 	golang.org/x/crypto v0.58.0
 	golang.org/x/mod v0.42.0
@@ -123,7 +122,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
-	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/generative-ai-go v0.15.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -148,7 +146,6 @@ require (
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/montanaflynn/stats v0.9.0 // indirect
 	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect

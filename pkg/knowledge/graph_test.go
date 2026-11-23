@@ -197,16 +197,6 @@ func TestRecall_ClampsHopsToTwo(t *testing.T) {
 	assert.NotContains(t, notes, "d.md")
 }
 
-func TestRecall_EdgeWeights(t *testing.T) {
-	assert.InDelta(t, 1.0, edgeWeight(&Edge{Provenance: ProvExtracted}), 1e-9)
-	assert.InDelta(t, 0.4, edgeWeight(&Edge{Provenance: ProvInferred, Confidence: 0.4}), 1e-9)
-	assert.InDelta(t, policy().AmbiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
-	assert.InDelta(t, policy().AmbiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
-	assert.InDelta(t, policy().TagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
-	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "frontmatter")
-	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "recall")
-}
-
 func TestBuild_EdgeSourceAndOutsideVault(t *testing.T) {
 	v, repo := sampleVault(t)
 	dir := GraphDir(v.Root)
@@ -320,183 +310,6 @@ func TestInit(t *testing.T) {
 	assert.Empty(t, again)
 }
 
-const summaryText = `## Goal
-- Ship knowledge recall for kdeps
-
-## Constraints & Preferences
-(none)
-
-## Progress
-### Done
-- [x] graph build
-### In Progress
-- [ ] docs
-
-## Key Decisions
-- **Louvain first**: simpler
-
-## Mistakes
-- cache kept stale parses
-
-## Wins
-(none)
-
-## Next Steps
-1. write the docs
-2. publish
-
-## Critical Context
-- none
-`
-
-func TestWriteSession(t *testing.T) {
-	v, repo := sampleVault(t)
-	card := v.CardForDir(filepath.Join(repo, "store"))
-	require.NotNil(t, card)
-	sn, err := WriteSession(card, "s1", summaryText, buildNow(), GitRange{})
-	require.NoError(t, err)
-	assert.True(t, sn.New)
-	assert.Equal(t, "app", sn.Card.Name)
-	assert.Equal(t, filepath.Join(v.Root, "projects", "app", "sessions"), filepath.Dir(sn.File))
-	data, err := os.ReadFile(sn.File)
-	require.NoError(t, err)
-	note := string(data)
-	assert.Contains(t, note, "type: session")
-	assert.Contains(t, note, "session: s1")
-	assert.Contains(t, note, "project: app")
-	assert.Contains(t, note, `links: ["[[projects/app/app]]"]`, "the session links its card by full path")
-	assert.Contains(t, note, "summary: Ship knowledge recall for kdeps")
-	assert.Contains(t, note, "## What was built\n\n- [x] graph build")
-	assert.Contains(t, note, "## Mistakes\n\n- cache kept stale parses")
-	assert.Contains(t, note, "## Decisions\n\n- **Louvain first**")
-	assert.Contains(t, note, "## Wins\n\n(none)")
-	assert.NotContains(t, note, "write the docs", "the next step lives in the card")
-	got, _ := v.Card("app")
-	assert.Equal(t, "write the docs", got.Next)
-
-	again, err := WriteSession(
-		card,
-		"s1",
-		strings.Replace(summaryText, "graph build", "graph build v2", 1),
-		buildNow().Add(time.Hour),
-		GitRange{},
-	)
-	require.NoError(t, err)
-	assert.False(t, again.New)
-	assert.Equal(t, sn.File, again.File, "one note per session, rewritten in place")
-
-	_, err = WriteSession(card, "s3", "## Goal\n(none)\n", buildNow(), GitRange{})
-	require.Error(t, err)
-}
-
-// Two sessions can finish in the same minute with the same summary goal, so
-// both propose the same note filename. The second must take its own file
-// instead of overwriting the first session's note.
-func TestWriteSession_SameMinuteSessionsDoNotOverwrite(t *testing.T) {
-	v, repo := sampleVault(t)
-	card := v.CardForDir(filepath.Join(repo, "store"))
-	require.NotNil(t, card)
-	first, err := WriteSession(card, "s1", summaryText, buildNow(), GitRange{})
-	require.NoError(t, err)
-	second, err := WriteSession(card, "s2", summaryText, buildNow(), GitRange{})
-	require.NoError(t, err)
-	require.NotEqual(t, first.File, second.File, "each session keeps its own note")
-	assert.True(t, second.New)
-
-	firstNote, err := os.ReadFile(first.File)
-	require.NoError(t, err)
-	secondNote, err := os.ReadFile(second.File)
-	require.NoError(t, err)
-	assert.Contains(t, string(firstNote), "session: s1")
-	assert.Contains(t, string(secondNote), "session: s2")
-}
-
-func TestWriteDecisions(t *testing.T) {
-	v, repo := sampleVault(t)
-	card := v.CardForDir(repo)
-	require.NotNil(t, card)
-	summary := "## Goal\nx\n\n## Key Decisions\n- **Louvain first**: simpler than Leiden\n" +
-		"- keep the cache per note hash because rebuilds were slow\n- (none)\n"
-	session := filepath.Join(card.Dir(), "sessions", "2026-10-15 0900 x.md")
-	written, err := WriteDecisions(card, session, summary, buildNow())
-	require.NoError(t, err)
-	require.Len(t, written, 2)
-	data, _ := os.ReadFile(filepath.Join(card.Dir(), "decisions", "Louvain first.md"))
-	note := string(data)
-	assert.Contains(t, note, "type: decision")
-	assert.Contains(t, note, `summary: "Louvain first: simpler than Leiden"`)
-	assert.Contains(t, note, `links: ["[[projects/app/sessions/2026-10-15 0900 x]]", "[[projects/app/app]]"]`,
-		"links use full vault paths")
-	assert.FileExists(t, filepath.Join(card.Dir(), "decisions", "keep the cache per note hash because rebuilds.md"),
-		"no bold lead: the first words")
-
-	again, err := WriteDecisions(card, "s.md", summary, buildNow())
-	require.NoError(t, err)
-	assert.Empty(t, again, "a decision with a note already is left alone (one home per fact)")
-	none, err := WriteDecisions(card, "s.md", "## Goal\nx\n", buildNow())
-	require.NoError(t, err)
-	assert.Empty(t, none)
-}
-
-func TestEnsureProject(t *testing.T) {
-	v := Vault{Root: t.TempDir()}
-	plain := filepath.Join(t.TempDir(), "notes app")
-	require.NoError(t, os.MkdirAll(plain, 0o750))
-	c, created, err := v.EnsureProject(plain, buildNow())
-	require.NoError(t, err)
-	assert.True(t, created)
-	assert.Equal(t, "notes app", c.Name)
-	assert.Equal(t, filepath.Join(v.Root, "projects", "notes app", "notes app.md"), c.File)
-	assert.Equal(t, "project", c.Type)
-	assert.Equal(t, "active", c.Status)
-	assert.Equal(t, "(none)", c.Next)
-	assert.Equal(t, []Link{{Layout().Sources.Folder, plain}}, c.Links)
-	findings, err := Check(v)
-	require.NoError(t, err)
-	assert.Empty(t, findings, "a created project passes the check")
-
-	same, created, err := v.EnsureProject(filepath.Join(plain, "sub"), buildNow())
-	require.NoError(t, err)
-	assert.False(t, created, "a subfolder belongs to its project")
-	assert.Equal(t, c.File, same.File)
-
-	repo := filepath.Join(t.TempDir(), "svc")
-	require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o750))
-	require.NoError(t, os.MkdirAll(filepath.Join(repo, "cmd", "x"), 0o750))
-	r, _, err := v.EnsureProject(filepath.Join(repo, "cmd", "x"), buildNow())
-	require.NoError(t, err)
-	assert.Equal(t, "svc", r.Name, "a git repository is named by its root")
-	assert.Equal(t, []Link{{Layout().Sources.Repo, repo}}, r.Links)
-
-	other := filepath.Join(t.TempDir(), "elsewhere", "svc")
-	require.NoError(t, os.MkdirAll(other, 0o750))
-	o, created, err := v.EnsureProject(other, buildNow())
-	require.NoError(t, err)
-	assert.True(t, created)
-	assert.Equal(t, "elsewhere-svc", o.Name, "a taken name gets the parent folder in front")
-
-	require.NoError(t, v.SetStatus(r, Layout().Card.Archived, "", buildNow()))
-	assert.True(t, r.Archived())
-	assert.Equal(t, filepath.Join(v.Root, "archive", "svc", "svc.md"), r.File)
-	assert.NoDirExists(t, filepath.Join(v.Root, "projects", "svc"))
-	back, created, err := v.EnsureProject(repo, buildNow())
-	require.NoError(t, err)
-	assert.False(t, created)
-	assert.True(t, back.Archived(), "an archived project is found where it is")
-	require.NoError(t, v.Reopen(back, buildNow()))
-	require.NoError(t, v.Reopen(back, buildNow()), "reopening an active project does nothing")
-	assert.False(t, back.Archived(), "reopening brings it back")
-	assert.Equal(t, "active", back.Status)
-	assert.FileExists(t, filepath.Join(v.Root, "projects", "svc", "svc.md"))
-
-	assert.True(t, IsCardPath("projects/svc/svc.md"))
-	assert.True(t, IsCardPath("archive/svc/svc.md"))
-	assert.False(t, IsCardPath("projects/svc/notes/svc.md"))
-	assert.Equal(t, "svc", ProjectOf("projects/svc/memory/x.md"))
-	assert.Empty(t, ProjectOf("shared/x.md"))
-	assert.Equal(t, "root", safeName("///"))
-}
-
 func TestAppendRun(t *testing.T) {
 	v := Vault{Root: t.TempDir()}
 	wf := t.TempDir()
@@ -513,17 +326,6 @@ func TestAppendRun(t *testing.T) {
 	assert.Contains(t, note, "- 09:00:00 summarize -> a summary\n")
 	assert.Contains(t, note, "- 09:01:00 second -> map[answer:ok]\n")
 	assert.Equal(t, card.File, v.CardForDir(wf).File, "the workflow folder maps to its project")
-}
-
-func TestSummaryHelpers(t *testing.T) {
-	sec := SummarySections("## Goal\nA\n## Progress\nmade progress\n## Wins\n(none)\n")
-	assert.Equal(t, "made progress", sec["progress"])
-	assert.Empty(t, sec["wins"])
-	assert.Equal(t, "Fix the bug", oneLine("\n- [ ] **Fix the bug**\n"))
-	assert.Len(t, []rune(oneLine(strings.Repeat("x", 300))), policy().MaxSummary)
-	assert.Empty(t, firstItem("  "))
-	assert.Equal(t, "session", slug("///"))
-	assert.Len(t, []rune(slug(strings.Repeat("y", 100))), policy().MaxSlug)
 }
 
 func TestCode_GitIgnoredFilesSkipped(t *testing.T) {
@@ -619,16 +421,6 @@ func TestGitRoot_Ceilings(t *testing.T) {
 	assert.Equal(t, outer, gitRoot(outer), "working in the home folder itself still finds it")
 }
 
-func TestCopyTree(t *testing.T) {
-	from := writeVault(t, map[string]string{"a.md": "A", "sub/b.md": "B"})
-	to := filepath.Join(t.TempDir(), "copy")
-	require.NoError(t, copyTree(from, to))
-	data, err := os.ReadFile(filepath.Join(to, "sub", "b.md"))
-	require.NoError(t, err)
-	assert.Equal(t, "B", string(data))
-	require.Error(t, copyTree(filepath.Join(from, "missing"), to))
-}
-
 func TestFullPathLinksAndCardRows(t *testing.T) {
 	v := Vault{Root: t.TempDir()}
 	place := t.TempDir()
@@ -715,16 +507,12 @@ func TestReadNotes_KeepsTheFreshParseOnARebuild(t *testing.T) {
 	}
 }
 
-func TestTopic(t *testing.T) {
-	var tp Topic
-	assert.True(t, tp.Empty())
-	assert.True(t, tp.Related("set up kubernetes liveness probes"), "anything continues an empty thread")
-	tp.Add("switch billing to monthly invoices for stripe customers")
-	assert.False(t, tp.Empty())
-	assert.True(t, tp.Related("why are monthly invoices late for some customers"), "shares the thread's words")
-	assert.True(t, tp.Related("yes, do it"), "a short follow-up")
-	assert.True(t, tp.Related("fix that now please"), "task words alone are a follow-up")
-	assert.False(t, tp.Related("configure kubernetes liveness probes for the api deployment"), "a new topic")
-	assert.True(t, tp.Related("the billing invoices again"), "word forms meet (invoice, invoices)")
-	assert.Equal(t, []string{"kubernete", "liveness", "probe"}, topicWords("make the Kubernetes liveness probes"))
+func TestRecall_EdgeWeights(t *testing.T) {
+	assert.InDelta(t, 1.0, edgeWeight(&Edge{Provenance: ProvExtracted}), 1e-9)
+	assert.InDelta(t, 0.4, edgeWeight(&Edge{Provenance: ProvInferred, Confidence: 0.4}), 1e-9)
+	assert.InDelta(t, policy().AmbiguousWeight, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 1}), 1e-9)
+	assert.InDelta(t, policy().AmbiguousWeight*0.5, edgeWeight(&Edge{Provenance: ProvAmbiguous, Confidence: 0.5}), 1e-9)
+	assert.InDelta(t, policy().TagEdgeWeight, edgeWeight(&Edge{Provenance: ProvExtracted, Relation: RelTagged}), 1e-9)
+	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "frontmatter")
+	assert.Contains(t, words("parseNoteFrontmatter graph_recall"), "recall")
 }

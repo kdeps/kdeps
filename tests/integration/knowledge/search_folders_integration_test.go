@@ -62,17 +62,8 @@ func TestSearchFolders(t *testing.T) {
 	assert.True(t, strings.HasPrefix(index, filepath.Join(base, "data")), "the index lives in the data dir")
 	entries, _ := os.ReadDir(docs)
 	assert.Len(t, entries, 2, "nothing written into the search folder")
-	hits := searchlocal.QueryIndex(docs, "frobnicator", 5)
-	require.Len(t, hits, 1, "the key file is not indexed")
-	assert.Equal(t, filepath.Join(docs, "frob.md"), hits[0].Path)
 	data, _ := os.ReadFile(card.File)
 	assert.Contains(t, string(data), "| index | "+index+" |")
-
-	require.NoError(t, v.SetStatus(card, knowledge.Layout().Card.Archived, "", now))
-	assert.True(t, card.Archived())
-	assert.Equal(t, []string{docs}, card.SearchFolders(), "archiving keeps the search folders")
-	require.NoError(t, v.Reopen(card, now))
-	assert.Equal(t, []string{docs}, card.SearchFolders())
 
 	require.NoError(t, os.RemoveAll(docs))
 	findings, err := knowledge.Check(v)

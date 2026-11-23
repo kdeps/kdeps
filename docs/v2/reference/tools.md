@@ -344,7 +344,6 @@ These tools read or change the state of the active agent session. The tools rout
 
 - `judge_verdict` - judge verdict state
 - `identity_get`, `load_skill`, `load_tools` - agent identity, skill loading, and loading tool definitions on demand
-- `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` - knowledge graph
 
 A call with no agent session running returns `<tool>: no active agent session (agent-mode tool)`. They have no workflow component, so they are not in `components/`.
 

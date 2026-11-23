@@ -33,18 +33,8 @@ const promptsItem = "prompts"
 
 // The prompts prompts.yaml must define.
 const (
-	PromptVault  = "vault"
-	PromptRecall = "recall"
-	PromptFiles  = "files"
-	// PromptOverview is the status overview of the active project cards.
-	PromptOverview = "overview"
-
-	PromptCard          = "card"
-	PromptRecallNone    = "recall_none"
-	PromptNoteSaved     = "note_saved"
-	PromptCardUpdated   = "card_updated"
-	PromptFolderRemoved = "folder_removed"
-	PromptFolderAdded   = "folder_added"
+	PromptRecall     = "recall"
+	PromptRecallNone = "recall_none"
 )
 
 // knowledgePrompts is prompts.yaml, each entry parsed as a template.
@@ -58,8 +48,7 @@ func parsePrompts(data []byte) (knowledgePrompts, error) {
 	}
 	out := knowledgePrompts{}
 	for _, name := range []string{
-		PromptVault, PromptRecall, PromptFiles, PromptOverview, PromptCard, PromptRecallNone, PromptNoteSaved,
-		PromptCardUpdated, PromptFolderRemoved, PromptFolderAdded,
+		PromptRecall, PromptRecallNone,
 	} {
 		text := raw[name]
 		if strings.TrimSpace(text) == "" {

@@ -28,34 +28,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/knowledge"
 )
 
-// errNoVault is returned by the search-folder commands while the knowledge
-// vault, which records a project's folders, is disabled.
-var errNoVault = errors.New(
-	"search folders live in the project card: enable the knowledge vault (knowledge.enabled in ~/.kdeps/config.yaml)")
-
-// listSearchFolders prints the working project's folders and their indexes.
-func listSearchFolders(w io.Writer, k *knowledgeState) error {
-	if k == nil {
-		return errNoVault
-	}
-	card, err := k.project()
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(w, "Project %s searches:\n", card.Name)
-	for _, p := range card.Places() {
-		fmt.Fprintf(w, "  %s  (project)%s\n", p, indexNote(knowledge.ExpandPath(p, k.vault.Root)))
-	}
-	folders := card.SearchFolders()
-	for _, p := range folders {
-		fmt.Fprintf(w, "  %s%s\n", p, indexNote(knowledge.ExpandPath(p, k.vault.Root)))
-	}
-	if len(folders) == 0 {
-		fmt.Fprintln(w, "  (no other folders: /search add <folder>, or kdeps --index <folder>)")
-	}
-	return nil
-}
-
 // AddProjectFolder adds folder to card's search folders and indexes it, so
 // recall and search_local cover it from the next turn.
 // A folder the card lists already is indexed again, not refused, so the
@@ -96,51 +68,4 @@ func indexRoots(w io.Writer, roots []string) {
 
 func init() { //nolint:gochecknoinits // wires the knowledge package to the search index location
 	knowledge.SetIndexLocator(searchlocal.IndexPath)
-}
-
-// indexNote says whether folder has a search index yet.
-func indexNote(folder string) string {
-	if fileExistsAt(searchlocal.IndexPath(folder)) {
-		return ""
-	}
-	return "  - not indexed yet: kdeps knowledge folders index"
-}
-
-// changeProjectFolders adds (indexing it now) or removes a search folder of
-// the working project.
-func changeProjectFolders(w io.Writer, k *knowledgeState, op, folder string) error {
-	if k == nil {
-		return errNoVault
-	}
-	card, err := k.project()
-	if err != nil {
-		return err
-	}
-	if op == "remove" {
-		p, removeErr := k.vault.RemoveSearchFolder(card, folder)
-		if removeErr != nil {
-			return removeErr
-		}
-		fmt.Fprintf(w, "Project %s no longer searches %s.\n", card.Name, p)
-		return nil
-	}
-	p, err := AddProjectFolder(k.vault, card, folder)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(w, "Project %s now searches %s.\n", card.Name, p)
-	return nil
-}
-
-// indexProjectFolders brings the index of every folder the working
-// project searches up to date, or just the working directory's without a
-// project.
-func indexProjectFolders(w io.Writer, k *knowledgeState, wd string) {
-	if k != nil {
-		if card, err := k.project(); err == nil {
-			IndexCardFolders(w, k.vault, card)
-			return
-		}
-	}
-	indexRoots(w, []string{wd})
 }

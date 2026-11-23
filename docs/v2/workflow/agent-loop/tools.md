@@ -6,7 +6,7 @@ The [agent loop](/workflow/agent-loop/) has access to a set of built-in tools th
 |---|---|---|
 | Files | `read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, `tail_file` | [File tools](/workflow/agent-loop/tool-reference#file-tools). [Edit file](/workflow/agent-loop/tool-reference#edit-file) |
 | Memory and identity | `memory_save`, `memory_search`, `memory_delete`, `memory_query`, `identity_get` | [Memory and identity](/workflow/agent-loop/tool-reference#memory-and-identity) |
-| Knowledge vault | `knowledge_recall`, `knowledge_card_get`, `knowledge_card_update`, `knowledge_note_save` (while the vault is on: the default) | [Knowledge vault](/workflow/agent-loop/knowledge#tools) |
+| Knowledge vault | `knowledge_recall` (list it in `loop.tools`) | [Knowledge vault](/workflow/agent-loop/knowledge#tools) |
 | Shell | `bash_exec`, `bash_job_list`, `bash_job_wait` | [Shell execution](/workflow/agent-loop/tool-reference#shell-execution) |
 | Web and search | `web_search`, `wikipedia`, `web_scraper`, plus keyed search APIs | Web and search |
 | Data | `calculator`, `sql_*`, embeddings, rerank | [Data tools](/workflow/agent-loop/tool-reference#data-tools) |

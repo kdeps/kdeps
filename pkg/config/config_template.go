@@ -170,18 +170,16 @@ defaults:
 # and names the few notes worth reading; each session writes its own note.
 # Turn it off here or with /knowledge off.
 # knowledge:
-#   enabled: true                # false turns recall, session notes and the knowledge tools off
+#   enabled: true                # false turns recall and notes off
 #   vault: ~/.kdeps/notes        # any folder of markdown notes works as is
-#   session_notes: true          # agent sessions write a note per session (default true)
 #   workflow_notes: false        # workflow chat calls log to projects/<workflow>/sessions/ (default false)
 #   recall:
 #     hops: 2                    # how far from the matched notes to walk
-#     budget_tokens: 1500        # most tokens of recalled paths and summaries per turn
-#   build: manual                # manual (default) | auto | off. auto also runs at session end
+#     budget_tokens: 1500        # most tokens of recalled paths and summaries per call
+#   build: manual                # manual (default): kdeps knowledge build --extract | off
 #   extract:                     # model pass: what each note is about (inferred edges)
-#     model: ""                  # used when llm.subagent is current; empty: the session model
+#     model: ""                  # used when --model and llm.subagent are not set
 #     workers: 2                 # parallel model calls
-#     per_session: 20            # changed notes read on an automatic run
 
 # ── Agent identity — who the agent is, for attribution and authenticated tools ──
 # Used for git commit trailers, outbound email "from", and the identity_get

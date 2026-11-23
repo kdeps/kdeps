@@ -134,33 +134,6 @@ func TestMemoryNotes_ProjectFolderAndHelpers(t *testing.T) {
 	require.Error(t, s.migrateLegacy())
 }
 
-func TestMemoryStore_RebaseFollowsTheProject(t *testing.T) {
-	root := t.TempDir()
-	cwd := filepath.Join(t.TempDir(), "proj")
-	require.NoError(t, os.MkdirAll(cwd, 0o750))
-	v := knowledge.Vault{Root: root}
-	card, _, err := v.EnsureProject(cwd, time.Now())
-	require.NoError(t, err)
-	s := NewMemoryStore(root)
-	s.SetCwd(cwd)
-	require.NoError(t, s.Load())
-	require.NoError(t, s.Set("fact:a", "one"))
-	require.NoError(t, v.SetStatus(card, knowledge.Layout().Card.Archived, "", time.Now()))
-
-	s.Rebase()
-	assert.Equal(t, filepath.Join(root, "archive", "proj", "memory"), s.path)
-	require.NoError(t, s.Set("fact:b", "two"))
-	assert.FileExists(t, filepath.Join(root, "archive", "proj", "memory", "fact-a.md"))
-	assert.FileExists(t, filepath.Join(root, "archive", "proj", "memory", "fact-b.md"))
-	assert.NoDirExists(t, filepath.Join(root, "projects", "proj"), "nothing is written to the old place")
-	s.Rebase() // unchanged: nothing to do
-
-	g := NewMemoryStore(root)
-	g.SetGlobal()
-	g.Rebase()
-	assert.Equal(t, filepath.Join(root, "shared", "memory"), g.path, "global memory never moves")
-}
-
 func TestProjectMemoryDir_FollowsTheNameClashRule(t *testing.T) {
 	root := t.TempDir()
 	v := knowledge.Vault{Root: root}
