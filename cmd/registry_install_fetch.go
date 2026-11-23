@@ -19,17 +19,19 @@
 package cmd
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	stdhttp "net/http"
 	"os"
+	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 )
 
 type packageInfo struct {
@@ -39,48 +41,46 @@ type packageInfo struct {
 	Description   string `json:"description"`
 	TarballURL    string `json:"tarbullUrl"`
 	SHA256        string `json:"sha256"`
+	// AssetID is set when the formula is a kdeps asset (set/name).
+	AssetID string `json:"-"`
 }
 
-func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
+// resolvePackageInfo reads the formula ref names (a bare name, or
+// owner/repo/name) from the registries.
+func resolvePackageInfo(ctx context.Context, ref string) (*packageInfo, error) {
 	kdeps_debug.Log("enter: resolvePackageInfo")
-	client := registryHTTPClient
-	rawURL := baseURL + "/api/v1/registry/packages/" + name
-	req, err := stdhttp.NewRequestWithContext(processRoot(), stdhttp.MethodGet, rawURL, nil)
+	f, err := findFormula(ctx, ref)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, err
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("registry request: %w", err)
+	if f.Version == "" || f.Tarball == "" {
+		return nil, fmt.Errorf("formula %s has no version or tarball", f.Name)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != stdhttp.StatusOK {
-		if resp.StatusCode == stdhttp.StatusNotFound {
-			return nil, fmt.Errorf(
-				"package %q not found in registry\n\n  Browse available packages: https://registry.kdeps.io/packages",
-				name,
-			)
-		}
-		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
+	if f.Type == assets.ResourcePackageType {
+		return nil, fmt.Errorf("%s is a built-in kdeps resource type; it needs no install", f.Name)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, registryInstallMaxInfoResponseSize))
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+	return &packageInfo{
+		LatestVersion: f.Version,
+		Type:          f.Type,
+		Description:   f.Description,
+		TarballURL:    f.Tarball,
+		SHA256:        f.SHA256,
+		AssetID:       formulaAssetID(f),
+	}, nil
+}
+
+// formulaAssetID is the kdeps asset (set/name) a formula's tarball is, or ""
+// for a package. kdeps publishes asset files as
+// .../assets/<set>/<name>/<version>.yaml.
+func formulaAssetID(f formulas.Formula) string {
+	if !assets.IsPackageType(f.Type) {
+		return ""
 	}
-	var info packageInfo
-	if unmarshalErr := json.Unmarshal(body, &info); unmarshalErr != nil {
-		return nil, fmt.Errorf("decode response: %w", unmarshalErr)
+	parts := strings.Split(f.Tarball, "/")
+	if len(parts) < 4 || parts[len(parts)-4] != "assets" {
+		return ""
 	}
-	if info.LatestVersion == "" {
-		return nil, fmt.Errorf("no version found for package %s", name)
-	}
-	if assets.IsPackageType(info.Type) {
-		return nil, fmt.Errorf("%s is a kdeps %s asset; install it with: kdeps update", name, info.Type)
-	}
-	if info.Type == assets.ResourcePackageType {
-		return nil, fmt.Errorf("%s is a built-in kdeps resource type; it needs no install", name)
-	}
-	return &info, nil
+	return parts[len(parts)-3] + "/" + parts[len(parts)-2]
 }
 
 func verifySHA256(filePath, expected string) error {
@@ -115,9 +115,7 @@ func downloadArchive(rawURL, destPath string) (err error) {
 	defer resp.Body.Close()
 	if resp.StatusCode != stdhttp.StatusOK {
 		if resp.StatusCode == stdhttp.StatusNotFound {
-			return errors.New(
-				"package archive not found\n\n  Browse available packages: https://registry.kdeps.io/packages",
-			)
+			return errors.New("package archive not found (search the registries with kdeps search)")
 		}
 		return fmt.Errorf("download returned status %d", resp.StatusCode)
 	}

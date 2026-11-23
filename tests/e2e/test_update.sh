@@ -48,6 +48,11 @@ for _ in $(seq 1 50); do
     sleep 0.1
 done
 
+# A registry archive with one formula, so kdeps update can download it.
+mkdir -p "$UPD_DIR/reg/registry-HEAD/formulas" "$UPD_PUB/kdeps/registry/tar.gz"
+printf 'name: e2e\nversion: 1.0.0\ntype: workflow\ntarball: http://127.0.0.1/e2e.kdeps\n' > "$UPD_DIR/reg/registry-HEAD/formulas/e2e.yaml"
+(cd "$UPD_DIR/reg" && tar -czf "$UPD_PUB/kdeps/registry/tar.gz/HEAD" registry-HEAD)
+
 # upd runs the kdeps asset command for: --list (list --assets), --remove (uninstall), else update.
 upd() {
     local sub=(update)
@@ -55,7 +60,8 @@ upd() {
     --list) sub=(list --assets); shift ;;
     --remove) sub=(uninstall); shift ;;
     esac
-    KDEPS_ASSETS_URL="http://127.0.0.1:$UPD_PORT" KDEPS_ASSETS_DIR="$UPD_ROOT" "$KDEPS_BIN" "${sub[@]}" "$@" 2>&1
+    KDEPS_ASSETS_URL="http://127.0.0.1:$UPD_PORT" KDEPS_REGISTRY_ARCHIVE_URL="http://127.0.0.1:$UPD_PORT" \
+        KDEPS_ASSETS_DIR="$UPD_ROOT" HOME="$UPD_DIR" "$KDEPS_BIN" "${sub[@]}" "$@" 2>&1
 }
 
 OUT=$(upd --check)

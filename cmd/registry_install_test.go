@@ -24,7 +24,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	stdhttp "net/http"
 	"net/http/httptest"
@@ -38,6 +37,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
@@ -82,18 +82,7 @@ func testComponentArchive(t *testing.T, name string) []byte {
 func TestRegistryInstall_WorkflowWithVersion(t *testing.T) {
 	archiveData := testWorkflowArchive(t, "my-agent")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
-			body, _ := json.Marshal(map[string]interface{}{
-				"latestVersion": "1.0.0",
-				"type":          "workflow",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = w.Write(archiveData)
 	}))
@@ -107,7 +96,8 @@ func TestRegistryInstall_WorkflowWithVersion(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL)
+	useFormulas(t, packageFormula("my-agent", "1.0.0", "workflow", srv.URL+"/archive.tar.gz"))
+	err := doRegistryInstall(cmd, "my-agent@1.0.0")
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "my-agent")
 	assert.Contains(t, out.String(), "kdeps exec")
@@ -119,17 +109,7 @@ func TestRegistryInstall_WorkflowWithVersion(t *testing.T) {
 func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
 	archiveData := testWorkflowArchive(t, "my-agent")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
-			body, _ := json.Marshal(map[string]string{
-				"latestVersion": "2.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = w.Write(archiveData)
 	}))
@@ -143,7 +123,8 @@ func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "my-agent", srv.URL)
+	useFormulas(t, packageFormula("my-agent", "2.0.0", "", srv.URL+"/archive.tar.gz"))
+	err := doRegistryInstall(cmd, "my-agent")
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "2.0.0")
 }
@@ -151,17 +132,7 @@ func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
 func TestRegistryInstall_ComponentGlobal(t *testing.T) {
 	archiveData := testComponentArchive(t, "scraper")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/scraper" {
-			body, _ := json.Marshal(map[string]interface{}{
-				"latestVersion": "1.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = w.Write(archiveData)
 	}))
@@ -182,7 +153,8 @@ func TestRegistryInstall_ComponentGlobal(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryInstall(cmd, "scraper@1.0.0", srv.URL)
+	useFormulas(t, packageFormula("scraper", "1.0.0", "", srv.URL+"/archive.tar.gz"))
+	err = doRegistryInstall(cmd, "scraper@1.0.0")
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "scraper")
 	assert.Contains(t, out.String(), "kdeps info scraper")
@@ -193,17 +165,7 @@ func TestRegistryInstall_ComponentGlobal(t *testing.T) {
 func TestRegistryInstall_ComponentInProject(t *testing.T) {
 	archiveData := testComponentArchive(t, "embedder")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/embedder" {
-			body, _ := json.Marshal(map[string]interface{}{
-				"latestVersion": "1.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = w.Write(archiveData)
 	}))
@@ -223,42 +185,17 @@ func TestRegistryInstall_ComponentInProject(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryInstall(cmd, "embedder@1.0.0", srv.URL)
+	useFormulas(t, packageFormula("embedder", "1.0.0", "", srv.URL+"/archive.tar.gz"))
+	err = doRegistryInstall(cmd, "embedder@1.0.0")
 	require.NoError(t, err)
 	_, statErr := os.Stat(filepath.Join(workDir, "components", "embedder", "component.yaml"))
 	assert.NoError(t, statErr)
 }
 
-func TestRegistryInstall_ServerError(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	err := doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL)
-	require.Error(t, err)
-}
-
 func TestRegistryInstall_DirectoryExists(t *testing.T) {
 	archiveData := testWorkflowArchive(t, "existing-agent")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/existing-agent" {
-			body, _ := json.Marshal(map[string]interface{}{
-				"latestVersion": "1.0.0",
-				"type":          "workflow",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = w.Write(archiveData)
 	}))
@@ -274,7 +211,8 @@ func TestRegistryInstall_DirectoryExists(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "existing-agent@1.0.0", srv.URL)
+	useFormulas(t, packageFormula("existing-agent", "1.0.0", "workflow", srv.URL+"/archive.tar.gz"))
+	err := doRegistryInstall(cmd, "existing-agent@1.0.0")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already installed")
 }
@@ -505,7 +443,7 @@ func TestDoRegistryInstall_LocalFilePath(t *testing.T) {
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
-	err := doRegistryInstall(c, archivePath, "http://unused")
+	err := doRegistryInstall(c, archivePath)
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(agentsDir, "file-agent", "workflow.yaml"))
 }
@@ -526,7 +464,7 @@ func TestDoRegistryInstall_LocalRelativePath(t *testing.T) {
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
-	err := doRegistryInstall(c, "./"+archiveName, "http://unused")
+	err := doRegistryInstall(c, "./"+archiveName)
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(agentsDir, "rel-agent", "workflow.yaml"))
 }
@@ -610,78 +548,38 @@ func TestNewRegistryInstallCmd_Execute_LocalFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// resolvePackageInfo — 404 and malformed JSON branches
+// resolvePackageInfo — asset and resource formulas
 // ---------------------------------------------------------------------------
 
-func TestResolvePackageInfo_NotFound(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusNotFound)
-	}))
-	defer srv.Close()
-
-	_, err := resolvePackageInfo("ghost", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found in registry")
-}
-
-func TestResolvePackageInfo_ServerError(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	_, err := resolvePackageInfo("pkg", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
-}
-
-func TestResolvePackageInfo_MalformedJSON(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusOK)
-		_, _ = w.Write([]byte("not-json"))
-	}))
-	defer srv.Close()
-
-	_, err := resolvePackageInfo("pkg", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode response")
-}
-
-func TestResolvePackageInfo_EmptyVersion(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		body, _ := json.Marshal(map[string]string{"latestVersion": ""})
-		w.WriteHeader(stdhttp.StatusOK)
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-
-	_, err := resolvePackageInfo("pkg", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no version found")
-}
-
-func TestResolvePackageInfo_AssetType(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		body, _ := json.Marshal(map[string]string{"latestVersion": "1.0.0", "type": "harness"})
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-
-	_, err := resolvePackageInfo("kdeps-harness-safety", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kdeps update")
+func TestResolvePackageInfo_AssetFormulaNamesTheAsset(t *testing.T) {
+	useFormulas(t, formulas.Formula{
+		Name: "kdeps-harness-safety", Version: "1.0.0", Type: "harness",
+		Tarball: "https://raw.githubusercontent.com/kdeps/packages/main/assets/harness/safety/1.0.0.yaml",
+	})
+	info, err := resolvePackageInfo(t.Context(), "kdeps-harness-safety")
+	require.NoError(t, err)
+	assert.Equal(t, "harness/safety", info.AssetID)
 }
 
 func TestResolvePackageInfo_ResourceType(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		body, _ := json.Marshal(map[string]string{"latestVersion": "2.58.2", "type": "resource"})
-		_, _ = w.Write(body)
-	}))
-	defer srv.Close()
-
-	_, err := resolvePackageInfo("kdeps-resource-scraper", srv.URL)
+	useFormulas(t, packageFormula("kdeps-resource-scraper", "2.58.2", "resource", "https://example.com/x"))
+	_, err := resolvePackageInfo(t.Context(), "kdeps-resource-scraper")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "built-in kdeps resource type")
+}
+
+func TestResolvePackageInfo_NotFoundAndIncomplete(t *testing.T) {
+	useFormulas(t, packageFormula("half", "", "workflow", ""))
+	_, err := resolvePackageInfo(t.Context(), "nope")
+	require.ErrorContains(t, err, `no formula named "nope"`)
+	_, err = resolvePackageInfo(t.Context(), "half")
+	require.ErrorContains(t, err, "no version or tarball")
+}
+
+func TestDoRegistryInstall_VersionNotInRegistry(t *testing.T) {
+	useFormulas(t, packageFormula("my-agent", "2.0.0", "workflow", "https://example.com/a"))
+	err := doRegistryInstall(&cobra.Command{}, "my-agent@1.0.0")
+	require.ErrorContains(t, err, "the registry has version 2.0.0, not 1.0.0")
 }
 
 // ---------------------------------------------------------------------------
@@ -800,18 +698,8 @@ func TestPeekManifest_NotFound(t *testing.T) {
 func TestRegistryInstall_ComponentFromRegistry(t *testing.T) {
 	archiveData := testComponentArchive(t, "llm-ext")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/llm-ext":
-			body, _ := json.Marshal(map[string]string{
-				"latestVersion": "1.0.0",
-				"type":          "component",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			_, _ = w.Write(body)
-		default:
-			_, _ = w.Write(archiveData)
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		_, _ = w.Write(archiveData)
 	}))
 	defer srv.Close()
 
@@ -825,7 +713,8 @@ func TestRegistryInstall_ComponentFromRegistry(t *testing.T) {
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
-	err := doRegistryInstall(c, "llm-ext", srv.URL)
+	useFormulas(t, packageFormula("llm-ext", "1.0.0", "component", srv.URL+"/archive.tar.gz"))
+	err := doRegistryInstall(c, "llm-ext")
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "llm-ext")
 	assert.DirExists(t, filepath.Join(compDir, "llm-ext"))
@@ -895,16 +784,7 @@ func TestRegistryInstall_NoManifestNameFallback(t *testing.T) {
 		"workflow.yaml":  "kind: Workflow\n",
 	})
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/fallback-agent" {
-			body, _ := json.Marshal(map[string]string{
-				"latestVersion": "1.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = w.Write(archiveData)
 	}))
@@ -916,7 +796,8 @@ func TestRegistryInstall_NoManifestNameFallback(t *testing.T) {
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
-	err := doRegistryInstall(c, "fallback-agent", srv.URL)
+	useFormulas(t, packageFormula("fallback-agent", "1.0.0", "", srv.URL+"/archive.tar.gz"))
+	err := doRegistryInstall(c, "fallback-agent")
 	require.NoError(t, err)
 	assert.DirExists(t, filepath.Join(agentsDir, "fallback-agent"))
 }
@@ -1113,17 +994,6 @@ func TestExtractArchive_DirMkdirError(t *testing.T) {
 // resolvePackageInfo — NewRequestWithContext error (null byte in URL)
 // ---------------------------------------------------------------------------
 
-func TestResolvePackageInfo_InvalidURL(t *testing.T) {
-	// A URL with a null byte causes NewRequestWithContext to fail.
-	_, err := resolvePackageInfo("mypkg", "http://host\x00/")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "create request")
-}
-
-// ---------------------------------------------------------------------------
-// downloadArchive — NewRequestWithContext error (null byte in URL)
-// ---------------------------------------------------------------------------
-
 func TestDownloadArchive_InvalidURL(t *testing.T) {
 	err := downloadArchive("http://host\x00/archive.kdeps", filepath.Join(t.TempDir(), "out.kdeps"))
 	require.Error(t, err)
@@ -1175,17 +1045,6 @@ func TestRegistryInstall_UsesTarballURL(t *testing.T) {
 	defer githubSrv.Close()
 
 	registrySrv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/github-agent" {
-			body, _ := json.Marshal(map[string]string{
-				"latestVersion": "1.0.0",
-				"tarbullUrl":    githubSrv.URL + "/owner/repo/archive/refs/tags/v1.0.0.tar.gz",
-				"sha256":        "", // skip sha256 check when empty
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
 		// Should NOT be called for the archive download.
 		t.Errorf("unexpected request: %s", r.URL.Path)
 		w.WriteHeader(stdhttp.StatusInternalServerError)
@@ -1200,7 +1059,11 @@ func TestRegistryInstall_UsesTarballURL(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "github-agent@1.0.0", registrySrv.URL)
+	useFormulas(
+		t,
+		packageFormula("github-agent", "1.0.0", "", githubSrv.URL+"/owner/repo/archive/refs/tags/v1.0.0.tar.gz"),
+	)
+	err := doRegistryInstall(cmd, "github-agent@1.0.0")
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "github-agent")
 }

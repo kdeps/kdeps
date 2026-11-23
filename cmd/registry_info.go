@@ -19,31 +19,30 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"os"
+	"io"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
-	"github.com/kdeps/kdeps/v3/pkg/infra/registry"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 )
 
 func newRegistryInfoCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryInfoCmd")
 	return &cobra.Command{
-		Use:   "info <asset | package | owner/repo[:subdir]>",
-		Short: "Show what a kdeps asset is for and where it runs, or details of a registry package.",
-		Long: `Show what a kdeps asset is for, where kdeps runs it and its state; or the
-metadata and README of a registry package, local component/agent/agency, or a
-remote GitHub-hosted workflow.
+		Use:   "info <asset | name | owner/repo/name | owner/repo[:subdir]>",
+		Short: "Show what a kdeps asset or a formula is, or a repository's README.",
+		Long: `Show what a kdeps asset is for, where kdeps runs it and its state; or a
+formula from the registries, a local component, agent or agency, or the README
+of a GitHub repository.
 
 Reference formats:
   <set>/<name>              A kdeps asset (tools/read_file, harness/honesty, ...)
   <set>                     A kdeps asset set and its items
-  <name>                    Registry package, local component, agent, or agency
+  <name>                    A local component, agent or agency, else a formula
+  <owner>/<repo>/<name>     A formula in the registry github.com/<owner>/<repo>
   <owner>/<repo>            Root README of a GitHub repository
   <owner>/<repo>:<subdir>   README inside a subdirectory of a GitHub repository
 
@@ -51,27 +50,17 @@ Examples:
   kdeps info tools/read_file
   kdeps info events
   kdeps info scraper
-  kdeps info jjuliano/my-ai-agent
+  kdeps info acme/tools/scraper
   kdeps info jjuliano/my-ai-agent:my-scraper`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryInfoCmd.RunE")
-			return doRegistryInfo(cmd, args[0], registryURL(cmd))
+			return doRegistryInfo(cmd, args[0])
 		},
 	}
 }
 
-const (
-	registryInfoTimeout = 30 * time.Second
-	registrySearchLimit = 20
-)
-
-// osMkdirTempInfoFunc creates temp dirs for registry info (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var osMkdirTempInfoFunc = os.MkdirTemp
-
-func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
+func doRegistryInfo(cmd *cobra.Command, ref string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
 
 	// A bare name is a local component before an asset set of the same
@@ -86,11 +75,16 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 		return nil
 	}
 
-	if !bare {
-		return printRemoteReadme(cmd, ref)
+	if bare || strings.Count(ref, "/") == 2 {
+		f, err := findFormula(processParent(cmd.Context()), ref)
+		if err != nil {
+			return fmt.Errorf("info: %w", err)
+		}
+		printFormula(cmd.OutOrStdout(), f)
+		return nil
 	}
 
-	return printRegistryPackageInfo(cmd, ref, baseURL)
+	return printRemoteReadme(cmd, ref)
 }
 
 func printRemoteReadme(cmd *cobra.Command, ref string) error {
@@ -111,113 +105,31 @@ func tryPrintLocalReadme(cmd *cobra.Command, ref string) bool {
 	return true
 }
 
-func printRegistryPackageInfo(cmd *cobra.Command, ref, baseURL string) error {
-	client := registry.NewClient("", baseURL)
-	ctx, cancel := context.WithTimeout(processRoot(), registryInfoTimeout)
-	defer cancel()
-
-	pkg, err := client.GetPackage(ctx, ref)
-	if err != nil {
-		return printRegistryReadmeFallback(cmd, ref, client)
+// printFormula shows a formula and where it comes from, then the README of
+// its GitHub repository when it has one.
+func printFormula(w io.Writer, f formulas.Formula) {
+	fmt.Fprintf(w, "Name:        %s\n", f.Name)
+	fmt.Fprintf(w, "Version:     %s\n", f.Version)
+	fmt.Fprintf(w, "Type:        %s\n", f.Type)
+	if f.Description != "" {
+		fmt.Fprintf(w, "Description: %s\n", f.Description)
 	}
-
-	printPackageDetail(cmd, ref, pkg)
-	return nil
-}
-
-func printRegistryReadmeFallback(cmd *cobra.Command, ref string, client *registry.Client) error {
-	archCtx, archCancel := context.WithTimeout(processRoot(), registryInfoTimeout)
-	defer archCancel()
-	if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
-		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
-		return nil
+	if f.License != "" {
+		fmt.Fprintf(w, "License:     %s\n", f.License)
 	}
-
-	readme, _ := resolveLocalReadme(ref)
-	fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
-	return nil
-}
-
-func printPackageDetail(cmd *cobra.Command, ref string, pkg *registry.PackageDetail) {
-	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "Name:        %s\n", pkg.Name)
-	fmt.Fprintf(w, "Version:     %s\n", pkg.Version)
-	fmt.Fprintf(w, "Type:        %s\n", pkg.Type)
-	fmt.Fprintf(w, "Description: %s\n", pkg.Description)
-	fmt.Fprintf(w, "Author:      %s\n", pkg.Author)
-	fmt.Fprintf(w, "License:     %s\n", pkg.License)
-	fmt.Fprintf(w, "Downloads:   %d\n", pkg.Downloads)
-	if len(pkg.Tags) > 0 {
-		fmt.Fprintf(w, "Tags:        %s\n", strings.Join(pkg.Tags, ", "))
+	if len(f.Tags) > 0 {
+		fmt.Fprintf(w, "Tags:        %s\n", strings.Join(f.Tags, ", "))
 	}
-	if pkg.Homepage != "" {
-		fmt.Fprintf(w, "Homepage:    %s\n", pkg.Homepage)
+	if f.Homepage != "" {
+		fmt.Fprintf(w, "Homepage:    %s\n", f.Homepage)
 	}
-	if len(pkg.Versions) > 0 {
-		fmt.Fprintf(w, "Versions:    %s\n", strings.Join(pkg.Versions, ", "))
+	fmt.Fprintf(w, "Registry:    %s\n", f.Registry)
+	fmt.Fprintf(w, "From:        https://github.com/%s/blob/HEAD/formulas/%s.yaml\n", f.Registry, f.Name)
+	if f.GitHub == "" || formulaAssetID(f) != "" {
+		return
 	}
-	fmt.Fprintf(w, "Updated:     %s\n", pkg.UpdatedAt)
-	printPackageReadme(w, ref, pkg)
-}
-
-func printPackageReadme(w interface{ Write([]byte) (int, error) }, ref string, pkg *registry.PackageDetail) {
-	readme, readmeErr := resolveLocalReadme(ref)
-	switch {
-	case readmeErr == nil && readme != "" && !isMinimalFallback(readme, ref):
+	if readme, err := fetchRemoteReadme(f.GitHub); err == nil {
 		fmt.Fprintln(w)
 		fmt.Fprint(w, renderMarkdown(readme))
-	case pkg.Readme != "":
-		fmt.Fprintln(w)
-		fmt.Fprint(w, renderMarkdown(pkg.Readme))
-	case pkg.Homepage != "":
-		if ghRef := githubURLToRef(pkg.Homepage); ghRef != "" {
-			if ghReadme, ghErr := fetchRemoteReadme(ghRef); ghErr == nil {
-				fmt.Fprintln(w)
-				fmt.Fprint(w, renderMarkdown(ghReadme))
-			}
-		}
 	}
-}
-
-// readmeFromRegistryArchive searches for the named package, downloads its
-// archive to a temp directory, and extracts the README from it.
-// Returns "" on any failure so the caller can fall through gracefully.
-func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, name string) string {
-	kdeps_debug.Log("enter: readmeFromRegistryArchive")
-	if client == nil {
-		return ""
-	}
-
-	entries, err := client.Search(ctx, name, "", registrySearchLimit)
-	if err != nil {
-		return ""
-	}
-
-	version := findPackageVersion(entries, name)
-	if version == "" {
-		return ""
-	}
-
-	tmpDir, err := osMkdirTempInfoFunc("", "kdeps-info-*")
-	if err != nil {
-		return ""
-	}
-	defer os.RemoveAll(tmpDir)
-
-	archivePath, err := client.Download(ctx, name, version, tmpDir)
-	if err != nil {
-		return ""
-	}
-
-	readme, _ := readReadmeFromKomponent(archivePath)
-	return readme
-}
-
-func findPackageVersion(entries []registry.PackageEntry, name string) string {
-	for _, e := range entries {
-		if e.Name == name {
-			return e.Version
-		}
-	}
-	return ""
 }

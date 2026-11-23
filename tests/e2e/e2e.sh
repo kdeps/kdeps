@@ -171,6 +171,7 @@ scenario test_providers.sh
 scenario test_publish_resources.sh
 scenario test_completion_cmd.sh
 scenario test_features_clone_info.sh
+scenario test_formula_registries.sh
 scenario test_examples_component_cli.sh
 scenario test_registry_install_local.sh
 scenario test_registry_uninstall_update.sh

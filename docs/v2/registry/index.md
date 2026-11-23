@@ -5,10 +5,11 @@ description: Find, install, and publish shared kdeps agents and components.
 
 # kdeps registry
 
-The kdeps registry shares agents and components by name. Pull a
-published workflow, agency, or component into your project with one command, or
-publish your own. It is optional: building, running, and deploying an
-agent never touch it.
+A registry is a GitHub repository of formula files that shares agents and
+components by name. kdeps reads `kdeps/registry` and any registry you list
+under `registries:` in `~/.kdeps/config.yaml`, from a local copy, with no
+server. It is optional: building, running, and deploying an agent never
+touch it.
 
 ```bash
 kdeps search scraper            # find packages

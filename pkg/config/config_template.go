@@ -181,6 +181,10 @@ defaults:
 #     model: ""                  # used when --model and llm.subagent are not set
 #     workers: 2                 # parallel model calls
 
+# ── Formula registries — GitHub repos (owner/repo) read after kdeps/registry ──
+# registries:
+#   - acme/tools                 # kdeps search/info/install read github.com/acme/tools
+
 # ── Agent identity — who the agent is, for attribution and authenticated tools ──
 # Used for git commit trailers, outbound email "from", and the identity_get
 # tool in agent-loop mode (name/email/address only — accounts are never

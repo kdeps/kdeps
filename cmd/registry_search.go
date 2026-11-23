@@ -19,128 +19,80 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	stdhttp "net/http"
-	"net/url"
-	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 )
 
 const (
-	registrySearchTimeout         = 30 * time.Second
-	registrySearchDefaultLimit    = 10
-	registrySearchMaxResponseSize = 1 * 1024 * 1024
-	registrySearchDescMaxLen      = 40
-	registrySearchDescTruncLen    = 37
+	registrySearchDefaultLimit = 50
+	registrySearchDescMaxLen   = 40
+	registrySearchDescTruncLen = 37
 )
 
-type registryPackage struct {
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	Description   string `json:"description"`
-	Author        string `json:"authorName"`
-	LatestVersion string `json:"latestVersion"`
-}
-
-type searchResponse struct {
-	Packages []registryPackage `json:"packages"`
-}
-
-// newRegistrySearchCmd creates the registry search subcommand.
 func newRegistrySearchCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistrySearchCmd")
 	cmd := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search for packages in the kdeps registry.",
-		Args:  cobra.ExactArgs(1),
+		Use:   "search TEXT|/REGEX/",
+		Short: "Search the formulas of every registry.",
+		Long: `Search the formulas of kdeps/registry and of each registry listed under
+registries: in ~/.kdeps/config.yaml. TEXT matches a name, description or tag
+without case; /REGEX/ is a regular expression. A registry kdeps has no copy
+of yet is downloaded first; kdeps update downloads every registry again.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registrySearchCmd.RunE")
 			pkgType, _ := cmd.Flags().GetString("type")
 			limit, _ := cmd.Flags().GetInt("limit")
-			return doRegistrySearch(cmd, args[0], pkgType, limit, registryURL(cmd))
+			return doRegistrySearch(cmd, args[0], pkgType, limit)
 		},
 	}
-	cmd.Flags().String("type", "", "Filter by type: component, workflow, agency")
+	cmd.Flags().String("type", "", "Only this formula type: component, workflow, agency, tool, ...")
 	cmd.Flags().Int("limit", registrySearchDefaultLimit, "Maximum number of results")
 	return cmd
 }
 
-func doRegistrySearch(cmd *cobra.Command, query, pkgType string, limit int, baseURL string) error {
+func doRegistrySearch(cmd *cobra.Command, query, pkgType string, limit int) error {
 	kdeps_debug.Log("enter: doRegistrySearch")
-
-	searchURL, err := buildRegistrySearchURL(baseURL, query, pkgType, limit)
+	src, err := formulaSource()
 	if err != nil {
 		return err
 	}
-
-	pkgs, err := fetchSearchResults(searchURL)
+	found, err := src.Search(processParent(cmd.Context()), query)
 	if err != nil {
 		return err
 	}
-	printRegistrySearchResults(cmd, pkgs, query)
+	var out []formulas.Formula
+	for _, f := range found {
+		if pkgType != "" && f.Type != pkgType {
+			continue
+		}
+		if limit > 0 && len(out) == limit {
+			break
+		}
+		out = append(out, f)
+	}
+	printRegistrySearchResults(cmd, out, query)
 	return nil
 }
 
-// buildRegistrySearchURL constructs the registry search endpoint URL.
-func buildRegistrySearchURL(baseURL, query, pkgType string, limit int) (string, error) {
-	u, err := url.Parse(baseURL + "/api/v1/registry/packages")
-	if err != nil {
-		return "", fmt.Errorf("parse URL: %w", err)
-	}
-	q := u.Query()
-	q.Set("q", query)
-	if pkgType != "" {
-		q.Set("type", pkgType)
-	}
-	q.Set("limit", strconv.Itoa(limit))
-	u.RawQuery = q.Encode()
-	return u.String(), nil
-}
-
-func fetchSearchResults(rawURL string) ([]registryPackage, error) {
-	kdeps_debug.Log("enter: fetchSearchResults")
-	client := &stdhttp.Client{Timeout: registrySearchTimeout}
-	req, err := stdhttp.NewRequestWithContext(processRoot(), stdhttp.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("registry request: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != stdhttp.StatusOK {
-		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, registrySearchMaxResponseSize))
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-	var sr searchResponse
-	if unmarshalErr := json.Unmarshal(body, &sr); unmarshalErr != nil {
-		return nil, fmt.Errorf("decode response: %w", unmarshalErr)
-	}
-	return sr.Packages, nil
-}
-
-func printRegistrySearchResults(cmd *cobra.Command, pkgs []registryPackage, query string) {
+func printRegistrySearchResults(cmd *cobra.Command, fs []formulas.Formula, query string) {
 	kdeps_debug.Log("enter: printSearchResults")
 	w := cmd.OutOrStdout()
-	if len(pkgs) == 0 {
-		fmt.Fprintf(w, "No packages found for query: %s\n", query)
+	if len(fs) == 0 {
+		fmt.Fprintf(w, "No formulas match %s\n", query)
 		return
 	}
-	fmt.Fprintf(w, "%-30s %-12s %-40s %-15s %s\n",
-		"Name", "Type", "Description", "Author", "Version")
-	for _, p := range pkgs {
-		fmt.Fprintf(w, "%-30s %-12s %-40s %-15s %s\n",
-			p.Name, p.Type, truncatePackageDescription(p.Description), p.Author, p.LatestVersion)
+	fmt.Fprintf(w, "%-34s %-12s %-10s %s\n", "Name", "Type", "Version", "Description")
+	for _, f := range fs {
+		name := f.Name
+		if f.Registry != formulas.DefaultRegistry {
+			name = f.Registry + "/" + f.Name
+		}
+		fmt.Fprintf(w, "%-34s %-12s %-10s %s\n", name, f.Type, f.Version, truncatePackageDescription(f.Description))
 	}
 }
 

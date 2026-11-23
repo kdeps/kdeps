@@ -41,6 +41,7 @@ var (
 		"api_auth_token":     true,
 		"identity":           true,
 		"knowledge":          true,
+		"registries":         true,
 		"agents":             true,
 	}
 

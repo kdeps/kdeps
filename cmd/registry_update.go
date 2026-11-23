@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,43 +41,54 @@ func newRegistryUpdateCmd() *cobra.Command {
 		Short: "Update kdeps assets, or an installed agent or component, to a newer version.",
 		Long: `Update kdeps assets, or download and reinstall a package from the registry.
 
-Without arguments, every installed asset and the asset profile (see
-kdeps profile) move to their newest versions; pinned and removed
-items are skipped. An asset ref installs or updates that set or item, and a
-version pins it. A package is uninstalled, then the requested (or latest)
-version installed.
+Without arguments, every registry is downloaded again, then every installed
+asset and the asset profile (see kdeps profile) move to their newest
+versions; pinned and removed items are skipped. An asset ref installs or updates that set or item, and a
+version pins it. A package is uninstalled, then the version its formula names installed (the
+registries are downloaded again first).
 
 Examples:
-  kdeps update                            # assets to their newest versions
+  kdeps update                            # registries, then assets to their newest versions
   kdeps update --check                    # list asset updates, change nothing
   kdeps update tools                      # every item in one set
   kdeps update harness/safety@1.2.0       # exactly that version, pinned
   kdeps update invoice-extractor          # a package, to latest
   kdeps update invoice-extractor@2.0.0    # a package, pinned`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kdeps_debug.Log("enter: registryUpdateCmd.RunE")
-			assetRefs, pkgRefs := splitRefs(args)
-			if check && len(pkgRefs) > 0 {
-				return errCheckPackages
-			}
-			if len(args) == 0 || len(assetRefs) > 0 {
-				if err := runAssets(cmd, assetsetup.UpdateOptions{Items: assetRefs, Check: check}); err != nil {
-					return err
-				}
-			}
-			for _, ref := range pkgRefs {
-				if err := doRegistryUpdate(cmd, ref, registryURL(cmd)); err != nil {
-					return err
-				}
-			}
-			return nil
+			return runRegistryUpdate(cmd, args, check)
 		},
 	}
 	c.Flags().BoolVar(&check, "check", false, "list available asset updates without installing them")
 	return c
 }
 
-func doRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
+// runRegistryUpdate is kdeps update: registries, then assets, then packages.
+func runRegistryUpdate(cmd *cobra.Command, args []string, check bool) error {
+	kdeps_debug.Log("enter: registryUpdateCmd.RunE")
+	assetRefs, pkgRefs := splitRefs(args)
+	if check && len(pkgRefs) > 0 {
+		return errCheckPackages
+	}
+	formulaRef := slices.ContainsFunc(pkgRefs, func(r string) bool { return !isLocalFilePath(r) })
+	if !check && (len(args) == 0 || formulaRef) {
+		if err := refreshRegistries(cmd); err != nil {
+			return err
+		}
+	}
+	if len(args) == 0 || len(assetRefs) > 0 {
+		if err := runAssets(cmd, assetsetup.UpdateOptions{Items: assetRefs, Check: check}); err != nil {
+			return err
+		}
+	}
+	for _, ref := range pkgRefs {
+		if err := doRegistryUpdate(cmd, ref); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func doRegistryUpdate(cmd *cobra.Command, pkg string) error {
 	kdeps_debug.Log("enter: doRegistryUpdate")
 
 	if isLocalFilePath(pkg) {
@@ -92,7 +104,7 @@ func doRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
 	if removeErr := removeExistingInstallation(cmd, installDir); removeErr != nil {
 		return removeErr
 	}
-	return doRegistryInstall(cmd, pkg, baseURL)
+	return doRegistryInstall(cmd, pkg)
 }
 
 // parseUpdatePackageName extracts the package name from a ref that may include @version.
@@ -160,6 +172,6 @@ func findInstalledPackage(name string) (bool, string, error) {
 
 // DoRegistryUpdate is an exported wrapper for doRegistryUpdate, for use in
 // integration and external tests.
-func DoRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
-	return doRegistryUpdate(cmd, pkg, baseURL)
+func DoRegistryUpdate(cmd *cobra.Command, pkg string) error {
+	return doRegistryUpdate(cmd, pkg)
 }

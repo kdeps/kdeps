@@ -20,7 +20,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"os"
@@ -39,7 +38,7 @@ func TestRegistryUpdate_NotInstalled(t *testing.T) {
 	t.Setenv("HOME", tmp)
 
 	cmd := &cobra.Command{}
-	err := doRegistryUpdate(cmd, "ghost", "http://localhost")
+	err := doRegistryUpdate(cmd, "ghost")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not installed")
 }
@@ -57,18 +56,9 @@ func TestRegistryUpdate_Agent(t *testing.T) {
 
 	archive := testWorkflowArchive(t, "my-agent")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/my-agent":
-			info := map[string]string{
-				"latestVersion": "2.0.0",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			}
-			_ = json.NewEncoder(w).Encode(info)
-		default:
-			w.Header().Set("Content-Type", "application/octet-stream")
-			_, _ = w.Write(archive)
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(archive)
 	}))
 	defer srv.Close()
 
@@ -76,7 +66,8 @@ func TestRegistryUpdate_Agent(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 
-	require.NoError(t, doRegistryUpdate(cmd, "my-agent", srv.URL))
+	useFormulas(t, packageFormula("my-agent", "2.0.0", "", srv.URL+"/archive.tar.gz"))
+	require.NoError(t, doRegistryUpdate(cmd, "my-agent"))
 
 	output := out.String()
 	assert.Contains(t, output, "Removing existing installation")
@@ -98,18 +89,7 @@ func TestRegistryUpdate_WithExplicitVersion(t *testing.T) {
 
 	archive := testWorkflowArchive(t, "my-agent")
 
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
-			body, _ := json.Marshal(map[string]interface{}{
-				"latestVersion": "3.0.0",
-				"type":          "workflow",
-				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(stdhttp.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		_, _ = w.Write(archive)
 	}))
 	defer srv.Close()
@@ -118,7 +98,8 @@ func TestRegistryUpdate_WithExplicitVersion(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 
-	require.NoError(t, doRegistryUpdate(cmd, "my-agent@3.0.0", srv.URL))
+	useFormulas(t, packageFormula("my-agent", "3.0.0", "workflow", srv.URL+"/archive.tar.gz"))
+	require.NoError(t, doRegistryUpdate(cmd, "my-agent@3.0.0"))
 	assert.Contains(t, out.String(), "Downloading my-agent@3.0.0")
 }
 
@@ -136,7 +117,8 @@ func TestRegistryUpdate_DownloadError(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	useFormulas(t, packageFormula("broken-agent", "1.0.0", "workflow", srv.URL+"/broken.kdeps"))
 	cmd := &cobra.Command{}
-	err := doRegistryUpdate(cmd, "broken-agent", srv.URL)
+	err := doRegistryUpdate(cmd, "broken-agent")
 	require.Error(t, err)
 }

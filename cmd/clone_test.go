@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cmd "github.com/kdeps/kdeps/v3/cmd"
+	"github.com/kdeps/kdeps/v3/pkg/formulas"
 )
 
 // buildTarGz creates an in-memory tar.gz archive with the given files and
@@ -367,7 +368,7 @@ func TestRegistryInstall_GitHubRef_Execute(t *testing.T) {
 
 	// Exercise via exported DoRegistryInstall (GitHub ref path).
 	c := cobra.Command{}
-	err := cmd.DoRegistryInstall(&c, "owner/clonetest", "http://unused")
+	err := cmd.DoRegistryInstall(&c, "owner/clonetest")
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(dir, "agents", "clonetest", "workflow.yaml"))
 }
@@ -376,7 +377,12 @@ func TestRegistryInstall_GitHubRef_ExecuteError(t *testing.T) {
 	// A ref without "/" should go to registry path, not GitHub path.
 	// Use an unreachable registry URL to confirm it hits the registry branch.
 	c := cobra.Command{}
-	err := cmd.DoRegistryInstall(&c, "badref-no-slash", "http://127.0.0.1:1")
+	// A bare name is a formula; the registry cannot be fetched here.
+	t.Setenv("HOME", t.TempDir())
+	origURL := formulas.ArchiveURL
+	formulas.ArchiveURL = func(string) string { return "http://127.0.0.1:1/registry.tar.gz" }
+	t.Cleanup(func() { formulas.ArchiveURL = origURL })
+	err := cmd.DoRegistryInstall(&c, "badref-no-slash")
 	require.Error(t, err)
 }
 

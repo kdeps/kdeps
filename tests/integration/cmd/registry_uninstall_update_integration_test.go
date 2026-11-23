@@ -23,7 +23,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"os"
@@ -62,40 +61,54 @@ func buildIntegrationArchive( //nolint:unparam // pkgType is used for semantic c
 	return buf.Bytes()
 }
 
-// TestRegistryUninstall_Integration_AgentRoundTrip installs then uninstalls an agent.
+// writeFormula puts a formula into the local copy of kdeps/registry under
+// home, as kdeps update leaves it, so install reads it with no network.
+func writeFormula(t *testing.T, home, name, version, tarball string) {
+	t.Helper()
+	dir := filepath.Join(home, ".kdeps", "registries", "kdeps", "registry")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "formulas"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".fetched"), []byte("now\n"), 0o600))
+	body := "name: " + name + "\nversion: " + version + "\ntype: workflow\ntarball: " + tarball + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "formulas", name+".yaml"), []byte(body), 0o600))
+}
+
+// archiveServer serves archives by path.
+func archiveServer(t *testing.T, files map[string][]byte) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		data, ok := files[r.URL.Path]
+		if !ok {
+			w.WriteHeader(stdhttp.StatusNotFound)
+			return
+		}
+		_, _ = w.Write(data)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// TestRegistryUninstall_Integration_AgentRoundTrip installs an agent from a
+// formula, then uninstalls it.
 func TestRegistryUninstall_Integration_AgentRoundTrip(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
-	archive := buildIntegrationArchive(t, "inv-extractor", "1.0.0", "workflow")
+	srv := archiveServer(t, map[string][]byte{
+		"/inv-extractor-1.0.0.kdeps": buildIntegrationArchive(t, "inv-extractor", "1.0.0", "workflow"),
+	})
+	writeFormula(t, tmp, "inv-extractor", "1.0.0", srv.URL+"/inv-extractor-1.0.0.kdeps")
 
-	var srvURL string
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/inv-extractor":
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"latestVersion": "1.0.0",
-				"tarbullUrl":    srvURL + "/archive/inv-extractor-1.0.0.tar.gz",
-			})
-		default:
-			_, _ = w.Write(archive)
-		}
-	}))
-	srvURL = srv.URL
-	defer srv.Close()
-
-	// Install.
 	var installOut bytes.Buffer
 	installCmd := &cobra.Command{}
 	installCmd.SetOut(&installOut)
-	require.NoError(t, cmd.DoRegistryInstall(installCmd, "inv-extractor", srv.URL))
+	require.NoError(t, cmd.DoRegistryInstall(installCmd, "inv-extractor"))
 	assert.Contains(t, installOut.String(), "Installed inv-extractor")
 
 	agentDir := filepath.Join(tmp, "inv-extractor")
 	assert.DirExists(t, agentDir)
 
-	// Uninstall.
 	var uninstallOut bytes.Buffer
 	uninstallCmd := &cobra.Command{}
 	uninstallCmd.SetOut(&uninstallOut)
@@ -104,55 +117,31 @@ func TestRegistryUninstall_Integration_AgentRoundTrip(t *testing.T) {
 	assert.NoDirExists(t, agentDir)
 }
 
-// TestRegistryUpdate_Integration_UpgradesAgent installs v1 then updates to v2.
+// TestRegistryUpdate_Integration_UpgradesAgent installs v1, then the formula
+// moves to v2 (as after kdeps update) and the agent is updated.
 func TestRegistryUpdate_Integration_UpgradesAgent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
-	v1 := buildIntegrationArchive(t, "chat-agent", "1.0.0", "workflow")
-	v2 := buildIntegrationArchive(t, "chat-agent", "2.0.0", "workflow")
-
-	callCount := 0
-	var srvURL2 string
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/chat-agent":
-			callCount++
-			if callCount == 1 {
-				_ = json.NewEncoder(w).Encode(map[string]string{
-					"latestVersion": "1.0.0",
-					"tarbullUrl":    srvURL2 + "/archive/chat-agent-1.0.0.tar.gz",
-				})
-			} else {
-				_ = json.NewEncoder(w).Encode(map[string]string{
-					"latestVersion": "2.0.0",
-					"tarbullUrl":    srvURL2 + "/archive/chat-agent-2.0.0.tar.gz",
-				})
-			}
-		case "/archive/chat-agent-1.0.0.tar.gz":
-			_, _ = w.Write(v1)
-		default:
-			_, _ = w.Write(v2)
-		}
-	}))
-	srvURL2 = srv.URL
-	defer srv.Close()
-
-	// Install v1.
-	installCmd := &cobra.Command{}
-	require.NoError(t, cmd.DoRegistryInstall(installCmd, "chat-agent", srv.URL))
+	srv := archiveServer(t, map[string][]byte{
+		"/chat-agent-1.0.0.kdeps": buildIntegrationArchive(t, "chat-agent", "1.0.0", "workflow"),
+		"/chat-agent-2.0.0.kdeps": buildIntegrationArchive(t, "chat-agent", "2.0.0", "workflow"),
+	})
+	writeFormula(t, tmp, "chat-agent", "1.0.0", srv.URL+"/chat-agent-1.0.0.kdeps")
+	require.NoError(t, cmd.DoRegistryInstall(&cobra.Command{}, "chat-agent"))
 	assert.DirExists(t, filepath.Join(tmp, "chat-agent"))
 
-	// Update to v2.
+	writeFormula(t, tmp, "chat-agent", "2.0.0", srv.URL+"/chat-agent-2.0.0.kdeps")
 	var updateOut bytes.Buffer
 	updateCmd := &cobra.Command{}
 	updateCmd.SetOut(&updateOut)
-	require.NoError(t, cmd.DoRegistryUpdate(updateCmd, "chat-agent", srv.URL))
+	require.NoError(t, cmd.DoRegistryUpdate(updateCmd, "chat-agent"))
 
 	output := updateOut.String()
 	assert.Contains(t, output, "Removing existing installation")
-	assert.Contains(t, output, "Installed chat-agent")
+	assert.Contains(t, output, "Downloading chat-agent@2.0.0")
 	assert.DirExists(t, filepath.Join(tmp, "chat-agent"))
 }
 
@@ -162,8 +151,7 @@ func TestRegistryUpdate_Integration_NotInstalled(t *testing.T) {
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
 
-	c := &cobra.Command{}
-	err := cmd.DoRegistryUpdate(c, "no-such-pkg", "http://localhost")
+	err := cmd.DoRegistryUpdate(&cobra.Command{}, "no-such-pkg")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not installed")
 }
@@ -186,39 +174,27 @@ func TestRegistryUninstall_Integration_GlobalComponent(t *testing.T) {
 	assert.NoDirExists(t, compDir)
 }
 
-// TestRegistryUpdate_Integration_PinnedVersion updates to a specific version.
+// TestRegistryUpdate_Integration_PinnedVersion updates to the version the
+// formula names, and refuses another.
 func TestRegistryUpdate_Integration_PinnedVersion(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "pinned-agent"), 0o750))
 
-	// Pre-install the agent.
-	agentDir := filepath.Join(tmp, "pinned-agent")
-	require.NoError(t, os.MkdirAll(agentDir, 0750))
-
-	archive := buildIntegrationArchive(t, "pinned-agent", "3.0.0", "workflow")
-
-	var srvURL3 string
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch r.URL.Path {
-		case "/api/v1/registry/packages/pinned-agent":
-			body, _ := json.Marshal(map[string]string{
-				"latestVersion": "3.0.0",
-				"type":          "workflow",
-				"tarbullUrl":    srvURL3 + "/archive/pinned-agent-3.0.0.tar.gz",
-			})
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write(body)
-		default:
-			_, _ = w.Write(archive)
-		}
-	}))
-	srvURL3 = srv.URL
-	defer srv.Close()
+	srv := archiveServer(t, map[string][]byte{
+		"/pinned-agent-3.0.0.kdeps": buildIntegrationArchive(t, "pinned-agent", "3.0.0", "workflow"),
+	})
+	writeFormula(t, tmp, "pinned-agent", "3.0.0", srv.URL+"/pinned-agent-3.0.0.kdeps")
 
 	var out bytes.Buffer
 	c := &cobra.Command{}
 	c.SetOut(&out)
-	require.NoError(t, cmd.DoRegistryUpdate(c, "pinned-agent@3.0.0", srv.URL))
+	require.NoError(t, cmd.DoRegistryUpdate(c, "pinned-agent@3.0.0"))
 	assert.Contains(t, out.String(), "Downloading pinned-agent@3.0.0")
+
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "pinned-agent"), 0o750))
+	err := cmd.DoRegistryUpdate(&cobra.Command{}, "pinned-agent@2.0.0")
+	require.ErrorContains(t, err, "the registry has version 3.0.0, not 2.0.0")
 }
