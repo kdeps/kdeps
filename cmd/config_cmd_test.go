@@ -27,6 +27,7 @@ import (
 func TestConfigCmd_PrintsSetup(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	cfgPath := filepath.Join(home, ".kdeps", "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
 	require.NoError(t, os.MkdirAll(filepath.Dir(cfgPath), 0o755))
@@ -53,6 +54,7 @@ func TestConfigCmd_PrintsSetup(t *testing.T) {
 func TestConfigCmd_NoConfigFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(home, "missing.yaml"))
 	var out bytes.Buffer
 	require.NoError(t, printConfig(&out))
@@ -64,6 +66,7 @@ func TestConfigCmd_NoConfigFile(t *testing.T) {
 func TestConfigCmd_Edit(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(home, ".kdeps", "config.yaml"))
 	var opened string
 	orig := launchEditorFunc
