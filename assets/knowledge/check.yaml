@@ -1,4 +1,6 @@
-version: 2.0.0
+version: 2.0.1
+# kdeps 3.4.0 and older cannot load 2.x; they keep the 1.x version.
+kdeps: ">=3.5.0"
 # What `kdeps knowledge check` reports, and which notes need a summary.
 # Parts are the project keys of vault.yaml (sessions, memory, decisions, notes, auto).
 # Messages are Go templates; the fields each one can use are named beside it.

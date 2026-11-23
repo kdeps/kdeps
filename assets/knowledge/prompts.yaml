@@ -1,4 +1,6 @@
-version: 2.0.0
+version: 2.0.1
+# kdeps 3.4.0 and older cannot load 2.x; they keep the 1.x version.
+kdeps: ">=3.5.0"
 # What the model reads from the knowledge vault: the notes recall found for a
 # chat's prompt, and the knowledge_recall tool's answer. Go templates.
 
