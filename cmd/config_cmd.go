@@ -45,9 +45,9 @@ in, the asset profile, and each registry with when it was last downloaded.
 --edit opens ~/.kdeps/config.yaml in your editor ($KDEPS_EDITOR, $VISUAL,
 $EDITOR, then vi).`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if edit {
-				return runEdit(cmd, args)
+				return editConfig()
 			}
 			return printConfig(cmd.OutOrStdout())
 		},

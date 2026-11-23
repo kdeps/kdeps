@@ -40,7 +40,7 @@ func doRegistryVerify(cmd *cobra.Command, dir string) error {
 // handleVerifyResult prints verification output and returns any blocking error.
 func handleVerifyResult(w io.Writer, result verify.Result) error {
 	if len(result.Findings) == 0 {
-		fmt.Fprintln(w, "✓ Package is LLM-agnostic. Ready to submit.")
+		fmt.Fprintln(w, "✓ Package is LLM-agnostic. Ready to publish.")
 		return nil
 	}
 
@@ -52,7 +52,7 @@ func handleVerifyResult(w io.Writer, result verify.Result) error {
 	}
 
 	warnCount := countBySeverity(result.Findings, verify.SeverityWarn)
-	fmt.Fprintf(w, "%d warning(s) — review before submitting\n", warnCount)
+	fmt.Fprintf(w, "%d warning(s) — review before publishing\n", warnCount)
 	return nil
 }
 
@@ -67,7 +67,7 @@ func printVerifyFindings(w io.Writer, findings []verify.Finding) {
 func verifyErrorsResult(findings []verify.Finding) error {
 	errCount := countBySeverity(findings, verify.SeverityError)
 	return fmt.Errorf(
-		"found %d error(s) — fix them before submitting (see 'kdeps submit --help')",
+		"found %d error(s) — fix them before publishing (see 'kdeps verify --help')",
 		errCount,
 	)
 }

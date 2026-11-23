@@ -120,6 +120,7 @@ none), as kdeps run does.`,
 		RunE: runRoot,
 	}
 
+	setShortHelp(rootCmd)
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().String("instrument", "",
@@ -186,8 +187,8 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 //
 //nolint:gochecknoglobals // fixed list
 var assetFreeCommands = []string{
-	"install", "update", "upgrade", "config", "uninstall", "list", "profile", "search", "info", "submit", "verify",
-	"instrument", "token", "help", "completion", "__complete", "__completeNoDesc",
+	"install", "update", "upgrade", "config", "uninstall", "list", "profile", "search", "info", "create", "verify",
+	"instrument", "token", "commands", "help", "completion", "__complete", "__completeNoDesc",
 }
 
 // commandSets are the asset sets each top-level command loads; a command
@@ -365,6 +366,7 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newNewCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newEditCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newConfigCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newCommandsCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newValidateCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newTestCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newRunCmd())

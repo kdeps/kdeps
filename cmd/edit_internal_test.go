@@ -19,8 +19,10 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -40,7 +42,7 @@ func TestRunEdit_LaunchError(t *testing.T) {
 	configScaffoldFunc = func() error { return nil }
 	configPathFunc = func() (string, error) { return filepath.Join(t.TempDir(), "cfg.yaml"), nil }
 	launchEditorFunc = func(_ string) error { return errors.New("editor failed") }
-	err := runEdit(&cobra.Command{}, nil)
+	err := editConfig()
 	require.Error(t, err)
 }
 
@@ -65,7 +67,7 @@ func TestRunEdit_Success(t *testing.T) {
 	configScaffoldFunc = func() error { return nil }
 	configPathFunc = func() (string, error) { return cfg, nil }
 	launchEditorFunc = func(_ string) error { return nil }
-	require.NoError(t, runEdit(&cobra.Command{}, nil))
+	require.NoError(t, editConfig())
 }
 
 func TestResolveEditor_EnvVars(t *testing.T) {
@@ -91,7 +93,7 @@ func TestRunEdit_ConfigPathError(t *testing.T) {
 	})
 	configScaffoldFunc = func() error { return nil }
 	configPathFunc = func() (string, error) { return "", errors.New("path fail") }
-	err := runEdit(&cobra.Command{}, nil)
+	err := editConfig()
 	require.Error(t, err)
 }
 
@@ -118,4 +120,30 @@ func TestPrepareConfigForEdit_PathError(t *testing.T) {
 	_, err := prepareConfigForEdit()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "locate config")
+}
+
+func TestRunEdit_OpensFormulaInRegistryCopy(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	f := packageFormula("invoice-bot", "1.0.0", "workflow", "http://x/a.kdeps")
+	f.Registry = "kdeps/registry"
+	useFormulas(t, f)
+	var opened string
+	orig := launchEditorFunc
+	t.Cleanup(func() { launchEditorFunc = orig })
+	launchEditorFunc = func(p string) error { opened = p; return nil }
+
+	c := &cobra.Command{}
+	var out bytes.Buffer
+	c.SetOut(&out)
+	require.NoError(t, runEdit(c, []string{"invoice-bot"}))
+	assert.True(
+		t,
+		strings.HasSuffix(opened, filepath.Join("registries", "kdeps", "registry", "formulas", "invoice-bot.yaml")),
+		opened,
+	)
+	assert.Contains(t, out.String(), "https://github.com/kdeps/registry/blob/HEAD/formulas/invoice-bot.yaml")
+
+	launchEditorFunc = func(string) error { return errors.New("editor failed") }
+	require.ErrorContains(t, runEdit(c, []string{"invoice-bot"}), "editor failed")
+	require.Error(t, runEdit(c, []string{"no-such-formula"}))
 }

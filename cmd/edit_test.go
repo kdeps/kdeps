@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEditCmd_CreatesConfigIfMissing(t *testing.T) {
+func TestConfigEdit_CreatesConfigIfMissing(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
@@ -31,7 +31,7 @@ func TestEditCmd_CreatesConfigIfMissing(t *testing.T) {
 	t.Setenv("KDEPS_EDITOR", "true")
 
 	rootCmd := createRootCommand()
-	rootCmd.SetArgs([]string{"edit"})
+	rootCmd.SetArgs([]string{"config", "--edit"})
 	err := rootCmd.Execute()
 	require.NoError(t, err)
 
@@ -40,7 +40,7 @@ func TestEditCmd_CreatesConfigIfMissing(t *testing.T) {
 	assert.NoError(t, statErr)
 }
 
-func TestEditCmd_OpensExistingConfig(t *testing.T) {
+func TestConfigEdit_OpensExistingConfig(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	require.NoError(t, os.WriteFile(cfgPath, []byte("llm:\n"), 0600))
@@ -48,19 +48,19 @@ func TestEditCmd_OpensExistingConfig(t *testing.T) {
 	t.Setenv("KDEPS_EDITOR", "true") // no-op editor
 
 	rootCmd := createRootCommand()
-	rootCmd.SetArgs([]string{"edit"})
+	rootCmd.SetArgs([]string{"config", "--edit"})
 	err := rootCmd.Execute()
 	require.NoError(t, err)
 }
 
-func TestEditCmd_InvalidEditor(t *testing.T) {
+func TestConfigEdit_InvalidEditor(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
 	t.Setenv("KDEPS_EDITOR", "/nonexistent-binary-kdeps-xyz")
 
 	rootCmd := createRootCommand()
-	rootCmd.SetArgs([]string{"edit"})
+	rootCmd.SetArgs([]string{"config", "--edit"})
 	err := rootCmd.Execute()
 	assert.Error(t, err)
 }

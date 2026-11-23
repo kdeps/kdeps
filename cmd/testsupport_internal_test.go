@@ -700,12 +700,6 @@ var BootstrapConfigFunc = &bootstrapConfigFunc //nolint:gochecknoglobals // test
 // LoadConfigFunc exposes loadConfigFunc for unit testing.
 var LoadConfigFunc = &loadConfigFunc //nolint:gochecknoglobals // test-only export
 
-// DetectGitHubRepoFunc exposes detectGitHubRepoFunc for unit testing.
-var DetectGitHubRepoFunc = &detectGitHubRepoFunc //nolint:gochecknoglobals // test-only export
-
-// ComputeRemoteSHA256Func exposes computeRemoteSHA256Func for unit testing.
-var ComputeRemoteSHA256Func = &computeRemoteSHA256Func //nolint:gochecknoglobals // test-only export
-
 // ConfigScaffoldFunc exposes configScaffoldFunc for unit testing.
 var ConfigScaffoldFunc = &configScaffoldFunc //nolint:gochecknoglobals // test-only export
 

@@ -182,7 +182,7 @@ Each choice fills in the matching `llm:` fields:
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
 fully commented template instead. To run the wizard again, remove
-`~/.kdeps/config.yaml`, or edit it directly with `kdeps edit`.
+`~/.kdeps/config.yaml`, or edit it directly with `kdeps config --edit`.
 
 ## Ollama (optional)
 

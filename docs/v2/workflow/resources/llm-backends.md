@@ -120,7 +120,7 @@ llm:
   # groq_api_key: ...
 ```
 
-Run `kdeps edit` to open the config file, or edit it directly.
+Run `kdeps config --edit` to open the config file, or edit it directly.
 
 ## OpenAI-compatible providers
 

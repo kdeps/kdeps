@@ -157,7 +157,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps sends the request"},
 			{Label: "the reply comes back"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps validate", "kdeps doctor", "kdeps edit", "kdeps env", "kdeps exec", "kdeps test"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps validate", "kdeps doctor", "kdeps config", "kdeps env", "kdeps exec", "kdeps test"},
 		Code:   []string{"kdeps (agent loop)", "config.PromptAndSaveLLMKey", "config.assetProviders"},
 	},
 	"recipes": {

@@ -45,7 +45,7 @@ kdeps validate .
 kdeps verify .
 kdeps bundle package .
 git tag v1.0.0 && git push --tags
-kdeps submit --tag v1.0.0
+kdeps create https://github.com/<owner>/<repo>/archive/refs/tags/v1.0.0.tar.gz
 # Open a PR to https://github.com/kdeps/registry with the printed formula
 ```
 

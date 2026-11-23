@@ -294,7 +294,7 @@ Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body si
 
 `~/.kdeps/config.yaml` can set two types of global default. kdeps applies them
 when a workflow does not set the same field. Edit the file with
-[`kdeps edit`](/reference/cli-dev#kdeps-edit). [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
+[`kdeps config --edit`](/reference/cli-dev#kdeps-config). [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
 checks it (and Ollama, Python, and installed agents) before you run.
 
 ```yaml

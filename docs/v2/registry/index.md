@@ -14,7 +14,7 @@ touch it.
 ```bash
 kdeps search scraper            # find packages
 kdeps install scraper-native    # add one to the current project
-kdeps submit --tag v1.2.0       # generate a formula to publish yours via PR
+kdeps create <archive-url>      # print a formula to publish yours via PR
 ```
 
 **Not this?** To build the agent you want to publish, start with
