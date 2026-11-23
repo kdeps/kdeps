@@ -15,7 +15,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs: compact, truncate, block, cap or force an answer", Here: true},
 			{Label: "the agent loop continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps exec", "kdeps test", "kdeps update"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.ActionByName"},
 	},
 	"codegraph": {
@@ -68,7 +68,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its action runs"},
 			{Label: "the turn continues"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps exec", "kdeps test", "kdeps update"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "agent.(*Loop).startSubagents", "agent.eventPatternMatch"},
 	},
 	"harness": {
@@ -80,7 +80,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the model answers"},
 			{Label: "the loop runs tools or replies"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build", "kdeps install", "kdeps list", "kdeps uninstall"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "agent.(*Loop).startSubagents", "agent.harnessText"},
 	},
 	"k8s": {
@@ -115,7 +115,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "its result is captured"},
 			{Label: "the memory block flags open errors and resumes from unfinished work"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps exec", "kdeps test", "kdeps update"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "agent.initMemoryRules"},
 	},
 	"models": {
@@ -125,7 +125,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the registry resolves it: download, local server or provider", Here: true},
 			{Label: "the model is called"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps exec"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps llamafile list", "kdeps llm models", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update"},
 		Code:   []string{"kdeps (agent loop)", "agent.UseProjectAssets", "llm.ReloadCloudModels", "llm.readModelRegistry"},
 	},
 	"policy": {
@@ -146,7 +146,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the preset's judge panel loads", Here: true},
 			{Label: "the judges review the answer"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps exec", "kdeps test", "kdeps update"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "executor.(*Engine).runResources", "llm.(*Adapter).Execute", "judge.PresetJudges", "agent.configureJudges", "agent.PresetByName"},
 	},
 	"providers": {
@@ -200,7 +200,7 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "kdeps runs it"},
 			{Label: "the result goes back to the model"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps exec", "kdeps test", "kdeps update"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps install", "kdeps list", "kdeps uninstall", "kdeps update", "kdeps upgrade", "kdeps exec"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "judge.Panel", "agent.runJudgePanel", "agent.definedAs"},
 	},
 }

@@ -54,11 +54,11 @@ func TestDockerTemplates_NoAssets(t *testing.T) {
 	t.Setenv(assets.SourceEnv, t.TempDir())
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
 	_, err := resolveDockerfileTemplate(baseOSAlpine)
-	require.ErrorContains(t, err, "run kdeps update")
+	require.ErrorContains(t, err, "run kdeps upgrade")
 	_, err = (&Builder{BaseOS: baseOSAlpine}).renderBackendInstall(false)
-	require.ErrorContains(t, err, "run kdeps update")
+	require.ErrorContains(t, err, "run kdeps upgrade")
 	_, err = (&Builder{BaseOS: baseOSAlpine}).generateEntrypoint(t.Context(), &domain.Workflow{})
-	require.ErrorContains(t, err, "run kdeps update")
+	require.ErrorContains(t, err, "run kdeps upgrade")
 }
 
 func TestRenderWorkflowTemplate_BuildTemplateDataError(t *testing.T) {

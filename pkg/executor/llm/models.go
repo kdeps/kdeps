@@ -38,7 +38,7 @@ const (
 	openrouterRegistryItem = "openrouter"
 )
 
-// modelsFSFunc returns the registries as loaders see them (`kdeps update
+// modelsFSFunc returns the registries as loaders see them (`kdeps upgrade
 // models` installs them). Tests override it.
 //
 //nolint:gochecknoglobals // test hook

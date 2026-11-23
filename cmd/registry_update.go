@@ -32,51 +32,60 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
 
-// newRegistryUpdateCmd creates the registry update subcommand.
+// newRegistryUpdateCmd is kdeps update: download every registry again and
+// list what kdeps upgrade would change. It installs nothing.
 func newRegistryUpdateCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryUpdateCmd")
-	var check bool
-	c := &cobra.Command{
-		Use:   "update [asset | package[@version]]...",
-		Short: "Update kdeps assets, or an installed agent or component, to a newer version.",
-		Long: `Update kdeps assets, or download and reinstall a package from the registry.
-
-Without arguments, every registry is downloaded again, then every installed
-asset and the asset profile (see kdeps profile) move to their newest
-versions; pinned and removed items are skipped. An asset ref installs or updates that set or item, and a
-version pins it. A package is uninstalled, then the version its formula names installed (the
-registries are downloaded again first).
-
-Examples:
-  kdeps update                            # registries, then assets to their newest versions
-  kdeps update --check                    # list asset updates, change nothing
-  kdeps update tools                      # every item in one set
-  kdeps update harness/safety@1.2.0       # exactly that version, pinned
-  kdeps update invoice-extractor          # a package, to latest
-  kdeps update invoice-extractor@2.0.0    # a package, pinned`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRegistryUpdate(cmd, args, check)
+	return &cobra.Command{
+		Use:   "update",
+		Short: "Download the newest formulas and list the assets kdeps upgrade would change",
+		Long: `Download every registry again (kdeps/registry and the registries: list in
+~/.kdeps/config.yaml), then list the installed assets that have a newer
+version. It installs nothing; kdeps upgrade installs the newer versions.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := refreshRegistries(cmd); err != nil {
+				return err
+			}
+			return runAssets(cmd, assetsetup.UpdateOptions{Check: true})
 		},
 	}
-	c.Flags().BoolVar(&check, "check", false, "list available asset updates without installing them")
-	return c
 }
 
-// runRegistryUpdate is kdeps update: registries, then assets, then packages.
-func runRegistryUpdate(cmd *cobra.Command, args []string, check bool) error {
-	kdeps_debug.Log("enter: registryUpdateCmd.RunE")
-	assetRefs, pkgRefs := splitRefs(args)
-	if check && len(pkgRefs) > 0 {
-		return errCheckPackages
+// newRegistryUpgradeCmd is kdeps upgrade: install newer assets and packages.
+func newRegistryUpgradeCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newRegistryUpgradeCmd")
+	return &cobra.Command{
+		Use:   "upgrade [asset | package[@version]]...",
+		Short: "Upgrade kdeps assets, or an installed agent or component, to a newer version",
+		Long: `Upgrade kdeps assets, or download and reinstall a package from its formula.
+
+Without arguments, every installed asset and the asset profile (see kdeps
+profile) move to their newest versions; pinned and removed items are skipped.
+An asset ref installs or upgrades that set or item, and a version pins it.
+A package is uninstalled, then the version its formula names is installed;
+the registries are downloaded again first, as kdeps update does.
+
+Examples:
+  kdeps upgrade                            # every asset to its newest version
+  kdeps upgrade tools                      # every item in one set
+  kdeps upgrade harness/safety@1.2.0       # exactly that version, pinned
+  kdeps upgrade invoice-extractor          # a package, to the formula's version`,
+		RunE: runRegistryUpgrade,
 	}
-	formulaRef := slices.ContainsFunc(pkgRefs, func(r string) bool { return !isLocalFilePath(r) })
-	if !check && (len(args) == 0 || formulaRef) {
+}
+
+// runRegistryUpgrade upgrades assets, then packages (after a registry download).
+func runRegistryUpgrade(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: runRegistryUpgrade")
+	assetRefs, pkgRefs := splitRefs(args)
+	if slices.ContainsFunc(pkgRefs, func(r string) bool { return !isLocalFilePath(r) }) {
 		if err := refreshRegistries(cmd); err != nil {
 			return err
 		}
 	}
 	if len(args) == 0 || len(assetRefs) > 0 {
-		if err := runAssets(cmd, assetsetup.UpdateOptions{Items: assetRefs, Check: check}); err != nil {
+		if err := runAssets(cmd, assetsetup.UpdateOptions{Items: assetRefs}); err != nil {
 			return err
 		}
 	}

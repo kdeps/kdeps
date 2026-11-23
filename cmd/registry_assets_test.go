@@ -79,13 +79,14 @@ func TestRegistryAssetCommands(t *testing.T) {
 		return out.String(), err
 	}
 
-	out, err := run("update", "--check")
+	useFormulas(t)
+	out, err := run("update")
 	require.NoError(t, err)
 	assert.Contains(t, out, "tools/tail_file")
 	assert.Contains(t, out, "available")
 
-	_, err = run("update", "--check", "some-package")
-	require.ErrorIs(t, err, errCheckPackages)
+	_, err = run("update", "some-package")
+	require.ErrorContains(t, err, "unknown command")
 
 	out, err = run("install", "tools/tail_file@9.1.0")
 	require.NoError(t, err)
@@ -99,7 +100,7 @@ func TestRegistryAssetCommands(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "presets/balanced")
 
-	out, err = run("update", "tools/tail_file")
+	out, err = run("upgrade", "tools/tail_file")
 	require.NoError(t, err)
 	assert.NotContains(t, out, "failed")
 

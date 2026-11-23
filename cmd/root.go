@@ -186,8 +186,8 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 //
 //nolint:gochecknoglobals // fixed list
 var assetFreeCommands = []string{
-	"install", "update", "uninstall", "list", "profile", "search", "info", "submit", "verify", "instrument", "token",
-	"help", "completion", "__complete", "__completeNoDesc",
+	"install", "update", "upgrade", "config", "uninstall", "list", "profile", "search", "info", "submit", "verify",
+	"instrument", "token", "help", "completion", "__complete", "__completeNoDesc",
 }
 
 // commandSets are the asset sets each top-level command loads; a command
@@ -364,6 +364,7 @@ func addCommandToGroup(rootCmd *cobra.Command, groupID string, cmd *cobra.Comman
 func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newNewCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newEditCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newConfigCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newValidateCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newTestCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newRunCmd())

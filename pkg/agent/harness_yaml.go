@@ -38,7 +38,7 @@ import (
 // reinforcement, and the single-purpose system prompts behind compaction,
 // goal planning, judging, and prompt refinement. It is data, not
 // code: every built-in entry is a YAML file in the harness asset set
-// (installed by kdeps update), and users can drop their own into ~/.kdeps/harness/*.yaml to add an entry
+// (installed by kdeps upgrade), and users can drop their own into ~/.kdeps/harness/*.yaml to add an entry
 // or override a built-in by reusing its name -- no Go code or recompilation
 // required either way.
 

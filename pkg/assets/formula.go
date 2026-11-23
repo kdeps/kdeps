@@ -66,7 +66,7 @@ var setTypes = map[string]string{
 func PackageType(set string) string { return setTypes[set] }
 
 // IsPackageType reports whether t is an asset package type: installed with
-// `kdeps update`, not `kdeps install`.
+// `kdeps upgrade`, not `kdeps install`.
 func IsPackageType(t string) bool {
 	for _, v := range setTypes {
 		if v == t {
@@ -95,7 +95,7 @@ type Formula struct {
 	Tags        []string `yaml:"tags,omitempty"`
 	License     string   `yaml:"license,omitempty"`
 	// Dependencies maps each package the item requires to the versions it
-	// accepts (see Header.Requires); kdeps update installs them with it.
+	// accepts (see Header.Requires); kdeps upgrade installs them with it.
 	Dependencies map[string]string `yaml:"dependencies,omitempty"`
 	// Tokens estimates what the item adds to the LLM context when installed.
 	Tokens int `yaml:"tokens,omitempty"`

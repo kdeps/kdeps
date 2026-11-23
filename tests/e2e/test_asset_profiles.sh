@@ -124,9 +124,9 @@ if [ -f "$MN/store/tools/calculator.yaml" ]; then
 else
     test_failed "asset profiles - install one item" "$OUT"
 fi
-OUT=$(ap "$MN" "$KDEPS_BIN" update)
+OUT=$(ap "$MN" "$KDEPS_BIN" upgrade)
 if [ -f "$MN/store/tools/calculator.yaml" ]; then
-    test_passed "asset profiles - a bare update keeps an item installed by name"
+    test_passed "asset profiles - a bare upgrade keeps an item installed by name"
 else
     test_failed "asset profiles - bare update" "$OUT"
 fi

@@ -401,7 +401,7 @@ func exportItem(fsys ReadFS, set string, e fs.DirEntry) (string, []byte, bool, e
 func ReadBundleFile(set, name, file string) ([]byte, error) {
 	data, err := Open(set).ReadFile(path.Join(set, name, file))
 	if err != nil {
-		return nil, fmt.Errorf("assets: %s has no %s (run kdeps update): %w", ID(set, name), file, err)
+		return nil, fmt.Errorf("assets: %s has no %s (run kdeps upgrade): %w", ID(set, name), file, err)
 	}
 	return data, nil
 }

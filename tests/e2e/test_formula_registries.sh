@@ -104,5 +104,12 @@ else
     test_failed "formula registries - pinned version" "$OUT"
 fi
 
+OUT=$(fr config)
+if output_grep "Backend: " "$OUT" && output_grep "acme/tools +downloaded now" "$OUT" && output_grep "kdeps/registry +downloaded now" "$OUT"; then
+    test_passed "formula registries - kdeps config lists each registry and its download time"
+else
+    test_failed "formula registries - kdeps config" "$OUT"
+fi
+
 echo ""
 echo "Formula registry E2E tests complete."

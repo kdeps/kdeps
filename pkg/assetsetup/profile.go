@@ -165,7 +165,7 @@ func recordEmpty(root string, sets []string) error {
 }
 
 func notInstalled(sets []string, cause error) error {
-	msg := fmt.Sprintf("kdeps assets %s are not installed; connect to the internet and run kdeps update %s",
+	msg := fmt.Sprintf("kdeps assets %s are not installed; connect to the internet and run kdeps install %s",
 		strings.Join(sets, ", "), strings.Join(sets, " "))
 	if cause != nil {
 		return fmt.Errorf("%s (%w)", msg, cause)
@@ -431,7 +431,7 @@ func (c *checklist) toggle(set, name string) {
 	}
 }
 
-// targets is the selection as kdeps update arguments: a fully ticked set by
+// targets is the selection as kdeps upgrade arguments: a fully ticked set by
 // name (so items published later are included), else its ticked items.
 func (c *checklist) targets() []string {
 	var out []string
@@ -565,7 +565,7 @@ func readLine(w io.Writer, r *bufio.Reader, prompt string) string {
 }
 
 // SelectProfile installs a profile (or a custom selection when name is
-// "custom" or empty and in is a terminal) and records it: kdeps update
+// "custom" or empty and in is a terminal) and records it: kdeps upgrade
 // profile [name].
 func SelectProfile(ctx context.Context, w io.Writer, in io.Reader, name string) error {
 	root, c := assets.Root(), assets.NewClient()

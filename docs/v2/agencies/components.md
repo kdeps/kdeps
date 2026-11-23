@@ -106,7 +106,7 @@ setup:
   provides: [tesseract]         # on PATH already: skip the install
 ```
 
-A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`). As a result, `kdeps update components/<name>` installs those first. Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
+A shipped component lists what it needs from other asset sets under `requires:` in its asset header (`template.yaml`, next to `component.yaml`). As a result, `kdeps upgrade components/<name>` installs those first. Every shipped component calls kdeps API tools, so it requires each tool asset it calls:
 
 ```yaml
 # components/web_search/template.yaml (as shipped)

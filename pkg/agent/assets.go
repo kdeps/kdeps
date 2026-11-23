@@ -33,7 +33,7 @@ import (
 
 // warnAsset reports an asset file a loader skipped. Asset files are
 // downloaded, so one that a newer kdeps would read (or a corrupt one) must
-// never stop kdeps from starting -- kdeps update can then fix it.
+// never stop kdeps from starting -- kdeps upgrade can then fix it.
 func warnAsset(err error) {
 	fmt.Fprintln(os.Stderr, "kdeps: skipping asset:", err)
 }

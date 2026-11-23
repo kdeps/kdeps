@@ -46,7 +46,7 @@ A preset is a named set of event values for the full token-economy cluster:
 
 `frugal`, `balanced` and `thorough` tune the same events: `auto-compact`, `fold`, `memory-prompt-limit`, `memory-keys-limit`, `memory-focus-max`, `memory-chain-max`, `rel-memory-limit`, `memory-search-limit`, `memory-value-limit`, `memory-capture-limit`, `tool-result-truncate`, `tool-error-truncate`, `force-answer-digest`, `history-window-trim`, `history-window-old-result`, `web-call-budget`, `bash-call-budget`, `file-call-budget`, `code-call-budget`.
 
-Each preset requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps update` installs them with the preset. Each calls its tool through the kdeps API. Loop-wide events (compaction, truncation, history, stop rules) need no component.
+Each preset requires the components whose tools its budget events limit: `web_search`, `web_scraper`, `bash_exec`, `exec`, `read_file`, `list_files`, `write_file`, `edit_file`, `search_local`, `memory_query`, `memory_search`. `kdeps upgrade` installs them with the preset. Each calls its tool through the kdeps API. Loop-wide events (compaction, truncation, history, stop rules) need no component.
 
 ## Using a preset
 

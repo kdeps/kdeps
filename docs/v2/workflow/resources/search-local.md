@@ -169,7 +169,7 @@ component:
 
 Indexed search already ranks by TF-IDF. `graphBoost` then moves a document up when one of the top 5 matches connects to it.
 
-If `path` is the knowledge vault, or a folder in it, kdeps updates the structural graph of that vault (links, tags, and frontmatter; no model call). Then it reads those edges. It does not write `graph.db`. An extracted reference gets a boost of 25%. A weaker edge gets a smaller boost: an inferred edge by its confidence, an ambiguous edge by 0.3 times its confidence, and a shared tag by 0.3 of that.
+If `path` is the knowledge vault, or a folder in it, kdeps upgrades the structural graph of that vault (links, tags, and frontmatter; no model call). Then it reads those edges. It does not write `graph.db`. An extracted reference gets a boost of 25%. A weaker edge gets a smaller boost: an inferred edge by its confidence, an ambiguous edge by 0.3 times its confidence, and a shared tag by 0.3 of that.
 
 For a folder outside the vault, kdeps builds a link and topic graph of the folder at `~/.kdeps/projects/<folder>-<hash>/graph.db`. The graph uses markdown links and shared `topics:` / `tags:` frontmatter. Each connected document gets the full 25%.
 
@@ -207,7 +207,7 @@ Indexed-mode output rows add three fields on top of the base result shape:
 |-------|-------|
 | `search_local: give a query (or a glob) to search for` | Neither `query` nor `glob` is set |
 | `search_local: ... blocked` | `path` is a filesystem root (`/`) |
-| `component "search_local" not found` | The components asset set is not installed - run `kdeps update` |
+| `component "search_local" not found` | The components asset set is not installed - run `kdeps install components` |
 
 ## See also
 

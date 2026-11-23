@@ -55,7 +55,7 @@ type UpdateOptions struct {
 	Remove []string // items to remove
 }
 
-// RunAssetUpdate is kdeps update and /update: it updates, checks, lists or
+// RunAssetUpdate is kdeps upgrade and /update: it updates, checks, lists or
 // removes assets, prints what changed to w, and reloads the asset sets.
 func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error {
 	root := assets.Root()

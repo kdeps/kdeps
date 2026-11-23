@@ -19,7 +19,6 @@
 package cmd
 
 import (
-	"errors"
 	"io"
 	"slices"
 	"strings"
@@ -71,7 +70,7 @@ func newRegistryProfileCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "profile [minimum|workflows|agent|deploy|full|custom|sets-and-items]",
 		Short: "Choose the asset profile: what kdeps installs and keeps current",
-		Long: `Install an asset profile and record it as what kdeps update keeps current.
+		Long: `Install an asset profile and record it as what kdeps upgrade keeps current.
 
   kdeps profile                    the first-run picker (needs a terminal)
   kdeps profile agent              minimum, workflows, agent, deploy or full
@@ -95,6 +94,3 @@ func newRegistryProfileCmd() *cobra.Command {
 // githubPrefix forces a GitHub ref ("github:tools/repo") whose owner shares
 // a name with an asset set.
 const githubPrefix = "github:"
-
-// errCheckPackages is returned for --check with a package ref.
-var errCheckPackages = errors.New("--check lists asset updates; it does not take packages")

@@ -180,6 +180,30 @@ my-agent/
 
 ---
 
+## `kdeps config`
+
+Print the kdeps setup: version and platform, the config file, the LLM backend and models, the asset, model and registry folders, the asset profile, and each registry with its download time.
+
+```bash
+kdeps config          # print the setup
+kdeps config --edit   # open ~/.kdeps/config.yaml in your editor, as kdeps edit
+```
+
+```text
+kdeps:      3.5.0 (commit 1a2b3c4) darwin/arm64
+Config:     /Users/me/.kdeps/config.yaml
+Backend:    ollama
+Models:     llama3.2
+Assets:     /Users/me/.kdeps/assets
+Profile:    agent
+Models dir: /Users/me/.kdeps/models
+Registries: /Users/me/.kdeps/registries
+  kdeps/registry               downloaded 2026-11-23T10:00:00Z
+  acme/tools                   not downloaded yet
+```
+
+---
+
 ## `kdeps edit`
 
 Open the global kdeps configuration file (`~/.kdeps/config.yaml`) in your editor. Scaffolded if it does not exist.
@@ -268,14 +292,14 @@ kdeps --upgrade --target-version 2.35.0
 
 ---
 
-## Assets: `kdeps install`, `update`, `uninstall`, `list`, `profile`
+## Assets: `kdeps install`, `update`, `upgrade`, `uninstall`, `list`, `profile`
 
-`kdeps install`, `kdeps update`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, tool definitions, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
+`kdeps install`, `kdeps upgrade`, and `kdeps uninstall` manage registry packages and the versioned assets of kdeps. The assets are harness, events, actions, presets, tool definitions, LLM server recipes, model registries, templates, schemas, and components. An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
 
 ```bash
-kdeps update                          # the chosen profile and everything installed since, to their newest versions
-kdeps update --check                  # list available updates, change nothing
-kdeps update harness                  # every item in one set
+kdeps update                          # newest registries; list what kdeps upgrade would change, install nothing
+kdeps upgrade                         # the chosen profile and everything installed since, to their newest versions
+kdeps upgrade harness                 # every item in one set
 kdeps install harness/safety          # one item at its newest version (unpins it), with what it requires
 kdeps install harness/safety@1.2.0    # exactly that version, pinned (older = downgrade)
 kdeps uninstall presets/frugal            # remove one item (restore with: kdeps install presets/frugal)
@@ -288,11 +312,12 @@ kdeps profile                         # choose the profile again, or tick sets a
 | Command | Assets |
 |---|---|
 | `kdeps install <ref>...` | Install sets or items (`@version` pins), and what they require; each line shows the item's estimated LLM context tokens, and the total is printed last |
-| `kdeps update [ref]...` | No args: every installed asset and the profile; `--check` lists updates and does not install them |
+| `kdeps update` | Download every registry again and list the assets that have a newer version; installs nothing |
+| `kdeps upgrade [ref]...` | No args: every installed asset and the profile; a package ref reinstalls it at its formula's version |
 | `kdeps uninstall <ref>...` | Remove items (comma-separated or several args); required items cannot be removed |
 | `kdeps list --assets` | Every asset with its version, state (`source`, `downloaded`, `pinned`, `removed`), shelf and estimated LLM context tokens, with the installed total |
 | `kdeps list <shelf>` | Assets on one shelf. Item ids stay `set/name` |
-| `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `update` keeps current; no name opens the picker |
+| `kdeps profile [name]` | Install a profile (`minimum`, `workflows`, `agent`, `deploy`, `full`, `custom`, or a comma-separated list of sets and `set/name` items) and record it as what `upgrade` keeps current; no name opens the picker |
 
 [Installation](/start/installation) lists the profiles and what each profile installs.
 
@@ -304,14 +329,14 @@ An interrupted aria2c download stops. It does not start again through the HTTP f
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
-kdeps update models       # refresh the registries (llamafile + GGUF) from kdeps.io
+kdeps upgrade models       # refresh the registries (llamafile + GGUF) from kdeps.io
 ```
 
-`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets. A job collects them each night from HuggingFace and publishes them as new versions. Install them with `kdeps update models`. Models that you register yourself (HuggingFace search or a custom URL) are in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. kdeps adds them on top.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. The registries are the `models/llamafile` and `models/gguf` assets. A job collects them each night from HuggingFace and publishes them as new versions. Install them with `kdeps upgrade models`. Models that you register yourself (HuggingFace search or a custom URL) are in `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. kdeps adds them on top.
 
 kdeps finds Ollama models in the local `ollama list` output.
 
-The free text models of OpenRouter are a separate registry, `models/openrouter`. `tools/openrouter-harvester/harvest.py` (`make harvest-openrouter`) collects them each day from the public models API. Install them with `kdeps update models/openrouter`.
+The free text models of OpenRouter are a separate registry, `models/openrouter`. `tools/openrouter-harvester/harvest.py` (`make harvest-openrouter`) collects them each day from the public models API. Install them with `kdeps upgrade models/openrouter`.
 
 ---
 

@@ -30,7 +30,7 @@ import (
 )
 
 // registryCommands are the package and asset commands: install, update,
-// uninstall, list, profile, search, info, submit, verify. Packages
+// upgrade, uninstall, list, profile, search, info, submit, verify. Packages
 // (workflows, agencies, components) come from formula registries: GitHub
 // repositories kdeps keeps a copy of under ~/.kdeps/registries. An argument
 // naming an asset set or set/name item is a kdeps asset.
@@ -39,6 +39,7 @@ func registryCommands() []*cobra.Command {
 	return []*cobra.Command{
 		newRegistryInstallCmd(),
 		newRegistryUpdateCmd(),
+		newRegistryUpgradeCmd(),
 		newRegistryUninstallCmd(),
 		newRegistryListCmd(),
 		newRegistryProfileCmd(),

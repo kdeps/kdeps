@@ -32,7 +32,7 @@ List models available from the llamafile/GGUF harvest.
 kdeps llm models
 kdeps llm models --type gguf
 kdeps llm models --type llamafile
-kdeps update models      # newest registries (GGUF + Chinese labs: Qwen, DeepSeek, Yi, ...)
+kdeps upgrade models      # newest registries (GGUF + Chinese labs: Qwen, DeepSeek, Yi, ...)
 ```
 
 ## kdeps llm list

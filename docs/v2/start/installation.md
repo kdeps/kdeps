@@ -148,7 +148,7 @@ Default backend is llamafile: no server, no GPU, no API key. The alias
 
 ```bash
 kdeps llamafile list      # see all known model aliases
-kdeps update models       # newest registry (harvested nightly from HuggingFace)
+kdeps upgrade models       # newest registry (harvested nightly from HuggingFace)
 ```
 
 ## First-run setup

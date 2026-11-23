@@ -103,7 +103,7 @@ var componentToolURL = regexp.MustCompile(`tools\.kdeps\.io/v1/tools/([A-Za-z0-9
 
 // TestEveryShippedComponentRequiresItsTools guards the dependency chain from
 // the other side: every kdeps API tool a component calls must be listed under
-// requires: in its template.yaml, so `kdeps update` installs the tool assets
+// requires: in its template.yaml, so `kdeps upgrade` installs the tool assets
 // with the component. It also keeps requires: honest in both directions -- no
 // undeclared tool call, no requires entry without the call -- and every
 // required tool must ship as an asset.

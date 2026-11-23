@@ -334,7 +334,7 @@ docker-compose up -d
 
 kdeps uses a simple build process with the official installation script. This gives the smallest possible image and the best compatibility.
 
-kdeps renders the Dockerfile, entrypoint, and supervisord configuration from the `docker/image` asset (`kdeps update docker` refreshes them; `kdeps build --show-dockerfile` prints the result). `kdeps export k8s` renders the `k8s/manifests` asset the same way.
+kdeps renders the Dockerfile, entrypoint, and supervisord configuration from the `docker/image` asset (`kdeps upgrade docker` refreshes them; `kdeps build --show-dockerfile` prints the result). `kdeps export k8s` renders the `k8s/manifests` asset the same way.
 
 ```dockerfile
 # Example of generated Dockerfile logic

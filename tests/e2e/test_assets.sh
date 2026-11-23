@@ -79,7 +79,7 @@ fi
 # validate checks against the schemas asset set, so it needs the download.
 if OUT=$(as_run "$AF_HOME" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" validate "$PROJECT_ROOT/examples/chatbot"); then
     test_failed "assets - validate offline with no assets fails" "$OUT"
-elif output_grep "run kdeps update" "$OUT"; then
+elif output_grep "run kdeps (install|upgrade)" "$OUT"; then
     test_passed "assets - validate needs the schemas asset set"
 else
     test_failed "assets - validate offline message" "$OUT"
@@ -223,7 +223,7 @@ if output_grep "schemas/v1 +install .*\(required by components/web_search\)" "$O
     output_grep "components/web_search +install" "$OUT" &&
     [ "$(echo "$ORDER" | grep -n 'schemas/v1' | head -1 | cut -d: -f1)" -lt "$(echo "$ORDER" | grep -nE 'components/web_search +install' | head -1 | cut -d: -f1)" ] &&
     [ -f "$RQ_HOME/store/schemas/v1.yaml" ] && [ ! -e "$RQ_HOME/store/presets" ]; then
-    test_passed "assets - kdeps update <item> installs its requires first, nothing else"
+    test_passed "assets - kdeps install <item> installs its requires first, nothing else"
 else
     test_failed "assets - update installs requires" "$OUT"
 fi
@@ -293,7 +293,7 @@ if [ -n "$pkg" ] && "$KDEPS_BIN" bundle prepackage "$pkg" --arch "$goos-$goarch"
     # Control: the same package run by a kdeps with no assets cannot start.
     if OUT=$(as_run "$AS_DIR/pkg-control" env KDEPS_ASSETS_URL=off "$KDEPS_BIN" run "$pkg"); then
         test_failed "assets - plain run without assets fails" "$OUT"
-    elif output_grep "run kdeps update" "$OUT"; then
+    elif output_grep "run kdeps (install|upgrade)" "$OUT"; then
         test_passed "assets - the same package needs assets without the bundle"
     else
         test_failed "assets - plain run without assets message" "$OUT"
