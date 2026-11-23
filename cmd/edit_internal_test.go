@@ -123,7 +123,9 @@ func TestPrepareConfigForEdit_PathError(t *testing.T) {
 }
 
 func TestRunEdit_OpensFormulaInRegistryCopy(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	f := packageFormula("invoice-bot", "1.0.0", "workflow", "http://x/a.kdeps")
 	f.Registry = "kdeps/registry"
 	useFormulas(t, f)
