@@ -91,7 +91,10 @@ func TestExtractTarGzTree(t *testing.T) {
 	assert.Equal(t, "x", string(data))
 
 	evil := tarGz(t, map[string]string{"top/../evil.py": "x"})
-	require.ErrorContains(t, extractTarGzTree(evil, t.TempDir(), "top"), "outside top")
+	require.ErrorContains(t, extractTarGzTree(evil, t.TempDir(), "top"), "contains '..'")
+
+	outside := tarGz(t, map[string]string{"other/evil.py": "x"})
+	require.ErrorContains(t, extractTarGzTree(outside, t.TempDir(), "top"), "outside top")
 }
 
 func TestCheckSHA256(t *testing.T) {
