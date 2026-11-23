@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"fmt"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -86,14 +87,16 @@ func printRegistrySearchResults(cmd *cobra.Command, fs []formulas.Formula, query
 		fmt.Fprintf(w, "No formulas match %s\n", query)
 		return
 	}
-	fmt.Fprintf(w, "%-34s %-12s %-10s %s\n", "Name", "Type", "Version", "Description")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0) //nolint:mnd // column padding
+	fmt.Fprintln(tw, "Name\tType\tVersion\tDescription")
 	for _, f := range fs {
 		name := f.Name
 		if f.Registry != formulas.DefaultRegistry {
 			name = f.Registry + "/" + f.Name
 		}
-		fmt.Fprintf(w, "%-34s %-12s %-10s %s\n", name, f.Type, f.Version, truncatePackageDescription(f.Description))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", name, f.Type, f.Version, truncatePackageDescription(f.Description))
 	}
+	_ = tw.Flush()
 }
 
 // truncatePackageDescription shortens long descriptions for tabular display.

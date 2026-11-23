@@ -3,7 +3,9 @@
 package codegraph
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	kgraph "github.com/kdeps/kartographer/codegraph"
@@ -39,7 +41,9 @@ func init() {
 		},
 		Required: []string{rulesItem, toolsItem},
 	})
-	if err := Configure(); err != nil {
+	// Before the first asset download the file is missing; kdeps reloads it
+	// after install. Only a broken file is worth a message.
+	if err := Configure(); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		fmt.Fprintf(os.Stderr, "codegraph: rules: %v\n", err)
 	}
 }
