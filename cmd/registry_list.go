@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/v3/pkg/agent"
 	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
@@ -49,7 +49,7 @@ func newRegistryListCmd() *cobra.Command {
 				}
 			}
 			if listAssets || shelf != "" {
-				return runAssets(cmd, agent.UpdateOptions{List: true, Shelf: shelf})
+				return runAssets(cmd, assetsetup.UpdateOptions{List: true, Shelf: shelf})
 			}
 			return registryListRunE()
 		},

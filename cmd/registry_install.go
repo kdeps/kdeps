@@ -26,7 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
@@ -77,7 +77,7 @@ Behavior depends on package type:
 			kdeps_debug.Log("enter: registryInstallCmd.RunE")
 			assetRefs, pkgRefs := splitRefs(args)
 			if len(assetRefs) > 0 {
-				if err := runAssets(cmd, agent.UpdateOptions{Items: assetRefs}); err != nil {
+				if err := runAssets(cmd, assetsetup.UpdateOptions{Items: assetRefs}); err != nil {
 					return err
 				}
 			}

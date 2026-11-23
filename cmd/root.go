@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kdeps/kdeps/v3/pkg/agent"
 	"github.com/kdeps/kdeps/v3/pkg/assets"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	"github.com/kdeps/kdeps/v3/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
@@ -242,13 +242,13 @@ func ensureAssets(cmd *cobra.Command) error {
 	if config.CanPromptForConnections() {
 		in = cmd.InOrStdin()
 	}
-	if err := agent.EnsureSets(cmd.Context(), cmd.ErrOrStderr(), in, sets); err != nil {
+	if err := assetsetup.EnsureSets(cmd.Context(), cmd.ErrOrStderr(), in, sets); err != nil {
 		return err
 	}
 	// Set after the batch install, so it only fetches what is still missing:
 	// a component a workflow calls, or a required item of a set this command
 	// did not list.
-	assets.SetOnDemand(agent.InstallComponentOnDemand(cmd.Context(), cmd.ErrOrStderr()))
+	assets.SetOnDemand(assetsetup.InstallComponentOnDemand(cmd.Context(), cmd.ErrOrStderr()))
 	return nil
 }
 

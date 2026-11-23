@@ -26,7 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v3/pkg/agent"
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/manifest"
 )
@@ -60,7 +60,7 @@ Examples:
 				return errCheckPackages
 			}
 			if len(args) == 0 || len(assetRefs) > 0 {
-				if err := runAssets(cmd, agent.UpdateOptions{Items: assetRefs, Check: check}); err != nil {
+				if err := runAssets(cmd, assetsetup.UpdateOptions{Items: assetRefs, Check: check}); err != nil {
 					return err
 				}
 			}

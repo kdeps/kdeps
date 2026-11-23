@@ -16,14 +16,13 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package agent
+package assetsetup
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -31,8 +30,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/kdeps/kdeps/v3/pkg/assets"
-	kdepsconfig "github.com/kdeps/kdeps/v3/pkg/config"
-	executorLLM "github.com/kdeps/kdeps/v3/pkg/executor/llm"
 )
 
 const (
@@ -40,31 +37,14 @@ const (
 	firstRunAssetTimeout = 60 * time.Second
 )
 
-// ReloadAssets re-reads every asset set (harness, events, actions, presets,
-// tool definitions, slash commands) after an update.
-// Already-registered tools keep their descriptions until the next start.
-func ReloadAssets() {
-	initHarness()
-	initEvents()
-	initPermissionPolicy()
-	initToolSchemaPolicy()
-	initMemoryRules()
-	initPresets()
-	toolDefinitions = loadToolDefinitions()
-	toolAliases = aliasesOf(toolDefinitions)
-	registerDeclaredAPIRoutes()
-	executorLLM.ReloadRegistry()
-	executorLLM.ReloadGGUFRegistry()
-	executorLLM.ReloadCloudModels()
-	kdepsconfig.ReloadProviders()
-}
+// onChange re-reads the asset sets a process loaded after an install or
+// update. pkg/agent sets it to its ReloadAssets (SetOnChange).
+//
+//nolint:gochecknoglobals // set once at start-up by pkg/agent
+var onChange = func() {}
 
-// EnsureAssets makes what the desktop app loads available without asking
-// (it has no terminal): the base and agent sets and the project templates.
-// Its build and run actions start the CLI, which installs what they need.
-func EnsureAssets(ctx context.Context, w io.Writer) error {
-	return EnsureSets(ctx, w, nil, append(append(slices.Clone(assets.BaseSets), assets.AgentSets...), "templates"))
-}
+// SetOnChange sets what runs after assets are installed or updated.
+func SetOnChange(fn func()) { onChange = fn }
 
 // UpdateOptions selects what RunAssetUpdate does.
 type UpdateOptions struct {
@@ -99,7 +79,7 @@ func RunAssetUpdate(ctx context.Context, w io.Writer, opts UpdateOptions) error 
 	if !opts.Check {
 		_ = assets.MarkInitialized(root)
 		assets.ClearCheck(root)
-		ReloadAssets()
+		onChange()
 	}
 	for _, ch := range changes {
 		if ch.Action == assets.ActionFailed {
