@@ -1,4 +1,6 @@
-version: 2.0.0
+version: 2.0.1
+# kdeps 3.4.0 and older cannot load 2.x; they keep the 1.x version.
+kdeps: ">=3.5.0"
 # The knowledge vault's layout: the folders kdeps keeps notes in, the front
 # matter keys a project card carries, and the places a card links to. The code
 # holds none of these names; every one must be set.
