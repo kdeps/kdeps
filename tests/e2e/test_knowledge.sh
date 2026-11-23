@@ -81,11 +81,11 @@ else
     test_failed "knowledge - build" "$OUT $OUT2"
 fi
 
-OUT=$(kn check-update)
-if output_grep "Graph is current" "$OUT"; then
-    test_passed "knowledge - check-update leaves a current graph alone"
+OUT=$(kn build)
+if output_grep "\(0 changed\)" "$OUT"; then
+    test_passed "knowledge - build re-reads nothing for a current graph"
 else
-    test_failed "knowledge - check-update" "$OUT"
+    test_failed "knowledge - build on a current graph" "$OUT"
 fi
 
 OUT=$(kn recall "why postgres")
@@ -97,11 +97,11 @@ else
 fi
 
 printf -- '---\nsummary: x\nnext: do it\n---\n' > "$KN_VAULT/shared/Stray status.md"
-OUT=$(kn check-update)
+OUT=$(kn build)
 if output_grep "1 changed" "$OUT"; then
-    test_passed "knowledge - check-update rebuilds after a note is added outside kdeps"
+    test_passed "knowledge - build re-reads a note added outside kdeps"
 else
-    test_failed "knowledge - check-update after an external note" "$OUT"
+    test_failed "knowledge - build after an external note" "$OUT"
 fi
 
 if OUT=$(kn check); then
