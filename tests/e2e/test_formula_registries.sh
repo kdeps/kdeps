@@ -75,8 +75,8 @@ else
     test_failed "formula registries - search" "$OUT"
 fi
 
-# Git Bash on Windows rewrites an argument that starts with / as a path.
-OUT=$(MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' fr search '/^scr/')
+# Git Bash on Windows rewrites an argument that starts with / as a path; keep /^...
+OUT=$(MSYS2_ARG_CONV_EXCL='/^' fr search '/^scr/')
 if output_grep "acme/tools/scraper" "$OUT"; then
     test_passed "formula registries - /regex/ search finds a formula in another registry, named with it"
 else
