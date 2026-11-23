@@ -177,6 +177,9 @@ func extractTarEntry(r io.Reader, hdr *tar.Header, destDir, root, top string) er
 	if hdr.Typeflag == tar.TypeXGlobalHeader {
 		return nil
 	}
+	if strings.Contains(hdr.Name, "..") {
+		return fmt.Errorf("pybot archive entry %q contains '..'", hdr.Name)
+	}
 	target := filepath.Join(destDir, filepath.FromSlash(hdr.Name))
 	if target != root && !strings.HasPrefix(target, root+string(filepath.Separator)) {
 		return fmt.Errorf("pybot archive entry %q is outside %s", hdr.Name, top)
