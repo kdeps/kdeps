@@ -27,11 +27,7 @@ type policyFile struct {
 	AmbiguousBelow    float64 `yaml:"ambiguous_below"`     // An extracted link under this confidence is marked ambiguous.
 	DefaultWorkers    int     `yaml:"default_workers"`     // Concurrent extraction requests when none is configured.
 	MaxNoteSize       int64   `yaml:"max_note_size"`       // Notes larger than this many bytes are skipped (2 MiB).
-	MaxSummary        int     `yaml:"max_summary"`         // Characters of a session note's summary line.
-	MaxSlug           int     `yaml:"max_slug"`            // Longest file name slug of a session note.
-	TitleWords        int     `yaml:"title_words"`         // Words of a session's first message used as its title.
-	FollowUpWords     int     `yaml:"follow_up_words"`     // Words of a topic's follow-up question kept.
-	RelatedShare      float64 `yaml:"related_share"`       // Share of a topic's related notes shown.
+	MaxSummary        int     `yaml:"max_summary"`         // Characters of a note's summary line.
 	ReportTop         int     `yaml:"report_top"`          // Entries of each top list in the graph report.
 	CommunityTop      int     `yaml:"community_top"`       // Communities listed in the graph report.
 	MissingTop        int     `yaml:"missing_top"`         // Missing links listed in the graph report.
@@ -115,9 +111,6 @@ func policy() policyFile {
 			DefaultWorkers: 1,
 			MaxNoteSize:    1,
 			MaxSummary:     1,
-			MaxSlug:        1,
-			TitleWords:     1,
-			FollowUpWords:  1,
 			ReportTop:      1,
 			CommunityTop:   1,
 			MissingTop:     1,

@@ -144,9 +144,6 @@ func TestRegisterSearchLocalTool_Execute_MissingAllArgs(t *testing.T) {
 
 func TestRegisterSearchLocalTool_Execute_NoPathSearchesTheWorkingDirectory(t *testing.T) {
 	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	orig := projectSearchRoots
-	projectSearchRoots = func() []string { return nil }
-	t.Cleanup(func() { projectSearchRoots = orig })
 	wd := t.TempDir()
 	t.Chdir(wd)
 	require.NoError(t, os.WriteFile(filepath.Join(wd, "notes.txt"), []byte("a quokkalicious line"), 0o600))

@@ -362,16 +362,14 @@ knowledge:
   enabled: true               # on by default for agent sessions; false turns it off
   vault: ~/.kdeps/notes       # folder of markdown notes the agent recalls from each turn (default)
                               # Windows: single quotes, 'C:\Users\me\notes' - in double quotes \U is an escape
-  session_notes: true         # write a note per session into the project's sessions/ folder
   workflow_notes: false       # workflow chat calls log to projects/<workflow>/sessions/ (default false)
   recall:
     hops: 2                   # how far from the matched notes to walk the link graph
-    budget_tokens: 1500       # most tokens of recalled paths and summaries per turn
-  build: manual               # manual (default) | auto | off
+    budget_tokens: 1500       # most tokens of recalled paths and summaries per call
+  build: manual               # manual (default): kdeps knowledge build --extract | off
   extract:                    # model pass over changed notes
-    model: llama3.2:3b        # used when llm.subagent is current; empty: the session model
+    model: llama3.2:3b        # used when --model and llm.subagent are not set
     workers: 2
-    per_session: 20           # changed notes read on an automatic run
 ```
 
 See [Knowledge vault](/workflow/agent-loop/knowledge).

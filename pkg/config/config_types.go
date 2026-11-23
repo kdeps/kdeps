@@ -268,33 +268,29 @@ type IdentityConfig struct {
 	Accounts map[string]AccountConfig `yaml:"accounts,omitempty"`
 }
 
-// KnowledgeConfig points the agent loop at a knowledge vault: a folder of
-// markdown notes it recalls from each turn and writes session notes into.
+// KnowledgeConfig points kdeps at a knowledge vault: a folder of markdown
+// notes a workflow chat recalls from.
 type KnowledgeConfig struct {
-	// Enabled turns the vault on for agent sessions; nil means on.
+	// Enabled turns the vault on; nil means on.
 	Enabled *bool `yaml:"enabled,omitempty"`
 	// Vault is the notes folder; empty means ~/.kdeps/notes.
 	Vault string `yaml:"vault,omitempty"`
-	// SessionNotes writes a note per agent session; nil means on.
-	SessionNotes *bool `yaml:"session_notes,omitempty"`
 	// WorkflowNotes logs each workflow chat call to its project's run note
 	// for the day; nil means off (workflows only recall).
 	WorkflowNotes *bool                  `yaml:"workflow_notes,omitempty"`
 	Recall        KnowledgeRecallConfig  `yaml:"recall,omitempty"`
 	Extract       KnowledgeExtractConfig `yaml:"extract,omitempty"`
-	// Build is the model pass that adds inferred edges: manual (the default),
-	// auto, or off. manual runs only when asked. auto also runs at session
-	// end and before a background graph build. off does not run.
+	// Build is the model pass that adds inferred edges: manual (the default,
+	// kdeps knowledge build --extract) or off.
 	Build string `yaml:"build,omitempty"`
 }
 
 // KnowledgeExtractConfig tunes the model pass that finds what notes are
 // about. The model is the subagent channel.
 type KnowledgeExtractConfig struct {
-	Model      string `yaml:"model,omitempty"`
-	Backend    string `yaml:"backend,omitempty"`
-	Workers    int    `yaml:"workers,omitempty"`     // parallel model calls (default 2)
-	PerSession int    `yaml:"per_session,omitempty"` // notes per automatic run (default 20)
+	Model   string `yaml:"model,omitempty"`
+	Backend string `yaml:"backend,omitempty"`
+	Workers int    `yaml:"workers,omitempty"` // parallel model calls (default 2)
 }
 
 // KnowledgeRecallConfig tunes the per-turn recall; zero values use defaults.

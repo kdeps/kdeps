@@ -54,13 +54,12 @@ const (
 	recallItem   = "recall"
 )
 
-// recallRulesFile mirrors recall.yaml; stop and task are its word lists as sets.
+// recallRulesFile mirrors recall.yaml; stop is its stopword list as a set.
 type recallRulesFile struct {
 	MinWordLength int      `yaml:"min_word_length"`
 	MinStemLength int      `yaml:"min_stem_length"`
 	Stopwords     []string `yaml:"stopwords"`
-	TaskWords     []string `yaml:"task_words"`
-	stop, task    map[string]bool
+	stop          map[string]bool
 }
 
 //nolint:gochecknoglobals // loaded once from the knowledge asset set
@@ -88,7 +87,7 @@ func parseRecallRules(data []byte) (recallRulesFile, error) {
 	if err := yaml.Unmarshal(data, &r); err != nil {
 		return r, err
 	}
-	r.stop, r.task = kword.Set(r.Stopwords), kword.Set(r.TaskWords)
+	r.stop = kword.Set(r.Stopwords)
 	return r, nil
 }
 
@@ -146,8 +145,6 @@ func wordOptions() kword.Options {
 	r := recallRules()
 	return kword.Options{MinWordLength: r.MinWordLength, MinStemLength: r.MinStemLength, Stopwords: r.stop}
 }
-
-func words(s string) []string { return kword.Words(s, wordOptions()) }
 
 // recallTuning is the recall numbers of the policy.
 func recallTuning() kgknowledge.Tuning {

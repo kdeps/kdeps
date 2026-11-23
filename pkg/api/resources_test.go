@@ -328,3 +328,21 @@ func TestSearchLocal_IndexReachesExecutor(t *testing.T) {
 		t.Fatalf("index search: %v %s", err, out)
 	}
 }
+
+func TestInterleaveSearchResults(t *testing.T) {
+	r := func(p string) map[string]interface{} { return map[string]interface{}{"path": p} }
+	got := InterleaveSearchResults([][]map[string]interface{}{{r("a1"), r("a2"), r("a3")}, {r("b1"), r("a1")}}, 4)
+	var paths []string
+	for _, g := range got {
+		paths = append(paths, g["path"].(string))
+	}
+	if strings.Join(paths, ",") != "a1,b1,a2,a3" {
+		t.Errorf("turns, a path seen once: got %v", paths)
+	}
+	if n := len(InterleaveSearchResults(nil, 3)); n != 0 {
+		t.Errorf("no lists: got %d results", n)
+	}
+	if n := len(InterleaveSearchResults([][]map[string]interface{}{{r("x")}}, 3)); n != 1 {
+		t.Errorf("one list: got %d results", n)
+	}
+}

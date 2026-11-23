@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.1.0
 # The knowledge vault's layout: the folders kdeps keeps notes in, the front
 # matter keys a project card carries, and the places a card links to. The code
 # holds none of these names; every one must be set.
@@ -9,11 +9,11 @@ folders:
   inbox: inbox  # notes dropped in by hand, not yet sorted
   archive: archive  # finished projects, moved here when their card is archived
 
-project:  # the parts of a project folder, each written by kdeps
-  sessions: sessions  # one note per agent session, updated every turn
+project:  # the parts of a project folder
+  sessions: sessions  # a workflow's daily run log (knowledge.workflow_notes)
   memory: memory  # one note per saved fact
-  decisions: decisions  # one note per decision from a session summary
-  notes: notes  # notes the model saves, and your own
+  decisions: decisions  # one note per decision; you write them
+  notes: notes  # your notes
   auto: .auto  # hidden, inside memory/: thinking and tool-output captures
 
 card:  # front matter keys of a project card, all required

@@ -392,21 +392,13 @@ func TestThinkingBudget_ReadsEvents(t *testing.T) {
 	assert.Equal(t, 10000, thinkingBudget("no-such-mode"), "a missing event falls back")
 }
 
-func TestLiveNoteLimits_ReadEvents(t *testing.T) {
-	isolateEventsHome(t)
-	initEvents()
-	assert.Equal(t, 8, liveNotePrompts())
-	assert.Equal(t, 15, liveNoteItems())
-	assert.Equal(t, 160, liveNoteLineChars())
-}
-
 // TestMaxRoundsEvents: the agent loop's and a workflow chat's default tool
 // rounds come from the agent-max-rounds and chat-max-rounds events.
 func TestMaxRoundsEvents(t *testing.T) {
 	isolateEventsHome(t)
 	initEvents()
-	assert.Equal(t, 200, applyConfigDefaults(Config{}).MaxToolRounds)
-	assert.Equal(t, 9, applyConfigDefaults(Config{MaxToolRounds: 9}).MaxToolRounds, "a set value wins")
+	assert.Equal(t, 200, applyConfigDefaults(t.Context(), Config{}).MaxToolRounds)
+	assert.Equal(t, 9, applyConfigDefaults(t.Context(), Config{MaxToolRounds: 9}).MaxToolRounds, "a set value wins")
 	assert.Equal(t, 25, executorLLM.ChatToolRounds())
 	assert.Equal(t, 3, executorLLM.ChatRetries())
 }

@@ -50,7 +50,6 @@ items:
   "events/force-answer-digest": context
   "events/history-window-trim": context
   "events/memory-prompt-limit": context
-  "events/knowledge-recall-files": rag
   "events/thinking-budget-auto": model
   "events/thinking-budget-high": model
   "events/thinking-budget-low": model
@@ -65,9 +64,6 @@ items:
   "actions/truncate": context
   "harness/memory": memory
   "harness/knowledge-extract-system": memory
-  "tools/knowledge_card_get": memory
-  "tools/knowledge_card_update": memory
-  "tools/knowledge_note_save": memory
   "tools/knowledge_recall": memory
   "tools/memory_delete": memory
   "tools/memory_query": memory

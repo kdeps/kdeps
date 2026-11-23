@@ -35,9 +35,9 @@ func TestParsePrompts(t *testing.T) {
 	_, err = parsePrompts(data)
 	require.NoError(t, err)
 	for name, text := range map[string]string{
-		"missing prompt": strings.Replace(good, "files: |-", "unused: |-", 1),
-		"bad template":   strings.Replace(good, "{{.Root}}", "{{.Root", 1),
-		"broken YAML":    "vault: [",
+		"missing prompt": strings.Replace(good, "recall_none:", "unused:", 1),
+		"bad template":   strings.Replace(good, "{{range .Hits}}", "{{range .Hits", 1),
+		"broken YAML":    "recall: [",
 	} {
 		_, caseErr := parsePrompts([]byte(text))
 		assert.Error(t, caseErr, name)
@@ -45,12 +45,4 @@ func TestParsePrompts(t *testing.T) {
 	spec := knowledgeSpec()
 	require.Contains(t, spec.Required, promptsItem)
 	require.NoError(t, spec.Validate(data, promptsItem))
-}
-
-func TestPrompt_VaultUsesTheLayoutFolders(t *testing.T) {
-	l := Layout()
-	l.Folders.Projects, l.Project.Sessions = "work", "logs"
-	got := Prompt(PromptVault, map[string]any{"Root": "/v", "Layout": l})
-	assert.Contains(t, got, "one folder in work/ (card <name>.md, logs/,")
-	assert.Empty(t, Prompt(PromptVault, map[string]any{}), "a template missing its data gives no block")
 }

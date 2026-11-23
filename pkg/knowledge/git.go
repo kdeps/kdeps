@@ -19,8 +19,6 @@
 package knowledge
 
 import (
-	"context"
-	"os/exec"
 	"strings"
 )
 
@@ -37,31 +35,6 @@ type GitRange struct {
 	Branch string
 	From   string
 	To     string
-}
-
-// gitShortLen is how many hex digits a recorded commit id has.
-const gitShortLen = "12"
-
-// ReadGitHead is dir's branch and HEAD commit, or false when dir is not in
-// a git repository (or git is missing). It only reads, with two
-// git rev-parse calls.
-func ReadGitHead(ctx context.Context, dir string) (GitPoint, bool) {
-	commit, err := gitOut(ctx, dir, "rev-parse", "--short="+gitShortLen, "HEAD")
-	if err != nil || commit == "" {
-		return GitPoint{}, false
-	}
-	branch, _ := gitOut(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
-	if branch == "HEAD" {
-		branch = ""
-	}
-	return GitPoint{Branch: branch, Commit: commit}, true
-}
-
-func gitOut(ctx context.Context, dir string, args ...string) (string, error) {
-	argv := append([]string{"-C", dir}, args...)
-	// The arguments are fixed rev-parse flags and the working directory.
-	out, err := exec.CommandContext(ctx, "git", argv...).Output()
-	return strings.TrimSpace(string(out)), err
 }
 
 // SourceBranch is the card row naming the branch the project is on.
@@ -94,13 +67,4 @@ func (c *Card) Branch() string {
 		}
 	}
 	return ""
-}
-
-// gitRangeMeta is the frontmatter value of a range: "from..to", or "to"
-// when no commit was made.
-func gitRangeMeta(r GitRange) string {
-	if r.From == "" || r.From == r.To {
-		return r.To
-	}
-	return r.From + ".." + r.To
 }

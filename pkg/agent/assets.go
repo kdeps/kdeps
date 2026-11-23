@@ -89,7 +89,7 @@ var requiredTools = []string{
 	"read_file", "write_file", "edit_file", "list_files", "tail_file",
 	"bash_exec", "bash_job_list", "bash_job_wait", "search_local",
 	"memory_save", "memory_search", "memory_query", "memory_delete",
-	"knowledge_recall", "knowledge_card_get", "knowledge_card_update", "knowledge_note_save",
+	"knowledge_recall",
 	"load_skill", "load_tools", "identity_get",
 	"judge_verdict",
 }
