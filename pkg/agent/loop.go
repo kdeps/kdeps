@@ -533,6 +533,7 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 		}
 	}
 
+	setInstructModelBackend(cfg.Backend)
 	l.registerSkillLoader()
 	if !cfg.Nested {
 		l.becomeSessionLoop()
@@ -3351,6 +3352,7 @@ func (l *Loop) buildChatConfig(
 	ctx context.Context,
 	input, systemPreamble string,
 ) *domain.ChatConfig {
+	setInstructModelBackend(l.config.Backend)
 	resetContextSegments(l.config.Model, l.config.Backend)
 	tools := l.requestTools()
 	files := l.pendingFiles
