@@ -80,16 +80,17 @@ var requiredHarness = []string{
 // requiredTools are the tools every agent session keeps, whatever profile
 // installed the assets: a tool without its definition is not offered to the
 // model, so these are what a minimum install can work with. They are the
-// file, shell, search, memory and knowledge tools, and the loop's own
-// control tools (without those, judges cannot finish). Web,
-// code-intelligence, team and other tools are installed with the tools set, or one by one (kdeps install tools/<name>).
+// file, shell, search, and memory tools, and the loop's own
+// control tools (without those, judges cannot finish). The knowledge vault
+// tools stay optional: install tools/knowledge_recall when a chat lists it.
+// Web, code-intelligence, and other tools are installed with the tools set,
+// or one by one (kdeps install tools/<name>).
 //
 //nolint:gochecknoglobals // fixed list
 var requiredTools = []string{
 	"read_file", "write_file", "edit_file", "list_files", "tail_file",
 	"bash_exec", "bash_job_list", "bash_job_wait", "search_local",
 	"memory_save", "memory_search", "memory_query", "memory_delete",
-	"knowledge_recall",
 	"load_skill", "load_tools", "identity_get",
 	"judge_verdict",
 }

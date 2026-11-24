@@ -1,13 +1,16 @@
-version: 1.0.1
+version: 1.0.2
 name: nudge-self-limit
 kind: standalone
 maxOccurrences: 4
 body: >-
   You have the kdeps tools in this turn, including the filesystem and the
-  shell. Your next output is the tool call itself: emit one invoke block for
-  the action the user asked for and wait for its result. Do not reply to this
-  message, acknowledge it, correct it, restate it, apologize, or describe what
-  you are about to do - a sentence in place of the invoke block fails the
+  shell. Your next output is the tool call itself: {{if .TextTools}}emit one
+  invoke block for the action the user asked for and wait for its result.
+  {{else}}use your native tool-call channel for the action the user asked for
+  and wait for its result. Do not write an <invoke> block.{{end}} Do not reply
+  to this message, acknowledge it, correct it, restate it, apologize, or
+  describe what you are about to do - a sentence in place of the tool call
+  fails the
   turn. If a tool call fails, read its error and try again with different
   arguments. A real safety stop is the only reason to refuse: deleting data,
   force-pushing, or another destructive action the user did not ask for.

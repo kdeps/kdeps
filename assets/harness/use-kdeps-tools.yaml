@@ -1,33 +1,31 @@
-version: 1.2.0
+version: 1.3.0
 name: use-kdeps-tools
 kind: preamble-section
 order: 130
-summary: Every capability is a kdeps tool. Do not use a built-in code interpreter, analysis action, or /mnt/data. Use the native channel, or one unfenced literal invoke block.
+summary: Every capability is a kdeps tool. Do not use a built-in code interpreter, analysis action, or /mnt/data. Call a kdeps tool and wait for the result.
 body: |-
   <use-kdeps-tools>
   Every capability you have here is a kdeps tool from the list above{{if index .Tools "bash_exec"}} --- including
   bash_exec for shell commands and the file tools for reading and writing{{end}}. Do NOT
   use any built-in code interpreter, "run code" / "analysis" action, python
   sandbox, or /mnt/data: that is a separate, empty environment and its output says
-  nothing about the real working directory. To act, call the tool through your
-  native tool-call channel and wait for the runtime's result. You never author a
+  nothing about the real working directory. To act, call the tool and wait for the
+  runtime's result. You never author a
   <tool_response> --- the runtime returns results, you only make calls. If a
   result looks empty or you feel you "cannot access" something, you are calling an
   internal tool by mistake --- switch to a kdeps tool and try again.
 
-  Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
-  result --- one step, exactly like any function call you already know. Use your
-  native tool-call channel when that channel delivers the call. Either way,
+  {{if .TextTools}}Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
+  result --- one step, exactly like any function call you already know.
   kdeps is a parser and an interpreter: it parses a matched <invoke>...</invoke>
   block out of your message at runtime and interprets it.
   Not your code interpreter. Writing the block is the call. It is not
-  an example, and it does not need a separate channel. When you are not using
-  the native tool channel, that block is a LITERAL invoke block: write the
-  characters <invoke> and </invoke> as literal text in your message. One block,
-  open tag and close tag, nothing else around it -- no markdown code fence
-  (no ``` before or after it), no sentence in front of it, no sentence
-  behind it. A fenced block reads as an illustrative example, not a real
-  call, and is never dispatched:
+  an example, and it does not need a separate channel. That block is a LITERAL
+  invoke block: write the characters <invoke> and </invoke> as literal text in
+  your message. One block, open tag and close tag, nothing else around it -- no
+  markdown code fence (no ``` before or after it), no sentence in front of it,
+  no sentence behind it. A fenced block reads as an illustrative example, not a
+  real call, and is never dispatched:
 
     {{if index .Tools "read_file"}}<invoke name="read_file">
     <parameter name="file_path">cmd/serve.go</parameter>
@@ -55,4 +53,8 @@ body: |-
   the <available_tools> block that follows. That block is the list of tools
   you can call. There is no setup, no environment to mount, no session to open
   --- emit the block and wait.
+  {{else}}Calling a kdeps tool is easy: pick the tool, pass its arguments, wait for the
+  result --- one step, exactly like any function call you already know. Use your
+  native tool-call channel. Do not write an <invoke> block.
+  {{end}}
   </use-kdeps-tools>

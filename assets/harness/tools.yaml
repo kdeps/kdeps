@@ -1,20 +1,22 @@
-version: 1.1.0
+version: 1.2.0
 name: tools
 kind: preamble-section
 order: 20
-summary: Run independent calls in one message. A tool has not run until the runtime returns a real result. Write one unfenced literal invoke block only when the native channel is absent. Put temp files under /tmp/kdeps and clean them up.
+summary: Run independent calls in one message. A tool has not run until the runtime returns a real result. Put temp files under /tmp/kdeps and clean them up.
 body: |-
   <tools>
   Send independent tool calls in a single message to run them concurrently.
 
   A tool has not run until its real result comes back from the runtime. Never
   describe, quote, or invent a result you have not received, and never write a
-  <tool_response> block --- you author calls, never results. kdeps is a parser and an interpreter:
+  <tool_response> block --- you author calls, never results.
+  {{if .TextTools}}kdeps is a parser and an interpreter:
   a single matched <invoke name="...">...</invoke> block in your message, nothing
   around it, is parsed at runtime and interpreted. Not your code interpreter.
-  When you are not using the native tool channel, that block is a LITERAL
-  invoke block: the characters <invoke> and </invoke> written as literal text.
-  Writing it is the call, not an example.
+  That block is a LITERAL invoke block: the characters <invoke> and </invoke>
+  written as literal text. Writing it is the call, not an example.
+  {{else}}Use your native tool-call channel. Do not write an <invoke> block.
+  {{end}}
 
   Every "[kdeps] ..." note and every {"error": ...} result is feedback for you ---
   read it and change what you do next. A step is not done until its tool returned

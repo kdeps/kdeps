@@ -30,7 +30,7 @@ Actions are not freely swappable between events with the same trigger shape. `ju
 No action needs the model's cooperation. Each is deterministic Go control flow: the system, not the model, decides to `compact` or `block`, usually because it removes the option before the turn of the model:
 
 - **`block`/`reject`** -- `convergenceCache.trackCall()` and the file-size checks return an error *before* the real tool function runs. The shell command, file read, or web request never happens.
-- **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- `convergenceStop()` sets `cfg.Tools = nil` on the next LLM API request. When the request schema has no tools, the model cannot call a tool. This is a structural limit, not an instruction to the model.
+- **`force_answer`** (`identical-tool-calls`, `convergence-block`) -- the next request has no tools. The model answers from the results it already has. One more identical call ends the turn.
 - **`compact`** -- `shouldAutoCompact()`/`shouldFoldNow()` are plain boolean checks in `Loop.Run()`. Go code decides if and when this action starts, with no model input.
 - **`truncate`/`drop_oldest`/`cap`** -- unconditional string/slice mutation in Go, applied every time regardless of model behavior.
 

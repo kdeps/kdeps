@@ -337,6 +337,9 @@ type harnessPreambleData struct {
 	// judge, a handshake round) has fewer than the session, and its prompt
 	// must not name a tool the model cannot call.
 	Tools map[string]bool
+	// TextTools is true when this backend has no native tool channel.
+	// The preamble then teaches one literal invoke block and nothing else.
+	TextTools bool
 }
 
 // currentPreambleData snapshots the web-call limit actually enforced now.
@@ -349,6 +352,9 @@ func currentPreambleData() harnessPreambleData {
 func (l *Loop) preambleData() harnessPreambleData {
 	d := currentPreambleData()
 	d.Tools = l.offeredToolSet()
+	if l != nil {
+		d.TextTools = needsTextToolCatalog(l.config.Backend)
+	}
 	return d
 }
 

@@ -113,11 +113,13 @@ What will you use kdeps for? (change it later with kdeps profile)
 Choice [5]:
 ```
 
+`kdeps run` installs the harness, the events, and the actions only when the workflow has a chat resource. A workflow with no chat loads the schemas, the defaults, and the model lists.
+
 If a later command needs more, kdeps installs only the parts that its loader needs. A small profile stays small and does not stop you. With `minimum`, a chat with `loop:` adds these core tools:
 
 - Files: `read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`.
 - Shell: `bash_exec` and its job tools.
-- `search_local`, memory, and knowledge.
+- `search_local` and memory. Install `tools/knowledge_recall` when a chat lists it.
 
 - Web and search tools: `kdeps install tools`, or one at a time (`kdeps install tools/web_search`).
 - `kdeps install <set>` adds a set. `kdeps profile <name>` switches profile and prunes the rest.

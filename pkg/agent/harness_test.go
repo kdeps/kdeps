@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/harness"
 	"github.com/kdeps/kdeps/v3/pkg/overflow"
 	kdepstools "github.com/kdeps/kdeps/v3/pkg/tools"
@@ -141,18 +142,28 @@ func TestRenderAssembledPreamble_BrokenTemplateFallsBackToRawText(t *testing.T) 
 // A scoped loop (a judge, a handshake round) without bash_exec must not be
 // told to use it: the model would call it, get "tool not found", and loop.
 func TestRenderAssembledPreamble_ToolsNamedOnlyWhenGiven(t *testing.T) {
-	with := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20,
+	with := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20, TextTools: true,
 		Tools: map[string]bool{"bash_exec": true, "read_file": true}})
 	assert.Contains(t, with, "bash_exec for shell commands and the file tools")
 	assert.Contains(t, with, `<invoke name="read_file">`)
+	assert.Contains(t, with, "LITERAL")
 	assert.NotContains(t, with, `<invoke name="edit_file">`)
+	assert.NotContains(t, with, "Do not write an <invoke> block.")
 
 	without := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20})
 	assert.NotContains(t, without, "bash_exec for shell commands and the file tools")
 	assert.NotContains(t, without, `<invoke name="bash_exec">`)
 	assert.NotContains(t, without, `<invoke name="read_file">`)
 	assert.Contains(t, without, "from the list above. Do NOT")
+	assert.Contains(t, without, "Do not write an <invoke> block.")
+	assert.NotContains(t, without, "LITERAL")
 	assert.NotContains(t, without, "{{")
+
+	cloud := renderAssembledPreamble(harnessPreambleData{WebCallLimit: 20,
+		Tools: map[string]bool{"read_file": true, "bash_exec": true}})
+	assert.Contains(t, cloud, "native tool-call channel")
+	assert.NotContains(t, cloud, `<invoke name="read_file">`)
+	assert.NotContains(t, cloud, "LITERAL")
 }
 
 func TestPreambleData_ToolsFollowLoopRegistry(t *testing.T) {
@@ -168,6 +179,28 @@ func TestPreambleData_ToolsFollowLoopRegistry(t *testing.T) {
 	assert.True(t, (&Loop{registry: reg}).preambleData().Tools["bash_exec"])
 
 	assert.Empty(t, (&Loop{}).preambleData().Tools, "a loop with no registry names no tools")
+	assert.True(t, (&Loop{}).preambleData().TextTools, "an unset backend teaches the invoke block")
+	assert.False(t, (&Loop{config: Config{Backend: "openai"}}).preambleData().TextTools)
+}
+
+func TestNudgeText_OneCallStyle(t *testing.T) {
+	local := nudgeText("nudge-self-limit", &domain.ChatConfig{})
+	assert.Contains(t, local, "emit one")
+	assert.Contains(t, local, "Your next output is the tool call itself")
+	assert.NotContains(t, local, "Do not write an <invoke> block.")
+
+	cloud := nudgeText("nudge-self-limit", &domain.ChatConfig{Backend: "openai"})
+	assert.Contains(t, cloud, "native tool-call channel")
+	assert.Contains(t, cloud, "Your next output is the tool call itself")
+	assert.NotContains(t, cloud, "emit one")
+}
+
+func TestCallExample_CloudOmitsInvoke(t *testing.T) {
+	assert.Contains(t, callExample(nil), "<invoke")
+	assert.Contains(t, callExample(&domain.ChatConfig{}), "<invoke")
+	assert.Contains(t, callExample(&domain.ChatConfig{Backend: "ollama"}), "<invoke")
+	assert.Empty(t, callExample(&domain.ChatConfig{Backend: "openai"}))
+	assert.Empty(t, callExample(&domain.ChatConfig{Backend: "anthropic"}))
 }
 
 func TestHarnessEnabled_UnknownNameFailsOpen(t *testing.T) {

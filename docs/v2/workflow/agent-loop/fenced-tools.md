@@ -24,7 +24,7 @@ kdeps: write_file result -> model answers
 
 ## Parser and interpreter
 
-The guidance tells the model that kdeps parses a matched `<invoke>` block in the message at runtime and runs it. This is not the built-in interpreter of the model. The block that the model writes is the call. On a backend without a native tool channel, it is literal text:
+A local backend (file, gguf, ollama, llamafile, or no backend) has no native tool channel. The guidance teaches one literal invoke block. The model writes the block. kdeps parses that block at runtime and runs it. This is not the built-in interpreter of the model.
 
 ```
 <invoke name="read_file">
@@ -33,6 +33,8 @@ The guidance tells the model that kdeps parses a matched `<invoke>` block in the
 ```
 
 The runtime returns the real output.
+
+A cloud backend has a native tool channel. The guidance tells the model to use that channel. It tells the model not to write an invoke block. kdeps still runs an invoke block when a model writes one outside a fence.
 
 - A literal invoke runs only outside a markdown fence. Inside a ``` or ~~~ block it is an example.
 - A fence inside a parameter value stays part of the value.
@@ -50,9 +52,9 @@ ls -la && cat README.md
 | Backend | Tool list |
 |---|---|
 | Local (file, gguf, ollama, llamafile) or unset | one `<available_tools>` list in the preamble: name, one-line description, parameter names |
-| Cloud | native tool schema; no text list |
+| Cloud | native tool schema; no text list. The prompt does not teach an invoke block |
 
-Later turns have a one-line reminder, not the list. A native model can write `<invoke>` / `<tool_call>` blocks as text. kdeps recovers these blocks. This includes the DSML form of DeepSeek (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend returns as plain content.
+Later turns have a one-line reminder, not the list. The reminder matches the backend: a local model gets the invoke block, and a cloud model gets the native channel. kdeps still recovers an invoke block or a `<tool_call>` block written as text. This includes the DSML form of DeepSeek (`<｜｜DSML｜｜ invoke name="...">` with `<｜｜DSML｜｜ parameter ...>`), which its OpenAI-compatible backend returns as plain content.
 
 ## Simulated sandbox sessions are caught
 
@@ -66,7 +68,7 @@ Escalation:
 
 1. Each corrective nudge (sandbox, fabricated `<tool_response>`, silent round) fires up to twice per turn. The second is sharper.
 2. If there is no real call after the two nudges, kdeps keeps the reply but puts a banner before it. The banner says that the reply describes a sandbox that does not exist here, and that it is not verified.
-3. After one hallucination of this type, each later turn sends the full fenced-tools guidance again with complete `<invoke>` examples. It does not use the one-line reminder.
+3. After one hallucination of this type, each later turn sends the full fenced-tools guidance again. A local backend gets the invoke examples. A cloud backend gets the native channel. It does not use the one-line reminder.
 
 ## Premature refusals after real progress
 
