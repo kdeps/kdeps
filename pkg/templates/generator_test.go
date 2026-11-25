@@ -98,17 +98,15 @@ func TestInputSources_AssistantUsesInteractive(t *testing.T) {
 	assert.Empty(t, got)
 }
 
-func TestProjectTemplatesAreRequired(t *testing.T) {
+func TestMissingProjectTemplates(t *testing.T) {
 	t.Setenv(assets.SourceEnv, "")
 	names := []string{"agency", "api-service", "assistant", "resources", "sql-agent", "whatsapp-bot"}
+	missing := templates.MissingProjectTemplates()
 	for _, name := range names {
-		assert.True(t, assets.Required("templates", name), name)
-	}
-	assert.False(t, assets.Required("templates", "knowledge"))
-	missing := assets.MissingRequired([]string{"templates"})
-	for _, name := range names {
+		assert.False(t, assets.Required("templates", name), name)
 		assert.Contains(t, missing, "templates/"+name)
 	}
+	assert.NotContains(t, missing, "templates/knowledge")
 }
 
 func TestGenerator_StripJinja2Ext(t *testing.T) {

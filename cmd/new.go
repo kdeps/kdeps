@@ -71,6 +71,9 @@ Examples:
   kdeps new my-agent --template api-service`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := ensureProjectTemplates(cmd); err != nil {
+				return err
+			}
 			return RunNewWithFlags(cmd, args, flags)
 		},
 	}
@@ -137,12 +140,29 @@ func prepareNewOutputDir(outputDir string, force bool) error {
 //
 //nolint:gochecknoglobals // test-replaceable
 var (
-	templateSources = templates.InputSources
-	schemaSources   = validator.WorkflowInputSources
-	upgradeSchema   = func(ctx context.Context, w io.Writer) error {
+	templateSources         = templates.InputSources
+	schemaSources           = validator.WorkflowInputSources
+	missingProjectTemplates = templates.MissingProjectTemplates
+	upgradeSchema           = func(ctx context.Context, w io.Writer) error {
 		return assetsetup.RunAssetUpdate(ctx, w, assetsetup.UpdateOptions{Items: []string{"schemas/v1"}})
 	}
+	installTemplates = func(ctx context.Context, w io.Writer, items []string) error {
+		return assetsetup.RunAssetUpdate(ctx, w, assetsetup.UpdateOptions{Items: items})
+	}
 )
+
+// ensureProjectTemplates installs the scaffolds kdeps new writes when the
+// loader cannot read them. A knowledge command does not install them.
+func ensureProjectTemplates(cmd *cobra.Command) error {
+	if cmd == nil {
+		return nil
+	}
+	need := missingProjectTemplates()
+	if len(need) == 0 {
+		return nil
+	}
+	return installTemplates(processParent(cmd.Context()), cmd.ErrOrStderr(), need)
+}
 
 // ensureTemplateSchema upgrades the workflow schema when the template names
 // an input source the installed schema does not list.

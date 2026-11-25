@@ -36,8 +36,9 @@ import (
 // templatesSet is the asset set holding the project templates.
 const templatesSet = "templates"
 
-// projectTemplates are the scaffolds kdeps new writes. A chosen profile
-// installs only required items, so these stay available after the first install.
+// projectTemplates are the scaffolds kdeps new installs by name.
+// They stay optional. The knowledge command also loads this set, and it
+// installs templates/knowledge alone.
 //
 //nolint:gochecknoglobals // fixed list
 var projectTemplates = []string{
@@ -48,8 +49,21 @@ var projectTemplates = []string{
 func init() {
 	assets.Register(templatesSet, assets.Spec{
 		Validate: validateTemplateBundle,
-		Required: projectTemplates,
 	})
+}
+
+// MissingProjectTemplates lists the scaffolds kdeps new installs when the
+// loader cannot read them.
+func MissingProjectTemplates() []string {
+	fsys := assets.Open(templatesSet)
+	var out []string
+	for _, name := range projectTemplates {
+		file := path.Join(templatesSet, name, assets.ManifestFile)
+		if _, err := fsys.ReadFile(file); err != nil {
+			out = append(out, assets.ID(templatesSet, name))
+		}
+	}
+	return out
 }
 
 // InputSources reads the sources list from a project template's workflow.

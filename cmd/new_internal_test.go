@@ -201,3 +201,56 @@ func TestEnsureTemplateSchema_SkipsOnReadError(t *testing.T) {
 	require.NoError(t, ensureTemplateSchema(c, "assistant"))
 	require.NoError(t, ensureTemplateSchema(nil, "assistant"))
 }
+
+func TestEnsureProjectTemplates_InstallsMissing(t *testing.T) {
+	prevMissing, prevInstall := missingProjectTemplates, installTemplates
+	t.Cleanup(func() {
+		missingProjectTemplates, installTemplates = prevMissing, prevInstall
+	})
+	missingProjectTemplates = func() []string { return []string{"templates/assistant"} }
+	var got []string
+	installTemplates = func(_ context.Context, _ io.Writer, items []string) error {
+		got = append([]string{}, items...)
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.NoError(t, ensureProjectTemplates(c))
+	assert.Equal(t, []string{"templates/assistant"}, got)
+	require.NoError(t, ensureProjectTemplates(nil))
+}
+
+func TestEnsureProjectTemplates_SkipsWhenPresent(t *testing.T) {
+	prevMissing, prevInstall := missingProjectTemplates, installTemplates
+	t.Cleanup(func() {
+		missingProjectTemplates, installTemplates = prevMissing, prevInstall
+	})
+	missingProjectTemplates = func() []string { return nil }
+	installTemplates = func(context.Context, io.Writer, []string) error {
+		t.Fatal("templates are already readable")
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.NoError(t, ensureProjectTemplates(c))
+}
+
+func TestNewCmd_RunEStopsWhenInstallFails(t *testing.T) {
+	prevMissing, prevInstall := missingProjectTemplates, installTemplates
+	t.Cleanup(func() {
+		missingProjectTemplates, installTemplates = prevMissing, prevInstall
+	})
+	missingProjectTemplates = func() []string { return []string{"templates/assistant"} }
+	installTemplates = func(context.Context, io.Writer, []string) error {
+		return errors.New("install failed")
+	}
+	c := newNewCmd()
+	c.SetContext(t.Context())
+	c.SetOut(io.Discard)
+	c.SetErr(io.Discard)
+	dir := filepath.Join(t.TempDir(), "agent")
+	c.SetArgs([]string{dir})
+	require.EqualError(t, c.Execute(), "install failed")
+	_, statErr := os.Stat(dir)
+	assert.ErrorIs(t, statErr, os.ErrNotExist)
+}
