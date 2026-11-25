@@ -33,11 +33,15 @@ type instructTopic struct {
 	render func(l *Loop) string
 }
 
+const instructOverviewInvoke = `kdeps is a parser and an interpreter:
+in agent mode it parses a matched <invoke> block out of your message at runtime
+and interprets that call. Not your code interpreter. `
+
+const instructOverviewNative = `Call a tool through the native tool channel. Do not write an <invoke> block. `
+
 const instructOverviewBody = `kdeps is a self-hosted, open-source framework for building AI agents and
 APIs -- not chatbots. The name is short for "knowledge dependencies"; it grew
-out of graph-based knowledge orchestration. kdeps is a parser and an interpreter:
-in agent mode it parses a matched <invoke> block out of your message at runtime
-and interprets that call. Not your code interpreter. An agent's behavior is defined by YAML committed to a git
+out of graph-based knowledge orchestration. ` + instructOverviewInvoke + `An agent's behavior is defined by YAML committed to a git
 repo (workflow.yaml plus resources/*.yaml), and the git history is the behavior
 changelog. Only the model wiring -- backend, API keys, DB and SMTP connections
 -- lives outside the repo in ~/.kdeps/config.yaml, so the same commit runs a
@@ -53,15 +57,13 @@ appear here as tools -- each runs its full DAG only if you choose to call it.
 Everything else (this conversation, memory, the built-in tools) is the agent
 loop itself.`
 
-const instructToolsBody = `Calling a kdeps tool is one step, exactly like any function call you already
+const instructToolsLocal = `Calling a kdeps tool is one step, exactly like any function call you already
 know: pick the tool, pass its arguments, wait for the runtime's real result.
-Use your native tool channel when it delivers the call. Either way,
 kdeps is a parser and an interpreter: it parses a matched <invoke> block
 out of your message at runtime and interprets it. Not your code interpreter.
-When you are not using the native tool channel, that block is a LITERAL
-invoke block: write the characters <invoke> and </invoke> as literal text.
-Writing the block is the call, not an example. One block, open tag and close
-tag, nothing around it:
+That block is a LITERAL invoke block: write the characters <invoke> and
+</invoke> as literal text. Writing the block is the call, not an example.
+One block, open tag and close tag, nothing around it:
 
   <invoke name="read_file">
   <parameter name="file_path">cmd/serve.go</parameter>
@@ -92,6 +94,49 @@ access" a file, you called an internal tool by mistake -- switch to a kdeps
 tool. You never write a <tool_response>; the runtime returns results, you only
 make calls.`
 
+const instructToolsCloud = `Calling a kdeps tool is one step, exactly like any function call you already
+know: pick the tool, pass its arguments, wait for the runtime's real result.
+Use your native tool-call channel. Do not write an <invoke> block.
+The tools you can call are in the next section
+(Tools available in this session). Every capability
+you have is a kdeps tool -- including bash_exec and the file tools. There is NO
+built-in code interpreter, python sandbox, or /mnt/data here: that is a
+different, empty machine. If a result looks empty or you feel you "cannot
+access" a file, you called an internal tool by mistake -- switch to a kdeps
+tool. You never write a <tool_response>; the runtime returns results, you only
+make calls.`
+
+// instructModelBackend is the backend of the loop that is running.
+// An empty value is a local model. The instruct tool is process-wide.
+//
+//nolint:gochecknoglobals // the active loop sets it
+var instructModelBackend string
+
+func setInstructModelBackend(backend string) {
+	instructModelBackend = backend
+}
+
+func instructBackendOf(l *Loop) string {
+	if l != nil {
+		return l.config.Backend
+	}
+	return instructModelBackend
+}
+
+func instructOverviewText(backend string) string {
+	if needsTextToolCatalog(backend) {
+		return instructOverviewBody
+	}
+	return strings.Replace(instructOverviewBody, instructOverviewInvoke, instructOverviewNative, 1)
+}
+
+func instructToolsText(backend string) string {
+	if needsTextToolCatalog(backend) {
+		return instructToolsLocal
+	}
+	return instructToolsCloud
+}
+
 const instructMemoryBody = `kdeps can switch the LLM model between turns. Persistent memory is the ONLY
 state that survives a switch. Call memory_query (preferred: a relational lookup
 over memory, tool calls and tasks) when the task refers to earlier work, when a
@@ -119,7 +164,7 @@ func instructTopicList() []instructTopic {
 	return []instructTopic{
 		{name: "overview", title: "What kdeps is", body: instructOverviewBody},
 		{name: "modes", title: "Two modes", body: instructModesBody},
-		{name: "tools", title: "How to call a tool", body: instructToolsBody},
+		{name: "tools", title: "How to call a tool", body: instructToolsLocal},
 		{name: "available", title: "Tools available in this session", render: renderInstructTools},
 		{name: "memory", title: "Memory bridge (critical)", body: instructMemoryBody},
 		{name: "feedback", title: "Reading runtime feedback", body: instructFeedbackBody},
@@ -154,7 +199,14 @@ func renderInstructTopic(l *Loop, t instructTopic) string {
 	if t.render != nil {
 		return "## " + t.title + "\n\n" + strings.TrimSpace(t.render(l))
 	}
-	return "## " + t.title + "\n\n" + strings.TrimSpace(collapseWrap(t.body))
+	body := t.body
+	switch t.name {
+	case "overview":
+		body = instructOverviewText(instructBackendOf(l))
+	case "tools":
+		body = instructToolsText(instructBackendOf(l))
+	}
+	return "## " + t.title + "\n\n" + strings.TrimSpace(collapseWrap(body))
 }
 
 // collapseWrap joins the hard-wrapped lines of a paragraph back into one line

@@ -138,6 +138,17 @@ func TestCachedSystemPreamble_KdepsToolsGuidance(t *testing.T) {
 	if !strings.Contains(out, "<use-kdeps-tools>") {
 		t.Errorf("every backend should get the fenced-tools guidance:\n%s", out)
 	}
+	if strings.Contains(out, "LITERAL") || strings.Contains(out, `<invoke name=`) {
+		t.Errorf("a cloud backend must not teach the invoke block:\n%s", out)
+	}
+	local := &Loop{registry: reg, config: Config{Backend: "llamafile"}}
+	localOut := local.cachedSystemPreamble()
+	if !strings.Contains(localOut, "LITERAL") {
+		t.Errorf("a local backend must teach the literal invoke block:\n%s", localOut)
+	}
+	if strings.Contains(localOut, "Do not write an <invoke> block.") {
+		t.Errorf("a local backend must not teach the native channel:\n%s", localOut)
+	}
 }
 
 // End-to-end regression test for the live failure: RunStreaming with a real

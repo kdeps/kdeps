@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -35,9 +36,77 @@ import (
 // templatesSet is the asset set holding the project templates.
 const templatesSet = "templates"
 
+// projectTemplates are the scaffolds kdeps new installs by name.
+// They stay optional. The knowledge command also loads this set, and it
+// installs templates/knowledge alone.
+//
+//nolint:gochecknoglobals // fixed list
+var projectTemplates = []string{
+	"agency", "api-service", "assistant", "resources", "sql-agent", "whatsapp-bot",
+}
+
 //nolint:gochecknoinits // registers the project templates as a versioned asset set
 func init() {
-	assets.Register(templatesSet, assets.Spec{Validate: validateTemplateBundle})
+	assets.Register(templatesSet, assets.Spec{
+		Validate: validateTemplateBundle,
+	})
+}
+
+// MissingProjectTemplates lists the scaffolds kdeps new installs when the
+// loader cannot read them.
+func MissingProjectTemplates() []string {
+	fsys := assets.Open(templatesSet)
+	var out []string
+	for _, name := range projectTemplates {
+		file := path.Join(templatesSet, name, assets.ManifestFile)
+		if _, err := fsys.ReadFile(file); err != nil {
+			out = append(out, assets.ID(templatesSet, name))
+		}
+	}
+	return out
+}
+
+// InputSources reads the sources list from a project template's workflow.
+// A template with no sources list returns nil.
+func InputSources(name string) ([]string, error) {
+	kdeps_debug.Log("enter: InputSources")
+	fsys := assets.Open(templatesSet)
+	var data []byte
+	var err error
+	for _, file := range []string{"workflow.yaml.j2", "workflow.yaml", "workflow.yml.j2", "workflow.yml"} {
+		data, err = fsys.ReadFile(path.Join(templatesSet, name, file))
+		if err == nil {
+			return sourcesList(data), nil
+		}
+	}
+	return nil, nil
+}
+
+// sourcesList returns the first sources: [a, b] list in data.
+func sourcesList(data []byte) []string {
+	for _, line := range strings.Split(string(data), "\n") {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "#") || !strings.HasPrefix(trim, "sources:") {
+			continue
+		}
+		rest := strings.TrimSpace(strings.TrimPrefix(trim, "sources:"))
+		if i := strings.Index(rest, "#"); i >= 0 {
+			rest = strings.TrimSpace(rest[:i])
+		}
+		if !strings.HasPrefix(rest, "[") || !strings.Contains(rest, "]") {
+			continue
+		}
+		inner := rest[1:strings.Index(rest, "]")]
+		var out []string
+		for _, part := range strings.Split(inner, ",") {
+			part = strings.Trim(strings.TrimSpace(part), `"'`)
+			if part != "" {
+				out = append(out, part)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 // validateTemplateBundle checks a downloaded template bundle.

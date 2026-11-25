@@ -15,10 +15,14 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
@@ -194,4 +198,30 @@ func TestForceAnswerConfig_NoToolsNoOp(t *testing.T) {
 	if got := forceAnswerConfig(t.Context(), cfg); got != cfg {
 		t.Fatal("forceAnswerConfig should be a no-op when there are no tools")
 	}
+}
+
+func TestRunStreaming_IdenticalToolCallsAskForAnAnswer(t *testing.T) {
+	isolateEventsAndPresetsHome(t)
+	calls := []domain.StreamedToolCall{
+		{ID: "c1", Name: "noop", Arguments: `{}`},
+		{ID: "c2", Name: "noop", Arguments: `{}`},
+		{ID: "c3", Name: "noop", Arguments: `{}`},
+	}
+	ms := &cfgRecordingStreamer{inner: mockStreamer{responses: []mockStreamResponse{
+		{toolCalls: []domain.StreamedToolCall{calls[0]}},
+		{toolCalls: []domain.StreamedToolCall{calls[1]}},
+		{toolCalls: []domain.StreamedToolCall{calls[2]}},
+		{content: "the file is unchanged"},
+	}}}
+	loop := newStreamingLoop(ms, 8)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(t.Context(), "check the file", &buf)
+	require.NoError(t, err)
+	assert.Contains(t, got, "the file is unchanged")
+	assert.NotContains(t, buf.String(), "ending the turn")
+	require.GreaterOrEqual(t, len(ms.cfgs), 4)
+	last := ms.cfgs[3]
+	assert.Empty(t, last.Tools)
+	assert.Contains(t, last.Prompt, "Do not call it again")
+	assert.Contains(t, last.Prompt, "noop ok")
 }

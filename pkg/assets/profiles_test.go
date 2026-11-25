@@ -45,13 +45,15 @@ func TestProfile_Targets(t *testing.T) {
 	assert.Equal(t, Registered(), full.Targets(idx))
 
 	minimum, _ := ProfileByName("minimum")
-	assert.Equal(t, RunSets(), minimum.Targets(idx), "kdeps run: base sets and the chat sets")
+	assert.Equal(t, RunSets(), minimum.Targets(idx), "the minimum profile installs the base sets and the chat sets")
 
 	agent, _ := ProfileByName("agent")
 	got := agent.Targets(idx)
 	assert.Contains(t, got, "tools/keep", "required items of RequiredOf sets")
 	assert.NotContains(t, got, "tools/other")
 	assert.Contains(t, got, "tools/bash_exec")
+	assert.NotContains(t, got, "tools/knowledge_recall")
+	assert.NotContains(t, got, "tools/knowledge_note_save")
 	assert.NotContains(t, got, "tools", "tools are installed item by item")
 }
 

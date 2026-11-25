@@ -23,7 +23,14 @@ import (
 	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestWorkflowInputSources_IncludesInteractive(t *testing.T) {
+	got, err := WorkflowInputSources()
+	require.NoError(t, err)
+	assert.Contains(t, got, "interactive")
+}
 
 // validSchema is a minimal valid JSON Schema accepted by gojsonschema.
 //

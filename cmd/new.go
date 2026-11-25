@@ -19,15 +19,19 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v3/pkg/assetsetup"
 	"github.com/kdeps/kdeps/v3/pkg/templates"
+	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
 const (
@@ -67,6 +71,9 @@ Examples:
   kdeps new my-agent --template api-service`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := ensureProjectTemplates(cmd); err != nil {
+				return err
+			}
 			return RunNewWithFlags(cmd, args, flags)
 		},
 	}
@@ -78,7 +85,7 @@ Examples:
 }
 
 // RunNewWithFlags executes the new command with injected flags.
-func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
+func RunNewWithFlags(cmd *cobra.Command, args []string, flags *NewFlags) error {
 	kdeps_debug.Log("enter: RunNewWithFlags")
 	if len(args) != 1 {
 		return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
@@ -97,6 +104,9 @@ func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
 	}
 
 	templateName := resolveNewTemplate(flags.Template)
+	if schemaErr := ensureTemplateSchema(cmd, templateName); schemaErr != nil {
+		return schemaErr
+	}
 	data := buildNewTemplateData(agentName)
 
 	fmt.Fprintf(os.Stdout, "\nCreating agent: %s\n\n", agentName)
@@ -124,6 +134,67 @@ func prepareNewOutputDir(outputDir string, force bool) error {
 		return fmt.Errorf("failed to remove existing directory: %w", removeErr)
 	}
 	return nil
+}
+
+// templateSources and schemaSources are the readers ensureTemplateSchema uses.
+//
+//nolint:gochecknoglobals // test-replaceable
+var (
+	templateSources         = templates.InputSources
+	schemaSources           = validator.WorkflowInputSources
+	missingProjectTemplates = templates.MissingProjectTemplates
+	upgradeSchema           = func(ctx context.Context, w io.Writer) error {
+		return assetsetup.RunAssetUpdate(ctx, w, assetsetup.UpdateOptions{Items: []string{"schemas/v1"}})
+	}
+	installTemplates = func(ctx context.Context, w io.Writer, items []string) error {
+		return assetsetup.RunAssetUpdate(ctx, w, assetsetup.UpdateOptions{Items: items})
+	}
+)
+
+// ensureProjectTemplates installs the scaffolds kdeps new writes when the
+// loader cannot read them. A knowledge command does not install them.
+func ensureProjectTemplates(cmd *cobra.Command) error {
+	if cmd == nil {
+		return nil
+	}
+	need := missingProjectTemplates()
+	if len(need) == 0 {
+		return nil
+	}
+	return installTemplates(processParent(cmd.Context()), cmd.ErrOrStderr(), need)
+}
+
+// ensureTemplateSchema upgrades the workflow schema when the template names
+// an input source the installed schema does not list.
+func ensureTemplateSchema(cmd *cobra.Command, templateName string) error {
+	if cmd == nil {
+		return nil
+	}
+	need, srcErr := templateSources(templateName)
+	if srcErr != nil {
+		return nil //nolint:nilerr // a template read failure must not block new
+	}
+	if len(need) == 0 {
+		return nil
+	}
+	have, schemaErr := schemaSources()
+	if schemaErr != nil {
+		return nil //nolint:nilerr // a schema read failure must not block offline new
+	}
+	if sourcesCovered(have, need) {
+		return nil
+	}
+	return upgradeSchema(processParent(cmd.Context()), cmd.ErrOrStderr())
+}
+
+// sourcesCovered reports whether have lists every name in need.
+func sourcesCovered(have, need []string) bool {
+	for _, name := range need {
+		if !slices.Contains(have, name) {
+			return false
+		}
+	}
+	return true
 }
 
 // resolveNewTemplate returns the template name from flags or the default.

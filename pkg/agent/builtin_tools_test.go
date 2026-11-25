@@ -91,6 +91,17 @@ func TestInstructTool_SectionTopicAndAlias(t *testing.T) {
 	assert.Contains(t, text, "LITERAL")
 	assert.NotContains(t, text, "<tools>")
 
+	setInstructModelBackend("openai")
+	t.Cleanup(func() { setInstructModelBackend("") })
+	text, err = tool.Execute(map[string]any{"topic": "instruct:tools"})
+	require.NoError(t, err)
+	assert.Contains(t, text, "Do not write an <invoke> block.")
+	assert.NotContains(t, text, "LITERAL")
+	text, err = tool.Execute(map[string]any{"topic": "instruct:overview"})
+	require.NoError(t, err)
+	assert.Contains(t, text, "native tool channel")
+	assert.NotContains(t, text, "<invoke> block out of your message")
+
 	text, err = tool.Execute(map[string]any{"topic": "feedback"})
 	require.NoError(t, err)
 	assert.Contains(t, text, "[TOOL FAILED]")

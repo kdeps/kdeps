@@ -19,7 +19,9 @@
 package cmd
 
 import (
+	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -127,4 +129,128 @@ func TestRunNewWithFlags_GeneratorErr(t *testing.T) {
 func TestPrepareNewOutputDir_NotExist(t *testing.T) {
 	err := prepareNewOutputDir(filepath.Join(t.TempDir(), "new-agent"), false)
 	require.NoError(t, err)
+}
+
+func TestEnsureTemplateSchema_UpgradesWhenSourceIsMissing(t *testing.T) {
+	prevSources, prevSchema, prevUpgrade := templateSources, schemaSources, upgradeSchema
+	t.Cleanup(func() {
+		templateSources, schemaSources, upgradeSchema = prevSources, prevSchema, prevUpgrade
+	})
+	templateSources = func(string) ([]string, error) { return []string{"interactive"}, nil }
+	schemaSources = func() ([]string, error) { return []string{"api", "bot", "file"}, nil }
+	called := false
+	upgradeSchema = func(context.Context, io.Writer) error {
+		called = true
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.NoError(t, ensureTemplateSchema(c, "assistant"))
+	assert.True(t, called)
+}
+
+func TestEnsureTemplateSchema_SkipsWhenSchemaListsTheSource(t *testing.T) {
+	prevSources, prevSchema, prevUpgrade := templateSources, schemaSources, upgradeSchema
+	t.Cleanup(func() {
+		templateSources, schemaSources, upgradeSchema = prevSources, prevSchema, prevUpgrade
+	})
+	templateSources = func(string) ([]string, error) { return []string{"interactive"}, nil }
+	schemaSources = func() ([]string, error) { return []string{"api", "interactive"}, nil }
+	upgradeSchema = func(context.Context, io.Writer) error {
+		t.Fatal("schema already lists the source")
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.NoError(t, ensureTemplateSchema(c, "assistant"))
+}
+
+func TestSourcesCovered(t *testing.T) {
+	assert.True(t, sourcesCovered([]string{"api", "interactive"}, []string{"interactive"}))
+	assert.False(t, sourcesCovered([]string{"api", "bot", "file"}, []string{"interactive"}))
+}
+
+func TestEnsureTemplateSchema_ReturnsUpgradeError(t *testing.T) {
+	prevSources, prevSchema, prevUpgrade := templateSources, schemaSources, upgradeSchema
+	t.Cleanup(func() {
+		templateSources, schemaSources, upgradeSchema = prevSources, prevSchema, prevUpgrade
+	})
+	templateSources = func(string) ([]string, error) { return []string{"interactive"}, nil }
+	schemaSources = func() ([]string, error) { return []string{"api"}, nil }
+	upgradeSchema = func(context.Context, io.Writer) error { return errors.New("upgrade failed") }
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.EqualError(t, ensureTemplateSchema(c, "assistant"), "upgrade failed")
+}
+
+func TestEnsureTemplateSchema_SkipsOnReadError(t *testing.T) {
+	prevSources, prevSchema, prevUpgrade := templateSources, schemaSources, upgradeSchema
+	t.Cleanup(func() {
+		templateSources, schemaSources, upgradeSchema = prevSources, prevSchema, prevUpgrade
+	})
+	upgradeSchema = func(context.Context, io.Writer) error {
+		t.Fatal("read failure must not upgrade")
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	templateSources = func(string) ([]string, error) { return nil, errors.New("missing template") }
+	require.NoError(t, ensureTemplateSchema(c, "assistant"))
+	templateSources = func(string) ([]string, error) { return []string{"interactive"}, nil }
+	schemaSources = func() ([]string, error) { return nil, errors.New("missing schema") }
+	require.NoError(t, ensureTemplateSchema(c, "assistant"))
+	require.NoError(t, ensureTemplateSchema(nil, "assistant"))
+}
+
+func TestEnsureProjectTemplates_InstallsMissing(t *testing.T) {
+	prevMissing, prevInstall := missingProjectTemplates, installTemplates
+	t.Cleanup(func() {
+		missingProjectTemplates, installTemplates = prevMissing, prevInstall
+	})
+	missingProjectTemplates = func() []string { return []string{"templates/assistant"} }
+	var got []string
+	installTemplates = func(_ context.Context, _ io.Writer, items []string) error {
+		got = append([]string{}, items...)
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.NoError(t, ensureProjectTemplates(c))
+	assert.Equal(t, []string{"templates/assistant"}, got)
+	require.NoError(t, ensureProjectTemplates(nil))
+}
+
+func TestEnsureProjectTemplates_SkipsWhenPresent(t *testing.T) {
+	prevMissing, prevInstall := missingProjectTemplates, installTemplates
+	t.Cleanup(func() {
+		missingProjectTemplates, installTemplates = prevMissing, prevInstall
+	})
+	missingProjectTemplates = func() []string { return nil }
+	installTemplates = func(context.Context, io.Writer, []string) error {
+		t.Fatal("templates are already readable")
+		return nil
+	}
+	c := &cobra.Command{}
+	c.SetContext(t.Context())
+	require.NoError(t, ensureProjectTemplates(c))
+}
+
+func TestNewCmd_RunEStopsWhenInstallFails(t *testing.T) {
+	prevMissing, prevInstall := missingProjectTemplates, installTemplates
+	t.Cleanup(func() {
+		missingProjectTemplates, installTemplates = prevMissing, prevInstall
+	})
+	missingProjectTemplates = func() []string { return []string{"templates/assistant"} }
+	installTemplates = func(context.Context, io.Writer, []string) error {
+		return errors.New("install failed")
+	}
+	c := newNewCmd()
+	c.SetContext(t.Context())
+	c.SetOut(io.Discard)
+	c.SetErr(io.Discard)
+	dir := filepath.Join(t.TempDir(), "agent")
+	c.SetArgs([]string{dir})
+	require.EqualError(t, c.Execute(), "install failed")
+	_, statErr := os.Stat(dir)
+	assert.ErrorIs(t, statErr, os.ErrNotExist)
 }

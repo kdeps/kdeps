@@ -192,15 +192,13 @@ var assetFreeCommands = []string{
 }
 
 // commandSets are the asset sets each top-level command loads; a command
-// not listed loads every set, bare kdeps [path] loads what kdeps run loads.
+// not listed loads every set. run, exec, bundle, and bare kdeps choose
+// in runAssetSets: BaseSets, or RunSets when the workflow has a chat.
 //
 //nolint:gochecknoglobals // fixed table
 var commandSets = map[string][]string{
-	"run":       assets.RunSets(),
 	"validate":  assets.BaseSets,
-	"exec":      assets.RunSets(),
 	"env":       assets.BaseSets,
-	"bundle":    assets.RunSets(),
 	"doctor":    nil,
 	"edit":      nil,
 	"new":       append(slices.Clone(assets.BaseSets), "templates"),
@@ -210,17 +208,27 @@ var commandSets = map[string][]string{
 	"knowledge": {"templates"},
 }
 
-// setsFor returns the sets cmd loads, and false for a command that loads none.
-func setsFor(cmd *cobra.Command) ([]string, bool) {
+// topCommand is the top-level command (run, exec, ...). The root stays the root.
+func topCommand(cmd *cobra.Command) *cobra.Command {
 	top := cmd
 	for top.HasParent() && top.Parent().HasParent() {
 		top = top.Parent()
 	}
+	return top
+}
+
+// setsFor returns the sets cmd loads, and false for a command that loads none.
+func setsFor(cmd *cobra.Command) ([]string, bool) {
+	top := topCommand(cmd)
 	if !top.HasParent() {
-		return assets.RunSets(), true
+		return runAssetSets(workflowPathFor(cmd)), true
 	}
 	if slices.Contains(assetFreeCommands, top.Name()) {
 		return nil, false
+	}
+	switch top.Name() {
+	case "run", "exec", "bundle":
+		return runAssetSets(workflowPathFor(cmd)), true
 	}
 	if sets, ok := commandSets[top.Name()]; ok {
 		return sets, len(sets) > 0

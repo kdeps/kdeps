@@ -533,6 +533,7 @@ func New(ctx context.Context, eng *executor.Engine, workflow *domain.Workflow, r
 		}
 	}
 
+	setInstructModelBackend(cfg.Backend)
 	l.registerSkillLoader()
 	if !cfg.Nested {
 		l.becomeSessionLoop()
@@ -1300,8 +1301,20 @@ func (l *Loop) runToolRounds(
 		identicalRepeats, lastToolSig = trackRepeat(
 			toolCalls[0], outcome.resultSig, lastToolSig, identicalRepeats)
 		if identicalRepeats >= identicalRepeatLimit(toolCalls[0].Name) {
-			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
-			break
+			// The event's action is force_answer: one request with no tools.
+			// A later identical call, or a config that already has no tools,
+			// ends the turn.
+			if forcedFinal || len(chatCfg.Tools) == 0 {
+				finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
+				break
+			}
+			chatCfg = forceAnswerWith(chatCfg, fmt.Sprintf(
+				"You called %q with the same arguments and the same result %d times. "+
+					"Do not call it again. Answer the user's question now from the results you have. "+
+					"Do not emit tool-call markup. If the step failed, say what failed and what remains.",
+				toolCalls[0].Name, identicalRepeats))
+			forcedFinal = true
+			continue
 		}
 		chatCfg, convergenceBlocks, forcedFinal = l.applyRoundOutcome(
 			ctx, chatCfg, outcome, convergenceBlocks, forcedFinal, w)
@@ -1367,7 +1380,7 @@ func (l *Loop) applyRoundOutcome(
 // repeat is true on the second strike within this turn (see turnNudges) --
 // the wording gets sharper instead of silently repeating verbatim.
 func nudgeForActionConfig(_ context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	note := harnessText("nudge-action") + invokeExample()
+	note := harnessText("nudge-action") + callExample(cfg)
 	return finishNudge(cfg, note, repeat)
 }
 
@@ -1376,7 +1389,7 @@ func nudgeForActionConfig(_ context.Context, cfg *domain.ChatConfig, repeat bool
 // -- nothing ran -- so tell it to make the real call and wait for the result.
 // repeat is true on the second strike within this turn.
 func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	note := harnessText("nudge-fake-tool-response") + invokeExample()
+	note := nudgeText("nudge-fake-tool-response", cfg) + callExample(cfg)
 	return finishNudge(cfg, note, repeat)
 }
 
@@ -1388,6 +1401,29 @@ func nudgeNoFakeToolResponseConfig(cfg *domain.ChatConfig, repeat bool) *domain.
 // needs to copy.
 func invokeExample() string {
 	return harnessSuffix("invoke-example")
+}
+
+// callExample is the tool-call sample a nudge may append.
+// A cloud backend already has a native tool channel, so the sample is empty.
+// A local backend gets the literal invoke block.
+func callExample(cfg *domain.ChatConfig) string {
+	if !needsTextToolCatalog(nudgeBackend(cfg)) {
+		return ""
+	}
+	return invokeExample()
+}
+
+// nudgeText renders a nudge for the backend in cfg.
+// A local backend gets the invoke wording. A cloud backend gets the native channel.
+func nudgeText(name string, cfg *domain.ChatConfig) string {
+	return harnessRender(name, harnessPreambleData{TextTools: needsTextToolCatalog(nudgeBackend(cfg))})
+}
+
+func nudgeBackend(cfg *domain.ChatConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	return cfg.Backend
 }
 
 // sandboxArtifactRe matches phrases a model produces when it simulates a
@@ -1425,7 +1461,7 @@ func looksLikeSandboxHallucination(content string) bool {
 // repeat is true on the second strike within this turn.
 func nudgeSandboxHallucinationConfig(_ context.Context, cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
 	note := harnessText("nudge-sandbox-hallucination") +
-		invokeExample() + " " + harnessText("nudge-sandbox-hallucination-qualifier")
+		callExample(cfg) + " " + harnessText("nudge-sandbox-hallucination-qualifier")
 	return finishNudge(cfg, note, repeat)
 }
 
@@ -1451,7 +1487,7 @@ func nudgeEditUnchangedConfig(cfg *domain.ChatConfig, p *pendingEdit, repeat boo
 // the model answered with a status, a plan, or a refusal instead of the next
 // action. repeat is true on the second strike within this turn.
 func nudgeContinueConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	return finishNudge(cfg, harnessText("nudge-continue")+invokeExample(), repeat)
+	return finishNudge(cfg, harnessText("nudge-continue")+callExample(cfg), repeat)
 }
 
 // nudgeSelfLimitConfig fires when a text-only reply invents a limit ("I can't",
@@ -1459,7 +1495,7 @@ func nudgeContinueConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig
 // succeeded yet. repeat is true on the second and later strikes this turn.
 // The note is harness text plus the invoke example.
 func nudgeSelfLimitConfig(cfg *domain.ChatConfig, repeat bool) *domain.ChatConfig {
-	return finishNudge(cfg, harnessText("nudge-self-limit")+invokeExample(), repeat)
+	return finishNudge(cfg, nudgeText("nudge-self-limit", cfg)+callExample(cfg), repeat)
 }
 
 // silentTurnNotice writes and returns the message shown when the model ends a
@@ -1482,10 +1518,9 @@ func isTurnFailureNotice(s string) bool {
 		strings.HasPrefix(t, "The model repeated the same")
 }
 
-// stuckLoopNotice writes and returns the message shown when the model is broken
-// out of a repeat-block loop: it issued the same tool call too many times in a
-// row (usually because the tool was blocked by convergence or kept failing) and
-// made no progress. Ending the turn beats spinning on the same call forever.
+// stuckLoopNotice writes and returns the message shown when force_answer
+// already ran and the model issued the same tool call again. Ending the turn
+// beats spinning on the same call.
 func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
 	notice := fmt.Sprintf(
 		"\nThe model repeated the same %q tool call %d times without making "+
@@ -1510,15 +1545,21 @@ const digestEntryOverhead = 4
 // the gathered research reaches the model, the tool results are also inlined
 // into the prompt as plain text (bounded by the "force-answer-digest" event).
 func forceAnswerConfig(_ context.Context, cfg *domain.ChatConfig) *domain.ChatConfig {
+	return forceAnswerWith(cfg, "Tool budget exhausted. Answer the user's question now "+
+		"using only the information already gathered. Do not attempt any more "+
+		"tool calls and do not emit tool-call markup. If work remains, describe "+
+		"in plain text exactly what remains to be done.")
+}
+
+// forceAnswerWith returns a copy of cfg with tools removed and prompt as the
+// next user turn. No-op when cfg has no tools. Tool results are inlined so a
+// provider that drops tool-role history still has them.
+func forceAnswerWith(cfg *domain.ChatConfig, prompt string) *domain.ChatConfig {
 	if len(cfg.Tools) == 0 {
 		return cfg
 	}
 	capCfg := *cfg
 	capCfg.Tools = nil
-	prompt := "Tool budget exhausted. Answer the user's question now " +
-		"using only the information already gathered. Do not attempt any more " +
-		"tool calls and do not emit tool-call markup. If work remains, describe " +
-		"in plain text exactly what remains to be done."
 	const forceAnswerDigestFallback = 12 * 1024 // used only if the event registry is unavailable
 	if digest := gatheredToolDigest(
 		cfg.Messages, effectiveBytes(eventForceAnswerDigest, forceAnswerDigestFallback),
@@ -2015,7 +2056,7 @@ func (l *Loop) handleEmptyToolRound(
 		l.recordModelRefusal(refusalKindUnbacked, content)
 		repeat := nudges.unbacked > 0
 		nudges.unbacked++
-		note := harnessText("nudge-unbacked-claim") + invokeExample() + " " +
+		note := harnessText("nudge-unbacked-claim") + callExample(chatCfg) + " " +
 			harnessText("nudge-sandbox-hallucination-qualifier")
 		return nil, emptyRoundResult{chatCfg: finishNudge(chatCfg, note, repeat)}
 	}
@@ -3311,6 +3352,7 @@ func (l *Loop) buildChatConfig(
 	ctx context.Context,
 	input, systemPreamble string,
 ) *domain.ChatConfig {
+	setInstructModelBackend(l.config.Backend)
 	resetContextSegments(l.config.Model, l.config.Backend)
 	tools := l.requestTools()
 	files := l.pendingFiles
@@ -3359,7 +3401,7 @@ func (l *Loop) buildChatConfig(
 	// block instead. The tool list is not repeated here: it is in the
 	// preamble on a local backend, or in the native schema on a cloud backend.
 	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
-		reminder := harnessText("tools-reminder")
+		reminder := harnessRender("tools-reminder", l.preambleData())
 		if l.sandboxStrikes > 0 {
 			reminder = harnessRender("use-kdeps-tools", l.preambleData())
 		}

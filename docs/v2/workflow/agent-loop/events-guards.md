@@ -16,7 +16,7 @@ run: force_answer
 
 | Event | Fires after | Action |
 |---|---|---|
-| `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their budget event instead | ends the turn as a stuck loop |
+| `identical-tool-calls` | the model issues the exact same tool call and gets the exact same result this many times in a row. Tools with a per-turn budget (web, bash, file, code) ignore this number and use their budget event instead | strips every tool and asks for a text answer. One more identical call ends the turn |
 | `convergence-block` | this many consecutive rounds end in a convergence-blocked tool call (the model kept trying once a web/bash/file/code budget ran out) | strips every tool and forces a text answer |
 | `judge-max-rounds` | a single [judge](./judges.md)'s review spends this many tool rounds | ends that judge's review and forces its verdict |
 | `agent-max-rounds` | an agent-loop turn spends this many tool rounds (200) when the loop sets no round cap | forces a text answer |
