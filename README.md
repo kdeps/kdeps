@@ -28,7 +28,7 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh   
 irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex   # Windows PowerShell
 ```
 
-For other options, see the [installation guide](https://kdeps.com/start/installation). If you upgrade from v2, see [what changed](https://kdeps.com/start/installation#upgrading-from-v2).
+For other options, see the [installation guide](https://kdeps.com/start/installation). If you upgrade from v2, see [what changed](https://kdeps.com/reference/start/installation#upgrading-from-v2).
 
 ## 1. Workflows
 

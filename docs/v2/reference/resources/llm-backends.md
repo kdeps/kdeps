@@ -1,0 +1,483 @@
+# LLM backends reference
+
+This page lists every field and option. The [overview](/workflow/resources/llm-backends) shows what it does and a first example.
+
+
+kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). As a result, you can switch backends with no change to your workflow.
+
+kdeps calls each backend through [langchaingo](https://github.com/tmc/langchaingo). `baseUrl` is the OpenAI-compatible base, including `/v1`. kdeps appends `/chat/completions`. Without `/v1`, requests go to the wrong path and fail.
+
+| Backend | Default `baseUrl` | Set it to |
+|---|---|---|
+| `file` (llamafile) | `http://127.0.0.1:8080/v1` | the `/v1` base of your server |
+| `gguf` (llama.cpp) | `http://127.0.0.1:8081/v1` | the `/v1` base of your server |
+| `ollama` | `http://localhost:11434/v1` | `http://<host>:11434/v1` |
+
+Exception: `ollama` with `ollamaThink`, `ollamaKeepAlive`, or `ollamaPullModel` uses Ollama's native client, which takes the server root without `/v1`.
+
+Whichever backend you pick - cloud (OpenAI, Anthropic, Groq, ...) or local (llamafile, Ollama, GGUF) - the model is probabilistic. The [workflow pipeline](/workflow/) around it is what makes a kdeps agent deterministic, not the model.
+
+## The default: llamafile (file backend)
+
+With no configuration at all, chat resources run on the `file` backend: the
+model is a [llamafile](https://github.com/Mozilla-Ocho/llamafile) - a single
+self-contained binary that kdeps downloads, caches in `~/.kdeps/models/`, and
+serves as a local OpenAI-compatible server. No ollama, no GPU, no API key.
+
+```text
+chat resource --> kdeps resolves model alias --> downloads llamafile (once)
+                                              --> serves it locally
+                                              --> request answered
+```
+
+Known model aliases map to Mozilla's HuggingFace llamafiles. Quantization is
+part of the alias so you can trade size for quality:
+
+| Alias | Model | Quant | Size |
+|-------|-------|-------|------|
+| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct (default) | Q4_K_M | ~1.1 GB |
+| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct | Q4_K_M | ~3.1 GB |
+| `llama3.2:1b-q6` | Llama 3.2 1B Instruct | Q6_K | ~1.5 GB |
+| `llama3.2:1b-q8` | Llama 3.2 1B Instruct | Q8_0 | ~2.1 GB |
+| `llama3.2:3b` | Llama 3.2 3B Instruct | Q4_K_M | ~2.2 GB |
+| `llama3.1:8b` | Llama 3.1 8B Instruct | Q4_K_M | ~5.2 GB |
+
+```bash
+kdeps llamafile list      # all known aliases (the registry has 100+ models)
+kdeps upgrade models       # newest registry (harvested nightly from HuggingFace)
+```
+
+A `chat:` resource's `model:` also accepts a direct URL, an absolute or relative path to
+a `.llamafile`, or a bare filename looked up in `~/.kdeps/models/`.
+
+## GGUF backend (llama.cpp)
+
+The `gguf` backend serves GGUF model files through `llama-server` (llama.cpp). It has the same download-and-cache flow as `file`. But you must install `llama-server` separately.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: gguf
+```
+
+```text
+chat resource --> kdeps resolves GGUF alias --> downloads .gguf (once)
+                                            --> starts llama-server
+                                            --> request answered
+```
+
+Known aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `gemma4`, `glm4.5`, `yi34` (see `kdeps llamafile list` for the full registry). The `model:` field also accepts a direct URL, absolute/relative path to a `.gguf`, or a bare filename in `~/.kdeps/models/`.
+
+Environment overrides: `KDEPS_LLAMA_SERVER_BIN` (binary path), `KDEPS_GGUF_CTX_SIZE` (context window).
+
+## Ollama (opt-in)
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: ollama
+  # base_url: http://custom-ollama:11434/v1   # optional override
+```
+
+When kdeps builds Docker images, it installs Ollama if you set `backend: ollama`. The `installOllama` workflow flag can force or stop this:
+
+```yaml
+# workflow.yaml
+deploy:
+  runtime:
+    installOllama: true  # bake the ollama server into the image
+```
+
+See [Ollama: native options](#ollama-native-options) below for resource-level fields (`ollamaThink`, `ollamaKeepAlive`, ...).
+
+## Where it runs
+
+Backend configuration applies to every `chat:` resource. Each one reads its backend from `~/.kdeps/config.yaml`.
+
+## Model configuration
+
+Set the model per resource, in `model:` under `chat:`:
+
+```yaml
+# resources/my-resource.yaml
+chat:
+  model:
+    name: llama3.2:1b    # which model to call
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
+```
+
+Set `model: router` to delegate model selection to the router in `~/.kdeps/config.yaml` (see [Routing](#routing) below). Set `model: system` and/or `backend: system` to follow the machine config (`~/.kdeps/config.yaml`) - it resolves like an omitted field but is explicit.
+
+Backend, base URL, and API keys go in `~/.kdeps/config.yaml`:
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: file                # default: local llamafile, no server install
+  # backend: ollama            # opt-in: requires the ollama server
+  # base_url: http://localhost:11434/v1
+  # openai_api_key: sk-...
+  # anthropic_api_key: sk-ant-...
+  # groq_api_key: ...
+```
+
+Run `kdeps config --edit` to open the config file, or edit it directly.
+
+## OpenAI-compatible providers
+
+OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca and Ernie are not compiled into kdeps. Each is a file in the `providers` asset set (`kdeps upgrade providers`) that declares the chat endpoint and the key's source. kdeps registers a chat backend with that name and exports the key from `config.yaml`. It lists the provider in setup, in `kdeps doctor`, and in the permitted values of the `backend:` field. The free text models of OpenRouter are in `models/openrouter` (collected each day; `kdeps upgrade models/openrouter`). Its provider file sets no `defaultModel`, so OpenRouter stays out of the auto-router's cloud fallback.
+
+```text
+providers/groq.yaml -> backend: groq -> llm.groq_api_key (config.yaml) -> GROQ_API_KEY -> POST url + chatPath
+```
+
+```yaml
+# providers/groq.yaml (shipped)
+version: 1.0.0
+name: groq                         # the backend: value
+label: Groq                        # display name
+order: 80                          # position in provider lists and the setup prompt
+configKey: groq_api_key            # llm.groq_api_key in ~/.kdeps/config.yaml
+envVar: GROQ_API_KEY               # an explicit env var wins over config.yaml
+defaultModel: llama-3.3-70b-versatile   # last-resort pick when nothing local is installed
+url: https://api.groq.com          # default host; llm.base_url overrides it
+chatPath: /openai/v1/chat/completions   # chat completions path under url
+embeddings: true                   # also serves OpenAI-compatible /embeddings
+hosts: [groq.com]                  # identifies the provider from a base URL
+```
+
+`keyFallbacks` lists env vars read for the key when `envVar` and `configKey` are both unset. OpenRouter ships `keyFallbacks: [OPENAI_API_KEY]`.
+
+`url` can refer to environment variables, for example `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai` for Cloudflare. To add a different OpenAI-compatible provider, write one such file. During development, put it into `$KDEPS_ASSETS_SRC/providers/`. Or publish it to the asset set. Anthropic, Google, Cohere, Bedrock and WatsonX have their own protocols and stay built in.
+
+## Unified models list
+
+The `models:` list under `llm:` in `~/.kdeps/config.yaml` is either a plain allowlist (model names) or a router table (with routing metadata). `strategy:` under `llm:` switches between them.
+
+## Allowlist mode (no strategy)
+
+Without `strategy:`, `models:` lists the permitted model names:
+
+```yaml
+# resources/example.yaml
+llm:
+  backend: ollama
+  models:
+    - llama3.2:1b        # plain string entry
+    - nomic-embed-text
+```
+
+Each entry is a plain model name. You can give models as strings (as above) or as objects with only the `model` field:
+
+```yaml
+# resources/example.yaml
+llm:
+  models:
+    - model: llama3.2:1b  # object form (equivalent to "llama3.2:1b")
+```
+
+If a request asks for a model that is not in this list, kdeps uses the first model and logs a warning. Models listed here are pre-pulled into Docker/ISO artifacts.
+
+## Routing mode (with strategy)
+
+When you set `strategy`, the models list is the list of router routes:
+
+```yaml
+# resources/example.yaml
+llm:
+  strategy: token_threshold
+  models:
+    - model: gpt-4o-mini
+      backend: openai
+      max_tokens: 500
+      default: true
+    - model: gpt-4o
+      backend: openai
+      min_tokens: 501
+```
+
+You can also use plain string entries in routing mode (no `model:` key). They use the default `backend:` under `llm:`:
+
+```yaml
+# resources/example.yaml
+llm:
+  backend: ollama
+  strategy: fallback
+  models:
+    - llama3.2:1b          # plain string, uses backend: ollama
+    - model: gpt-4o
+      backend: openai
+      priority: 1
+```
+
+## Entry fields
+
+Each model entry supports these fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `model` | string | yes | Model identifier (e.g. `gpt-4o`, `llama3.2:1b`) |
+| `backend` | string | no | Backend for this model (overrides `backend:` under `llm:`) |
+| `base_url` | string | no | Custom API URL for this backend |
+| `priority` | int | no | Fallback order (lower = tried first) |
+| `min_tokens` | int | no | Minimum prompt tokens for token_threshold |
+| `max_tokens` | int | no | Maximum prompt tokens for token_threshold |
+| `cost_per_input_token` | float | no | Cost per 1K input tokens for cost_optimized |
+| `cost_per_output_token` | float | no | Cost per 1K output tokens for cost_optimized |
+| `default` | bool | no | Catch-all route when no other rule matches |
+
+## Routing
+
+Routing moves model selection from resource YAML to `~/.kdeps/config.yaml`. Set a resource's `model` to `router`, or `auto-router` for a zero-config version that ignores the `models:` list. The config's `strategy` then picks: `token_threshold`, `fallback`, `cost_optimized`, `round_robin`, or `auto` (hardware fit with `llmfit`).
+
+See [Routing](/workflow/resources/llm-routing) for every strategy's config shape and resolution order.
+
+## Supported backends
+
+kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and OpenAI-compatible APIs. The APIs are OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, and self-hosted servers (vLLM, TGI, LocalAI, LlamaCpp). Per-provider snippets and model names: [LLM Provider Reference](/reference/llm-server/providers).
+
+## Vertex AI (google cloud)
+
+Target Google's Vertex AI endpoint instead of the standard AI Studio endpoint by setting `googleCloudProject` and `googleCloudLocation` on the `chat:` resource. The backend in `config.yaml` stays `google`. The two resource-level fields route the call to the regional Vertex endpoint.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: google
+  google_api_key: ...   # or use Application Default Credentials (ADC)
+```
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: gemini-1.5-pro
+    googleCloudProject: my-gcp-project   # GCP project ID
+    googleCloudLocation: us-central1     # Vertex AI region
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+Vertex AI uses Application Default Credentials when no `google_api_key` is present. Run `gcloud auth application-default login` to authenticate locally.
+
+## Google: cached content and safety threshold
+
+`googleCachedContent` names a Google AI CachedContent resource to attach to the request - pre-cache large context with the `google_cache_create` built-in tool, then reference it here. `googleHarmThreshold` controls how aggressively Google's safety filters block responses.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: gemini-1.5-pro
+    googleCachedContent: "cachedContents/my-cached-doc"   # CachedContent resource name
+    googleHarmThreshold: 1   # 0 provider default, 1 block none, 2 few, 3 some, 4 most
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+## OpenAI: legacy token param
+
+Older OpenAI-compatible servers (Azure, some self-hosted) expect `max_tokens` instead of `max_completion_tokens`. Set `openAILegacyMaxTokens: true` to send the old parameter name.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    openAILegacyMaxTokens: true   # send max_tokens instead of max_completion_tokens
+    maxTokens: 1000
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+## OpenAI: web search
+
+`openAIWebSearch: true` attaches langchaingo's `llms.WithWebSearch` to each request, so OpenAI runs its server-side web search. Use it with a search-capable model such as `gpt-4o-search-preview`. Other models ignore the option. Only the `openai` backend applies it.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    backend: openai
+    name: gpt-4o-search-preview
+    openAIWebSearch: true   # OpenAI performs web search before answering
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+## Anthropic: prompt caching and extended output
+
+You set Anthropic options on each resource, not in `config.yaml`.
+
+### Prompt caching
+
+`promptCaching: true` adds the `anthropic-beta: prompt-caching-2024-07-31` header. Anthropic caches the first qualifying prefix of the prompt (system + long context). Reduces latency and cost on repeated long system prompts.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: claude-sonnet-4-6
+    promptCaching: true
+  context:
+    scenario:
+      - role: system
+        prompt: |
+          You are an expert assistant with access to the following reference material:
+          [... long document ...]
+        cacheControl: "ephemeral"   # mark this message as the cache boundary
+```
+
+### Extended output (128k tokens)
+
+`anthropicExtendedOutput: true` enables 128K output tokens and adds the `interleaved-thinking-2025-05-14` beta header automatically.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: claude-sonnet-4-6
+    anthropicExtendedOutput: true
+    maxTokens: 16000
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+### Custom beta headers
+
+Give beta feature strings with `anthropicBetaHeaders`:
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: claude-sonnet-4-6
+    anthropicBetaHeaders:
+      - output-128k-2025-02-19
+      - interleaved-thinking-2025-05-14
+```
+
+## Ollama: native options
+
+Extra controls for the Ollama backend, set per resource.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    ollamaThink: true          # enable extended thinking (requires a thinking-capable model)
+    ollamaKeepAlive: "5m"      # keep model in memory for 5 min after the request completes
+    ollamaPullModel: true      # pull the model automatically if it is not present
+    ollamaPullTimeout: "10m"   # how long to wait for the pull before failing
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+`ollamaKeepAlive` accepts Go duration strings: `"0"` unloads immediately. `"-1"` keeps the model loaded indefinitely. `"5m"`, `"1h"`, and other durations set a timed expiry.
+
+## Streaming (Ollama)
+
+Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. kdeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    streaming: true      # Ollama only
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+| [`streaming`](/reference/glossary#streaming) | What happens |
+|-------------|-------------|
+| `false` (default) | Single JSON response |
+| `true` | Ollama streams NDJSON; kdeps accumulates and returns merged map |
+
+Backends other than Ollama ignore `streaming: true` silently.
+
+## Feature support
+
+| Feature | Ollama | OpenAI | Anthropic | Google | Mistral | Groq |
+|---------|--------|--------|-----------|--------|---------|------|
+| JSON Response | Yes | Yes | Partial | Yes | Yes | Yes |
+| Tools/Functions | Yes | Yes | Yes | Yes | Yes | Yes |
+| Vision | Yes* | Yes | Yes | Yes | Yes | Yes |
+| Streaming | Yes | No** | No** | No** | No** | No** |
+
+*Needs a model with vision support (for example, `llama3.2-vision`)
+**Streaming is only supported for the Ollama backend.
+
+## Troubleshooting
+
+### Ollama connection issues
+
+If kdeps cannot connect to Ollama:
+1. Check Ollama is running: `ollama list`
+2. Verify the URL in config.yaml (default: `http://localhost:11434`)
+3. Check firewall settings
+
+### API key issues
+
+If you get authentication errors:
+1. Make sure that the key is in `~/.kdeps/config.yaml`
+2. Or export the env var: `export OPENAI_API_KEY=sk-...`
+3. Check the key has the correct permissions
+
+### Model not found
+
+If the model is not available:
+1. For Ollama: Pull the model first with `ollama pull model-name`
+2. For APIs: Verify the model name matches the provider's documentation
+3. Check you have access to the model in your API account
+
+### Rate limiting
+
+To handle rate limits, configure retries with `onError`:
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  onError:
+    action: "retry"
+    maxRetries: 3
+    retryDelay: "5s"
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+## Self-hosted LLM appliance
+
+Deploy a dedicated OpenAI-compatible server with `kdeps llm` (Docker, ISO, Kubernetes), then point this host at it with `backend: openai` and `base_url`.
+
+Stock engines: `ollama`, `llamafile`, `llama-server` / `gguf`, `llamacpp`, `vllm`, `tgi`, `sglang`, `localai`, `openai-compat`.
+
+```bash
+kdeps llm list
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
+kdeps llm client-config --url http://192.168.1.50:8000/v1
+```
+
+```yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1
+```
+
+See [LLM server appliance](/llm-server/) and [LLM commands](/reference/llm-server/cli).
+
+## See also
+
+- [LLM provider reference](/reference/llm-server/providers) - Per-provider config snippets and model names
+- [LLM resource](/workflow/resources/llm) - Complete LLM resource documentation
+- [Function calling](/workflow/tools) - LLM function calling
+- [Docker deployment](/deploy/docker) - Deploying with local models
+

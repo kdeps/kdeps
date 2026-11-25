@@ -104,7 +104,7 @@ Response:
 
 ## Next steps
 
-- [Data access](/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`, `filecount()`
+- [Data access](/reference/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`, `filecount()`
 - [Image analysis tutorial](/examples/vision) - attach the upload to an LLM
 - [Document summarizer tutorial](/examples/file-processor) - the `file` input source
 - [exec component](/workflow/resources/exec) - process the file with a shell command

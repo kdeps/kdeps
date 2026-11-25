@@ -376,5 +376,5 @@ kdeps writes the graph, `GRAPH_REPORT.md`, and `graph.html` under `~/.kdeps/know
 ## See also
 
 - [CLI overview](/reference/cli) - global flags, exit codes, env vars, workflows
-- [Registry commands](/registry/cli) - search, install, publish
-- [Packaging commands](/deploy/cli) - bundle, export, build
+- [Registry commands](/reference/registry/cli) - search, install, publish
+- [Packaging commands](/reference/deploy/cli) - bundle, export, build

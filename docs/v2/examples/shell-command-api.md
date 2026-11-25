@@ -125,7 +125,7 @@ Response:
 ## Next steps
 
 - [exec component](/workflow/resources/exec) - stdin, environment, exit-code access
-- [Shell execution](/workflow/agent-loop/tool-reference#shell-execution) - the `bash_exec` tool of a chat loop
+- [Shell execution](/reference/agent-loop/tool-reference#shell-execution) - the `bash_exec` tool of a chat loop
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback on a failed command
 - [CORS configuration](/workflow/cors) - the `cors:` block
 

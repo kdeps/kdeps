@@ -51,4 +51,4 @@ then reach for the rest as you need them.
 |---|---|---|
 | [Session storage](/workflow/sessions) | Values that persist across requests from the same caller | Workflow |
 | [Persistent memory](/workflow/agent-loop/memory) | Project-scoped facts the agent recalls across sessions | Agent (tools also work in workflow) |
-| [Memory internals](/workflow/agent-loop/memory-internals) | Auto-extraction, the memory graph, and prompt injection | Agent |
+| [Memory internals](/reference/agent-loop/memory-internals) | Auto-extraction, the memory graph, and prompt injection | Agent |

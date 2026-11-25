@@ -72,7 +72,7 @@ apiResponse:
 
 </div>
 
-[Execution flow](/workflow/execution-flow#independent-resources) tells how many run at the same time, and what runs alone.
+[Execution flow](/reference/workflow/execution-flow#independent-resources) tells how many run at the same time, and what runs alone.
 
 ## See also
 

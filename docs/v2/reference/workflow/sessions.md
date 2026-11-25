@@ -1,0 +1,285 @@
+# Session configuration reference
+
+This page lists every field and option. The [overview](/workflow/sessions) shows what it does and a first example.
+
+
+Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under the top-level `session:` block.
+
+This page is HTTP session storage. The conversation of a chat with `loop:` is a different store, set by `loop.session`. See [Agent loop](/workflow/agent-loop/).
+
+| Type | Persistence | Use Case |
+|------|-------------|----------|
+| `sqlite` | File-based, survives restart | Production, multi-container |
+| `memory` | In-memory only, lost on restart | Development, single instance |
+
+## Configuration
+
+```yaml
+# workflow.yaml
+session:
+  type: sqlite                    # "sqlite" or "memory"
+  path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
+  ttl: "30m"                      # Session expiration
+  cleanupInterval: "5m"           # Cleanup frequency
+```
+
+## Session types
+
+### SQLite (recommended for production)
+
+Saves to a file. The data stays after a restart. You can share it with a mounted volume.
+
+```yaml
+# workflow.yaml
+session:
+  type: sqlite
+  path: "/data/sessions.db"   # absolute or relative path
+  ttl: "24h"                  # how long a session lives without activity
+  cleanupInterval: "1h"       # how often expired sessions are purged
+```
+
+### Memory
+
+Fast (no disk I/O) but lost on restart. Use for development or single-instance setups.
+
+```yaml
+# workflow.yaml
+session:
+  type: memory
+  ttl: "30m"
+  cleanupInterval: "5m"
+```
+
+## TTL (time to live)
+
+Session expiration durations:
+
+```yaml
+# workflow.yaml
+ttl: "30s"    # 30 seconds
+ttl: "5m"     # 5 minutes
+ttl: "1h"     # 1 hour
+ttl: "24h"    # 24 hours
+ttl: "7d"     # 7 days (168h)
+```
+
+## Using sessions
+
+### Store data
+
+```yaml
+# resources/example.yaml
+after:
+  # Store user ID
+  - set('user_id', '123', 'session')
+
+  # Store preferences
+  - set('theme', 'dark', 'session')
+
+  # Increment counter
+  - set('visits', get('visits', 'session') + 1, 'session')
+```
+
+### Retrieve data
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    prompt: |
+      User {{ get('user_id', 'session') }} prefers {{ get('theme', 'session') }}.
+      This is visit #{{ get('visits', 'session') }}.
+```
+
+</div>
+
+## Examples
+
+### Login session
+
+<div v-pre>
+
+```yaml
+# Login resource
+actionId: login
+
+validations:
+  check:
+    - get('username') != ''
+    - get('password') != ''
+  error:
+    code: 400
+    message: Username and password required
+
+after:
+  # Validate credentials (simplified)
+  - set('authenticated', get('username') == 'admin', 'session')
+  - set('user', get('username'), 'session')
+  - set('login_time', info('timestamp'), 'session')
+
+apiResponse:
+  success: get('authenticated', 'session')
+  response:
+    message: "{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"
+```
+
+</div>
+
+### Protected route
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+actionId: protectedResource
+
+validations:
+  check:
+    - get('authenticated', 'session') == true
+  error:
+    code: 401
+    message: Authentication required
+
+chat:
+  context:
+    prompt: "Hello {{ get('user', 'session') }}, how can I help?"
+```
+
+</div>
+
+### Shopping cart
+
+```yaml
+# Add to cart
+actionId: addToCart
+
+after:
+  - set('cart', get('cart', 'session') + [get('item')], 'session')
+
+apiResponse:
+  success: true
+  response:
+    cart: get('cart', 'session')
+    count: len(get('cart', 'session'))
+
+---
+# View cart
+actionId: viewCart
+
+apiResponse:
+  success: true
+  response:
+    items: get('cart', 'session')
+    total: sum(map(get('cart', 'session'), .price))
+```
+
+### User preferences
+
+<div v-pre>
+
+```yaml
+# Save preferences
+actionId: savePrefs
+
+after:
+  - set('language', get('language', 'en'), 'session')
+  - set('timezone', get('timezone', 'UTC'), 'session')
+  - set('theme', get('theme', 'light'), 'session')
+
+apiResponse:
+  success: true
+  response:
+    message: Preferences saved
+
+---
+# Apply preferences
+actionId: getContent
+
+chat:
+  context:
+    prompt: |
+      Respond in {{ get('language', 'session') }}.
+      Current time in {{ get('timezone', 'session') }}: {{ info('timestamp') }}
+```
+
+</div>
+
+### Ask, then answer
+
+A reply can end with a question (`question` plus numbered `options`) and keep what the answer needs in the session. The next request sends `{"answer": "2"}` with the same session cookie. Store under key names the request doesn't use: `get(name)` also reads the session. Full example: [Design review panel](/examples/design-review).
+
+## Session ID
+
+Each session has a unique ID. Get it with:
+
+```yaml
+# resources/example.yaml
+session_id: info('sessionId')
+```
+
+Usually, a cookie or a header holds the session ID.
+
+## Cleanup
+
+kdeps automatically removes expired sessions at the `cleanupInterval`:
+
+```yaml
+# resources/example.yaml
+session:
+  ttl: "30m"              # Sessions expire after 30 minutes
+  cleanupInterval: "5m"   # Check for expired sessions every 5 minutes
+```
+
+## Docker considerations
+
+### Persistent volume
+
+For SQLite sessions in Docker:
+
+```yaml
+# docker-compose.yml
+services:
+  myagent:
+    volumes:
+      - session_data:/data
+
+volumes:
+  session_data:
+```
+
+```yaml
+# workflow.yaml
+session:
+  type: sqlite
+  path: "/data/sessions.db"
+```
+
+### Shared sessions
+
+For multiple containers sharing sessions:
+
+1. Use a shared volume for SQLite
+2. Or use an external session store (Redis, PostgreSQL)
+
+## Best practices
+
+1. **Use SQLite for production** - Survives restarts
+2. **Set appropriate TTL** - Balance security and convenience
+3. **Store minimal data** - Session storage is not a database
+4. **Handle missing sessions** - Always provide defaults
+5. **Secure sensitive data** - Do not store passwords in sessions
+
+## Security notes
+
+- Each session has a unique ID
+- Send session IDs only over a secure connection (HTTPS)
+- Implement logout by clearing session data
+- Set reasonable TTL to limit exposure
+
+## See also
+
+- [Workflow configuration](/workflow/configuration) - Full settings reference
+- [Data access](/workflow/data-access) - get() and set() usage
+- [Docker deployment](/deploy/docker) - Production setup

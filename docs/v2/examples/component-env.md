@@ -214,7 +214,7 @@ when no process environment variable is set.
 
 ## Next steps
 
-- [Components reference](/agencies/component-reference) - env derivation, `.env` details
+- [Components reference](/reference/agencies/component-reference) - env derivation, `.env` details
 - [Reusable component tutorial](/examples/custom-component) - building a component
 - [Global config](/reference/advanced-config) - named connections with shared credentials
 - [Jinja2 templates](/workflow/templates) - `env()` in YAML preprocessing

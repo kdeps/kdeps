@@ -89,7 +89,7 @@ const categories: MenuCategory[] = [
         { title: 'Delegation', desc: 'One agent gives work to a different agent', link: '/agencies/delegation' },
         { title: 'agent: resource', desc: 'Call a different agent as a function', link: '/agencies/agent-resource' },
         { title: 'Components', desc: 'Shared, reusable sub-pipelines', link: '/agencies/components' },
-        { title: 'Component reference', desc: 'The full component specification', link: '/agencies/component-reference' },
+        { title: 'Component reference', desc: 'The full component specification', link: '/reference/agencies/component-reference' },
       ],
     }],
   },
@@ -111,7 +111,7 @@ const categories: MenuCategory[] = [
         label: 'LLM server',
         items: [
           { title: 'Overview', desc: 'Standalone OpenAI-compatible inference appliance', link: '/llm-server/' },
-          { title: 'Providers', desc: 'The backends that it supports', link: '/llm-server/providers' },
+          { title: 'Providers', desc: 'The backends that it supports', link: '/reference/llm-server/providers' },
         ],
       },
     ],
@@ -123,8 +123,8 @@ const categories: MenuCategory[] = [
     groups: [{
       items: [
         { title: 'Overview', desc: 'Find, install, and publish shared agents and components', link: '/registry/' },
-        { title: 'kdeps registry CLI', desc: 'Commands to install and publish', link: '/registry/cli' },
-        { title: 'Formula spec', desc: 'The publishing format', link: '/registry/formula-spec' },
+        { title: 'kdeps registry CLI', desc: 'Commands to install and publish', link: '/reference/registry/cli' },
+        { title: 'Formula spec', desc: 'The publishing format', link: '/reference/registry/formula-spec' },
       ],
     }],
   },

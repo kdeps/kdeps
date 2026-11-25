@@ -1,5 +1,8 @@
 # Packaging commands
 
+Overview: [kdeps deploy](/deploy/).
+
+
 Package workflows for distribution and generate deployment artifacts.
 
 ## `kdeps bundle package`

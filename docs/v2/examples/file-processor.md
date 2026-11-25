@@ -149,7 +149,7 @@ KDEPS_FILE_PATH=./notes.txt kdeps run .
 All of these read the full file into memory as `fileContent`. The default
 maximum is 256 MiB (to change it, set `KDEPS_FILE_INPUT_MAX_BYTES`). If
 `notes.txt` is a large bulk-data file and not a note, this is important. See
-[File source](/workflow/input-sources#file-source).
+[File source](/reference/workflow/input-sources#file-source).
 
 Output:
 

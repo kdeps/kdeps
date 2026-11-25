@@ -1,0 +1,982 @@
+# LLM resource reference
+
+This page lists every field and option. The [overview](/workflow/resources/llm) shows what it does and a first example.
+
+
+The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is the raw response object - the reply text is at `get('id').message.content`. With `json: true` under `harness.output` the output is the parsed JSON object instead.
+
+## Where it runs
+
+The workflow runs this resource as a step.
+
+## Key groups
+
+A chat's keys sit in six groups:
+
+| Group | Holds |
+|---|---|
+| `model` | `name`, `backend`, `timeout`, `streaming`, `thinking`, caching, sampling (`temperature`, `maxTokens`, ...), provider fields (`ollama*`, `google*`, ...) |
+| `context` | `prompt`, `role`, `messages`, `scenario`, `files`, `promptVars`, `goTemplate`, `contextLength`, `fewShot` |
+| `harness` | `sections`, `promptMode`, `chainOfThought`, `output` (`json`, `keys`, `schema`, `parser`) |
+| `tools` | `list`, `components`, `choice`, `maxRounds`, `skills` |
+| `rag` | `knowledge`, `retriever` (`passages`, `topK`, `maxTokens`), `chunk` |
+| `guardrails` | `judges`, `judgePreset` |
+
+`loop` sits beside the groups: it runs the chat as the agent loop (see [Agent loop](#agent-loop)).
+
+## Defaults and auto values
+
+A chat gets the agent's quality defaults unless it sets a value. `auto` asks kdeps to choose.
+
+```yaml
+chat:
+  model:
+    name: auto            # best of your llm.models, else the best installed model
+    retries: auto         # transient failures retry 3 times (chat-retries event); 0 = off
+    thinking:
+      mode: none          # default: auto on models that reason; none = off
+  context:
+    contextLength: auto   # sized for the backend (the default)
+  tools:
+    list: auto            # every built-in kdeps tool a workflow can call (default: none)
+    maxRounds: auto       # the chat-max-rounds event, 25 (the default)
+  guardrails:
+    judges: auto          # one call picks up to 3 judges per request (default: none)
+```
+
+- On by default: thinking `auto` on models that reason, 3 retries after a transient failure, 25 tool rounds, a context sized for the backend.
+- Opt-in: built-in tools (`tools.list: auto`) and the judge roster (`guardrails.judges: auto`). They add tool access or model calls, so a chat never gets them silently. The same keys work on a chat with `loop:`.
+
+## Where config lives
+
+Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. As a result, you can change backends with no change to your workflow.
+
+```yaml
+# resources/my-resource.yaml
+chat:
+  model:
+    name: llama3.2:1b    # which model to call
+  context:
+    role: user
+    prompt: "{{ get('q') }}"
+```
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: file                # default: local llamafile, no server install. Also: ollama, openai, anthropic, groq, ...
+  # openai_api_key: sk-...
+  # anthropic_api_key: sk-ant-...
+```
+
+With the default `file` backend, `name: llama3.2:1b` resolves to a local
+llamafile. kdeps downloads it one time (about 1.1 GB) and serves it automatically. See
+[LLM backends](/reference/resources/llm-backends#the-default-llamafile-file-backend).
+
+Set `name: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing strategies.
+
+Set `name: system` (and/or `backend: system`) to use the configuration of the machine in `~/.kdeps/config.yaml`. It resolves exactly as a field that you do not set, but it shows that this is intentional.
+
+```yaml
+# resources/chat.yaml
+chat:
+  model:
+    backend: system   # use llm.backend from ~/.kdeps/config.yaml
+    name: system     # use llm.models / the router
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+A `chat` resource can use a cloud model (for example, `name: deepseek-chat`) with no provider key in `config.yaml`. In this condition, `kdeps run` asks for the key at startup. It saves the key as `<provider>_api_key` under `llm:`. If no default backend is set, it also sets `backend:` to that provider. This occurs only in interactive mode. CI and pipes skip the prompt.
+
+## Model resolution order
+
+`model.name` is optional. When omitted, kdeps resolves it in this order:
+
+```text
+resource model:  ->  config router (llm.models + strategy)  ->  first llm.models entry
+  ->  best installed model by hardware fit (llmfit)  ->  built-in pybot (file backend)
+```
+
+- A resource with an explicit `name:` always wins - unless it is the literal `system`, which resolves down this same list.
+- Omit `name:` to inherit the machine default, first match wins:
+  1. the LLM router, when you set `strategy:` under `llm:`
+  2. the first entry of `models:` under `llm:`
+  3. on the local file backend, the downloaded model that best fits this machine, when you have [`llmfit`](https://github.com/AlexsJones/llmfit) and a downloaded local model
+  4. the built-in `pybot` on the local file backend: a rule-based chatbot, see [Local models](/start/local-models)
+- A cloud, gguf, or ollama backend with no model and no `models:` list gives an error at run time. kdeps does not guess a model, because the backend possibly cannot serve it. Set `name:` on the resource or `models:` under `llm:` in `config.yaml`.
+
+## Basic usage
+
+<div v-pre>
+
+```yaml
+
+actionId: llmResource
+name: LLM Chat
+chat:
+  model:
+    timeout: 60s                  # fail the resource if the model has not answered in 60s
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+## Complete reference
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: llama3.2:1b    # model name, or "router" to delegate to config
+    temperature: 0.7      # 0.0 = deterministic, 2.0 = very random
+    maxTokens: 1000       # hard cap on generated tokens
+    topP: 0.9             # nucleus sampling threshold (0.0 to 1.0)
+    frequencyPenalty: 0.0 # penalises tokens that have appeared frequently (-2.0 to 2.0)
+    presencePenalty: 0.0  # penalises any token that has appeared at all (-2.0 to 2.0)
+  context:
+    role: user            # role for this message: user, assistant, system
+
+    prompt: "{{ get('q') }}"  # the prompt; supports {{ }} interpolation
+
+    contextLength: 8192   # context window in tokens (4096, 8192, 16384, ...)
+```
+
+</div>
+
+## History, tools, and files
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    # pre-fill the conversation history before the prompt
+    scenario:
+      - role: system
+        prompt: You are a helpful assistant.
+      - role: assistant
+        prompt: I am ready to help!
+
+    # attach files for vision-capable models
+    files:
+      - "{{ get('file', 'filepath') }}"
+  tools:
+    # let the LLM call other resources as functions
+    list:
+      - name: calculate
+        description: Perform math
+        script: calcResource   # actionId of the resource to call
+        parameters:
+          expression:
+            type: string
+            required: true
+
+```
+
+</div>
+
+## JSON shape, timeout, and streaming
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    timeout: 60s               # hard stop -- returns error, does not retry
+    streaming: true            # Ollama only: stream NDJSON; kdeps accumulates before returning
+  harness:
+    output:
+      json: true         # ask the model to return valid JSON
+      keys:          # keys to extract from the JSON response
+        - answer
+        - confidence
+
+      # strict JSON schema (OpenAI models only) - enforces exact output shape
+      # use this instead of keys when you need guaranteed structure
+      schema:
+        type: object
+        properties:
+          answer:
+            type: string
+          confidence:
+            type: number
+        required:
+          - answer
+          - confidence
+
+```
+
+## Reasoning, few-shot, and extra sampling
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    # sampling extras
+    candidateCount: 1          # number of independent completions (alias: n)
+    n: 1                       # alias for candidateCount (OpenAI style)
+    minLength: 0               # minimum response length in tokens
+    maxLength: 0               # maximum response length in tokens (alias for maxTokens)
+    thinking:
+      mode: high               # none | minimal | low | medium | high | xhigh | auto
+      # budgetTokens: 8000     # omit to use the thinking-budget-high event (16000)
+  context:
+    fewShot:
+      embeddingModel: ""  # embedding model for semantic few-shot selection (requires selectK)
+      embeddingBackend: "" # backend serving the embedding model above
+
+  harness:
+    # chain-of-thought / few-shot
+    chainOfThought: false      # inject step-by-step reasoning prefix into system prompt
+```
+
+## Provider fields
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    # anthropic-specific
+    promptCaching: false           # add prompt-caching beta header; Anthropic only
+    anthropicExtendedOutput: false # enable 128K output; adds interleaved-thinking beta header
+    anthropicBetaHeaders: []       # additional anthropic-beta header values
+
+    # openai-specific
+    openAILegacyMaxTokens: false   # send max_tokens instead of max_completion_tokens
+    openAIWebSearch: false         # OpenAI server-side web search; search-capable models only
+
+    # google-specific
+    googleCachedContent: ""    # name of a Google AI CachedContent resource to attach
+    googleHarmThreshold: 0     # safety filter: 0=unspecified, 1=block-none, 2=block-few, 3=block-some, 4=block-most
+    googleCloudProject: ""     # Vertex AI GCP project ID
+    googleCloudLocation: ""    # Vertex AI region (e.g. "us-central1")
+
+    # ollama-specific
+    ollamaThink: false         # enable Ollama extended thinking
+    ollamaKeepAlive: ""        # keep model loaded after request (e.g. "5m", "1h")
+    ollamaPullModel: false     # auto-pull model if not present
+    ollamaPullTimeout: ""      # timeout for model pull (e.g. "10m")
+```
+
+## Advanced parameters
+
+Full sampling control - all fields are optional and fall back to the model's provider defaults.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    temperature: 0.9          # 0.0 = deterministic, 1.0+ = more random/creative
+    maxTokens: 500            # hard cap on generated tokens; 0 = model default
+    topP: 0.9                 # nucleus sampling -- lower = less diverse vocabulary
+    topK: 40                  # top-K sampling -- limits vocabulary to K most likely tokens
+    seed: 42                  # fixed seed for reproducible outputs (provider support varies)
+    frequencyPenalty: 0.0     # penalises tokens repeated in the output (-2.0 to 2.0)
+    presencePenalty: 0.6      # penalises any token that appeared at all (-2.0 to 2.0)
+    repetitionPenalty: 1.1    # multiplicative penalty for repetition (1.0 = none; >1 = penalise)
+    stopWords:                # stop generation when any of these strings appear
+      - "END"
+      - "###"
+  context:
+    prompt: "Write a creative story"
+```
+
+## Context length
+
+Control the context window:
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
+```
+
+## Knowledge recall
+
+Every `chat` call adds [knowledge vault](/workflow/agent-loop/knowledge) notes related to its prompt by default. kdeps refreshes the structural graph (links, tags, frontmatter; no model call).
+
+kdeps follows the graph from the words of the prompt. Then it puts the best note paths and summaries in a system message after the system prompt. The recall token budget sets the limit. kdeps adds nothing when the vault is off, the resource sets `knowledge: false`, or no note matches. Calls write to the vault only with `workflow_notes: true` under `knowledge:`, which logs each call to the workflow's project (see [Workflow mode](/reference/agent-loop/knowledge#workflow-mode)).
+
+<div v-pre>
+
+```yaml
+# resources/answer.yaml
+actionId: answer
+name: Answer
+chat:
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "{{ get('q') }}"
+  rag:
+    knowledge: false     # skip recall for this call; default true
+```
+
+</div>
+
+`knowledge.enabled: false` in `~/.kdeps/config.yaml` turns recall off for every call.
+
+## Scenario (conversation history)
+
+Build multi-turn conversations:
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: system
+        prompt: |
+          You are an expert software developer.
+          Always provide code examples.
+          Be concise and practical.
+
+      - role: user
+        prompt: What is a REST API?
+
+      - role: assistant
+        prompt: |
+          A REST API is an architectural style for web services.
+          It uses HTTP methods (GET, POST, PUT, DELETE) to perform operations.
+```
+
+</div>
+
+## JSON response
+
+To get structured JSON output:
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    prompt: "Analyze: {{ get('q') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - summary
+        - sentiment
+        - keywords
+        - confidence
+```
+
+</div>
+
+Output:
+```json
+{
+  "summary": "...",
+  "sentiment": "positive",
+  "keywords": ["ai", "machine learning"],
+  "confidence": 0.95
+}
+```
+
+## Judges
+
+`guardrails.judges` reviews the answer before the resource finishes. The judges run in parallel. If any rejects, the chat runs again with their feedback, and the panel reviews the revision. Agent mode's [judge panel](/workflow/agent-loop/judges) runs on the same engine.
+
+```text
+chat -> judges (parallel) -> all approve? -> output
+              | any rejects
+              v
+        chat again with the feedback -> judges again
+```
+
+<div v-pre>
+
+```yaml
+# resources/notes.yaml
+chat:
+  context:
+    prompt: "Write release notes for {{ get('version') }}"
+  tools:
+    list:
+      - name: changelog            # a tool of this chat; judges may borrow it
+        description: Read the changelog
+        script: changelogTool      # the resource that runs the tool
+  guardrails:
+    judges:
+      - name: complete
+        criteria: Every change in the changelog is listed.   # the rubric the judge reviews against
+        allowedTools: [changelog]         # only this chat's tools or tools.components
+        maxRounds: 5               # its tool rounds; 0 = the judge-max-rounds event
+      - name: format
+        graders:                   # checks without a model call; a failure rejects
+          - kind: not_contains     # exact | contains | not_contains | regex | json | expr
+            pattern: TODO
+```
+
+</div>
+
+- Each judge uses the chat's model and replies with a JSON verdict. It sees the rendered prompt and the answer, not the conversation.
+- Reviews per answer: the `judge-iterations` event (2). The last revision is the output when the budget runs out.
+- A judge that fails or replies without a verdict approves: judges never fail the resource.
+
+`judgePreset` uses the panel of a preset. Do not also list judges:
+
+```yaml
+chat:
+  context:
+    prompt: "Write a design for {{ get('feature') }}."
+  tools:
+    list:
+      - name: read_file          # the preset's judges may use the chat tools they name
+  guardrails:
+    judgePreset: design-review   # assets/presets/design-review.yaml: scope, clarity, failure-modes, readiness
+```
+
+An unknown preset, or one with no judges, fails the resource.
+
+## Harness sections
+
+`harness.sections` adds the agent loop's system-prompt sections to the chat, in the order listed, ahead of its other instructions:
+
+```yaml
+chat:
+  context:
+    prompt: "Summarize {{ get('url') }}."
+  harness:
+    sections: [accuracy, honesty, output]   # assets/harness/<name>.yaml, kind: preamble-section
+```
+
+Any `preamble-section` entry works (`accuracy`, `honesty`, `output`, `scope`, `safety`, ...), including your overrides in `~/.kdeps/harness/`. A section you disabled adds nothing. An unknown name fails the resource.
+
+## Prompt mode
+
+`promptMode` sets how the `harness.sections` text goes on the requests after the first in a tool loop:
+
+```yaml
+chat:
+  harness:
+    sections: [accuracy, honesty]
+    promptMode: summary          # full (default): every request; summary: one line per section; auto: summary except on anthropic and openai
+```
+
+The first request always sends the full sections. A summary line is the section's `summary:` field.
+
+## Skills
+
+`tools.skills` gives the chat skills. kdeps reads each listed folder of `SKILL.md` files (or one skill file). The skill names and descriptions go into the system prompt. The model reads one skill in full with the `load_skill` tool:
+
+```yaml
+chat:
+  context:
+    prompt: "Release {{ get('version') }}."
+  tools:
+    skills: [skills]   # skills/deploy/SKILL.md -> skill "deploy"; relative to the run's working folder
+```
+
+A path with no skills fails the resource. A skill marked `hidden: true` is not offered.
+
+## Agent loop
+
+`loop:` runs the chat as the kdeps agent loop: the model calls built-in tools over many rounds, with compaction, and requests with the same session id continue one stored conversation.
+
+```yaml
+# resources/assistant.yaml
+chat:
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "{{ get('q') }}"
+  loop:
+    tools: [read_file, edit_file, bash_exec]   # built-in tools by name; omit to offer all of them
+    maxRounds: 25                              # tool rounds per request; 0 = the agent default
+    session: "{{ get('session') }}"            # same id = same conversation; omit for a fresh one each request
+  harness:
+    promptMode: auto                           # harness text after the first request (default full)
+  guardrails:
+    judges: auto                               # opt-in: automatic judge roster; a listed roster replaces it
+```
+
+```text
+request -> chat (loop) -> tool rounds -> reply -> next resource
+                 ^                |
+                 +-- session -----+   stored under the workflow name + session id
+```
+
+- The output has the plain chat shape: the reply is at `get('id').message.content`. Judges under `guardrails` review it as usual.
+- File tools stay inside the workspace: the working directory of `kdeps run`, or `KDEPS_WORKSPACE_ROOT`. A path outside it fails, since a workflow has no terminal to approve it.
+- With the `interactive` input source, each line of the prompt is one request to this chat. See [Input sources](/reference/workflow/input-sources#interactive-source).
+- An unknown tool name fails the resource and lists the built-in tools.
+
+## Vision (file attachments)
+
+Process images (set a vision-capable `name:` under the resource's `model:`):
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: llama3.2-vision
+  context:
+    prompt: "Describe this image"
+    files:
+      - "{{ get('file', 'filepath') }}"  # From upload
+      - "./images/example.jpg"            # From filesystem
+```
+
+</div>
+
+## Function calling
+
+Enable LLMs to call other resources:
+
+<div v-pre>
+
+```yaml
+# resources/llm-with-tools.yaml
+actionId: llmWithTools
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+  tools:
+    list:
+      - name: calculate
+        description: Perform mathematical calculations
+        script: calcTool
+        parameters:
+          expression:
+            type: string
+            description: Math expression (e.g., "2 + 2")
+            required: true
+
+      - name: search_db
+        description: Search the database
+        script: dbSearchTool
+        parameters:
+          query:
+            type: string
+            description: Search query
+            required: true
+          limit:
+            type: integer
+            description: Max results
+            required: false
+```
+
+</div>
+
+### Tool loop behavior
+
+kdeps runs the tool loop one call at a time, on all backends. If a model
+returns many tool calls in one turn, kdeps runs only the first call. In a batch,
+later calls use a state that the model only guessed. The model did not see the
+real results of the earlier calls. With one call for each turn, the loop is a
+real step-by-step loop. Each call uses the real output of the previous tool.
+
+To run calls in batches again, set `KDEPS_ALLOW_MULTI_TOOL=1`.
+`tools.maxRounds` on the `chat:` resource sets the maximum number of rounds.
+Without it (or with `auto`), the `chat-max-rounds` event sets the maximum (25).
+
+The loop's call guard applies per chat call: a [call-budget event](/reference/agent-loop/events-guards#call-budget-events) (`web-call-budget`, or your own with `tools:` and `distinctCalls:`) blocks new different calls to its tools when the budget is empty. If the model repeats a call, it gets the first result again, and the tool does not run again. If a call repeats more than `identical-tool-calls` (3) times, the chat answers. kdeps cuts a tool result to the `tool-result-truncate` event (8192 bytes, and keeps the start and the end). It cuts a tool error to `tool-error-truncate` (500).
+
+A model can write a tool call as text, not as a structured call (`<tool_call>`, `<invoke>`, `<function=...>`, DeepSeek DSML, or a bare JSON call). kdeps parses and runs this call (see [Fenced tools](/workflow/agent-loop/fenced-tools)). A call in a markdown fence is an example and does not run. kdeps ignores a call to a tool that the chat does not list.
+
+kdeps cleans the answer of a chat with tools. It removes `[MEMORY: ...]` markers, tool-call markup, a `<tool_response>` that the model wrote, and `<File>` wrappers. For a `harness.output.json` chat, the JSON parser does this work.
+
+kdeps does not always accept a text answer that ends the tool loop:
+
+- A failed call that the model reports as done gets `nudge-unresolved-failure`.
+- A limit that the model invents ("I can't access the files") gets `nudge-self-limit`.
+- An action that the model claims with no tool call gets `nudge-unbacked-claim`.
+
+Each nudge occurs a maximum of `maxOccurrences` times (from its harness entry). The model then answers again.
+
+First, kdeps checks each model call against the [request body limit](/reference/security#request-body-size-preflight) of the backend. A request above the limit fails with a clear error. It never goes to the model.
+
+A failed tool call in a workflow chat gets a failure brief after its error. The brief names the folder of a missing path or the lines around a failed `edit_file`. It tells the model to fix the cause and call again. The `failure-briefs` event caps the briefs on one chat call. The default is 5. Later failures return the plain error. The agent loop sends the same brief on its hidden channel. `failure-context-bytes`, `failure-dir-entries`, and `failure-error-bytes` size the brief.
+
+If a call is larger than the context of the model, kdeps compacts it and tries again one time. kdeps summarizes all text after the system messages with the `compaction-system` and `compaction-user` harness prompts. The model continues from that summary and the original prompt. A prompt that is too large by itself fails.
+
+### kdeps tools (by name)
+
+A tool with no `script` or `mcp` is the kdeps tool of that name. Its description, parameters and code come from its asset, and the call runs through the kdeps API.
+
+```yaml
+# resources/research.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+  tools:
+    list:
+      - name: web_search     # asset tool: no script needed
+      - name: calculator
+      - name: http_request
+        description: Fetch one of our status pages   # optional: overrides the asset's description
+```
+
+An unknown name fails the resource.
+
+The memory tools (`memory_save`, `memory_search`, `memory_delete`) use the memory store of the run. For this reason, start the workflow with `kdeps run --memory`. Without it, they answer that no store is configured. `knowledge_recall` reads the [knowledge vault](/workflow/agent-loop/knowledge) notes related to a query.
+
+A chat can use an OpenRouter free model (`backend: openrouter`, an id ending in `:free`). If the provider rate-limits or refuses the request, the chat moves to the next free id (`openrouter-provider-limit`, `openrouter-refusal` events). It stays on the id that answered. Free-model requests share the `openrouter-free-per-minute` queue.
+
+`subagent` hands a task to a fresh chat call on the same model. It has not seen this chat and gets only the chat's read-only tools (`read_file`, `web_search`, `calculator`, ...), never a write tool or another subagent. It returns a plain-text report as the tool result.
+
+```yaml
+chat:
+  context:
+    prompt: "Review {{ get('path') }} for security issues."
+  tools:
+    list:
+      - name: subagent     # the model calls it with task, optional instructions and tools
+      - name: read_file    # read-only: the subagent may use it
+      - name: write_file   # not read-only: only this chat may use it
+```
+
+Its prompt is the `subagent-system` harness. Its tool rounds are the `subagent-max-rounds` event.
+
+### Component tools (opt-in allowlist)
+
+Expose shipped or installed components as LLM function-calling tools:
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    prompt: "Research {{ get('q') }} and summarize the findings."
+  tools:
+    components:
+      - web_scraper
+      - web_search
+```
+
+## Chain-of-thought
+
+`chainOfThought: true` injects a "think step-by-step" system prompt prefix before the first system message. The model reasons explicitly before answering. Works with any provider.
+
+```yaml
+# resources/example.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+  harness:
+    chainOfThought: true   # prepend CoT instruction to the system prompt
+```
+
+## Semantic few-shot selection
+
+When you have many examples and want semantic (embedding-based) selection instead of word-overlap, set `fewShot.embeddingModel` and `fewShot.embeddingBackend`. kdeps selects the K most similar examples by embedding cosine similarity.
+
+```yaml
+# resources/classifier.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+    fewShot:
+      selectK: 3
+      embeddingModel: text-embedding-3-small   # embedding model for similarity ranking
+      embeddingBackend: openai                 # backend that serves the embedding model
+      examples:
+        - role: user
+          prompt: What color is the sky?
+        - role: assistant
+          prompt: blue
+        # ... many more examples
+```
+
+You must set `fewShot.selectK`. If you do not configure an embedding model, kdeps uses word-overlap.
+
+## Provider-specific options
+
+Some `chat:` fields apply to one backend only: Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. You set them on each resource, not in `config.yaml`. The page of each backend documents them:
+
+- [LLM backends](/workflow/resources/llm-backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, `openAIWebSearch`, Ollama `streaming`
+- [LLM provider reference](/reference/llm-server/providers) - per-provider config snippets and model names
+
+## Sampling: candidate count
+
+`candidateCount` (or its alias `n`) requests N independent completions from the model. The response contains all candidates. kdeps merges them into the output object. Not all providers support multiple candidates.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    candidateCount: 3   # generate 3 independent completions
+  context:
+    prompt: "{{ get('q') }}"
+  # n: 3             # alias for candidateCount (OpenAI style)
+```
+
+## Sampling: length bounds
+
+`minLength` and `maxLength` set lower and upper bounds on generated token count. `maxLength` is an alias for `maxTokens`.
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    minLength: 50      # minimum response length in tokens
+    maxLength: 500     # maximum response length in tokens (alias for maxTokens)
+  context:
+    prompt: "{{ get('q') }}"
+```
+
+## Few-shot prompting
+
+Inject example user/assistant pairs before the conversation to demonstrate the expected output format. The model follows the pattern in the examples.
+
+<div v-pre>
+
+```yaml
+# resources/classifier.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+    fewShot:
+      examples:
+        - role: user
+          prompt: What color is the sky?
+        - role: assistant
+          prompt: blue
+        - role: user
+          prompt: What color is grass?
+        - role: assistant
+          prompt: green
+```
+
+</div>
+
+### Dynamic example selection
+
+When you have many examples, `fewShot.selectK` picks the K most relevant to the current prompt using word-overlap similarity:
+
+<div v-pre>
+
+```yaml
+# resources/classifier.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+    fewShot:
+      selectK: 3   # pick 3 most similar examples
+      examples:
+        - role: user
+          prompt: What color is the sky?
+        - role: assistant
+          prompt: blue
+        # ... many more examples
+```
+
+</div>
+
+### Token budget for examples
+
+`fewShot.maxTokens` caps the total tokens used by examples, implementing the LengthBasedExampleSelector pattern. Useful when your example pool is large and you want to stay within context limits:
+
+<div v-pre>
+
+```yaml
+# resources/classifier.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+    fewShot:
+      selectK: 10          # pick up to 10 similar examples
+      maxTokens: 500       # but never use more than 500 tokens total
+      examples:
+        - role: user
+          prompt: What color is the sky?
+        - role: assistant
+          prompt: blue
+        # ... large example bank
+```
+
+</div>
+
+You can use the two fields together. First, `fewShot.selectK` ranks examples by similarity. Then `fewShot.maxTokens` cuts the result to the token budget. kdeps always keeps pairs (user + assistant) complete.
+
+## RAG context injection
+
+Pass pre-fetched retriever chunks into the system prompt with `rag.retriever.passages`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from the `vector_store` component's output.
+
+<div v-pre>
+
+```yaml
+# resources/rag-chat.yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: system
+        prompt: Answer using only the retrieved context.
+  rag:
+    retriever:
+      passages:
+        - "{{ $actions.search.output.documents }}"
+```
+
+</div>
+
+### Contextual compression
+
+`retriever.topK` keeps only the K chunks most relevant to the current prompt (Jaccard word-overlap similarity). Useful when a vectorstore returns many results but you only want the most relevant ones:
+
+<div v-pre>
+
+```yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+  rag:
+    retriever:
+      passages:
+        - "{{ $actions.search.output.documents }}"
+      topK: 5   # keep 5 most relevant chunks
+```
+
+</div>
+
+### Token budget for retriever chunks
+
+`retriever.maxTokens` sets the maximum total tokens of all added chunks. kdeps adds chunks in the order of their similarity score, until it gets to the budget:
+
+<div v-pre>
+
+```yaml
+chat:
+  context:
+    prompt: "{{ get('q') }}"
+  rag:
+    retriever:
+      passages:
+        - "{{ $actions.search.output.documents }}"
+      topK: 10           # pick 10 most relevant
+      maxTokens: 1000    # but never use more than 1000 tokens
+```
+
+</div>
+
+When combined, `retriever.topK` selects by relevance first, then `retriever.maxTokens` prunes the result to the token budget.
+
+## Examples
+
+### Simple q&A
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: llama3.2:1b
+    timeout: 30s
+  context:
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: system
+        prompt: Answer questions concisely.
+  harness:
+    output:
+      json: true
+      keys:
+        - answer
+```
+
+</div>
+
+### Code generation
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+chat:
+  model:
+    name: llama3.2:1b
+    timeout: 60s
+  context:
+    prompt: "Write a Python function that {{ get('task') }}"
+    scenario:
+      - role: system
+        prompt: |
+          You are an expert Python developer.
+          Write clean, documented code with type hints.
+  harness:
+    output:
+      json: true
+      keys:
+        - code
+        - explanation
+```
+
+</div>
+
+### Multi-resource pipeline
+
+<div v-pre>
+
+```yaml
+# Fast classification resource
+actionId: classifier
+chat:
+  context:
+    prompt: "Classify this query: {{ get('q') }}"
+  harness:
+    output:
+      json: true
+      keys:
+        - category
+        - confidence
+
+---
+# Detailed response (only runs when confidence >= 0.8)
+actionId: detailedResponse
+flow:
+  requires: [classifier]
+validations:
+  skip:
+  - get('classifier').confidence < 0.8
+
+chat:
+  model:
+    timeout: 120s
+  context:
+    prompt: |
+      Category: {{ get('classifier').category }}
+      Query: {{ get('q') }}
+      Provide a detailed response.
+```
+
+</div>
+
+## Accessing output
+
+```yaml
+flow:
+  # resources/example.yaml
+  requires: [llmResource]
+apiResponse:
+  response:
+    answer: get('llmResource').message.content   # reply text
+    raw: get('llmResource')                      # full response object
+    parsed: get('llmResource').answer            # if output.json: true with key "answer"
+```
+
+A failed call fails the resource. The backend can return an HTTP error, have a
+timeout, or be unreachable. In these conditions, the resource gives the error
+`LLM call failed: <cause>`. The cause is the error text of the provider, if it
+sends one. The resource never gives an empty result, so
+`get('llmResource').message.content` never resolves to `<nil>`. Use `onError:`
+to try again or to use a fallback.
+
+## See also
+
+- [LLM backends](/workflow/resources/llm-backends) - Configure model, backend, API keys, and routing
+- [Function calling](/workflow/tools) - LLM function calling
+- [Docker deployment](/deploy/docker) - Deploying with local models

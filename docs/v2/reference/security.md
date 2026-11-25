@@ -274,5 +274,5 @@ deploy:
 ## See also
 
 - [Advanced configuration](/reference/advanced-config) - Request object, agent settings, SQL connections, trusted proxies
-- [Docker reference](/deploy/docker-reference) - Container security hardening
+- [Docker reference](/reference/deploy/docker-reference) - Container security hardening
 - [Validation and control flow](/workflow/validation) - Per-resource access control

@@ -6,7 +6,7 @@ hero:
   text: One YAML file, offline
   tagline: "kdeps turns one workflow.yaml into an offline API, a binary, an image, or an ISO. You review the YAML as a pull request, and kdeps test runs the evals. A check returns 400 before any model call. A chat with loop: is a bounded step in that file."
   announcement: Your AI on a USB stick
-  announcementLink: /deploy/cli#kdeps-bundle-prepackage
+  announcementLink: /reference/deploy/cli#kdeps-bundle-prepackage
   actions:
     - theme: brand
       text: What is kdeps?
