@@ -35,9 +35,20 @@ import (
 // templatesSet is the asset set holding the project templates.
 const templatesSet = "templates"
 
+// projectTemplates are the scaffolds kdeps new writes. A chosen profile
+// installs only required items, so these stay available after the first install.
+//
+//nolint:gochecknoglobals // fixed list
+var projectTemplates = []string{
+	"agency", "api-service", "assistant", "resources", "sql-agent", "whatsapp-bot",
+}
+
 //nolint:gochecknoinits // registers the project templates as a versioned asset set
 func init() {
-	assets.Register(templatesSet, assets.Spec{Validate: validateTemplateBundle})
+	assets.Register(templatesSet, assets.Spec{
+		Validate: validateTemplateBundle,
+		Required: projectTemplates,
+	})
 }
 
 // validateTemplateBundle checks a downloaded template bundle.

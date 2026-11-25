@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v3/pkg/assets"
 	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
@@ -86,6 +87,19 @@ func TestGenerator_GenerateProject_InvalidTemplate(t *testing.T) {
 	err = generator.GenerateProject("nonexistent-template", outputDir, data)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "template not found")
+}
+
+func TestProjectTemplatesAreRequired(t *testing.T) {
+	t.Setenv(assets.SourceEnv, "")
+	names := []string{"agency", "api-service", "assistant", "resources", "sql-agent", "whatsapp-bot"}
+	for _, name := range names {
+		assert.True(t, assets.Required("templates", name), name)
+	}
+	assert.False(t, assets.Required("templates", "knowledge"))
+	missing := assets.MissingRequired([]string{"templates"})
+	for _, name := range names {
+		assert.Contains(t, missing, "templates/"+name)
+	}
 }
 
 func TestGenerator_StripJinja2Ext(t *testing.T) {
