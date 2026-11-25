@@ -1,0 +1,92 @@
+# Example: stateless bot (stdin/stdout): full text
+
+This page has every step and detail. The [overview](/examples/stateless-bot/) is the short version.
+
+
+A workflow-mode (`kdeps run`) one-shot bot: it reads a message from stdin (or an env var), calls an LLM, and writes the reply to stdout. Use it in cron jobs, CI pipelines or custom integrations.
+
+## Files
+
+```
+stateless-bot/
+├── workflow.yaml
+└── resources/
+    ├── llm.yaml
+    └── reply.yaml
+```
+
+## workflow.yaml
+
+```yaml
+# workflow.yaml
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+name: stateless-bot
+description: One-shot stdin/stdout bot
+version: "1.0.0"
+targetActionId: reply
+deploy:
+  runtime:
+    timezone: Etc/UTC
+
+  input:
+    sources: [bot]
+    bot:
+      executionType: stateless
+```
+
+## resources/llm.yaml
+
+```yaml
+
+actionId: llm
+name: LLM Response
+chat:
+  model:
+    name: llama3.2:1b
+  context:
+    prompt: "{{ input('message') }}"   # the incoming message text
+```
+
+## resources/reply.yaml
+
+```yaml
+
+actionId: reply
+name: Reply
+flow:
+  requires:
+    - llm
+
+apiResponse:                 # in bot mode the workflow result is the reply
+  success: true
+  response: "{{ get('llm').message.content }}"   # sent as the reply text
+```
+
+## Running
+
+**With JSON on stdin:**
+
+```bash
+echo '{"message":"What is 2+2?","chatId":"42","userId":"u1","platform":"custom"}' \
+  | kdeps run workflow.yaml
+```
+
+**With environment variables:**
+
+```bash
+export KDEPS_BOT_MESSAGE="What is the capital of France?"
+export KDEPS_BOT_PLATFORM="cli"
+kdeps run workflow.yaml
+```
+
+kdeps writes the output to stdout:
+
+```
+Paris
+```
+
+## See also
+
+- [Input sources](/workflow/input-sources) - Full platform config reference

@@ -1,12 +1,6 @@
 # Component resource
 
-The `component:` resource calls a reusable resource bundle - a registry component installed with `kdeps install`, or a custom component in your project's `components/` directory. You pass typed inputs in `with:`, the component's resources run, and its result comes back.
-
-## Where it runs
-
-It runs in a workflow. See [Components](/agencies/components) for registry components, custom components, and how to build one.
-
-## Basic usage
+The `component:` resource calls a reusable component with inputs in `with:` and returns its result.
 
 ```yaml
 # resources/scrape.yaml
@@ -18,31 +12,8 @@ component:
     url: "https://example.com"
 ```
 
-```yaml
-# resources/reply.yaml
-actionId: reply
-name: Send Bot Reply
-component:
-  name: botreply
-  with:
-    platform: telegram
-    message: "Hello!"
-```
+## Read next
 
-## Configuration options
-
-| Option | Description |
-|---|---|
-| `name` | Component name - either the registry install name, or a directory under `components/` (required) |
-| `version` | Pin a specific installed version (registry components only) |
-| `with` | Key-value inputs passed to the component. Each entry is injected as `set('<callerActionId>.<key>', value)` before the component's resources run, so the same component can be called multiple times with different inputs in one workflow |
-
-## Output
-
-The output of the result resource of the component. The shape changes with the component. Check the component's own documentation or `component.yaml` for its output contract.
-
-## See also
-
+- [Component resource reference](/reference/agencies/component-resource) - every key, option and detail
 - [Components](/agencies/components) - registry vs. custom components, how to build and publish one
 - [Agent resource](/agencies/agent-resource) - call a full sibling agent instead of a component
-- [Resources overview](/workflow/resources) - all resource types

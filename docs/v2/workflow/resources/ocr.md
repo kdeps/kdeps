@@ -3,9 +3,7 @@
 The `ocr_image` component extracts text from an image with [tesseract](https://github.com/tesseract-ocr/tesseract). It is fully local, with no API key and no network call.
 
 ```text
-component: ocr_image -> POST http://kdeps.api/apis/tools.kdeps.io/v1/tools/ocr_image/call
-                    -> tools/ocr_image.yaml exec: tesseract <file> stdout -l <language> --psm <psm> --oem <oem>
-                    -> .stdout = the text
+image -> tesseract (local) -> text
 ```
 
 ```yaml
@@ -20,7 +18,6 @@ component:
 
 ## Read next
 
-- [OCR component reference](/reference/resources/ocr) - basic usage, inputs, output, the component itself
+- [OCR component reference](/reference/resources/ocr) - every key, option and detail
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
 - [Transcribe components](/workflow/resources/transcribe) - the equivalent pattern for audio
-- [Resources overview](/workflow/resources) - all resource types

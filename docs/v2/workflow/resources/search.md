@@ -1,13 +1,6 @@
 # Search resources
 
-Three components search: `web_search` finds pages on the web, `search_local` walks files on disk, and `embedding` ranks text by keyword in a local SQLite store. Each has its own reference page.
-
-| Resource | Does | Reference |
-| :--- | :--- | :--- |
-| `component: web_search` | Query the web via DuckDuckGo, return titles, URLs, and snippets - a kdeps component, YAML only. | [web_search](#web_search) |
-| `component: search_local` | Walk a directory by filename glob and content keyword. Optional TF-IDF index for ranked results - a kdeps component, YAML only. | [search_local](/workflow/resources/search-local) |
-
-## web_search
+Three components search: `web_search` searches the web, `search_local` searches files on disk, and `embedding` searches a local store.
 
 ```yaml
 # resources/find.yaml
@@ -19,31 +12,8 @@ component:
     query: "kdeps workflow engine"   # required
 ```
 
-```yaml
-# resources/respond.yaml
-actionId: respond
-flow:
-  requires: [find]
-apiResponse:
-  response:
-    results: "{{ output('find') }}"
-```
+## Read next
 
-The output is up to 5 results, each three lines and a blank line. Feed a URL into `web_scraper` for the full page.
-
-```text
-Title: Tutorial: Getting started with generics - The Go Programming Language
-Description: Learn how to use generics in Go to declare and call functions ...
-URL: https://go.dev/doc/tutorial/generics
-```
-
-The search is the `web_search` tool, a `python:` block in `tools/web_search.yaml` that reads DuckDuckGo's lite HTML page (`lite.duckduckgo.com`). Set `KDEPS_WEB_SEARCH_URL` to point it at another endpoint that serves the same page.
-
-In a chat loop the same tool is `web_search`. The loop caps `web_search` and `web_scraper` calls per request with the `web-call-budget` event.
-
-## See also
-
+- [Search resources reference](/reference/resources/search) - every key, option and detail
 - [Web scraper](/workflow/resources/web-scraper) - read the text of a URL the search returned
 - [Embedding component](/workflow/resources/embedding) - SQLite keyword store for on-prem RAG
-- [LLM resource](/workflow/resources/llm) - use search results as context for chat resources
-- [Resources overview](/workflow/resources) - all resource types

@@ -20,7 +20,7 @@ An HTTP server starts only when you set `apiServer:` under `settings:`. If you d
 
 ## API source
 
-`apiServer:` under `settings:` starts the HTTP server. `sources: [api]` does not.
+`apiServer:` under `deploy:` starts the HTTP server. `sources: [api]` does not.
 
 ```yaml
 # workflow.yaml

@@ -19,9 +19,7 @@ apiResponse:
     Content-Type: application/json
 ```
 
-The caller gets `{"success": true, "data": {"answer": "..."}, "meta": {...}}`. A non-JSON `Content-Type` sends `response` as is.
-
 ## Read next
 
-- [API response reference](/reference/resources/api-response) - every option, custom headers, metadata, error responses, examples
+- [API response resource reference](/reference/resources/api-response) - every key, option and detail
 - [Error handling](/workflow/error-handling) - what the caller gets when a resource fails

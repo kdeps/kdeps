@@ -5,14 +5,9 @@ The `validations:` block controls if a resource runs and what it accepts. It ope
 ```yaml
 # resources/example.yaml
 validations:
-  methods: [POST]          # skip unless method matches
-  routes: [/api/v1/data]  # skip unless route matches
-  headers: [Authorization] # skip unless header present
-  params: [q]              # skip unless param present
-  skip:
-    - get('mode') == 'dry-run'  # skip silently (no error)
+  methods: [POST]          # skip unless the method matches
   check:
-    - get('q') != ''            # fail with error below if false; a missing q equals ''
+    - get('q') != ''       # fail with the error below if false
   error:
     code: 400
     message: "q is required"
@@ -20,9 +15,6 @@ validations:
 
 ## Read next
 
-- [Validation and control flow reference](/reference/workflow/validation) - skip conditions, preflight checks, route and method restrictions, input validation, allowed headers and parameters, execution order, use cases
-- [Validation examples](/reference/validation-examples) - best practices and examples
+- [Validation and control flow reference](/reference/workflow/validation) - every key, option and detail
 - [Expressions](/workflow/expressions) - expression syntax for conditions
 - [Resources overview](/workflow/resources) - resource structure
-- [Unified API](/workflow/data-access) - using `get()` in validations
-- [Workflow configuration](/workflow/configuration) - route configuration

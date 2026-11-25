@@ -8,8 +8,7 @@ description: Find, install, and publish shared kdeps agents and components.
 A registry is a GitHub repository of formula files that shares agents and
 components by name. kdeps reads `kdeps/registry` and any registry you list
 under `registries:` in `~/.kdeps/config.yaml`, from a local copy, with no
-server. It is optional: building, running, and deploying an agent never
-touch it.
+server.
 
 ```bash
 kdeps search scraper            # find packages
@@ -17,13 +16,6 @@ kdeps install scraper-native    # add one to the current project
 kdeps create <archive-url>      # print a formula to publish yours via PR
 ```
 
-**Not this?** To build the agent you want to publish, start with
-[kdeps workflow](/workflow/). To ship a private agent to your own infrastructure
-instead of the registry, see [kdeps deploy](/deploy/docker).
+## Read next
 
----
-
-| Topic | Page |
-|-------|------|
-| Every registry command and flag | [Registry commands](/reference/registry/cli) |
-| The formula file format a published package uses | [Formula spec](/reference/registry/formula-spec) |
+- [kdeps registry reference](/reference/registry/) - every key, option and detail

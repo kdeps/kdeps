@@ -15,7 +15,6 @@ component:
 
 ## Read next
 
-- [exec component reference](/reference/resources/exec) - configuration, shell or direct execution, output, examples, environment variables, errors and timeouts, security notes
+- [exec component reference](/reference/resources/exec) - every key, option and detail
 - [Python resource](/workflow/resources/python) - complex data processing
 - [HTTP client](/workflow/resources/http-client) - API calls (preferred over curl)
-- [Workflow configuration](/workflow/configuration) - OS package settings

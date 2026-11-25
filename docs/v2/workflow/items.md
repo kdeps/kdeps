@@ -6,14 +6,8 @@
 
 ```yaml
 # resources/process-items.yaml
-
-actionId: processItems
 flow:
-  items:
-    - "Item 1"
-    - "Item 2"
-    - "Item 3"
-
+  items: ["Item 1", "Item 2"]
 chat:
   context:
     prompt: "Process: {{ get('current') }}"
@@ -23,9 +17,6 @@ chat:
 
 ## Read next
 
-- [Items iteration reference](/reference/workflow/items) - basic usage, item context, the `item` object, accessing all item values, examples, use cases
-- [Items reference](/reference/items) - dynamic items, performance, best practices
+- [Items iteration reference](/reference/workflow/items) - every key, option and detail
 - [Resources overview](/workflow/resources) - Resource configuration
 - [Expressions](/workflow/expressions) - Expression syntax
-- [Expression functions reference](/reference/expression-functions) - Complete function reference
-- [Python resource](/workflow/resources/python) - For complex batch processing

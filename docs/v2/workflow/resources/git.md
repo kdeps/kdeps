@@ -1,6 +1,6 @@
 # Git component
 
-The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results: file lists, commit objects, branch lists. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step. The operations are the kdeps API's `git_ops` tool. The component only POSTs the arguments.
+The `git` component runs version-control operations (status, diff, log, show, branch, remote, add, commit, checkout, init, clone, push, pull) and returns parsed results.
 
 ```yaml
 # resources/status.yaml
@@ -15,7 +15,6 @@ component:
 
 ## Read next
 
-- [Git component reference](/reference/resources/git) - basic usage, inputs, output, best practices, how it is built
+- [Git component reference](/reference/resources/git) - every key, option and detail
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
 - [exec component](/workflow/resources/exec) - shell commands (use for other CLI tools)
-- [Git component source](https://github.com/kdeps/kdeps/tree/main/assets/components/git) - the component and its tool asset

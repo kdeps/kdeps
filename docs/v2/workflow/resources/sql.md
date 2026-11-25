@@ -1,6 +1,6 @@
 # SQL component
 
-The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step.
+The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary.
 
 <div v-pre>
 
@@ -21,7 +21,6 @@ component:
 
 ## Read next
 
-- [SQL component reference](/reference/resources/sql) - basic usage, connections, placeholders, results, transactions and batches, inputs, security, how it is built
-- [SQL examples](/reference/sql-examples) - user lookup, analytics, multi-database sync, LLM-enhanced search
+- [SQL component reference](/reference/resources/sql) - every key, option and detail
 - [Python resource](/workflow/resources/python) - data processing scripts
 - [Components](/agencies/components) - how shipped components load
