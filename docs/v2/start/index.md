@@ -50,7 +50,7 @@ a folder with workflow.yaml
   the one way to run kdeps.
 - An **input source** is how requests reach the workflow: `api`, `bot`, `file`, or
   `interactive` (a terminal prompt). See [Input sources](/workflow/input-sources).
-- An **agent** is a `chat` with [`loop:`](/workflow/resources/llm#agent-loop): the
+- An **agent** is a `chat` with [`loop:`](/reference/resources/llm#agent-loop): the
   model calls tools over many rounds.
 
 The [Glossary](/reference/glossary) gives the definition of each kdeps term.

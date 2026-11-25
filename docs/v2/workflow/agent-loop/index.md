@@ -1,6 +1,6 @@
 # Agent loop
 
-The agent loop is a workflow `chat` with [`loop:`](/workflow/resources/llm#agent-loop). It calls tools over many rounds until the model gives a final answer. `kdeps run` runs it like any other resource. The default model is local, so it needs no API key and runs offline.
+The agent loop is a workflow `chat` with [`loop:`](/reference/resources/llm#agent-loop). It calls tools over many rounds until the model gives a final answer. `kdeps run` runs it like any other resource. The default model is local, so it needs no API key and runs offline.
 
 ```text
 input -> chat (loop:) -> tool rounds -> answer -> next resource
@@ -52,7 +52,7 @@ The same chat serves an HTTP API, a bot, or a file when you change `sources:`. S
 |-------|------|
 | Built-in tool catalog and permission modes | [Built-in tools](/workflow/agent-loop/tools) |
 | Tool calls that a model writes as text | [Fenced tools](/workflow/agent-loop/fenced-tools) |
-| Shell execution and background jobs | [Shell execution](/workflow/agent-loop/tool-reference#shell-execution) |
+| Shell execution and background jobs | [Shell execution](/reference/agent-loop/tool-reference#shell-execution) |
 | The `subagent` tool | [Subagents](/workflow/agent-loop/subagent) |
 | Independent review of the answer | [Judge panel](/workflow/agent-loop/judges) |
 | One-time exceptions for a denied tool call | [Approval tokens](/workflow/agent-loop/approvals) |
@@ -60,11 +60,11 @@ The same chat serves an HTTP API, a bot, or a file when you change `sources:`. S
 | Skills and `KDEPS.md` instructions | [Skills and instructions](/workflow/agent-loop/skills) |
 | Limits and thresholds as YAML | [Reactive LLM events](/workflow/agent-loop/events) |
 
-Every key is under the chat in the workflow. The full list is in the [chat resource reference](/workflow/resources/llm#agent-loop).
+Every key is under the chat in the workflow. The full list is in the [chat resource reference](/reference/resources/llm#agent-loop).
 
 ## See also
 
 - [Workflow](/workflow/) - the YAML pipeline
 - [Input sources](/workflow/input-sources) - API, bot, file, or interactive prompt
-- [LLM provider reference](/llm-server/providers) - backend config and model names
+- [LLM provider reference](/reference/llm-server/providers) - backend config and model names
 - [Agencies](/agencies/) - several workflows as one system

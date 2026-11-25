@@ -1,199 +1,37 @@
 # kdeps agencies
 
-A kdeps agency composes several agents into one system. Each agent is its own `kind: Workflow`
-with its own model and resources, bundled under one `agency.yaml`. One agent
-delegates to another with the `agent:` resource, which runs that agent's whole pipeline and returns its result.
-
-```bash
-kdeps run ./my-agency/     # run the entry-point agent's pipeline
-```
+A kdeps agency composes several agents into one system. Each agent is its own `kind: Workflow` with its own model and resources, bundled under one `agency.yaml`. One agent delegates to another with the `agent:` resource, which runs that agent's whole pipeline and returns its result.
 
 **Not this?** For one pipeline, start with the [workflow](/workflow/). A `chat` with `loop:` is the [agent loop](/workflow/agent-loop/). To reuse one bundle of resources, use a [component](/agencies/components).
-
----
-
-## Use cases
-
-| Single AI Agent | Autonomous AI Agency |
-|---|---|
-| One workflow file, one port | Multiple specialized agents coordinated within one agency (optionally runnable standalone) |
-| All resources coupled together | Each agent is independently deployable and testable |
-| Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
-| No inter-agent delegation | Agents delegate work to each other via `agent:` resource |
-
-## Directory structure
-
-```
-my-agency/
-├── agency.yaml               # Agency manifest
-└── agents/
-    ├── greeter/
-    │   ├── workflow.yaml     # Entry-point agent
-    │   └── resources/
-    ├── summariser/
-    │   ├── workflow.yaml
-    │   └── resources/
-    └── packed-helper-1.0.0.kdeps   # Packed agent archive
-```
-
-## Agency manifest (agency.yaml)
-
-```yaml
-# agency.yaml
-apiVersion: kdeps.io/v1
-kind: Agency
-
-metadata:
-  name: my-agency
-  version: "1.0.0"
-  description: "A multi-agent pipeline"
-  # Entry-point agent - resolved by metadata.name in an agent's workflow.yaml.
-  # If omitted, the first discovered agent is used.
-  targetAgentId: greeter-agent
-
-# Optional: explicit agent list.
-# If omitted, all agents/ sub-directories and agents/*.kdeps are auto-discovered.
-agents:
-  - agents/greeter            # directory-based agent
-  - agents/summariser         # directory-based agent
-  - agents/packed-1.0.0.kdeps # packed agent archive
-```
-
-### Agent discovery
-
-If you do not give the `agents:` list, kdeps finds agents automatically in two ways:
-
-1. **Directory-based** - kdeps loads each `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, ...).
-2. **Packed archives** - kdeps extracts each `agents/*.kdeps` file and loads its `workflow.yaml`.
-
-If you give the `agents:` list, kdeps loads only the listed entries (directories
-or `.kdeps` archives). kdeps resolves all listed paths relative to the agency directory.
-
-## Running an agency
-
-```bash
-# Run from a directory containing agency.yaml
-kdeps run my-agency/
-
-# Run from an explicit manifest path
-kdeps run my-agency/agency.yaml
-```
-
-## Inter-agent calls (agent:)
-
-The `agent:` resource runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
 
 ```d2
 direction: right
 
-A: "calling agent\nactionId: draft\nagent: name: summariser\nparams: text: ..."
-B: "target agent\nworkflow.yaml\nname: summariser\nresources/...\napiResponse: ..."
+A: "calling agent\nagent: name: summariser"
+B: "target agent\nits own workflow.yaml"
 
 A -> B: params
 B -> A: output
 ```
 
+<div v-pre>
+
 ```yaml
-# resources/example.yaml
+# resources/draft.yaml - in the calling agent
 agent:
-  name: summariser-agent   # matches metadata.name in the target's workflow.yaml
+  name: summariser-agent        # metadata.name in the target's workflow.yaml
   params:
     text: "{{ get('body') }}"   # becomes get('text') inside the target agent
 ```
 
-- `name:` resolves to the target agent by `metadata.name` in its `workflow.yaml`.
-- `params:` are key-value pairs that the target reads with `get('key')`.
-- The caller reads the result with `output('actionId')` or `get('actionId')`.
-
-## Packaging an agency (.kagency)
-
-You can pack a full agency (`agency.yaml` and all `agents/` sub-trees) into one
-portable `.kagency` archive (a gzip-compressed tar).
+</div>
 
 ```bash
-# Pack the agency -> produces my-agency-1.0.0.kagency
-kdeps bundle package my-agency/
-
-# Custom name / output directory
-kdeps bundle package my-agency/ --name my-agency-1.0.0 --output dist/
+kdeps run ./my-agency/          # runs the entry-point agent's pipeline
 ```
 
-You can then use the `.kagency` archive as a directory:
+## Read next
 
-```bash
-kdeps run     my-agency-1.0.0.kagency
-kdeps bundle build   my-agency-1.0.0.kagency   # build Docker image
-kdeps export iso my-agency-1.0.0.kagency # export bootable ISO
-```
-
-## Running as Docker
-
-```bash
-# Build a Docker image from the entry-point agent (greeter-agent in this example)
-kdeps bundle build my-agency/
-
-# Or from a packed archive
-kdeps bundle build my-agency-1.0.0.kagency --tag myregistry/my-agency:latest
-```
-
-The generated Docker image runs the entry-point agent (`targetAgentId`) inside a
-minimal Alpine/Ubuntu container with all dependencies pre-installed.
-
-## Exporting as a bootable ISO
-
-```bash
-# Export to a bootable EFI ISO
-kdeps export iso my-agency/
-
-# Export from a packed archive
-kdeps export iso my-agency-1.0.0.kagency --output my-agency.iso
-```
-
-The ISO boots a minimal LinuxKit system that runs the agency's entry-point agent as a
-containerised service.
-
-## Creating a self-contained binary
-
-You can embed a `.kagency` archive (or a plain `.kdeps` workflow archive) directly
-into the kdeps binary. The result is one binary with no dependencies:
-
-```bash
-kdeps bundle prepackage my-agency-1.0.0.kagency --output dist/
-
-# The binary auto-detects the embedded archive and runs it
-./dist/my-agency-linux-amd64
-```
-
-When the binary runs, it reads its own bytes and extracts the embedded archive to a
-temp directory. Then it runs the archive exactly as `kdeps run` does.
-
-## Example: two-agent greeter
-
-The `examples/agency/` directory ships a minimal two-agent example:
-
-```
-examples/agency/
-├── agency.yaml
-└── agents/
-    ├── greeter/workflow.yaml    # API server, calls responder
-    └── responder/workflow.yaml  # Builds the greeting string
-```
-
-```bash
-# Run the example
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run examples/agency/agency.yaml
-
-# Query the API
-curl "http://localhost:17100/api/v1/greet?name=Alice" \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
-# -> {"success":true,"data":"Hello, Alice! (from responder-agent)"}
-```
-
-## See also
-
-- [Agent resource](/agencies/agent-resource) - `agent:` resource reference
-- [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) - runnable example
-- [Packaging commands](/deploy/cli) - `.kdeps` and `.kagency` formats
-- [Docker deployment](/deploy/docker) - building Docker images
-- [Standalone executables](/deploy/binaries) - exporting self-contained binaries
+- [kdeps agencies reference](/reference/agencies/) - directory layout, `agency.yaml`, inter-agent calls, packaging (`.kagency`), Docker, ISO and binaries
+- [agent resource](/agencies/agent-resource) - call another agent
+- [Components](/agencies/components) - reusable resource bundles

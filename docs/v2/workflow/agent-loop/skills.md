@@ -4,7 +4,7 @@ Markdown files that shape how the agent behaves: skills and instructions. They a
 
 ## Skills
 
-Skills are markdown files with optional YAML frontmatter that teach the agent how to behave in specific contexts. A workflow chat lists its skill folders in `tools.skills` (see [Skills](/workflow/resources/llm#skills)).
+Skills are markdown files with optional YAML frontmatter that teach the agent how to behave in specific contexts. A workflow chat lists its skill folders in `tools.skills` (see [Skills](/reference/resources/llm#skills)).
 
 ```markdown
 ---

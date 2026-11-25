@@ -145,5 +145,5 @@ kdeps bundle build greeter-agency-1.0.0.kagency   # Docker image
 
 - [AI agencies](/agencies/) - discovery, packaging, `.kagency`
 - [Agent resource](/agencies/agent-resource) - the `agent:` reference
-- [Packaging commands](/deploy/cli) - `.kdeps` and `.kagency`
+- [Packaging commands](/reference/deploy/cli) - `.kdeps` and `.kagency`
 - [Docker deployment](/deploy/docker) - ship the agency as an image

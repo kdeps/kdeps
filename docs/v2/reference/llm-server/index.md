@@ -1,0 +1,234 @@
+# kdeps LLM server reference
+
+This page lists every field and option. The [overview](/llm-server/) shows what it does and a first example.
+
+
+kdeps LLM server builds a standalone OpenAI-compatible inference appliance, with no
+kdeps agent or workflow. Build it one time (Docker, ISO, or Kubernetes). Each kdeps host on your
+network connects to it over `/v1`.
+
+```bash
+kdeps llm run --engine ollama --model llama3.2 -p 8000   # build and run one engine and model
+```
+
+**Not this?** `kdeps llm` deploys *only* the model server. To package an agent
+(workflow + model) as an image, that is [kdeps deploy](/deploy/). To run a model
+locally with no server at all, the default llamafile backend already does that -
+see [Local models](/start/local-models).
+
+---
+
+Serves workflow hosts. On each host, set `backend: openai` and `base_url` under `llm:`. `models:` names one model or several.
+
+## How it fits
+
+```d2
+direction: right
+
+A: "Recipe catalog" {shape: rectangle}
+B: "kdeps llm build" {shape: rectangle}
+C: Docker {shape: rectangle}
+D: ISO {shape: rectangle}
+E: Kubernetes {shape: rectangle}
+F: "kdeps client" {shape: rectangle}
+
+A -> B: select
+B -> C
+B -> D
+B -> E
+C -> F: serve
+D -> F: serve
+E -> F: serve
+```
+
+## Commands
+
+No workflow path argument - select engine and model only.
+
+```bash
+# List stock + user recipes
+kdeps llm models   # harvest (llamafile + GGUF) available
+kdeps llm list
+
+# Inspect a recipe
+kdeps llm show ollama
+kdeps llm show vllm
+
+# Print client config for a running appliance
+kdeps llm client-config --url http://192.168.1.50:8000/v1
+kdeps llm client-config --url http://llm:8000/v1 --format export
+```
+
+Build and export:
+
+```bash
+# Local / Docker
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
+kdeps llm build --engine ollama --model llama3.2 --show-dockerfile
+kdeps llm run --engine ollama --model llama3.2 -p 8000
+
+# GPU engines (required for vllm / tgi / sglang)
+kdeps llm build --engine vllm --model meta-llama/Llama-3.2-1B-Instruct --gpu cuda --tag myorg/vllm:1
+
+# Kubernetes
+kdeps llm export k8s --image myorg/llm:1 --engine ollama -o llm.yaml
+
+# ISO / bootable (LinuxKit)
+kdeps llm export iso --engine ollama --model llama3.2 --show-config
+kdeps llm export iso --engine ollama --model llama3.2 -o llm.iso
+kdeps llm export iso --engine ollama --model llama3.2 --config-only -o llm.yml
+```
+
+## Client contract
+
+Every appliance exposes OpenAI-compatible chat completions. On the client kdeps host:
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1
+  # openai_api_key: "..."   # if appliance auth enabled
+  models:
+    - llama3.2              # optional allowlist
+```
+
+Or:
+
+```bash
+export KDEPS_DEFAULT_BACKEND=openai
+export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
+```
+
+Generate the same snippet with `kdeps llm client-config`.
+
+Chat resources keep their `model:` field. Only the backend URL changes.
+
+To test a workflow or an agent session without any model, point every model call at a stub or mock OpenAI-compatible server. This is different from `KDEPS_LLM_BASE_URL`. It has priority over the `backend:` of a resource. It needs no API key, and kdeps starts no llamafile or ollama:
+
+```bash
+export KDEPS_LLM_OVERRIDE_URL=http://127.0.0.1:8099   # POST /v1/chat/completions; the resource's model name is sent as is
+kdeps run my-agent/workflow.yaml                       # [4/5] prints: Every chat call goes to http://127.0.0.1:8099
+```
+
+## Stock recipes
+
+Stock recipes are the `recipes` asset set, installed and updated by `kdeps upgrade` (`kdeps llm list`):
+
+| ID | Engine | Model strategy | GPU | Notes |
+|----|--------|----------------|-----|-------|
+| `ollama` | Ollama | pull | optional | Local models via Ollama; native `/v1` |
+| `llamafile` | Llamafile | copy | optional | Self-contained `.llamafile` |
+| `llama-server` | llama.cpp llama-server | copy | optional | GGUF via kdeps llama-server path |
+| `gguf` | llama-server (alias) | copy | optional | Same as `llama-server` |
+| `llamacpp` | llama.cpp server image | copy | optional | Official llama.cpp server image |
+| `vllm` | vLLM | pull | **required** | High throughput; pass `--gpu cuda` |
+| `tgi` | Hugging Face TGI | pull | **required** | GPU; health on `/health` |
+| `sglang` | SGLang | pull | **required** | GPU serving runtime |
+| `localai` | LocalAI | pull | optional | OpenAI drop-in (CPU/GPU images) |
+| `openai-compat` | custom template | pull | optional | Fork for any OpenAI-compat image |
+
+### Add or override a recipe
+
+1. User: `~/.kdeps/llm-servers/<id>.yaml`
+2. Project: `./llm-servers/<id>.yaml` (overrides user and stock for the same `id`)
+
+Custom engines use `engine.kind: custom` (or a stock kind) with `install` + `command` + `api.*`. Clients still use `backend: openai`.
+
+```yaml
+# ./llm-servers/my-vllm.yaml
+id: my-vllm
+name: My vLLM
+description: vLLM OpenAI-compat server
+version: 1.0.0   # version of this recipe file; bump when you change it
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /v1/models
+  auth:
+    mode: none
+engine:
+  kind: vllm
+  base_image: "vllm/vllm-openai:latest"
+  command:
+    - sh
+    - -c
+    - exec python3 -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --port 8000 --model "${LLM_MODEL}"
+  openai_bridge: false
+models:
+  strategy: pull
+resources:
+  gpu: required
+  memory_hint: "16Gi"
+capabilities:
+  - chat
+```
+
+## Docker
+
+```bash
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
+docker run --rm -p 8000:8000 myorg/llm:1
+```
+
+Preview with no build:
+
+```bash
+kdeps llm build --engine ollama --model llama3.2 --show-dockerfile
+```
+
+GPU profiles:
+
+```bash
+kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --tag myorg/vllm:1
+```
+
+Optional auth fail-fast at container start:
+
+```bash
+kdeps llm build --engine ollama --model llama3.2 --require-auth --api-key-env LLM_API_KEY
+```
+
+Example compose: `examples/llm-server/docker-compose.yml`.
+
+## Kubernetes
+
+```bash
+kdeps llm build --engine ollama --model llama3.2 --tag REG/llm:1
+docker push REG/llm:1
+kdeps llm export k8s --engine ollama --image REG/llm:1 --model llama3.2 -o llm.yaml
+kubectl apply -f llm.yaml
+```
+
+Manifests include Deployment, Service (ClusterIP), readiness/liveness on the recipe health path, and optional `--api-key-secret`.
+
+```bash
+kdeps llm client-config --url http://kdeps-llm-ollama:8000/v1 --model llama3.2
+```
+
+## ISO / bootable image
+
+```bash
+kdeps llm export iso --engine ollama --model llama3.2 --show-config
+kdeps llm export iso --engine ollama --model llama3.2 --config-only -o llm.yml
+kdeps llm export iso --engine ollama --model llama3.2 -o llm.iso
+```
+
+Requires Docker and linuxkit (auto-downloaded, same tooling family as agent `export iso`). Formats: `iso` (default), `qcow2`.
+
+## Auth
+
+Default: no auth (private networks - document the risk). Opt in with the recipe's `auth:` under `api:` and CLI `--require-auth` / `--api-key-env`. On Kubernetes, put the key in a Secret (`--api-key-secret`).
+
+## See also
+
+- [Data sovereignty](/start/data-sovereignty) - prompts stay on your network
+- [Agent loop](/workflow/agent-loop/) - a chat that calls tools, on this server
+- [LLM backends](/workflow/resources/llm-backends) - client-side backend selection
+- [LLM commands](/reference/llm-server/cli) - full CLI flag reference
+- [Docker deployment](/deploy/docker) - agent images (not appliances)
+- [Kubernetes deployment](/deploy/kubernetes) - agent manifests
+- Example project: `examples/llm-server/`

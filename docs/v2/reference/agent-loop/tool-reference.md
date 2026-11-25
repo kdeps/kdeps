@@ -1,10 +1,13 @@
 # Tool reference
 
+Overview: [Built-in tools](/workflow/agent-loop/tools).
+
+
 The built-in tools of a chat with `loop:`, by group. The catalog and permission modes are on [Built-in tools](/workflow/agent-loop/tools).
 
 ## File tools
 
-`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent loop with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/workflow/agent-loop/tools#tool-definitions)) and run on the system python. Before the tool runs, kdeps compares each path argument with `KDEPS_WORKSPACE_ROOT` and the root-directory guard.
+`read_file`, `write_file`, `edit_file`, `list_files`, `md5_file`, and `tail_file` run in the agent loop with no setup and no API key. All six are `python:` blocks in their tool assets (see [Built-in tools](/reference/agent-loop/tools#tool-definitions)) and run on the system python. Before the tool runs, kdeps compares each path argument with `KDEPS_WORKSPACE_ROOT` and the root-directory guard.
 
 kdeps permits paths under `~/.kdeps` and `/tmp` with no prompt, also when the workspace root is a different folder. On Windows, the permitted temp directory is the process temp directory. kdeps blocks a directory that has only the same name, and it always blocks `/`. kdeps converts a relative path to the absolute path in the working directory. Then it checks that path and gives it to the script.
 
@@ -73,11 +76,11 @@ A `search_local` result that finds its query in a file carries `match_id`, `line
 
 A `match_id` is local to the process. kdeps keeps a maximum number of them and removes the oldest first. Use it to connect a search to a read in the same session. It is not a permanent reference. If kdeps cannot find a `match_id` (removed, or from a different process), it gives a clear error with the ID. An explicit `file_path` always has priority over `match_id`.
 
-Line edits with `edit_file` are on [Edit file](/workflow/agent-loop/tool-reference#edit-file).
+Line edits with `edit_file` are on [Edit file](/reference/agent-loop/tool-reference#edit-file).
 
 ## Edit file
 
-`edit_file` changes one line of an existing file. Give the line number (or words that are on the line). Then give the replacement text or the text to append. It is a [declared python tool](/workflow/agent-loop/tools#declared-python-tools) in `tools/edit_file.yaml`. That YAML file contains all of its behavior. Reads, whole-file writes and `match_id` are on [File tools](/workflow/agent-loop/tool-reference#file-tools).
+`edit_file` changes one line of an existing file. Give the line number (or words that are on the line). Then give the replacement text or the text to append. It is a [declared python tool](/reference/agent-loop/tools#declared-python-tools) in `tools/edit_file.yaml`. That YAML file contains all of its behavior. Reads, whole-file writes and `match_id` are on [File tools](/reference/agent-loop/tool-reference#file-tools).
 
 ```text
 read_file (line numbers) -> edit_file {file_path, line | match, text | append} -> edited line(s), numbered
@@ -172,7 +175,7 @@ Always available. `identity_get` returns the agent's configured name, email, and
 
 ## Data tools
 
-`calculator`, the SQLite tools, and the local embedding store are always on. The SQLite tools use `db_path`. If `db_path` is not set, they use `KDEPS_SQL_DB_PATH`. Wolfram, remote RAG, and the rerankers register only when you set their key or URL. They are [declared HTTP tools](/workflow/agent-loop/tools#declared-http-tools), and their tool asset fully defines them. Before `sql_query` text runs, kdeps removes its HTML escapes, as for [`bash_exec`](/workflow/agent-loop/tool-reference#shell-execution).
+`calculator`, the SQLite tools, and the local embedding store are always on. The SQLite tools use `db_path`. If `db_path` is not set, they use `KDEPS_SQL_DB_PATH`. Wolfram, remote RAG, and the rerankers register only when you set their key or URL. They are [declared HTTP tools](/reference/agent-loop/tools#declared-http-tools), and their tool asset fully defines them. Before `sql_query` text runs, kdeps removes its HTML escapes, as for [`bash_exec`](/reference/agent-loop/tool-reference#shell-execution).
 
 Permission modes stay on [Built-in tools](/workflow/agent-loop/tools).
 
@@ -206,7 +209,7 @@ The three SQLite tools are `python:` blocks in their tool assets (Python's built
 
 ## Action tools
 
-`http_request`, `search_local`, `transcribe_audio`, `transcribe_audio_offline`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when you set their credentials (the Zapier tools are [declared HTTP tools](/workflow/agent-loop/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/workflow/agent-loop/tools).
+`http_request`, `search_local`, `transcribe_audio`, `transcribe_audio_offline`, `ocr_image`, and `load_document` are always on. Zapier and Google cache register when you set their credentials (the Zapier tools are [declared HTTP tools](/reference/agent-loop/tools#declared-http-tools)). Commits the agent creates carry a co-author trailer. Permission modes stay on [Built-in tools](/workflow/agent-loop/tools).
 
 ### Git commit attribution
 
@@ -254,7 +257,7 @@ These always-on tools invoke the corresponding kdeps executor directly:
 | `search_local` | Search files in a folder (`path`), or, with no `path`, the working directory. Dot-directories, vendor/build folders (`node_modules`, `vendor`, `target`, caches), and files over 1 MiB are skipped. Key and credential files are never returned |
 | `transcribe_audio` | Transcribe an audio file through a Whisper API (OpenAI, Groq, or a local HTTP server); a declared HTTP tool |
 | `transcribe_audio_offline` | Transcribe offline with whisper.cpp (`whisper-cli`), no API key; a declared exec tool |
-| `ocr_image` | Extract text from an image via tesseract (local, no API key); a [declared exec tool](/workflow/agent-loop/tools#declared-exec-tools) |
+| `ocr_image` | Extract text from an image via tesseract (local, no API key); a [declared exec tool](/reference/agent-loop/tools#declared-exec-tools) |
 | `load_document` | Load and extract text from a document |
 
 ## Harness reminders

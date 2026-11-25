@@ -19,7 +19,7 @@ Each runs beside the turn where it can:
 |---|---|
 | `subagent` calls a reply opens with | in parallel, in one round; each call gets its own report |
 
-Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/workflow/execution-flow#independent-resources) (4 at the same time).
+Parallel work runs on the same scheduler and cap as workflow resources: the [`parallel` event](/reference/workflow/execution-flow#independent-resources) (4 at the same time).
 
 ## The subagent tool
 

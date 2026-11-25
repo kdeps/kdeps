@@ -25,5 +25,5 @@ instead of the registry, see [kdeps deploy](/deploy/docker).
 
 | Topic | Page |
 |-------|------|
-| Every registry command and flag | [Registry commands](/registry/cli) |
-| The formula file format a published package uses | [Formula spec](/registry/formula-spec) |
+| Every registry command and flag | [Registry commands](/reference/registry/cli) |
+| The formula file format a published package uses | [Formula spec](/reference/registry/formula-spec) |

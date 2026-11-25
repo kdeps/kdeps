@@ -1,5 +1,8 @@
 # Components reference
 
+Overview: [Components](/agencies/components).
+
+
 Full schema, lifecycle, and packaging reference for kdeps components. For an introduction, see [Components](/agencies/components).
 
 ## component.yaml reference
@@ -371,4 +374,4 @@ component:
 - [Components overview](/agencies/components) - what components are and when to use them
 - [Agencies](/agencies/) - agent-to-agent call pattern
 - [Expression functions reference](/reference/expression-functions) - `output()`, `get()`, `env()`
-- [CLI: registry commands](/registry/cli) - install, list, uninstall components
+- [CLI: registry commands](/reference/registry/cli) - install, list, uninstall components

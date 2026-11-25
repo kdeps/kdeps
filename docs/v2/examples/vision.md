@@ -141,6 +141,6 @@ Response:
 ## Next steps
 
 - [LLM resource](/workflow/resources/llm) - vision, files, streaming, tools
-- [Data access](/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`
+- [Data access](/reference/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`
 - [LLM backends](/workflow/resources/llm-backends) - Ollama configuration
 - [File processor tutorial](/examples/file-processor) - text files instead of images

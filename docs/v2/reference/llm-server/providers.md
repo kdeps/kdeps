@@ -1,8 +1,11 @@
 # LLM provider reference
 
+Overview: [LLM backends](/workflow/resources/llm-backends).
+
+
 Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends) for routing, allowlists, and streaming.
 
-These OpenAI-compatible providers are YAML files in the `providers` asset set, not code: OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie. `kdeps upgrade providers` refreshes their endpoints. To add a provider, add a file. See [OpenAI-compatible providers](/workflow/resources/llm-backends#openai-compatible-providers).
+These OpenAI-compatible providers are YAML files in the `providers` asset set, not code: OpenAI, Mistral, Together, Perplexity, Groq, DeepSeek, OpenRouter, xAI, HuggingFace, Cloudflare, Maritaca, Ernie. `kdeps upgrade providers` refreshes their endpoints. To add a provider, add a file. See [OpenAI-compatible providers](/reference/resources/llm-backends#openai-compatible-providers).
 
 Every model here is probabilistic: the same prompt can return different text each call. Determinism comes from the [workflow](/workflow/) around the model, not from the model. See [Deterministic by design](/start/why-kdeps#deterministic-by-design).
 
@@ -11,7 +14,7 @@ Every model here is probabilistic: the same prompt can return different text eac
 kdeps runs models locally with no API key: `file` (llamafile, and PyBot for a chat with no `model:`),
 `gguf` (llama.cpp), or `ollama` (opt-in, requires the Ollama server). Setup,
 model alias tables, and the Docker `installOllama` flag live on one page - see
-[LLM backends - local backends](/workflow/resources/llm-backends#the-default-llamafile-file-backend).
+[LLM backends - local backends](/reference/resources/llm-backends#the-default-llamafile-file-backend).
 
 ## Cloud backends
 
@@ -33,7 +36,7 @@ llm:
 | `gpt-4-turbo` | GPT-4 Turbo |
 | `gpt-3.5-turbo` | Fast, cost-effective |
 
-Azure and older-compat servers: see [LLM Backends - legacy token param](/workflow/resources/llm-backends#openai-legacy-token-param).
+Azure and older-compat servers: see [LLM Backends - legacy token param](/reference/resources/llm-backends#openai-legacy-token-param).
 
 ## Anthropic (claude)
 
@@ -52,7 +55,7 @@ llm:
 | `claude-sonnet-4-6` | The auto-router's Anthropic fallback |
 
 Prompt caching, extended 128K output, and custom beta headers: see
-[LLM Backends - Anthropic](/workflow/resources/llm-backends#anthropic-prompt-caching-and-extended-output).
+[LLM Backends - Anthropic](/reference/resources/llm-backends#anthropic-prompt-caching-and-extended-output).
 
 ## Google (gemini / vertex AI)
 
@@ -69,9 +72,9 @@ llm:
 | `gemini-1.5-flash` | Fast inference |
 | `gemini-pro` | Standard Gemini |
 
-**Vertex AI:** Set `googleCloudProject` and `googleCloudLocation` on the `chat:` resource to route to Vertex AI instead of AI Studio. See [LLM Backends - Vertex AI](/workflow/resources/llm-backends#vertex-ai-google-cloud).
+**Vertex AI:** Set `googleCloudProject` and `googleCloudLocation` on the `chat:` resource to route to Vertex AI instead of AI Studio. See [LLM Backends - Vertex AI](/reference/resources/llm-backends#vertex-ai-google-cloud).
 
-CachedContent and safety threshold options (`googleCachedContent`, `googleHarmThreshold`): see [LLM Backends - Google](/workflow/resources/llm-backends#google-cached-content-and-safety-threshold).
+CachedContent and safety threshold options (`googleCachedContent`, `googleHarmThreshold`): see [LLM Backends - Google](/reference/resources/llm-backends#google-cached-content-and-safety-threshold).
 
 ## Mistral
 

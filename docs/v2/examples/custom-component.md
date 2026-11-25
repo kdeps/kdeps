@@ -143,6 +143,6 @@ Response:
 ## Next steps
 
 - [Components](/agencies/components) - registry components, `tools.components`
-- [Components reference](/agencies/component-reference) - full schema, env var derivation, packaging
-- [Registry commands](/registry/cli) - install and publish components
+- [Components reference](/reference/agencies/component-reference) - full schema, env var derivation, packaging
+- [Registry commands](/reference/registry/cli) - install and publish components
 - [Two-agent agency tutorial](/examples/agency) - composing whole agents instead

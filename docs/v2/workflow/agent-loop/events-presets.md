@@ -50,7 +50,7 @@ Each preset requires the components whose tools its budget events limit: `web_se
 
 ## Using a preset
 
-A chat uses a preset's judge panel with `judgePreset:` (see [Judges](/workflow/resources/llm#judges)). To use a preset's event values, copy its `events:` entries into override files in `~/.kdeps/events/` or the workflow's `events/` folder. A workflow folder wins over `~/.kdeps` (see [Answer quality](/workflow/quality)).
+A chat uses a preset's judge panel with `judgePreset:` (see [Judges](/reference/resources/llm#judges)). To use a preset's event values, copy its `events:` entries into override files in `~/.kdeps/events/` or the workflow's `events/` folder. A workflow folder wins over `~/.kdeps` (see [Answer quality](/workflow/quality)).
 
 ## Authoring a preset
 

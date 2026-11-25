@@ -26,8 +26,8 @@ chat:
 
 | Key | What it does | Cost | Details |
 |---|---|---|---|
-| `harness.sections` | Adds the agent loop's system-prompt sections | tokens | [Harness sections](/workflow/resources/llm#harness-sections) |
-| `harness.promptMode` | `full` (default), `summary` or `auto` harness text after the first request | saves tokens | [Prompt mode](/workflow/resources/llm#prompt-mode) |
+| `harness.sections` | Adds the agent loop's system-prompt sections | tokens | [Harness sections](/reference/resources/llm#harness-sections) |
+| `harness.promptMode` | `full` (default), `summary` or `auto` harness text after the first request | saves tokens | [Prompt mode](/reference/resources/llm#prompt-mode) |
 | `guardrails.judges` | Judges review the answer. A rejected answer is revised | 1 call per judge, plus revisions | [Judge panel](/workflow/agent-loop/judges) |
 
 A failed tool call always gets a failure brief: the error and the context to repair it. The `failure-briefs` event caps the briefs.

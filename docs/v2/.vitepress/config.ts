@@ -132,6 +132,107 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Workflow',
+          collapsed: true,
+          items: [
+            { text: 'Workflow configuration', link: '/reference/workflow/configuration' },
+            { text: 'CORS configuration', link: '/reference/workflow/cors' },
+            { text: 'Data access (get, set, input, request)', link: '/reference/workflow/data-access' },
+            { text: 'Error handling (onError)', link: '/reference/workflow/error-handling' },
+            { text: 'Execution flow', link: '/reference/workflow/execution-flow' },
+            { text: 'Expression helper functions', link: '/reference/workflow/expression-helpers' },
+            { text: 'Inline resources', link: '/reference/workflow/inline-resources' },
+            { text: 'Input sources', link: '/reference/workflow/input-sources' },
+            { text: 'Items iteration', link: '/reference/workflow/items' },
+            { text: 'While-loop iteration', link: '/reference/workflow/loop' },
+            { text: 'Resources overview', link: '/reference/workflow/resources' },
+            { text: 'Route and method restrictions', link: '/reference/workflow/route-restrictions' },
+            { text: 'Session configuration', link: '/reference/workflow/sessions' },
+            { text: 'Evals: test a workflow', link: '/reference/workflow/testing' },
+            { text: 'Function calling', link: '/reference/workflow/tools' },
+            { text: 'Validation and control flow', link: '/reference/workflow/validation' },
+          ]
+        },
+        {
+          text: 'Resources',
+          collapsed: true,
+          items: [
+            { text: 'API response resource', link: '/reference/resources/api-response' },
+            { text: 'embedding component', link: '/reference/resources/embedding' },
+            { text: 'exec component', link: '/reference/resources/exec' },
+            { text: 'File component', link: '/reference/resources/file' },
+            { text: 'http_request component', link: '/reference/resources/http-client' },
+            { text: 'LLM backends', link: '/reference/resources/llm-backends' },
+            { text: 'Routing', link: '/reference/resources/llm-routing' },
+            { text: 'LLM resource', link: '/reference/resources/llm' },
+            { text: 'loader component', link: '/reference/resources/loader' },
+            { text: 'OCR component', link: '/reference/resources/ocr' },
+            { text: 'python component', link: '/reference/resources/python' },
+            { text: 'search_local component', link: '/reference/resources/search-local' },
+            { text: 'SQL component', link: '/reference/resources/sql' },
+            { text: 'Transcribe components', link: '/reference/resources/transcribe' },
+            { text: 'Vector store', link: '/reference/resources/vector-store' },
+          ]
+        },
+        {
+          text: 'Agent loop',
+          collapsed: true,
+          items: [
+            { text: 'Event guards', link: '/reference/agent-loop/events-guards' },
+            { text: 'Knowledge vault', link: '/reference/agent-loop/knowledge' },
+            { text: 'Memory internals', link: '/reference/agent-loop/memory-internals' },
+            { text: 'Persistent memory', link: '/reference/agent-loop/memory' },
+            { text: 'Tool', link: '/reference/agent-loop/tool-reference' },
+            { text: 'Built-in tools', link: '/reference/agent-loop/tools' },
+          ]
+        },
+        {
+          text: 'Agencies',
+          collapsed: true,
+          items: [
+            { text: 'Components', link: '/reference/agencies/component-reference' },
+            { text: 'Components', link: '/reference/agencies/components' },
+          ]
+        },
+        {
+          text: 'LLM server',
+          collapsed: true,
+          items: [
+            { text: 'LLM commands', link: '/reference/llm-server/cli' },
+            { text: 'kdeps LLM server', link: '/reference/llm-server/' },
+            { text: 'LLM provider', link: '/reference/llm-server/providers' },
+          ]
+        },
+        {
+          text: 'Deploy',
+          collapsed: true,
+          items: [
+            { text: 'Prepackage - standalone executables', link: '/reference/deploy/binaries' },
+            { text: 'Packaging commands', link: '/reference/deploy/cli' },
+            { text: 'Docker deployment', link: '/reference/deploy/docker-reference' },
+            { text: 'Docker deployment', link: '/reference/deploy/docker' },
+            { text: 'Kubernetes deployment', link: '/reference/deploy/kubernetes' },
+            { text: 'TLS and HTTPS (custom domains)', link: '/reference/deploy/tls-https' },
+            { text: 'WebServer mode', link: '/reference/deploy/webserver' },
+          ]
+        },
+        {
+          text: 'Registry',
+          collapsed: true,
+          items: [
+            { text: 'Registry commands', link: '/reference/registry/cli' },
+            { text: 'Registry formula specification', link: '/reference/registry/formula-spec' },
+          ]
+        },
+        {
+          text: 'Start',
+          collapsed: true,
+          items: [
+            { text: 'Installation', link: '/reference/start/installation' },
+            { text: 'Local models (llamafile & Ollama)', link: '/reference/start/local-models' },
+          ]
+        },
+        {
           text: 'Examples in reference',
           collapsed: true,
           items: [
@@ -187,13 +288,11 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/workflow/agent-loop/' },
             { text: 'Built-in tools', link: '/workflow/agent-loop/tools' },
-            { text: 'Tool reference', link: '/workflow/agent-loop/tool-reference' },
             { text: 'Fenced tools', link: '/workflow/agent-loop/fenced-tools' },
             { text: 'Subagents', link: '/workflow/agent-loop/subagent' },
             { text: 'Judge panel', link: '/workflow/agent-loop/judges' },
             { text: 'Approval tokens', link: '/workflow/agent-loop/approvals' },
             { text: 'Persistent memory', link: '/workflow/agent-loop/memory' },
-            { text: 'Memory internals', link: '/workflow/agent-loop/memory-internals' },
             { text: 'Knowledge vault', link: '/workflow/agent-loop/knowledge' },
             { text: 'Skills and instructions', link: '/workflow/agent-loop/skills' },
             { text: 'Reactive LLM events', link: '/workflow/agent-loop/events' },
@@ -270,7 +369,6 @@ export default defineConfig({
             { text: 'Delegation', link: '/agencies/delegation' },
             { text: 'agent resource', link: '/agencies/agent-resource' },
             { text: 'component resource', link: '/agencies/component-resource' },
-            { text: 'Component reference', link: '/agencies/component-reference' },
           ]
         },
       ],
@@ -280,8 +378,6 @@ export default defineConfig({
           text: 'kdeps LLM server',
           items: [
             { text: 'Overview', link: '/llm-server/' },
-            { text: 'kdeps llm CLI', link: '/llm-server/cli' },
-            { text: 'Providers', link: '/llm-server/providers' },
             { text: 'Backend config (in workflow)', link: '/workflow/resources/llm-backends' },
           ]
         },
@@ -297,7 +393,6 @@ export default defineConfig({
             { text: 'Web server mode', link: '/deploy/webserver' },
             { text: 'Standalone binaries', link: '/deploy/binaries' },
             { text: 'TLS / HTTPS', link: '/deploy/tls-https' },
-            { text: 'kdeps bundle CLI', link: '/deploy/cli' },
           ]
         },
       ],
@@ -307,8 +402,6 @@ export default defineConfig({
           text: 'kdeps registry',
           items: [
             { text: 'Overview', link: '/registry/' },
-            { text: 'kdeps registry CLI', link: '/registry/cli' },
-            { text: 'Formula spec', link: '/registry/formula-spec' },
           ]
         },
       ],
@@ -481,14 +574,14 @@ export default defineConfig({
       'modes/agent-loop-judges': '/workflow/agent-loop/judges',
       'modes/agent-loop-approvals': '/workflow/agent-loop/approvals',
       'modes/agent-loop-monitoring': '/workflow/agent-loop/tools',
-      'modes/agent-loop-shell': '/workflow/agent-loop/tool-reference#shell-execution',
+      'modes/agent-loop-shell': '/reference/agent-loop/tool-reference#shell-execution',
       'modes/agent-loop-turo': '/workflow/agent-loop/',
       'agent/tools-handshake': '/workflow/agent-loop/fenced-tools',
       'agent/repl-themes': '/workflow/agent-loop/',
       'getting-started/local-agent': '/workflow/agent-loop/',
       'getting-started/agent-skills': '/reference/ai-assisted-authoring',
       'concepts/memory': '/workflow/agent-loop/memory',
-      'concepts/memory-internals': '/workflow/agent-loop/memory-internals',
+      'concepts/memory-internals': '/reference/agent-loop/memory-internals',
       'getting-started/introduction': '/start/',
       'getting-started/installation': '/start/installation',
       'getting-started/local-models': '/start/local-models',
@@ -528,20 +621,20 @@ export default defineConfig({
       'resources/component': '/agencies/component-resource',
       'concepts/agency': '/agencies/',
       'concepts/components': '/agencies/components',
-      'reference/components': '/agencies/component-reference',
+      'reference/components': '/reference/agencies/component-reference',
       'deployment/llm-server': '/llm-server/',
-      'reference/cli/llm': '/llm-server/cli',
-      'reference/llm-providers': '/llm-server/providers',
+      'reference/cli/llm': '/reference/llm-server/cli',
+      'reference/llm-providers': '/reference/llm-server/providers',
       'deployment/docker': '/deploy/docker',
       'deployment/kubernetes': '/deploy/kubernetes',
       'deployment/prepackage': '/deploy/binaries',
       'deployment/tls-https': '/deploy/tls-https',
       'deployment/webserver': '/deploy/webserver',
       'guides/deployment-guide': '/deploy/',
-      'reference/docker-reference': '/deploy/docker-reference',
-      'reference/cli/packaging': '/deploy/cli',
-      'reference/cli/registry': '/registry/cli',
-      'reference/registry-formula-spec': '/registry/formula-spec',
+      'reference/docker-reference': '/reference/deploy/docker-reference',
+      'reference/cli/packaging': '/reference/deploy/cli',
+      'reference/cli/registry': '/reference/registry/cli',
+      'reference/registry-formula-spec': '/reference/registry/formula-spec',
       // browser component removed (2026-10); the web scraper replaces page fetching.
       'reference/browser-actions': '/workflow/resources/web-scraper',
       // agent REPL and desktop app removed (2026-11); agent mode is a chat with loop:.
@@ -565,26 +658,36 @@ export default defineConfig({
       'agent/approvals': '/workflow/agent-loop/approvals',
       'agent/skills': '/workflow/agent-loop/skills',
       'agent/memory': '/workflow/agent-loop/memory',
-      'agent/memory-internals': '/workflow/agent-loop/memory-internals',
+      'agent/memory-internals': '/reference/agent-loop/memory-internals',
       'agent/knowledge': '/workflow/agent-loop/knowledge',
       'agent/events': '/workflow/agent-loop/events',
       'agent/events-guards': '/workflow/agent-loop/events-guards',
       'agent/events-actions': '/workflow/agent-loop/events-actions',
       'agent/events-presets': '/workflow/agent-loop/events-presets',
       'agent/ai-assisted-authoring': '/reference/ai-assisted-authoring',
-      'agent/tools-files': '/workflow/agent-loop/tool-reference#file-tools',
-      'agent/tools-edit': '/workflow/agent-loop/tool-reference#edit-file',
-      'agent/shell': '/workflow/agent-loop/tool-reference#shell-execution',
-      'agent/tools-memory': '/workflow/agent-loop/tool-reference#memory-and-identity',
-      'agent/tools-data': '/workflow/agent-loop/tool-reference#data-tools',
-      'agent/tools-actions': '/workflow/agent-loop/tool-reference#action-tools',
-      'agent/tools-harness': '/workflow/agent-loop/tool-reference#harness-reminders',
+      'agent/tools-files': '/reference/agent-loop/tool-reference#file-tools',
+      'agent/tools-edit': '/reference/agent-loop/tool-reference#edit-file',
+      'agent/shell': '/reference/agent-loop/tool-reference#shell-execution',
+      'agent/tools-memory': '/reference/agent-loop/tool-reference#memory-and-identity',
+      'agent/tools-data': '/reference/agent-loop/tool-reference#data-tools',
+      'agent/tools-actions': '/reference/agent-loop/tool-reference#action-tools',
+      'agent/tools-harness': '/reference/agent-loop/tool-reference#harness-reminders',
       'agent/plan': '/workflow/agent-loop/',
       'agent/refine': '/workflow/agent-loop/',
       'agent/turo': '/workflow/agent-loop/',
       'agent/efficiency': '/workflow/agent-loop/',
       'desktop/index': '/workflow/agent-loop/',
       'examples/agent-repl': '/workflow/agent-loop/',
+      // Docs split (2026-11): pure reference pages moved under /reference/.
+      'workflow/agent-loop/tool-reference': '/reference/agent-loop/tool-reference',
+      'workflow/agent-loop/memory-internals': '/reference/agent-loop/memory-internals',
+      'deploy/docker-reference': '/reference/deploy/docker-reference',
+      'deploy/cli': '/reference/deploy/cli',
+      'agencies/component-reference': '/reference/agencies/component-reference',
+      'llm-server/providers': '/reference/llm-server/providers',
+      'llm-server/cli': '/reference/llm-server/cli',
+      'registry/formula-spec': '/reference/registry/formula-spec',
+      'registry/cli': '/reference/registry/cli',
     }
     for (const [from, to] of Object.entries(redirects)) {
       const file = join(siteConfig.outDir, from + '.html')

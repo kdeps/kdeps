@@ -2,16 +2,6 @@
 
 The `sql` component runs SQL against a named connection - PostgreSQL, MySQL/MariaDB, SQLite, SQL Server or Oracle - and returns the rows or a change summary. One statement, or several in a transaction. It is a YAML component from the `components` asset set. Call it with a `component:` resource, no install step.
 
-## Where it runs
-
-The workflow runs this resource as a step.
-
-## Requirements
-
-The SQL drivers are part of kdeps. You do not need Python, uv, or a driver install on the first call. SQLite needs nothing more. The other databases need only a server that kdeps can connect to. Each call opens its own connection. There is no pool between calls.
-
-## Basic usage
-
 <div v-pre>
 
 ```yaml
@@ -29,116 +19,9 @@ component:
 
 </div>
 
-```json
-{"id": 7, "name": "Ann", "email": "ann@example.com"}
-```
+## Read next
 
-## Connections
-
-Connection strings live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. The component gives the name of the connection. The kdeps API reads its string from `config.yaml` in the process. As a result, the password is never in the request or on a command line.
-
-```yaml
-# ~/.kdeps/config.yaml
-sql_connections:
-  main:
-    connection: "postgres://user:pass@localhost:5432/myapp"
-  local:
-    connection: "sqlite:///var/data/app.db"
-```
-
-| Database | Connection string |
-|---|---|
-| PostgreSQL | `postgres://user:pass@host:5432/db` |
-| MySQL / MariaDB | `mysql://user:pass@host:3306/db` |
-| SQLite | `sqlite:///path/to/file.db`, `sqlite://:memory:` |
-| SQL Server | `sqlserver://user:pass@host:1433?database=db` |
-| Oracle | `oracle://user:pass@host:1521/service` |
-
-If a connection is not in `config.yaml`, `kdeps run` asks for it (only in interactive terminals). You can also give it with `KDEPS_SQL_CONNECTIONS_<NAME>_CONNECTION`. See Interactive setup on first run.
-
-## Placeholders
-
-Write placeholders the way you know them - `$1`, `?`, `@p1` or `:1` - and pass the values in `params`, in order. The component rewrites them into the driver's own style, skipping text inside quotes and comments and Postgres `::` casts. `$N`, `@pN` and `:N` refer to the Nth param. Each bare `?` takes the next one.
-
-## Results
-
-| Statement | Result |
-|---|---|
-| `SELECT` returning one row | That row: `{column: value}` |
-| `SELECT` returning 0 or several rows | `{rowsAffected: n, data: [rows], columns: [sorted names]}` |
-| `SELECT` with `format: json` | The rows as a JSON string |
-| `SELECT` with `format: csv` | CSV text, header first (columns sorted) |
-| `INSERT` / `UPDATE` / `DELETE` | `{rowsAffected, lastInsertID, success: true}` |
-| `transaction: true` | A list: each statement's rows, or its `{rowsAffected, lastInsertID}` |
-
-Dates come back as ISO 8601 strings and decimals as strings. If kdeps cannot open a connection, it returns `{error: "failed to get database connection: ..."}`. If a statement fails, the call fails with `sql: query execution failed: ...` and kdeps rolls back.
-
-## Transactions and batches
-
-<div v-pre>
-
-```yaml
-# resources/transfer.yaml
-actionId: transfer
-name: Transfer Funds
-component:
-  name: sql
-  with:
-    connectionName: main
-    transaction: true                  # all statements commit together, or none do
-    queries:
-      - query: "UPDATE accounts SET balance = balance - $1 WHERE id = $2"
-        params: ["{{ get('amount') }}", "{{ get('from') }}"]
-      - query: "UPDATE accounts SET balance = balance + $1 WHERE id = $2"
-        params: ["{{ get('amount') }}", "{{ get('to') }}"]
-      - query: "INSERT INTO audit (note) VALUES ($1)"
-        paramsBatch: "{{ get('notes') }}"   # a list of param lists: the statement runs once per entry
-```
-
-</div>
-
-## Inputs
-
-| Input | Default | Description |
-|---|---|---|
-| `connectionName` | - | Name under `sql_connections` (required) |
-| `query` | | The statement |
-| `params` | `[]` | Placeholder values, in order |
-| `transaction` | `false` | Run `queries` in one transaction |
-| `queries` | `[]` | `[{query, params}]` or `[{query, paramsBatch}]` |
-| `format` | `''` | `''`/`table` (rows), `json`, `csv` |
-| `timeout` | `KDEPS_SQL_TIMEOUT`, else `30s` | Statement timeout |
-| `maxRows` | `KDEPS_SQL_MAX_ROWS`, else `1000` | Rows a `SELECT` returns at most |
-
-`config.yaml` `resource_defaults.sql.timeout` and `max_rows` set the two environment variables.
-
-## Security
-
-Pass user input in `params`, never inside the query text:
-
-<div v-pre>
-
-```yaml
-query: "SELECT * FROM users WHERE id = $1"     # good: the value never touches the SQL
-params: ["{{ get('user_id') }}"]
-```
-
-```yaml
-query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"   # bad: SQL injection
-```
-
-</div>
-
-## How it is built
-
-```text
-component: sql -> POST /apis/tools.kdeps.io/v1/tools/sql_ops/call -> rows or change summary
-```
-
-One `httpClient` POST carrying the eight inputs to the `sql_ops` tool, then an `interface.output` that decodes the tool's JSON body. The tool reads the named connection from `config.yaml` and runs the statements with `database/sql`. The PostgreSQL, MySQL, SQLite, SQL Server, and Oracle drivers are part of the binary. Placeholder rewriting, result shapes, transactions and the error texts live in the tool. Copy `components/sql/` into your project to change an input default. The SQL itself runs in the kdeps API.
-
-## See also
-
+- [SQL component reference](/reference/resources/sql) - basic usage, connections, placeholders, results, transactions and batches, inputs, security, how it is built
 - [SQL examples](/reference/sql-examples) - user lookup, analytics, multi-database sync, LLM-enhanced search
 - [Python resource](/workflow/resources/python) - data processing scripts
 - [Components](/agencies/components) - how shipped components load

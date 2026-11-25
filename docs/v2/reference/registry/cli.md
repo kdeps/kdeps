@@ -1,5 +1,8 @@
 # Registry commands
 
+Overview: [kdeps registry](/registry/).
+
+
 Search, install, and publish packages from formula registries. Install, update, and remove kdeps assets (harness prompts, tool definitions, commands, templates, schemas, model registries). An argument that names an asset set (`tools`) or item (`tools/bash_exec`) is an asset. All other arguments are packages.
 
 ## Registries
@@ -115,7 +118,7 @@ license: Apache-2.0
 
 ## See also
 
-- [Registry formula specification](/registry/formula-spec) - formula file format and publishing workflow
+- [Registry formula specification](/reference/registry/formula-spec) - formula file format and publishing workflow
 - [CLI overview](/reference/cli) - global flags, exit codes, env vars
-- [Components reference](/agencies/component-reference) - component packaging and publishing
-- [Packaging commands](/deploy/cli) - bundle and build
+- [Components reference](/reference/agencies/component-reference) - component packaging and publishing
+- [Packaging commands](/reference/deploy/cli) - bundle and build

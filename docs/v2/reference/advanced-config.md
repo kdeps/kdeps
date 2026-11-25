@@ -376,7 +376,7 @@ See [Knowledge vault](/workflow/agent-loop/knowledge).
 
 ## Formula registries
 
-`kdeps search`, `info` and `install` read `kdeps/registry`, then each GitHub repository listed here, from a local copy under `~/.kdeps/registries`. See [Registry commands](/registry/cli#registries).
+`kdeps search`, `info` and `install` read `kdeps/registry`, then each GitHub repository listed here, from a local copy under `~/.kdeps/registries`. See [Registry commands](/reference/registry/cli#registries).
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -386,7 +386,7 @@ registries:
 
 ## Agent identity
 
-An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like HTTP/search/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/workflow/configuration#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
+An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like HTTP/search/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/reference/workflow/configuration#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
 
 ```yaml
 # ~/.kdeps/config.yaml

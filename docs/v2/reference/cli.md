@@ -49,12 +49,12 @@ kdeps run workflow.yaml
 | `kdeps install/update/uninstall <asset>` | [Dev commands](/reference/cli-dev#assets-kdeps-install-update-uninstall-list-profile) | Install, update or remove harness, tool definitions, recipes, model registries and templates; `kdeps list <shelf>` filters by shelf; `kdeps profile` picks what is installed |
 | `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps knowledge` | [Dev commands](/reference/cli-dev#kdeps-knowledge) | Knowledge vault: `init`, `build`, `check`, `recall`, `report` |
-| `kdeps install/search/info/submit/verify` | [Registry commands](/registry/cli) | Search, install, publish packages (and the assets above) |
-| `kdeps bundle package` | [Packaging commands](/deploy/cli#kdeps-bundle-package) | Package for distribution |
-| `kdeps bundle build` | [Packaging commands](/deploy/cli#kdeps-bundle-build) | Build Docker image |
-| `kdeps export iso` | [Packaging commands](/deploy/cli#kdeps-export-iso) | Export bootable image |
-| `kdeps export k8s` | [Packaging commands](/deploy/cli#kdeps-export-k8s) | Generate Kubernetes manifests |
-| `kdeps llm` | [LLM commands](/llm-server/cli) | LLM server appliances |
+| `kdeps install/search/info/submit/verify` | [Registry commands](/reference/registry/cli) | Search, install, publish packages (and the assets above) |
+| `kdeps bundle package` | [Packaging commands](/reference/deploy/cli#kdeps-bundle-package) | Package for distribution |
+| `kdeps bundle build` | [Packaging commands](/reference/deploy/cli#kdeps-bundle-build) | Build Docker image |
+| `kdeps export iso` | [Packaging commands](/reference/deploy/cli#kdeps-export-iso) | Export bootable image |
+| `kdeps export k8s` | [Packaging commands](/reference/deploy/cli#kdeps-export-k8s) | Generate Kubernetes manifests |
+| `kdeps llm` | [LLM commands](/reference/llm-server/cli) | LLM server appliances |
 
 ## Command workflow
 
@@ -168,6 +168,6 @@ kubectl rollout status deployment/my-agent
 ## See also
 
 - [Dev commands](/reference/cli-dev) - run, validate, new, edit, doctor, instrument, chat
-- [Registry commands](/registry/cli) - search, install, publish
-- [Packaging commands](/deploy/cli) - bundle, export, build
+- [Registry commands](/reference/registry/cli) - search, install, publish
+- [Packaging commands](/reference/deploy/cli) - bundle, export, build
 - [Installation](/start/installation)
