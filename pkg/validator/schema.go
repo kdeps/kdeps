@@ -19,6 +19,7 @@
 package validator
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -110,6 +111,45 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 // "agency" or "component") from the schemas asset set.
 func SchemaJSON(name string) ([]byte, error) {
 	return assets.ReadBundleFile(schemasSet, schemasItem, name+".json")
+}
+
+// WorkflowInputSources returns the input sources the installed workflow schema allows.
+func WorkflowInputSources() ([]string, error) {
+	raw, err := SchemaJSON("workflow")
+	if err != nil {
+		return nil, err
+	}
+	var doc interface{}
+	if err = json.Unmarshal(raw, &doc); err != nil {
+		return nil, err
+	}
+	node := doc
+	for _, key := range []string{
+		"properties", "deploy", "properties", "input",
+		"properties", "sources", "items", "enum",
+	} {
+		obj, ok := node.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("workflow schema: %s has no parent object", key)
+		}
+		node, ok = obj[key]
+		if !ok {
+			return nil, fmt.Errorf("workflow schema: missing %s", key)
+		}
+	}
+	values, ok := node.([]interface{})
+	if !ok {
+		return nil, errors.New("workflow schema: sources enum is not a list")
+	}
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		s, isString := v.(string)
+		if !isString {
+			return nil, errors.New("workflow schema: sources enum holds a non-string")
+		}
+		out = append(out, s)
+	}
+	return out, nil
 }
 
 // loadSchemaFromFS reads and compiles a JSON schema from fsys.

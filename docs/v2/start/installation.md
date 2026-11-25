@@ -115,7 +115,7 @@ Choice [5]:
 
 `kdeps run` installs the harness, the events, and the actions only when the workflow has a chat resource. A workflow with no chat loads the schemas, the defaults, and the model lists.
 
-If a later command needs more, kdeps installs only the parts that its loader needs. `kdeps new` installs the project template it writes. A small profile stays small and does not stop you. With `minimum`, a chat with `loop:` adds these core tools:
+If a later command needs more, kdeps installs only the parts that its loader needs. `kdeps new` installs the project template it writes. It upgrades the schema when that template needs a source the installed schema does not list. A small profile stays small and does not stop you. With `minimum`, a chat with `loop:` adds these core tools:
 
 - Files: `read_file`, `write_file`, `edit_file`, `list_files`, `tail_file`.
 - Shell: `bash_exec` and its job tools.

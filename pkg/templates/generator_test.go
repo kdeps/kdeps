@@ -89,6 +89,15 @@ func TestGenerator_GenerateProject_InvalidTemplate(t *testing.T) {
 	assert.Contains(t, err.Error(), "template not found")
 }
 
+func TestInputSources_AssistantUsesInteractive(t *testing.T) {
+	got, err := templates.InputSources("assistant")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"interactive"}, got)
+	got, err = templates.InputSources("api-service")
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 func TestProjectTemplatesAreRequired(t *testing.T) {
 	t.Setenv(assets.SourceEnv, "")
 	names := []string{"agency", "api-service", "assistant", "resources", "sql-agent", "whatsapp-bot"}
