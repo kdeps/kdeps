@@ -12,8 +12,5 @@ component:
 
 ## Read next
 
-- [Components reference](/reference/agencies/components) - overview, types of components, how components work, calling a component, components as LLM tools, use cases
-- [Component schema reference](/reference/agencies/component-reference) - full schema, input validation, env var auto-derivation, packaging
+- [Components reference](/reference/agencies/components) - every key, option and detail
 - [Agencies](/agencies/) - agent-to-agent call pattern
-- [CLI: registry commands](/reference/registry/cli) - install, list, uninstall components
-- [Glossary: component](/reference/glossary#component) - definition

@@ -14,6 +14,6 @@ kdeps bundle prepackage dist/my-agent-1.0.0.kdeps --output dist/
 
 ## Read next
 
-- [Prepackage - standalone executables reference](/reference/deploy/binaries) - overview, how it works, typical workflow, supported targets, flags, cross-architecture builds, re-prepackaging, using with CI/CD
+- [Prepackage - standalone executables reference](/reference/deploy/binaries) - every key, option and detail
 - [Package command](/workflow/quickstart) - Creating `.kdeps` archives
 - [Docker deployment](/deploy/docker) - Containerized deployment

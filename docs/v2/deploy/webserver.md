@@ -6,20 +6,14 @@
 # workflow.yaml
 deploy:
   webServer:
-    rateLimit:
-      requestsPerMinute: 120
-      burst: 20
-    maxBodyBytes: 1048576
-    maxConcurrent: 50
     routes:
       - path: "/"
-        serverType: "static"
-        publicPath: "./public"
+        serverType: static    # or app: proxy to a running process
+        publicPath: ./public
 ```
 
 ## Read next
 
-- [WebServer mode reference](/reference/deploy/webserver) - how routing works, basic configuration, static file serving, reverse proxy, webSocket support, multiple routes, trusted proxies
+- [WebServer mode reference](/reference/deploy/webserver) - every key, option and detail
 - [Docker deployment](/deploy/docker) - Package for production
 - [Workflow configuration](/workflow/configuration) - Full settings reference
-- [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Working examples

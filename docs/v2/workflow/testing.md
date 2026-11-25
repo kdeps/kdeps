@@ -11,20 +11,13 @@ workflow.yaml (evals:) -> kdeps test -> in-process router -> engine -> assertion
 evals:
   - name: health
     request:
-      path: /health            # method defaults to GET; path is required
+      path: /health
     assert:
       status: 200
-      body:
-        jsonPath:
-          - path: $.status
-            equals: ok
 ```
-
-Run `kdeps test` in the workflow folder. It exits non-zero when a case fails.
 
 ## Read next
 
-- [Evals: test a workflow reference](/reference/workflow/testing) - declare the cases, assertions, score with judges, auth, what runs before the cases, scope
-- [`kdeps test`](/reference/cli-dev#kdeps-test) - flags and exit behavior
+- [Evals: test a workflow reference](/reference/workflow/testing) - every key, option and detail
 - [Validation and control](/workflow/validation) - per-resource request gates
 - [Expressions](/workflow/expressions) - expression syntax used inside resources

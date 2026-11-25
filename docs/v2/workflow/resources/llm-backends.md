@@ -15,19 +15,7 @@ llm:
   # anthropic_api_key: sk-ant-...
 ```
 
-With no configuration, chats run on the `file` backend. kdeps downloads a [llamafile](https://github.com/Mozilla-Ocho/llamafile) one time, caches it in `~/.kdeps/models/`, and serves it locally. You need no GPU and no API key.
-
-## Backends
-
-| Kind | Backends |
-|---|---|
-| Local | `file` (llamafile, the default), `gguf` (llama.cpp), `ollama` |
-| Cloud | OpenAI, Anthropic, Google, Mistral, Groq, Together AI, DeepSeek, OpenRouter, xAI and more |
-
-Run `kdeps config --edit` to open the config file.
-
 ## Read next
 
-- [LLM backends reference](/reference/resources/llm-backends) - model aliases, base URLs, providers, the models list, Vertex AI and provider options
+- [LLM backends reference](/reference/resources/llm-backends) - every key, option and detail
 - [Routing](/workflow/resources/llm-routing) - pick the model per request from `config.yaml`
-- [LLM provider reference](/reference/llm-server/providers) - snippets and model names for each provider

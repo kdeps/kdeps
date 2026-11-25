@@ -20,9 +20,6 @@ component:
 
 </div>
 
-The next resource reads the JSON body with `get('fetch').data`. Credentials go in `http_connections` in `~/.kdeps/config.yaml`, not in the workflow.
-
 ## Read next
 
-- [http_request reference](/reference/resources/http-client) - methods, authentication, uploads, retry, caching, TLS, redirects, output, errors
-- [HTTP client examples](/reference/http-client-examples) - common request shapes
+- [http_request component reference](/reference/resources/http-client) - every key, option and detail

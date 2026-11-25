@@ -13,14 +13,12 @@ component:
   with:
     path: "{{ get('path', '/data') }}"   # directory to search; empty searches the working project's folders
     query: "{{ get('query') }}"          # keyword in file contents; query or glob is required
-    glob: "{{ get('glob', '') }}"        # optional filename pattern, e.g. *.md
-    limit: 10                            # max results, default 3
 ```
 
 </div>
 
 ## Read next
 
-- [search_local component reference](/reference/resources/search-local) - configuration, output, what the walk skips, examples, indexed search (ranked results), how graphBoost ranks results, indexed-mode output, errors
+- [search_local component reference](/reference/resources/search-local) - every key, option and detail
 - [Search resources](/workflow/resources/search) - overview and `web_search`
 - [Knowledge](/workflow/agent-loop/knowledge) - the vault graph `graphBoost` reads when `path` is inside the vault

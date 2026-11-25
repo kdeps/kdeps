@@ -5,17 +5,12 @@ A workflow gets input from an HTTP server (`apiServer:` under `deploy:`), a chat
 ```yaml
 # workflow.yaml
 deploy:
-  apiServer:
-    hostIp: "127.0.0.1"
-    portNum: 16395
-    routes:
-      - path: /api/v1/chat
-        methods: [POST]
+  input:
+    sources: [bot]     # bot, file or interactive; apiServer: starts the HTTP server
 ```
 
 ## Read next
 
-- [Input sources reference](/reference/workflow/input-sources) - overview, API source, bot source, file source, interactive source, use cases
+- [Input sources reference](/reference/workflow/input-sources) - every key, option and detail
 - [Workflow configuration](/workflow/configuration) - full `deploy` reference
 - [Workflow](/workflow/) - the request and the response
-- [Bot configuration](/workflow/configuration#bot-source) - full bot settings

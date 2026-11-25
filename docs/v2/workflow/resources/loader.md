@@ -1,6 +1,6 @@
 # loader component
 
-The `load_document` component reads a file, URL, or directory into structured `Document` objects (plain text and metadata). It can also split them into chunks. It is the ingestion step of a RAG pipeline. First load the data. Then give the output to the `vector_store` or `embedding` component, which indexes it.
+The `load_document` component reads a file, URL, or directory into structured `Document` objects (plain text and metadata). It is the first step of a RAG pipeline.
 
 ```yaml
 # resources/load.yaml
@@ -15,8 +15,6 @@ component:
 
 ## Read next
 
-- [loader component reference](/reference/resources/loader) - basic usage, inputs, loader types, output, size limit, RAG pipeline example
+- [loader component reference](/reference/resources/loader) - every key, option and detail
 - [Component resource](/agencies/component-resource) - how `component:` calls pass `with:` inputs
 - [Vector store component](/workflow/resources/vector-store) - index and search the loaded documents
-- [Embedding component](/workflow/resources/embedding) - lightweight keyword-based alternative for local, API-key-free RAG
-- [Resources overview](/workflow/resources) - all resource types

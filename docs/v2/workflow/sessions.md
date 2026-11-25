@@ -1,19 +1,16 @@
 # Session configuration
 
-Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under the top-level `session:` block.
+A session keeps values across requests from the same caller: `set('key', val, 'session')`.
 
 ```yaml
 # workflow.yaml
 session:
-  type: sqlite                    # "sqlite" or "memory"
-  path: "/var/lib/kdeps/sessions.db"  # optional; default ~/.kdeps/sessions.db. Keep it outside the project folder
-  ttl: "30m"                      # Session expiration
-  cleanupInterval: "5m"           # Cleanup frequency
+  type: sqlite    # or memory
+  ttl: 30m
 ```
 
 ## Read next
 
-- [Session configuration reference](/reference/workflow/sessions) - configuration, session types, TTL (time to live), using sessions, examples, session ID, cleanup, docker considerations
+- [Session configuration reference](/reference/workflow/sessions) - every key, option and detail
 - [Workflow configuration](/workflow/configuration) - Full settings reference
 - [Data access](/workflow/data-access) - get() and set() usage
-- [Docker deployment](/deploy/docker) - Production setup
