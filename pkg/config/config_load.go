@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 )
 
 // Path returns the absolute path to ~/.kdeps/config.yaml.
@@ -177,10 +178,46 @@ func load() (*Config, error) {
 	case err != nil:
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	default:
-		if unmarshalErr := yaml.Unmarshal(data, cfg); unmarshalErr != nil {
-			return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
+		if decodeErr := decodeConfig(data, cfg); decodeErr != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, decodeErr)
 		}
 	}
 	applyConnectionEnvOverrides(cfg)
 	return cfg, nil
+}
+
+// decodeConfig parses config.yaml into cfg. Each value that holds ${NAME}
+// gets the environment variable NAME, and each ${secret:NAME} gets the
+// secret NAME from ~/.kdeps/secrets.age. A secret that cannot be read
+// leaves its value empty and prints a warning, so commands that do not
+// use it still run.
+func decodeConfig(data []byte, cfg *Config) error {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return err
+	}
+	expandNode(&root)
+	return root.Decode(cfg)
+}
+
+// expandNode expands the references in every scalar value under n.
+func expandNode(n *yaml.Node) {
+	if n.Kind == yaml.ScalarNode {
+		if !secrets.HasRefs(n.Value) {
+			return
+		}
+		val, err := secrets.Expand(n.Value, secrets.Global().Lookup)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: config.yaml line %d: %v\n", n.Line, err)
+		}
+		n.Value = val
+		n.Tag = "!!str"
+		return
+	}
+	for i, c := range n.Content {
+		if n.Kind == yaml.MappingNode && i%2 == 0 {
+			continue // a mapping key, not a value
+		}
+		expandNode(c)
+	}
 }

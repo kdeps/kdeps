@@ -32,6 +32,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
 	"github.com/kdeps/kdeps/v3/pkg/manifest"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 	"github.com/kdeps/kdeps/v3/pkg/templates"
 )
 
@@ -228,6 +229,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	if projErr := agent.UseProjectAssets(filepath.Dir(workflowPath)); projErr != nil {
 		return projErr
 	}
+	secrets.UseProject(filepath.Dir(workflowPath))
 
 	workflow, err := parseWorkflowStep(workflowPath)
 	if err != nil {

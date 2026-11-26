@@ -111,6 +111,10 @@ type UnifiedAPI struct {
 	// Env retrieves an environment variable value.
 	Env func(name string) (string, error)
 
+	// Secret retrieves a named secret from the vault: the workflow's
+	// secrets.age, then ~/.kdeps/secrets.age.
+	Secret func(name string) (string, error)
+
 	// GetConfigField retrieves a value from config namespaces by full dot-path.
 	// Namespaces: config.*, workflow.*, resource.<id>.*, component.<name>.*, agency.*
 	GetConfigField func(fullPath string) (any, error)

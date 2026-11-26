@@ -83,6 +83,7 @@ func (ctx *ExecutionContext) bindAPI() {
 		Loop:            ctx.Loop,
 		Session:         ctx.GetAllSession,
 		Env:             ctx.Env,
+		Secret:          ctx.Secret,
 		GetConfigField:  ctx.GetConfigField,
 		SetConfigField:  ctx.SetConfigField,
 		ConfigNamespace: ctx.ConfigNamespace,

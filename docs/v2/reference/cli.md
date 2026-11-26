@@ -42,6 +42,7 @@ kdeps run workflow.yaml
 | `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |
 | `kdeps config` | [Dev commands](/reference/cli-dev#kdeps-config) | Print the setup: version, backend, models, folders, registries |
 | `kdeps edit` | [Dev commands](/reference/cli-dev#kdeps-edit) | Open a formula in the local registry copy |
+| `kdeps secret` | [Dev commands](/reference/cli-dev#kdeps-secret) | Set, list, remove and edit secrets in the encrypted vault |
 | `kdeps commands` | [Dev commands](/reference/cli-dev#kdeps-commands) | List every command with its summary |
 | `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
 | `kdeps instrument` | [Dev commands](/reference/cli-dev#kdeps-instrument) | List, show and remove sessions recorded with `--instrument` |
@@ -135,6 +136,8 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_DEBUG` | Set `true` to enable debug logging (equivalent to `--debug`) |
 | `KDEPS_LOG_FORMAT` | Set `json` for structured JSON log output |
 | `KDEPS_EDITOR` | Editor for `kdeps edit` and `kdeps config --edit` (overrides `VISUAL`/`EDITOR`) |
+| `KDEPS_VAULT_PASSWORD` | The password of the secrets vault (`secrets.age`) |
+| `KDEPS_VAULT_PASSWORD_FILE` | A file whose first line is the vault password |
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g., `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
 | `KDEPS_LLM_OVERRIDE_URL` | An OpenAI-compatible endpoint that gets all model calls from workflow chat resources and agent sessions, for all backends and models. kdeps does not download or start a local model, and you do not need an API key. Use it to test workflows and agents against a stub or mock server (CI, offline) |

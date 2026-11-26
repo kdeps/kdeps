@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 )
 
 func (ctx *ExecutionContext) Env(name string) (string, error) {
@@ -63,4 +64,11 @@ func componentEnvPrefix(name string) string {
 		}
 	}
 	return b.String()
+}
+
+// Secret returns the named secret from the vault of the workflow that runs
+// (its secrets.age, then ~/.kdeps/secrets.age).
+func (ctx *ExecutionContext) Secret(name string) (string, error) {
+	kdeps_debug.Log("enter: Secret")
+	return secrets.Project().Lookup(name)
 }

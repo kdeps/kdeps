@@ -115,8 +115,16 @@ defaults:
 #     max_retries: 3
 #     retry_delay: "1s"
 
-# ── Named HTTP connections — auth + proxy for httpClient resources ─────────
+# ── Secrets in values ──────────────────────────────────────────────────────
+# "${NAME}" reads the environment variable NAME (empty when unset).
+# "${secret:NAME}" reads NAME from ~/.kdeps/secrets.age (kdeps secret set NAME).
+
+# ── Named HTTP connections — auth + proxy for http_request ─────────────────
 # http_connections:
+#   github:
+#     auth:
+#       type: bearer
+#       token: "${secret:github_token}"
 #   stripe:
 #     auth:
 #       type: bearer
