@@ -1,0 +1,23 @@
+version: 1.0.0
+description: 'Write to the Stripe API: POST form fields to https://api.stripe.com/v1/PATH and return the JSON. It creates and changes customers, payments, refunds and invoices, and can move money. Requires STRIPE_SECRET_KEY, STRIPE_API_KEY or the vault secret stripe_secret_key.'
+parameters:
+  path:
+    type: string
+    description: 'The API path after https://api.stripe.com/v1/. Examples: customers, refunds, invoices/INVOICE_ID/finalize.'
+    required: true
+  body:
+    type: object
+    description: 'The request fields as an object; kdeps sends them as form fields. Example: {"email": "a@b.c", "metadata": {"plan": "pro"}}.'
+    required: true
+http:
+  env:
+    TOKEN: [STRIPE_SECRET_KEY, STRIPE_API_KEY, "secret:stripe_secret_key"]
+  method: POST
+  # The host is fixed; path only adds to it.
+  url: 'https://api.stripe.com/v1/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    User-Agent: kdeps
+    Content-Type: application/x-www-form-urlencoded
+  # Stripe takes form fields, not JSON: {"metadata": {"plan": "pro"}} -> metadata[plan]=pro.
+  body: '{{form .args.body}}'

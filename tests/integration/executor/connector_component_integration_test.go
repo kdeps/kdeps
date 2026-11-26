@@ -213,3 +213,91 @@ func TestNotionComponent_NoToken(t *testing.T) {
 	_, err := runComponentValue(t, "notion_post", "    path: search\n    body:\n      query: roadmap\n")
 	require.ErrorContains(t, err, "set NOTION_TOKEN or NOTION_API_KEY or the vault secret notion_token")
 }
+
+func batchEnv(t *testing.T) {
+	t.Helper()
+	githubEnv(t)
+	t.Setenv("AIRTABLE_API_KEY", "")
+	t.Setenv("AIRTABLE_TOKEN", "pat_integration")
+	t.Setenv("STRIPE_API_KEY", "")
+	t.Setenv("STRIPE_SECRET_KEY", "sk_test_integration")
+	t.Setenv("JIRA_URL", "https://acme.atlassian.net")
+	t.Setenv("JIRA_EMAIL", "a@b.c")
+	t.Setenv("JIRA_API_TOKEN", "tok")
+}
+
+func TestAirtablePostComponent(t *testing.T) {
+	batchEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"records":[{"id":"rec1"}]}`)
+
+	out, err := runComponentValue(t, "airtable_post",
+		"    path: appX/Tasks\n    body:\n      records:\n        - fields:\n            Name: Ship\n")
+	require.NoError(t, err)
+	m, ok := out.(map[string]interface{})
+	require.True(t, ok, "the reply is parsed JSON")
+	assert.Contains(t, m, "records")
+
+	req, body := last()
+	require.NotNil(t, req)
+	assert.Equal(t, "api.airtable.com", req.Header.Get("X-Orig-Host"))
+	assert.Equal(t, "/v0/appX/Tasks", req.URL.Path)
+	assert.Equal(t, "Bearer pat_integration", req.Header.Get("Authorization"))
+	assert.JSONEq(t, `{"records":[{"fields":{"Name":"Ship"}}]}`, body)
+}
+
+func TestStripePostComponent_SendsFormFields(t *testing.T) {
+	batchEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"id":"cus_1"}`)
+
+	out, err := runComponentValue(
+		t,
+		"stripe_post",
+		"    path: customers\n    body:\n      email: a@b.c\n      balance: 1000000\n      metadata:\n        plan: pro\n",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"id": "cus_1"}, out)
+
+	req, body := last()
+	require.NotNil(t, req)
+	assert.Equal(t, "api.stripe.com", req.Header.Get("X-Orig-Host"))
+	assert.Equal(t, "application/x-www-form-urlencoded", req.Header.Get("Content-Type"))
+	assert.Equal(t, "balance=1000000&email=a%40b.c&metadata%5Bplan%5D=pro", body)
+}
+
+func TestJiraGetComponent_BasicAuth(t *testing.T) {
+	batchEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"key":"KEY-1"}`)
+
+	out, err := runComponentValue(t, "jira_get", "    path: issue/KEY-1\n")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"key": "KEY-1"}, out)
+
+	req, _ := last()
+	require.NotNil(t, req)
+	assert.Equal(t, "acme.atlassian.net", req.Header.Get("X-Orig-Host"))
+	assert.Equal(t, "/rest/api/3/issue/KEY-1", req.URL.Path)
+	assert.Equal(t, "Basic YUBiLmM6dG9r", req.Header.Get("Authorization"))
+}
+
+func TestJiraPutComponent_NoContent(t *testing.T) {
+	batchEnv(t)
+	last := fakeGitHub(t, http.StatusNoContent, ``)
+
+	_, err := runComponentValue(
+		t,
+		"jira_put",
+		"    path: issue/KEY-1\n    body:\n      fields:\n        summary: New\n",
+	)
+	require.NoError(t, err, "Jira answers an edit with 204 and no body")
+	req, body := last()
+	require.NotNil(t, req)
+	assert.Equal(t, http.MethodPut, req.Method)
+	assert.JSONEq(t, `{"fields":{"summary":"New"}}`, body)
+}
+
+func TestJiraComponent_NoSite(t *testing.T) {
+	batchEnv(t)
+	t.Setenv("JIRA_URL", "")
+	_, err := runComponentValue(t, "jira_get", "    path: myself\n")
+	require.ErrorContains(t, err, "set JIRA_URL or the vault secret jira_url")
+}

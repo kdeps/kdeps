@@ -44,8 +44,16 @@ In the agent loop, a connector tool with no token is not offered to the model.
 | `notion_get` | GET | `NOTION_TOKEN`, `NOTION_API_KEY`, vault `notion_token` | T0 (read-only) | pages, properties, blocks, users |
 | `notion_post` | POST | `NOTION_TOKEN`, `NOTION_API_KEY`, vault `notion_token` | T1 (workspace-write) | search, database queries, new pages |
 | `notion_patch` | PATCH | `NOTION_TOKEN`, `NOTION_API_KEY`, vault `notion_token` | T1 (workspace-write) | page properties, new blocks, archive |
+| `airtable_get` | GET | `AIRTABLE_TOKEN`, `AIRTABLE_API_KEY`, vault `airtable_token` | T0 (read-only) | records, bases |
+| `airtable_post` | POST | `AIRTABLE_TOKEN`, `AIRTABLE_API_KEY`, vault `airtable_token` | T1 (workspace-write) | new records |
+| `airtable_patch` | PATCH | `AIRTABLE_TOKEN`, `AIRTABLE_API_KEY`, vault `airtable_token` | T1 (workspace-write) | changed records |
+| `stripe_get` | GET | `STRIPE_SECRET_KEY`, `STRIPE_API_KEY`, vault `stripe_secret_key` | T0 (read-only) | customers, payments, invoices, balance |
+| `stripe_post` | POST | `STRIPE_SECRET_KEY`, `STRIPE_API_KEY`, vault `stripe_secret_key` | T2 (ask) | customers, payments, refunds, invoices |
+| `jira_get` | GET | `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` (or vault `jira_url`, `jira_email`, `jira_api_token`) | T0 (read-only) | issues, projects, JQL search |
+| `jira_post` | POST | same as `jira_get` | T1 (workspace-write) | new issues, comments, transitions |
+| `jira_put` | PUT | same as `jira_get` | T1 (workspace-write) | issue fields, assignee |
 
-The tool tier comes from `assets/policy/permission.yaml`. A `T1` tool needs the `workspace-write` permission mode or higher.
+The tool tier comes from `assets/policy/permission.yaml`. A `T1` tool needs the `workspace-write` permission mode or higher. In the agent loop, a person approves each `T2` call; a run with no one to ask refuses it. A workflow step that names the component runs it without approval.
 
 ## GitHub
 
@@ -150,6 +158,72 @@ component:
 </div>
 
 The output is the parsed JSON that Notion returns. A status of 400 or higher fails the step with the Notion error message.
+
+## Airtable
+
+`path` is the part of the URL after `https://api.airtable.com/v0/`. Use a personal access token with the scopes and bases the workflow needs.
+
+<div v-pre>
+
+```yaml
+# resources/done.yaml
+actionId: done
+name: Mark the task done
+component:
+  name: airtable_patch                 # changes only the fields in the body
+  with:
+    path: "appBASE/Tasks/{{ get('record') }}"
+    body:
+      fields: { Status: Done }
+```
+
+</div>
+
+## Stripe
+
+`path` is the part of the URL after `https://api.stripe.com/v1/`. `stripe_post` sends `body` as form fields, because Stripe does not take JSON: `{"metadata": {"plan": "pro"}}` becomes `metadata[plan]=pro`. Use a restricted key (`rk_...`) or a test key (`sk_test_...`) where you can.
+
+<div v-pre>
+
+```yaml
+# resources/customer.yaml
+actionId: customer
+name: New customer
+component:
+  name: stripe_post
+  with:
+    path: customers
+    body:
+      email: "{{ get('email') }}"
+      metadata: { plan: pro }          # sent as metadata[plan]=pro
+```
+
+</div>
+
+## Jira
+
+`path` is the part of the URL after `/rest/api/3/` on your Jira Cloud site. The site comes from `JIRA_URL` (`https://YOUR.atlassian.net`), never from `path`. kdeps signs in with Basic auth: your Atlassian email and an API token.
+
+<div v-pre>
+
+```yaml
+# resources/bug.yaml
+actionId: bug
+name: File a bug
+component:
+  name: jira_post
+  with:
+    path: issue
+    body:
+      fields:
+        project: { key: APP }
+        issuetype: { name: Bug }
+        summary: "{{ get('title') }}"
+```
+
+</div>
+
+`jira_put` returns an empty output: Jira answers an edit with `204 No Content`.
 
 ## Add a connector
 

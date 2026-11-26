@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: stripe_get
+  description: Read the Stripe API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: 'The API path after https://api.stripe.com/v1/, with its query string. Examples: customers?limit=10, payment_intents/PI_ID, balance.'
+  # The Stripe reply, parsed from JSON. A missing token is an error that names its sources.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Stripe GET
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/stripe_get/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('stripe_get.path') }}"

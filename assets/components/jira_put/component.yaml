@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: jira_put
+  description: Update Jira issues through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: 'The API path after /rest/api/3/. Examples: issue/KEY-1, issue/KEY-1/assignee.'
+    - name: body
+      type: object
+      required: true
+      description: 'The JSON request body. Example: {"fields": {"summary": "..."}}.'
+  # The Jira reply, parsed from JSON. A missing token is an error that names its sources.
+  # Jira answers an edit with 204 No Content, so the output is the raw (often empty) body.
+  output: "{{ output('call').body }}"
+resources:
+  - actionId: call
+    name: Jira PUT
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/jira_put/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('jira_put.path') }}"
+        body: "{{ get('jira_put.body') }}"

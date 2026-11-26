@@ -1,0 +1,25 @@
+version: 1.0.0
+description: 'Write to the Jira Cloud REST API: POST a JSON body to JIRA_URL/rest/api/3/PATH and return the JSON. Use it to create issues, add comments and move issues to a new status. Requires JIRA_URL, JIRA_EMAIL and JIRA_API_TOKEN (or the vault secrets jira_url, jira_email and jira_api_token).'
+parameters:
+  path:
+    type: string
+    description: 'The API path after /rest/api/3/. Examples: issue, issue/KEY-1/comment, issue/KEY-1/transitions.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example for a new issue: {"fields": {"project": {"key": "KEY"}, "summary": "...", "issuetype": {"name": "Task"}}}.'
+    required: true
+http:
+  env:
+    SITE: [JIRA_URL, "secret:jira_url"]
+    USER: [JIRA_EMAIL, "secret:jira_email"]
+    TOKEN: [JIRA_API_TOKEN, "secret:jira_api_token"]
+  method: POST
+  # The site comes from JIRA_URL or the vault, never from the model; path only adds to it.
+  url: '{{trimSuffix .env.SITE "/"}}/rest/api/3/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Basic {{base64 (print .env.USER ":" .env.TOKEN)}}'
+    Accept: application/json
+    User-Agent: kdeps
+    Content-Type: application/json
+  body: '{{json .args.body}}'

@@ -11,7 +11,7 @@ component: github_get -> token (env or vault) -> https://api.github.com/PATH -> 
 actionId: issues
 component:
   name: github_get                    # GET; github_post creates issues and comments
-                                      # slack_* and notion_* work the same way
+                                      # Slack, Notion, Airtable, Stripe and Jira work the same way
   with:
     path: repos/OWNER/REPO/issues?state=open
 ```
