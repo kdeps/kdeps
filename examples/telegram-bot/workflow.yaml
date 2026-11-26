@@ -3,7 +3,7 @@ kind: Workflow
 
 metadata:
   name: telegram-bot
-  description: Telegram bot that answers messages using a local LLM (Ollama)
+  description: Telegram bot that answers messages with a local LLM
   version: "1.0.0"
   targetActionId: reply
 
@@ -12,8 +12,6 @@ deploy:
     timezone: Etc/UTC
 
   input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      telegram:
-        pollIntervalSeconds: 1  # credentials go in ~/.kdeps/config.yaml bot_connections.telegram
+    listen:
+      # Polls getUpdates every 2s. Token: TELEGRAM_BOT_TOKEN or the vault secret telegram_bot_token.
+      - listener: telegram_updates

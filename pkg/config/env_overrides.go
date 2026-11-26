@@ -31,7 +31,6 @@ const (
 	envPrefixSQL    = "KDEPS_SQL_CONNECTIONS_"
 	envPrefixSearch = "KDEPS_SEARCH_CONNECTIONS_"
 	envPrefixHTTP   = "KDEPS_HTTP_CONNECTIONS_"
-	envPrefixBot    = "KDEPS_BOT_CONNECTIONS_"
 )
 
 // applyConnectionEnvOverrides overlays connection values supplied via the
@@ -52,8 +51,6 @@ func applyConnectionEnvOverrides(cfg *Config) {
 			overlaySearch(cfg, strings.TrimPrefix(key, envPrefixSearch), val)
 		case strings.HasPrefix(key, envPrefixHTTP):
 			overlayHTTP(cfg, strings.TrimPrefix(key, envPrefixHTTP), val)
-		case strings.HasPrefix(key, envPrefixBot):
-			overlayBot(cfg, strings.TrimPrefix(key, envPrefixBot), val)
 		}
 	}
 }
@@ -94,42 +91,6 @@ func ConnectionEnvFields(cfg *Config, kind, name string) []ConnEnvField {
 		return []ConnEnvField{mk("API_KEY", "", true, val)}
 	case ConnKindHTTP:
 		return httpEnvFields(cfg, name, mk)
-	case ConnKindBot:
-		return botEnvFields(cfg, name, prefix, mk)
-	default:
-		return nil
-	}
-}
-
-func botEnvFields(
-	cfg *Config, platform, _ string,
-	mk func(field, def string, secret bool, val string) ConnEnvField,
-) []ConnEnvField {
-	switch platform {
-	case "discord":
-		val := ""
-		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.Discord != nil {
-			val = cfg.BotConnections.Discord.BotToken
-		}
-		return []ConnEnvField{mk("BOT_TOKEN", "", true, val)}
-	case "telegram":
-		val := ""
-		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.Telegram != nil {
-			val = cfg.BotConnections.Telegram.BotToken
-		}
-		return []ConnEnvField{mk("BOT_TOKEN", "", true, val)}
-	case "slack":
-		var botToken, appToken, signingSecret string
-		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.Slack != nil {
-			botToken = cfg.BotConnections.Slack.BotToken
-			appToken = cfg.BotConnections.Slack.AppToken
-			signingSecret = cfg.BotConnections.Slack.SigningSecret
-		}
-		return []ConnEnvField{
-			mk("BOT_TOKEN", "", true, botToken),
-			mk("APP_TOKEN", "", true, appToken),
-			mk("SIGNING_SECRET", "", true, signingSecret),
-		}
 	default:
 		return nil
 	}
@@ -166,7 +127,6 @@ var connKindEnvPrefix = map[string]string{
 	ConnKindSQL:    envPrefixSQL,
 	ConnKindSearch: envPrefixSearch,
 	ConnKindHTTP:   envPrefixHTTP,
-	ConnKindBot:    envPrefixBot,
 }
 
 // ConnectionInEnv reports whether any environment variable supplies a field of
@@ -265,44 +225,4 @@ func setHTTPAuthField(auth *HTTPAuthConfig, field, val string) {
 	case "AUTH_VALUE":
 		auth.Value = val
 	}
-}
-
-// overlayBot handles KDEPS_BOT_CONNECTIONS_<PLATFORM>_<FIELD> (fixed platforms).
-func overlayBot(cfg *Config, rest, val string) {
-	if cfg.BotConnections == nil {
-		cfg.BotConnections = &BotConnectionConfig{}
-	}
-	switch rest {
-	case "DISCORD_BOT_TOKEN":
-		ensureDiscord(cfg).BotToken = val
-	case "TELEGRAM_BOT_TOKEN":
-		ensureTelegram(cfg).BotToken = val
-	case "SLACK_BOT_TOKEN":
-		ensureSlack(cfg).BotToken = val
-	case "SLACK_APP_TOKEN":
-		ensureSlack(cfg).AppToken = val
-	case "SLACK_SIGNING_SECRET":
-		ensureSlack(cfg).SigningSecret = val
-	}
-}
-
-func ensureDiscord(cfg *Config) *DiscordConnectionConfig {
-	if cfg.BotConnections.Discord == nil {
-		cfg.BotConnections.Discord = &DiscordConnectionConfig{}
-	}
-	return cfg.BotConnections.Discord
-}
-
-func ensureTelegram(cfg *Config) *TelegramConnectionConfig {
-	if cfg.BotConnections.Telegram == nil {
-		cfg.BotConnections.Telegram = &TelegramConnectionConfig{}
-	}
-	return cfg.BotConnections.Telegram
-}
-
-func ensureSlack(cfg *Config) *SlackConnectionConfig {
-	if cfg.BotConnections.Slack == nil {
-		cfg.BotConnections.Slack = &SlackConnectionConfig{}
-	}
-	return cfg.BotConnections.Slack
 }

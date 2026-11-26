@@ -10,7 +10,6 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/IBM/watsonx-go v1.0.2
 	github.com/PuerkitoBio/goquery v1.13.0
-	github.com/bwmarrin/discordgo v0.29.0
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/log v1.0.0
 	github.com/chzyer/readline v1.5.1
@@ -18,7 +17,6 @@ require (
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-sql-driver/mysql v1.10.1
-	github.com/go-telegram/bot v1.30.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
 	github.com/kdeps/kartographer v0.3.1-0.20261103084127-b6172ec64567
@@ -32,7 +30,6 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.9.1
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/sijms/go-ora/v2 v2.9.0
-	github.com/slack-go/slack v0.33.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/fileflow v0.2.0

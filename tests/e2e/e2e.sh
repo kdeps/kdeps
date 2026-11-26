@@ -133,7 +133,6 @@ scenario test_workflow_overflow_compaction.sh
 scenario test_workflow_text_tool_calls.sh
 scenario test_features_edge_cases.sh
 scenario test_features_input_sources.sh
-scenario test_features_bot_sources.sh
 scenario test_features_tts.sh
 scenario test_features_git.sh
 scenario test_features_file_component.sh

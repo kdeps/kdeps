@@ -126,7 +126,7 @@ All executors are part of the `kdeps` binary. You do not install them. This page
 
 | YAML key | Description | Page |
 |---|---|---|
-| `apiResponse` (bot mode) | The workflow result is sent to the chat platform that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
+| `component: slack_post`, `telegram_post`, `discord_post` | Send a message to a chat - connector components, YAML only | [Connectors](/workflow/resources/connectors) |
 
 ## Orchestration
 
@@ -142,7 +142,6 @@ Some install names (`embedding`) are also kdeps components. The registry compone
 
 | Install name | Description |
 |-------------|-------------|
-| `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
 | `embedding` | Vector embeddings via OpenAI Embeddings API |
 | `search` | Web search via Tavily API |
 

@@ -24,12 +24,12 @@ component:
 ```yaml
 # resources/reply.yaml
 actionId: reply
-name: Send Bot Reply
+name: Send Telegram Reply
 component:
-  name: botreply
+  name: telegram_post           # a connector component
   with:
-    platform: telegram
-    message: "Hello!"
+    path: sendMessage
+    body: { chat_id: 42, text: "Hello!" }
 ```
 
 ## Configuration options

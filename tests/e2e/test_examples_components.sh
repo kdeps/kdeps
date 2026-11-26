@@ -245,19 +245,12 @@ TB_WF="$_TB_DIR/workflow.yaml"
 if [ ! -f "$TB_WF" ]; then
     test_skipped "telegram-bot (workflow.yaml not found)"
 else
-    # The reply is the workflow result: reply.yaml is an apiResponse and the target
-    if grep -q "^apiResponse:" "$_TB_DIR/resources/reply.yaml" 2>/dev/null \
+    # The reply is a telegram_post component call, the target of the workflow
+    if grep -q "name: telegram_post" "$_TB_DIR/resources/reply.yaml" 2>/dev/null \
         && grep -q "targetActionId: reply" "$TB_WF" 2>/dev/null; then
-        test_passed "telegram-bot - targets the reply apiResponse (its result is sent to the chat)"
+        test_passed "telegram-bot - targets the reply, a telegram_post component call"
     else
-        test_failed "telegram-bot - reply apiResponse target" "reply.yaml apiResponse or targetActionId: reply missing"
-    fi
-
-    # No local component re-declares the reply action
-    if [ ! -d "$_TB_DIR/components" ]; then
-        test_passed "telegram-bot - no local botreply component"
-    else
-        test_failed "telegram-bot - no local botreply component" "$_TB_DIR/components still exists"
+        test_failed "telegram-bot - reply target" "reply.yaml telegram_post or targetActionId: reply missing"
     fi
 fi
 

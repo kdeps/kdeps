@@ -50,13 +50,10 @@ func TestWorkflowValidator_ValidateInputConfig_SourceErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("bot source without bot config", func(t *testing.T) {
+	t.Run("bot source is removed", func(t *testing.T) {
 		err := v.ValidateInputConfig(&domain.InputConfig{Sources: []string{"bot"}})
-		if err == nil {
-			t.Fatal("expected error for bot source without bot config, got nil")
-		}
-		if !strings.Contains(err.Error(), "input.bot is required") {
-			t.Errorf("expected 'input.bot is required', got: %v", err)
+		if err == nil || !strings.Contains(err.Error(), "invalid input source: bot") {
+			t.Errorf("expected 'invalid input source: bot', got: %v", err)
 		}
 	})
 }

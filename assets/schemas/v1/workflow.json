@@ -110,51 +110,10 @@
                 "type": "string",
                 "enum": [
                   "api",
-                  "bot",
                   "file",
                   "interactive"
                 ]
               }
-            },
-            "bot": {
-              "type": "object",
-              "properties": {
-                "executionType": {
-                  "type": "string",
-                  "enum": [
-                    "polling",
-                    "stateless"
-                  ]
-                },
-                "discord": {
-                  "type": "object",
-                  "properties": {
-                    "guildId": {
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "slack": {
-                  "type": "object",
-                  "properties": {
-                    "mode": {
-                      "type": "string"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "telegram": {
-                  "type": "object",
-                  "properties": {
-                    "pollIntervalSeconds": {
-                      "type": "integer"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "additionalProperties": false
             },
             "file": {
               "type": "object",

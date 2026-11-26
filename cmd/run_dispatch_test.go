@@ -39,7 +39,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	kdepshttp "github.com/kdeps/kdeps/v3/pkg/infra/http"
 	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
-	"github.com/kdeps/kdeps/v3/pkg/input/bot"
 )
 
 func TestDispatchExecution_DefaultNil(t *testing.T) {
@@ -192,15 +191,6 @@ func TestStartBothServersWithEngine_CreateHTTPError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLoadBotCredentials_Error(t *testing.T) {
-	orig := loadStructWithAgentFunc
-	t.Cleanup(func() { loadStructWithAgentFunc = orig })
-	loadStructWithAgentFunc = func(_ string) (*config.Config, error) {
-		return nil, errors.New("cfg failed")
-	}
-	assert.Nil(t, loadBotCredentials("bot"))
-}
-
 func TestDefaultServerHooks_Direct(t *testing.T) {
 	t.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
 	eng := executor.NewEngine(context.Background(), nil)
@@ -242,22 +232,6 @@ func TestDefaultServerHooks_Direct(t *testing.T) {
 	go func() { _ = defaultWebServerStart(webSrv, context.Background()) }()
 	time.Sleep(50 * time.Millisecond)
 	require.NoError(t, defaultWebServerShutdown(webSrv, context.Background()))
-
-	botWf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "bot"},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{"bot"},
-				Bot:     &domain.BotConfig{ExecutionType: domain.BotExecutionTypeStateless},
-			},
-		},
-	}
-	disp, dispErr := bot.NewDispatcher(botWf, eng, nil, nil)
-	if dispErr == nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_ = defaultBotDispatcherRun(ctx, disp)
-	}
 }
 
 func TestStartHTTPServerWithEngine_SignalShutdown(t *testing.T) {
@@ -613,27 +587,6 @@ func TestEnsureLLMBackendStep_OllamaPath(t *testing.T) {
 	require.NoError(t, ensureLLMBackendStep(wf))
 }
 
-func TestDefaultBotDispatcherRun_Direct(t *testing.T) {
-	eng := executor.NewEngine(context.Background(), nil)
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "bot"},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{"bot"},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					Discord:       &domain.DiscordConfig{GuildID: "123"},
-				},
-			},
-		},
-	}
-	disp, err := bot.NewDispatcher(wf, eng, nil, logging.NewLogger(false))
-	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	_ = defaultBotDispatcherRun(ctx, disp)
-}
-
 func TestStartHTTPServerWithEngine_SignalInjected(t *testing.T) {
 	injectSignalNotify(t)
 	origStart := httpServerStartFunc
@@ -905,13 +858,6 @@ func TestExecutionModeFor_AllModes(t *testing.T) {
 			"api",
 			&domain.Workflow{Settings: domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}}},
 			execModeAPIServer,
-		},
-		{
-			"bot",
-			&domain.Workflow{Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{Sources: []string{"bot"}, Bot: &domain.BotConfig{}},
-			}},
-			execModeBot,
 		},
 		{
 			"file",

@@ -2,12 +2,11 @@
 
 This page has every step and detail. The [overview](/examples/telegram-bot/) is the short version.
 
-
-This workflow runs with `kdeps run` as a Telegram bot. It polls for messages and replies with a local LLM response (llamafile, with no server install). Two resources: `llm` calls the model, `reply` returns the answer, which kdeps sends back to the chat.
+The `telegram_updates` listener polls the Bot API and starts one workflow run for each message. `llm` answers with a local model (llamafile, no server install). `reply` sends the answer to the same chat with the `telegram_post` connector.
 
 ## Files
 
-```
+```text
 telegram-bot/
 ├── workflow.yaml
 └── resources/
@@ -22,57 +21,73 @@ telegram-bot/
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-name: telegram-llm-bot
-description: Telegram bot that answers messages with an LLM
-version: "1.0.0"
-targetActionId: reply
+metadata:
+  name: telegram-bot
+  description: Telegram bot that answers messages with a local LLM
+  version: "1.0.0"
+  targetActionId: reply
+
 deploy:
   runtime:
     timezone: Etc/UTC
 
   input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      telegram:
-        pollIntervalSeconds: 1  # credentials go in ~/.kdeps/config.yaml bot_connections.telegram
+    listen:
+      # Polls getUpdates every 2s. Token: TELEGRAM_BOT_TOKEN or the vault secret telegram_bot_token.
+      - listener: telegram_updates
 ```
 
 ## resources/llm.yaml
 
-```yaml
+<div v-pre>
 
+```yaml
 actionId: llm
 name: LLM Response
+
 chat:
   model:
     name: llama3.2:1b
   context:
-    prompt: "{{ input('message') }}"   # the incoming message text
+    prompt: "{{ input('message').text }}"   # the event is one Telegram update
 ```
+
+</div>
 
 ## resources/reply.yaml
 
-```yaml
+<div v-pre>
 
+```yaml
 actionId: reply
 name: Reply
 flow:
   requires:
     - llm
 
-apiResponse:                 # in bot mode the workflow result is the reply
-  success: true
-  response: "{{ get('llm').message.content }}"   # sent as the reply text
+# Send the answer to the chat the message came from (Bot API sendMessage).
+component:
+  name: telegram_post
+  with:
+    path: sendMessage
+    body:
+      chat_id: "{{ input('message').chat.id }}"
+      text: "{{ get('llm').message.content }}"
 ```
+
+</div>
 
 ## Running
 
 ```bash
-export TELEGRAM_BOT_TOKEN="1234567890:AAH..."
+export TELEGRAM_BOT_TOKEN="1234567890:AAH..."   # or: kdeps secret set telegram_bot_token
 kdeps run workflow.yaml
+# [listen telegram_updates] {"ok":true,"result":{...}}
 ```
+
+The listener keeps its place in `~/.kdeps/projects/<folder>-<hash>/listen/telegram_updates.cursor`, so a restart does not answer old messages again.
 
 ## See also
 
-- [Input sources](/workflow/input-sources) - Full platform config reference
+- [Input sources](/workflow/input-sources) - listeners for Telegram, Slack and Discord
+- [Connectors](/workflow/resources/connectors) - `telegram_post`, `slack_post`, `discord_post`

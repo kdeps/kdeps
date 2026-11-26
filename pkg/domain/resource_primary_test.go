@@ -103,7 +103,7 @@ func TestIsRecognizedResourceActionKey(t *testing.T) {
 	}
 
 	if domain.IsRecognizedResourceActionKey("botReply") {
-		t.Fatal("botReply is gone: a bot sends the workflow result")
+		t.Fatal("botReply is gone: a connector component sends the reply")
 	}
 	if domain.IsRecognizedResourceActionKey("unknownAction") {
 		t.Fatal("unknownAction should not be recognized")

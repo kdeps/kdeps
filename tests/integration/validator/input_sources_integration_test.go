@@ -181,7 +181,7 @@ func TestInputSourcesIntegration_SchemaRejectsDeadInputConfig(t *testing.T) {
 }
 
 // TestInputSourcesIntegration_SchemaAcceptsEngineSources verifies every engine
-// source validates, including the bot platform blocks and their own fields.
+// source validates.
 func TestInputSourcesIntegration_SchemaAcceptsEngineSources(t *testing.T) {
 	schemaValidator, err := validator.NewSchemaValidator()
 	require.NoError(t, err)
@@ -193,15 +193,6 @@ func TestInputSourcesIntegration_SchemaAcceptsEngineSources(t *testing.T) {
 			"sources": []string{"file"},
 			"file":    map[string]interface{}{"path": "/data/in.txt"},
 		},
-		"bot": {
-			"sources": []string{"bot"},
-			"bot": map[string]interface{}{
-				"executionType": "polling",
-				"discord":       map[string]interface{}{"guildId": "42"},
-				"slack":         map[string]interface{}{"mode": "socket"},
-				"telegram":      map[string]interface{}{"pollIntervalSeconds": 1},
-			},
-		},
 	}
 	for name, input := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -210,22 +201,23 @@ func TestInputSourcesIntegration_SchemaAcceptsEngineSources(t *testing.T) {
 	}
 }
 
-// TestInputSourcesIntegration_SchemaRejectsWorkflowBotToken verifies bot
-// credentials cannot be set in workflow.yaml: they belong in ~/.kdeps/config.yaml.
-func TestInputSourcesIntegration_SchemaRejectsWorkflowBotToken(t *testing.T) {
+// TestInputSourcesIntegration_SchemaRejectsBot verifies the removed bot
+// source and input.bot block fail: listeners and connectors replace them.
+func TestInputSourcesIntegration_SchemaRejectsBot(t *testing.T) {
 	schemaValidator, err := validator.NewSchemaValidator()
 	require.NoError(t, err)
 
-	data := workflowWithInput(map[string]interface{}{
-		"sources": []string{"bot"},
-		"bot": map[string]interface{}{
-			"executionType": "polling",
-			"telegram":      map[string]interface{}{"botToken": "123:abc"},
+	for name, input := range map[string]map[string]interface{}{
+		"source": {"sources": []string{"bot"}},
+		"block": {
+			"sources": []string{"api"},
+			"bot":     map[string]interface{}{"telegram": map[string]interface{}{}},
 		},
-	})
-	err = schemaValidator.ValidateWorkflow(data)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "botToken")
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Error(t, schemaValidator.ValidateWorkflow(workflowWithInput(input)))
+		})
+	}
 }
 
 // TestInputSourcesIntegration_REPLBlock verifies repl: holds only the prompt's

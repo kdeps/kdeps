@@ -385,26 +385,6 @@ func TestMergeConfig_ConnectionMapsMergeIntoExisting(t *testing.T) {
 	assert.Equal(t, "added", dst.HTTPConnections["new"].Proxy)
 }
 
-func TestMergeConfig_BotConnections(t *testing.T) {
-	dst := &Config{}
-	src := &Config{
-		BotConnections: &BotConnectionConfig{
-			Discord: &DiscordConnectionConfig{BotToken: "discord-token"},
-		},
-	}
-	mergeConfig(dst, src)
-	require.NotNil(t, dst.BotConnections)
-	require.NotNil(t, dst.BotConnections.Discord)
-	assert.Equal(t, "discord-token", dst.BotConnections.Discord.BotToken)
-}
-
-func TestMergeConfig_BotConnectionsNilSrc(t *testing.T) {
-	dst := &Config{BotConnections: &BotConnectionConfig{}}
-	src := &Config{}
-	mergeConfig(dst, src)
-	require.NotNil(t, dst.BotConnections)
-}
-
 func TestMergeConfig_Identity(t *testing.T) {
 	dst := &Config{}
 	src := &Config{

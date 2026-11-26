@@ -49,7 +49,7 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 
 	bad := map[string]*domain.InputConfig{
 		"input needs sources or listen": {},
-		"cannot be used with the bot or file source": {
+		"cannot be used with the file source": {
 			Sources: []string{"file"}, Listen: []domain.ListenSpec{{File: file}},
 		},
 		`id "a b"`: {Listen: []domain.ListenSpec{{ID: "a b", File: file}}},

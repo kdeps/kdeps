@@ -100,7 +100,7 @@ kdeps gets the ports from your workflow settings:
 Chat resources on the default `file` backend need no backend port: the
 llamafile self-serves on localhost inside the pod.
 
-kdeps makes ports, probes, and NetworkPolicy rules from this configuration. It opens only the ports that the workflow serves. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
+kdeps makes ports, probes, and NetworkPolicy rules from this configuration. It opens only the ports that the workflow serves. A workflow with no `apiServer` or `webServer` (for example a file workflow) gets no container ports and no probes.
 
 ### Resources
 

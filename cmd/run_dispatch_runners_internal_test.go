@@ -17,29 +17,3 @@
 // license notices and attribution when redistributing derived code.
 
 package cmd
-
-import (
-	"context"
-	"testing"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v3/pkg/domain"
-	"github.com/kdeps/kdeps/v3/pkg/executor"
-)
-
-func TestStartBotRunners_Delegates(t *testing.T) {
-	eng := executor.NewEngine(context.Background(), nil)
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "bot"},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{"bot"},
-				Bot:     &domain.BotConfig{ExecutionType: domain.BotExecutionTypeStateless},
-			},
-		},
-	}
-	err := StartBotRunners(wf, false)
-	require.Error(t, err)
-	_ = eng
-}

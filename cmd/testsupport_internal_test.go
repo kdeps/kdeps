@@ -55,13 +55,11 @@ func stubDispatchHooks(t *testing.T) {
 	origBoth := execBothServersFn
 	origWeb := execWebServerFn
 	origAPI := execHTTPServerFn
-	origBot := execBotRunnersFn
 	origFile := execFileRunnerFn
 	origSingle := execSingleRunFn
 	origBothEng := execBothServersWithEngineFn
 	origAPIEng := execHTTPServerWithEngineFn
 	origWebEng := execWebServerWithEngineFn
-	origBotEng := execBotRunnersWithEngineFn
 	origFileEng := execFileRunnerWithEngineFn
 	origSingleEng := execSingleRunWithEngineFn
 	origMode := executionModeForFunc
@@ -69,13 +67,11 @@ func stubDispatchHooks(t *testing.T) {
 		execBothServersFn = origBoth
 		execWebServerFn = origWeb
 		execHTTPServerFn = origAPI
-		execBotRunnersFn = origBot
 		execFileRunnerFn = origFile
 		execSingleRunFn = origSingle
 		execBothServersWithEngineFn = origBothEng
 		execHTTPServerWithEngineFn = origAPIEng
 		execWebServerWithEngineFn = origWebEng
-		execBotRunnersWithEngineFn = origBotEng
 		execFileRunnerWithEngineFn = origFileEng
 		execSingleRunWithEngineFn = origSingleEng
 		executionModeForFunc = origMode
@@ -84,7 +80,6 @@ func stubDispatchHooks(t *testing.T) {
 	execBothServersFn = func(_ *domain.Workflow, _ string, _, _ bool) error { return stub() }
 	execWebServerFn = func(_ *domain.Workflow, _ string, _ bool) error { return stub() }
 	execHTTPServerFn = func(_ *domain.Workflow, _ string, _, _ bool) error { return stub() }
-	execBotRunnersFn = func(_ *domain.Workflow, _ bool) error { return stub() }
 	execFileRunnerFn = func(_ *domain.Workflow, _ bool, _ string, _ bool) error { return stub() }
 	execSingleRunFn = func(_ *domain.Workflow) error { return stub() }
 	execBothServersWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow, _ string, _, _ bool) error {
@@ -94,9 +89,6 @@ func stubDispatchHooks(t *testing.T) {
 		return stub()
 	}
 	execWebServerWithEngineFn = func(_ *domain.Workflow, _ string, _ bool) error { return stub() }
-	execBotRunnersWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow, _ bool) error {
-		return stub()
-	}
 	execFileRunnerWithEngineFn = func(_ *executor.Engine, _ *domain.Workflow, _ bool, _ string) error {
 		return stub()
 	}
@@ -573,9 +565,6 @@ var IsKagencyFile = isKagencyFile //nolint:gochecknoglobals // test-only export
 
 // PrintRoutes exposes the unexported printRoutes helper for unit testing.
 var PrintRoutes = printRoutes //nolint:gochecknoglobals // test-only export
-
-// PrintBotRequirements exposes the unexported printBotRequirements helper for unit testing.
-var PrintBotRequirements = printBotRequirements //nolint:gochecknoglobals // test-only export
 
 // ComponentInstallDir exposes the unexported componentInstallDir helper for unit testing.
 var ComponentInstallDir = componentInstallDir //nolint:gochecknoglobals // test-only export

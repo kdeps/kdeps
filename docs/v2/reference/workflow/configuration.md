@@ -3,7 +3,7 @@
 This page lists every field and option. The [overview](/workflow/configuration) shows what it does and a first example.
 
 
-`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (HTTP auth, search API keys, bot tokens) live in `~/.kdeps/config.yaml` - not here.
+`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (HTTP auth, search API keys) live in `~/.kdeps/config.yaml` or the [vault](/workflow/secrets) - not here.
 
 ## How the pieces fit together
 
@@ -25,7 +25,6 @@ deploy: workflow.yaml deploy {
 session: "session\ncross-request key-value store"
 
 global: "~/.kdeps/config.yaml" {
-  G1: "bot_connections\nchat-bot platform tokens"
   G2: "http_connections\nHTTP auth + proxy"
   G3: "search_connections\nweb search API keys"
   G4: "sql_connections\nnamed DB connections"
@@ -34,7 +33,6 @@ global: "~/.kdeps/config.yaml" {
 deploy.B3 -> C: configures runtime
 session -> C: provides session store
 deploy.B2 -> B: runs alongside
-global.G1 -> C: provides connections
 global.G2 -> C: provides connections
 global.G3 -> C: provides connections
 global.G4 -> C: provides connections
@@ -61,7 +59,7 @@ session: { ... }           # per-session key-value store: set(k, v, 'session')
 repl: { ... }              # look of the interactive prompt (prompt, sessionId)
 ```
 
-Credentials and named connections (HTTP auth, search API keys, bot tokens) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set. kdeps does not ignore an unknown or removed key (a typo, or the old `sqlConnections`). `kdeps validate` fails with `Additional property <key> is not allowed`. See [Global Config](/reference/advanced-config) for the full reference.
+Credentials and named connections (HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. `deploy:` is a closed set. kdeps does not ignore an unknown or removed key (a typo, or the old `sqlConnections`). `kdeps validate` fails with `Additional property <key> is not allowed`. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 

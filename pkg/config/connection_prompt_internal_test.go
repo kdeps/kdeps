@@ -34,24 +34,14 @@ func TestHasConnection(t *testing.T) {
 		SQLConnections:    map[string]SQLConnectionConfig{"db": {Connection: "dsn"}},
 		HTTPConnections:   map[string]HTTPConnectionConfig{"api": {}},
 		SearchConnections: map[string]SearchConnectionConfig{"web": {APIKey: "k"}},
-		BotConnections: &BotConnectionConfig{
-			Discord:  &DiscordConnectionConfig{BotToken: "dt"},
-			Slack:    &SlackConnectionConfig{BotToken: "st", AppToken: "at"},
-			Telegram: &TelegramConnectionConfig{BotToken: "tt"},
-		},
 	}
 	assert.True(t, HasConnection(cfg, ConnKindSQL, "db"))
 	assert.True(t, HasConnection(cfg, ConnKindHTTP, "api"))
 	assert.True(t, HasConnection(cfg, ConnKindSearch, "web"))
-	assert.True(t, HasConnection(cfg, ConnKindBot, "discord"))
-	assert.True(t, HasConnection(cfg, ConnKindBot, "slack"))
-	assert.True(t, HasConnection(cfg, ConnKindBot, "telegram"))
-	assert.False(t, HasConnection(cfg, ConnKindBot, "whatsapp"), "no longer a bot platform")
 
 	assert.False(t, HasConnection(cfg, ConnKindSQL, "missing"))
 	assert.False(t, HasConnection(cfg, "unknown", "mail"))
 	assert.False(t, HasConnection(nil, ConnKindSQL, "mail"))
-	assert.False(t, HasConnection(cfg, ConnKindBot, "nostromo"))
 }
 
 func TestInjectConnection_NewFile(t *testing.T) {
@@ -153,20 +143,6 @@ func TestPromptAndSaveConnection_HTTPBearer(t *testing.T) {
 	require.NotNil(t, cfg.HTTPConnections["api"].Auth)
 	assert.Equal(t, "bearer", cfg.HTTPConnections["api"].Auth.Type)
 	assert.Equal(t, "tok-123", cfg.HTTPConnections["api"].Auth.Token)
-}
-
-func TestPromptAndSaveConnection_BotUnknownPlatform(t *testing.T) {
-	origFS := AppFS
-	t.Cleanup(func() { AppFS = origFS })
-	AppFS = afero.NewMemMapFs()
-	path := "/cfg/config.yaml"
-	t.Setenv("KDEPS_CONFIG_PATH", path)
-
-	in := bufio.NewReader(strings.NewReader(""))
-	var out testWriter
-	err := PromptAndSaveConnection(ConnKindBot, "myspace", &out, in)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown bot platform")
 }
 
 func TestPromptAndSaveConnection_HTTPBasicAndAPIKeyAndProxy(t *testing.T) {

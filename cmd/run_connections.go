@@ -205,9 +205,7 @@ func referencedConnections(wf *domain.Workflow) []connRef {
 // resources reference (primary action plus before/after action lists) and the
 // distinct cloud LLM backends implied by their chat models, deduplicated.
 // Components resolve at execution time, so the resources of any component the
-// workflow calls via a `component:` action are scanned too. Bot connections
-// are inferred from the workflow's settings.input.bot config, not from
-// resource-level connectionName fields.
+// workflow calls via a `component:` action are scanned too.
 func referencedConnectionsAndBackends(wf *domain.Workflow) ([]connRef, []string) {
 	if wf == nil {
 		return nil, nil
@@ -220,10 +218,6 @@ func referencedConnectionsAndBackends(wf *domain.Workflow) ([]connRef, []string)
 		}
 	}
 	c.scanComponentConnections(wf)
-	// Scan settings.input.bot for bot platform connections.
-	if wf.Settings.Input != nil && wf.Settings.Input.Bot != nil {
-		c.scanBotConfig(wf.Settings.Input.Bot)
-	}
 	return c.refs, c.backends
 }
 
@@ -328,20 +322,6 @@ func (c *connCollector) scanList(resources []*domain.Resource) {
 			a := res.After[i]
 			c.scanAction(a.Chat, a.HTTPClient, a.Component)
 		}
-	}
-}
-
-// scanBotConfig registers each bot platform referenced in a workflow's input
-// bot config as a "bot" connection reference.
-func (c *connCollector) scanBotConfig(botCfg *domain.BotConfig) {
-	if botCfg.Discord != nil {
-		c.add(config.ConnKindBot, "discord")
-	}
-	if botCfg.Slack != nil {
-		c.add(config.ConnKindBot, "slack")
-	}
-	if botCfg.Telegram != nil {
-		c.add(config.ConnKindBot, "telegram")
 	}
 }
 

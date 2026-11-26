@@ -1,8 +1,0 @@
-actionId: llm
-name: LLM Response
-
-chat:
-  model:
-    name: llama3.2:1b
-  context:
-    prompt: "{{ input('message') }}"

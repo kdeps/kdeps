@@ -23,26 +23,3 @@ func TestCanPromptForConnections(_ *testing.T) {
 	// Non-interactive CI: usually false (stdin not a TTY). Just exercise the call.
 	_ = CanPromptForConnections()
 }
-
-func TestHasBotConnection(t *testing.T) {
-	if hasBotConnection(nil, "discord") {
-		t.Fatal("nil cfg")
-	}
-	cfg := &Config{}
-	if hasBotConnection(cfg, "discord") {
-		t.Fatal("empty")
-	}
-	cfg.BotConnections = &BotConnectionConfig{
-		Discord:  &DiscordConnectionConfig{BotToken: "d"},
-		Slack:    &SlackConnectionConfig{BotToken: "s"},
-		Telegram: &TelegramConnectionConfig{BotToken: "t"},
-	}
-	for _, p := range []string{"discord", "slack", "telegram"} {
-		if !hasBotConnection(cfg, p) {
-			t.Fatalf("expected %s", p)
-		}
-	}
-	if hasBotConnection(cfg, "unknown") {
-		t.Fatal("unknown platform")
-	}
-}

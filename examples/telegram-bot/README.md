@@ -1,132 +1,50 @@
 # Telegram Bot Example
 
-A Telegram bot that receives user messages and replies using a local LLM (`llama3.2:1b` llamafile, no server install needed).
+A Telegram bot that answers messages with a local LLM (`llama3.2:1b`).
 
-## Features
-
-- Polls Telegram for new messages every second
-- Sends each message to a local LLM with a custom persona ("Kodi")
-- Replies to the user automatically on Telegram
-
-## Prerequisites
-
-- A Telegram bot token — create one with [@BotFather](https://t.me/botfather) (`/newbot`)
-- Docker or a local kdeps runtime
-
-## Setup
-
-### 1. Get a Bot Token
-
-Talk to [@BotFather](https://t.me/botfather) on Telegram:
-
-```
-/newbot
-→ Name: My Kodi Bot
-→ Username: my_kodi_bot
-→ Token: 1234567890:AAH...
+```text
+telegram_updates listener -> llm -> reply (telegram_post: sendMessage)
 ```
 
-### 2. Run the Bot
+- The `telegram_updates` listener polls `getUpdates` every 2 seconds. Each message starts one workflow run.
+- `llm` answers the text with the "Kodi" persona.
+- `reply` sends the answer to the same chat with the `telegram_post` component.
 
-```bash
-export TELEGRAM_BOT_TOKEN="1234567890:AAH..."
+## Run
 
-# From the examples/telegram-bot directory
-kdeps run workflow.yaml
+1. Create a bot with [@BotFather](https://t.me/botfather) (`/newbot`) and copy the token.
+2. Give kdeps the token:
+   ```bash
+   export TELEGRAM_BOT_TOKEN="1234567890:AAH..."
+   # or keep it in the vault: kdeps secret set telegram_bot_token
+   ```
+3. Run the workflow:
+   ```bash
+   kdeps run examples/telegram-bot/workflow.yaml
+   ```
+4. Send your bot a message on Telegram.
 
-# Or from the project root
-kdeps run examples/telegram-bot/workflow.yaml
-```
+Each run prints one line: `[listen telegram_updates] {...}`.
 
-You should see:
+## Files
 
-```
-Bot input sources active:
-  • Telegram (polling)
-
-Starting bot runners... (press Ctrl+C to stop)
-```
-
-### 3. Chat with the Bot
-
-Open Telegram, find your bot by its username, and send it a message. It will reply using the LLM.
-
-## Structure
-
-```
+```text
 telegram-bot/
-├── workflow.yaml              # Bot source config, Telegram credentials; targetActionId: reply
+├── workflow.yaml        # input.listen: telegram_updates; targetActionId: reply
 └── resources/
-    ├── llm.yaml               # LLM chat resource - receives input('message'), applies persona
-    └── reply.yaml             # apiResponse - its response is sent back to the chat
+    ├── llm.yaml         # prompt: input('message').text
+    └── reply.yaml       # telegram_post sendMessage to input('message').chat.id
 ```
 
-kdeps sends the workflow's result (the `reply` resource's `apiResponse` response) to the chat the message came from.
+## Event fields
 
-## Key Expressions
+| Expression | Value |
+|---|---|
+| `input('message').text` | The text the user sent |
+| `input('message').chat.id` | The chat to answer |
+| `input('message').from.id` | The sender's user ID |
+| `input('update_id')` | The update number |
 
-| Expression | Description |
-|------------|-------------|
-| `input('message')` | The text the Telegram user sent |
-| `input('chatId')` | Telegram chat ID (for targeted replies) |
-| `input('userId')` | Telegram user ID |
-| `input('platform')` | Always `"telegram"` for this bot |
-| `get('llm').message.content` | The LLM-generated reply text |
+## Slack or Discord
 
-## Customization
-
-### Use a Different Model
-
-```yaml
-# workflow.yaml
-deploy:
-  runtime:
-    models:
-      - llama3.1:8b     # Smarter, slower
-
-# resources/llm.yaml
-chat:
-  model:
-    name: llama3.1:8b
-```
-
-### Change the Persona
-
-Edit the `scenario` block in `resources/llm.yaml`:
-
-```yaml
-scenario:
-  - role: assistant
-    prompt: |
-      You are Aria, a customer support agent for Acme Corp.
-      Help users with order status, returns, and product questions.
-```
-
-### Add Discord Support
-
-Add a `discord` block to `workflow.yaml`:
-
-```yaml
-# workflow.yaml
-bot:
-  executionType: polling
-  discord: {}    # presence enables the platform
-  telegram: {}
-```
-
-Credentials live in `~/.kdeps/config.yaml`, not in the workflow:
-
-```yaml
-bot_connections:
-  discord:
-    botToken: "${DISCORD_BOT_TOKEN}"
-  telegram:
-    botToken: "${TELEGRAM_BOT_TOKEN}"
-```
-
-## See Also
-
-- [Stateless Bot Example](../stateless-bot/) — One-shot stdin/stdout execution
-- [Input sources](../../docs/v2/workflow/input-sources.md)
-- [Bot reply](../../docs/v2/workflow/resources/bot-reply.md)
-- [Voice Assistant Example](../voice-assistant/) — Audio/microphone input with TTS output
+Use the `slack_events` listener with `slack_post`, or `discord_gateway` with `discord_post`. See [Input sources](../../docs/v2/workflow/input-sources.md) and [Connectors](../../docs/v2/workflow/resources/connectors.md).

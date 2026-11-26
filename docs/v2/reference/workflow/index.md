@@ -7,7 +7,7 @@ A kdeps workflow is a deterministic YAML pipeline. A request arrives, resources 
 dependency order, and kdeps returns the result. The same input always has the
 same execution path. For this reason, the workflow is auditable and testable, and it can
 run safely without supervision. Serve it as an HTTP
-API, a bot, a file processor, or an interactive prompt.
+API, a file processor, an interactive prompt, or with listeners (a chat bot, a webhook, a followed file).
 
 ```bash
 kdeps run ./my-agent/      # run once / serve on :16395
@@ -41,7 +41,7 @@ A resource runs only after everything in its `requires:` has produced output. Re
 
 ## One file
 
-The same `workflow.yaml` runs as an HTTP API, a bot, a file processor, or an interactive prompt. A failed check returns 400 before any model call. A `chat` with `loop:` is one step. `maxRounds` stops that step.
+The same `workflow.yaml` runs as an HTTP API, a file processor, an interactive prompt, or with listeners (a chat bot, a webhook, a followed file). A failed check returns 400 before any model call. A `chat` with `loop:` is one step. `maxRounds` stops that step.
 
 ## Minimal example
 
@@ -49,7 +49,7 @@ The two-resource chat API, the auth token, and the curl are on the [workflow qui
 
 ## Input sources
 
-A workflow has four input sources. Set them in `deploy`:
+A workflow gets input from four places. Set them in `deploy`:
 
 ```yaml
 # API (default) - starts an HTTP server
@@ -60,14 +60,11 @@ deploy:
       - path: /api/v1/chat
         methods: [POST]
 
-# Bot - connects to a chat platform; blocks until SIGINT
-# Credentials go in ~/.kdeps/config.yaml bot_connections, not here
+# Listeners - one run per event; blocks until SIGINT
 deploy:
   input:
-    sources: [bot]
-    bot:
-      executionType: polling   # polling = persistent; stateless = one message then exit
-      discord: {}              # presence enables the platform
+    listen:
+      - listener: telegram_updates   # a chat bot; reply with the telegram_post component
 
 # File - reads one file from disk or stdin, runs once, exits
 deploy:

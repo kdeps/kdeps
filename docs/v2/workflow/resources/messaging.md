@@ -1,15 +1,16 @@
 # Messaging resources
 
-The bot reply that sends a message to a person. Each has its own reference page.
+A workflow sends a message with a connector component. A listener receives the message; the connector sends the answer.
 
-| Resource | Channel | Reference |
+| Component | Channel | Reference |
 | :--- | :--- | :--- |
-| `apiResponse:` (bot mode) | The workflow result is sent to the chat that delivered the message | [Bot replies](/workflow/resources/bot-reply) |
+| `slack_post` | Slack Web API (`chat.postMessage`) | [Connectors](/workflow/resources/connectors) |
+| `telegram_post` | Telegram Bot API (`sendMessage`) | [Connectors](/workflow/resources/connectors) |
+| `discord_post` | Discord REST API (channel messages) | [Connectors](/workflow/resources/connectors) |
 
 ## See also
 
-- Phone assistant tutorial - phone webhooks step by step
-- [Stateless bot](/examples/stateless-bot/) and [Telegram bot](/examples/telegram-bot/) - bot replies in full
-- [Global config](/reference/advanced-config) - where HTTP, search, and bot credentials live
-- [Input sources](/workflow/input-sources) - configuring `bot:` under `settings:` `input:`
+- [Telegram bot](/examples/telegram-bot/) - a listener in, `telegram_post` out
+- [Input sources](/workflow/input-sources) - `listen:` with `telegram_updates`, `slack_events`, `discord_gateway`
+- [Secrets](/workflow/secrets) - keep the bot tokens in the vault
 - [Resources overview](/workflow/resources) - all resource types
