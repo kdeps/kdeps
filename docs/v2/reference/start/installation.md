@@ -219,7 +219,7 @@ v3 groups the YAML keys and drops native resource kinds. A v2 file fails with an
 | resource `requires`, `items`, `loop`, `onError` | under `flow:` |
 | chat `model`, `prompt`, `tools`, `jsonResponse`, ... | grouped under `model`, `context`, `harness`, `tools`, `rag`, `guardrails` ([LLM resource](/workflow/resources/llm#key-groups)) |
 | `exec:`, `python:`, `httpClient:`, `sql:`, `scraper:`, ... | `component: {name: exec, with: {...}}` (`http_request`, `web_scraper`, ...) |
-| `botReply:` | the target resource's `apiResponse` |
+| `botReply:`, `input.sources: [bot]`, `input.bot` | `input.listen` (a listener) and a connector component (`telegram_post`, `slack_post`, `discord_post`) |
 | `go install github.com/kdeps/kdeps/v2@...` | `go install github.com/kdeps/kdeps/v3@...` |
 
 `browser`, `email`, `telephony` and `codeIntelligence` resources are gone.

@@ -1023,80 +1023,6 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 	})
 }
 
-func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
-	sv, _ := validator.NewSchemaValidator()
-	v := validator.NewWorkflowValidator(sv)
-
-	tests := []struct {
-		name    string
-		input   *domain.InputConfig
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid polling with discord",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					Discord:       &domain.DiscordConfig{},
-				},
-			},
-		},
-		{
-			name: "valid stateless no platforms required",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypeStateless,
-				},
-			},
-		},
-		{
-			name: "polling with no platforms fails",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-				},
-			},
-			wantErr: true,
-			errMsg:  "at least one platform",
-		},
-		{
-			name: "invalid execution type",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: "invalid",
-				},
-			},
-			wantErr: true,
-			errMsg:  "executionType must be",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateInputConfig(tt.input)
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf(
-						"ValidateInputConfig() expected error containing %q, got nil",
-						tt.errMsg,
-					)
-					return
-				}
-				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("ValidateInputConfig() error = %q, want containing %q", err, tt.errMsg)
-				}
-			} else if err != nil {
-				t.Errorf("ValidateInputConfig() unexpected error: %v", err)
-			}
-		})
-	}
-}
-
 func TestValidateTestCases(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1356,37 +1282,6 @@ func TestWorkflowValidator_ValidateInputConfig_EmptySources(t *testing.T) {
 	if !strings.Contains(err.Error(), "input needs sources or listen") {
 		t.Errorf("expected 'input needs sources or listen', got: %v", err)
 	}
-}
-
-// TestWorkflowValidator_ValidateBotConfig_DefaultPolling tests that empty
-// ExecutionType defaults to polling and requires at least one platform.
-func TestWorkflowValidator_ValidateBotConfig_DefaultPolling(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-
-	// Empty ExecutionType defaults to polling; with no platforms this should error.
-	t.Run("empty execution type defaults to polling", func(t *testing.T) {
-		err := v.ValidateInputConfig(&domain.InputConfig{
-			Sources: []string{"bot"},
-			Bot:     &domain.BotConfig{Discord: nil},
-		})
-		if err == nil {
-			t.Fatal("expected error for polling with no platforms, got nil")
-		}
-		if !strings.Contains(err.Error(), "at least one platform") {
-			t.Errorf("expected 'at least one platform', got: %v", err)
-		}
-	})
-
-	// With a platform configured, empty ExecutionType should succeed.
-	t.Run("empty execution type with platform succeeds", func(t *testing.T) {
-		err := v.ValidateInputConfig(&domain.InputConfig{
-			Sources: []string{"bot"},
-			Bot:     &domain.BotConfig{Discord: &domain.DiscordConfig{}},
-		})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
 }
 
 // TestWorkflowValidator_ValidateAPIServerSettings_Nil tests the nil guard.

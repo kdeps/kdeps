@@ -16,37 +16,32 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package bot
+package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
+
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/executor"
+	"github.com/kdeps/kdeps/v3/pkg/infra/logging"
+	fileinput "github.com/kdeps/kdeps/v3/pkg/input/file"
 )
 
-// ReplyText turns a workflow result into the text a bot sends back. A string
-// is sent as is; an apiResponse result ({success, data}) sends its data; a
-// chat result sends message.content; anything else is sent as JSON.
-func ReplyText(result interface{}) string {
-	switch v := result.(type) {
-	case nil:
-		return ""
-	case string:
-		return v
-	case map[string]interface{}:
-		if data, ok := v["data"]; ok {
-			if _, isResponse := v["success"]; isResponse {
-				return ReplyText(data)
-			}
-		}
-		if msg, ok := v["message"].(map[string]interface{}); ok {
-			if content, isText := msg["content"].(string); isText {
-				return content
-			}
-		}
-	}
-	b, err := json.Marshal(result)
-	if err != nil {
-		return fmt.Sprint(result)
-	}
-	return string(b)
+// startFileRunnerWithEngine runs the file input runner using a pre-built engine.
+func startFileRunnerWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	debugMode bool,
+	fileArg string,
+) error {
+	kdeps_debug.Log("enter: startFileRunnerWithEngine")
+	logger := logging.NewLogger(debugMode)
+
+	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
+	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
+
+	ctx := processRoot()
+	return fileinput.RunWithArg(ctx, workflow, eng, logger, fileArg)
 }

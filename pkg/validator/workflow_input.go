@@ -31,7 +31,6 @@ import (
 // validateSourcesList validates each source entry and per-source config requirements.
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	kdeps_debug.Log("enter: validateSourcesList")
-	hasBot := false
 	seen := make(map[string]bool)
 	for _, source := range config.Sources {
 		if source == "" {
@@ -60,59 +59,6 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			)
 		}
 		seen[source] = true
-		if source == domain.InputSourceBot {
-			hasBot = true
-		}
-	}
-
-	if hasBot {
-		if config.Bot == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"input.bot is required when sources includes bot",
-				nil,
-			)
-		}
-		if err := v.validateBotConfig(config.Bot); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// validateBotConfig validates the bot sub-configuration.
-// For polling mode (default), at least one platform must be configured.
-// For stateless mode, platform sub-configs are optional.
-// Each configured platform must have the required credentials.
-func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
-	kdeps_debug.Log("enter: validateBotConfig")
-	executionType := cfg.ExecutionType
-	if executionType == "" {
-		executionType = domain.BotExecutionTypePolling
-	}
-	if executionType != domain.BotExecutionTypePolling &&
-		executionType != domain.BotExecutionTypeStateless {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"input.bot.executionType must be %q or %q, got %q",
-				domain.BotExecutionTypePolling,
-				domain.BotExecutionTypeStateless,
-				cfg.ExecutionType,
-			),
-			nil,
-		)
-	}
-
-	noPlatforms := cfg.Discord == nil && cfg.Slack == nil && cfg.Telegram == nil
-	if executionType == domain.BotExecutionTypePolling && noPlatforms {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"input.bot must configure at least one platform"+
-				" (discord, slack, or telegram) when executionType is polling",
-			nil,
-		)
 	}
 	return nil
 }
@@ -143,8 +89,8 @@ func validateListen(config *domain.InputConfig) error {
 	if len(config.Listen) == 0 {
 		return nil
 	}
-	if config.HasBotSource() || config.HasFileSource() {
-		return listenError("input.listen cannot be used with the bot or file source")
+	if config.HasFileSource() {
+		return listenError("input.listen cannot be used with the file source")
 	}
 	seen := map[string]bool{}
 	for i, spec := range config.Listen {

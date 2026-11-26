@@ -38,9 +38,6 @@ func executionModeFor(workflow *domain.Workflow) executionMode {
 	if s.APIServer != nil {
 		return execModeAPIServer
 	}
-	if s.Input != nil && s.Input.HasBotSource() {
-		return execModeBot
-	}
 	if s.Input != nil && s.Input.HasFileSource() {
 		return execModeFile
 	}
@@ -51,7 +48,7 @@ func executionModeFor(workflow *domain.Workflow) executionMode {
 }
 
 // dispatchExecution selects and starts the correct execution mode for the workflow:
-// server (API/Web/both), bot (polling or stateless), file input, media polling, or single-run stateless.
+// server (API/Web/both), file input, listeners, or a single run.
 func dispatchExecution(
 	workflow *domain.Workflow,
 	workflowPath string,
@@ -84,8 +81,6 @@ func dispatchExecution(
 		return execWebServerWithEngineFn(workflow, workflowPath, devMode)
 	case execModeAPIServer:
 		return execHTTPServerWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
-	case execModeBot:
-		return execBotRunnersWithEngineFn(eng, workflow, debugMode)
 	case execModeFile:
 		return execFileRunnerWithEngineFn(eng, workflow, debugMode, fileArg)
 	case execModeListen:

@@ -45,7 +45,7 @@ then reach for the rest as you need them.
 | [Error handling (onError)](/workflow/error-handling) | Retry, fallback value, or fail on a resource error | Workflow |
 | [Items iteration](/workflow/items) | Run a resource once per list entry (for-each) | Both |
 | [While-loop](/workflow/loop) | Repeat a resource while a condition holds; `every:` for scheduled tasks | Both |
-| [Input sources](/workflow/input-sources) | Feed a workflow from an HTTP API, a chat bot, or a file | Workflow |
+| [Input sources](/workflow/input-sources) | Feed a workflow from an HTTP API, a file, or listeners (a chat bot, a webhook) | Workflow |
 | [Jinja2 templates](/workflow/templates) | YAML preprocessing and project scaffolding | Both |
 
 ## State

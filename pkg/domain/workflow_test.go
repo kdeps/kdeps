@@ -575,18 +575,6 @@ func TestWorkflowSettings_HasDistinctWebPort(t *testing.T) {
 //
 //nolint:gocognit // table-driven test covers all transcriber branches
 
-func TestInputConfig_HasBotSource(t *testing.T) {
-	cWithBot := &domain.InputConfig{Sources: []string{domain.InputSourceBot}}
-	cWithoutBot := &domain.InputConfig{Sources: []string{domain.InputSourceAPI}}
-
-	if !cWithBot.HasBotSource() {
-		t.Error("HasBotSource() should be true when bot is in sources")
-	}
-	if cWithoutBot.HasBotSource() {
-		t.Error("HasBotSource() should be false when bot is not in sources")
-	}
-}
-
 func TestHasFileSource(t *testing.T) {
 	cWith := &domain.InputConfig{Sources: []string{domain.InputSourceFile}}
 	cWithout := &domain.InputConfig{}

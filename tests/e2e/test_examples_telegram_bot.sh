@@ -36,12 +36,12 @@ for f in "$PROJECT_ROOT/examples/telegram-bot/resources/"*.yaml; do
 done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Telegram Bot - Resource files exist ($RESOURCE_COUNT found)"
 
-# The reply is the workflow result: the target is an apiResponse resource
-TB_REPLY="$PROJECT_ROOT/examples/telegram-bot/resources/reply.yaml"
-if grep -q "^apiResponse:" "$TB_REPLY" 2>/dev/null; then
-    test_passed "Telegram Bot - reply resource is an apiResponse"
+# Messages come from the telegram_updates listener; the reply goes out with telegram_post
+if grep -q "listener: telegram_updates" "$WORKFLOW_PATH" &&
+    grep -q "name: telegram_post" "$PROJECT_ROOT/examples/telegram-bot/resources/reply.yaml"; then
+    test_passed "Telegram Bot - telegram_updates listener in, telegram_post reply out"
 else
-    test_failed "Telegram Bot - reply resource is an apiResponse" "Missing or not apiResponse: $TB_REPLY"
+    test_failed "Telegram Bot - listener and reply component" "listener: telegram_updates or telegram_post missing"
 fi
 
 test_skipped "Telegram Bot - Server test (requires external service/LLM)"

@@ -44,9 +44,6 @@ func TestDispatchExecution_AllModesViaHooks(t *testing.T) {
 		{"api", &domain.Workflow{Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{},
 		}}},
-		{"bot", &domain.Workflow{Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{Sources: []string{"bot"}, Bot: &domain.BotConfig{}},
-		}}},
 		{"file", &domain.Workflow{Settings: domain.WorkflowSettings{
 			Input: &domain.InputConfig{Sources: []string{"file"}},
 		}}},
@@ -64,18 +61,7 @@ func TestDispatchExecution_AllModesViaHooks(t *testing.T) {
 	}
 }
 
-func TestDispatchExecution_BotAndFileModes(t *testing.T) {
-	botWF := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "bot"},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{"bot"},
-				Bot:     &domain.BotConfig{ExecutionType: domain.BotExecutionTypeStateless},
-			},
-		},
-	}
-	require.Error(t, dispatchExecution(botWF, t.TempDir(), false, false, "", false, false))
-
+func TestDispatchExecution_FileMode(t *testing.T) {
 	fileWF := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "file", TargetActionID: "act"},
 		Settings:  domain.WorkflowSettings{Input: &domain.InputConfig{Sources: []string{"file"}}},

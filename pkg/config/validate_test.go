@@ -93,9 +93,6 @@ http_connections:
 search_connections:
   brave:
     key: abc
-bot_connections:
-  discord:
-    token: xyz
 api_auth_token: secret
 identity:
   name: kdeps bot

@@ -175,5 +175,3 @@ func startSplitServers(
 }
 
 const splitServerCount = 2
-
-// botPlatformsFromInput returns the configured bot platform names for status output.

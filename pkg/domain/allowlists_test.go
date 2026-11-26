@@ -29,5 +29,6 @@ func TestWorkflowInputSources(t *testing.T) {
 	assert.True(t, IsValidWorkflowInputSource(InputSourceAPI))
 	assert.False(t, IsValidWorkflowInputSource("stdin"))
 	assert.True(t, IsValidWorkflowInputSource(InputSourceInteractive))
-	assert.Equal(t, "api, bot, file, interactive", WorkflowInputSourcesDisplay())
+	assert.False(t, IsValidWorkflowInputSource("bot"))
+	assert.Equal(t, "api, file, interactive", WorkflowInputSourcesDisplay())
 }

@@ -46,8 +46,6 @@ func dispatchExecutionWithEngine(
 		return execWebServerWithEngineFn(workflow, workflowPath, devMode)
 	case execModeAPIServer:
 		return execHTTPServerWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
-	case execModeBot:
-		return execBotRunnersWithEngineFn(eng, workflow, debugMode)
 	case execModeFile:
 		return execFileRunnerWithEngineFn(eng, workflow, debugMode, fileArg)
 	case execModeListen:

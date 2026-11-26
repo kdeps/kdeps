@@ -26,7 +26,7 @@
 #   Tier 4 (runtime) - Skipped unless optional tools / API keys are present
 #
 # Components covered:
-#   autopilot  botreply  browser    calendar  email     embedding
+#   autopilot  browser    calendar  email     embedding
 #   input      memory    pdf        remoteagent  scraper  search
 #   search-local  tts
 
@@ -43,7 +43,7 @@ echo "Testing Contrib Components..."
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 EXAMPLES_DIR="$PROJECT_ROOT/tests/e2e/examples/components"
-ALL_COMPONENTS=(autopilot botreply browser calendar email embedding input memory pdf remoteagent scraper search search-local tts)
+ALL_COMPONENTS=(autopilot browser calendar email embedding input memory pdf remoteagent scraper search search-local tts)
 
 python3_available() {
     command -v python3 &>/dev/null
@@ -171,7 +171,6 @@ echo "-- Tier 1c: Workflow validation (run.component syntax) --"
 comp_required_inputs() {
     case "$1" in
         autopilot)   echo "task=Write_a_haiku" ;;
-        botreply)    echo "token=fake:token chatId=123 text=hello" ;;
         browser)     echo "url=https://example.com" ;;
         calendar)    echo "title=Meeting start=2024-01-01T10:00:00 end=2024-01-01T11:00:00" ;;
         email)       echo "to=test@example.com subject=Hello body=World smtpHost=smtp.example.com smtpUser=user smtpPass=pass" ;;
@@ -565,13 +564,6 @@ else
     test_skipped "tts (offline) component - runtime test (install espeak to enable)"
 fi
 
-# botreply requires TELEGRAM_BOT_TOKEN
-if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-    test_skipped "botreply component - TELEGRAM_BOT_TOKEN present but live API tests disabled"
-else
-    test_skipped "botreply component - runtime test (set TELEGRAM_BOT_TOKEN to enable)"
-fi
-
 # tts (online) requires OPENAI_API_KEY
 if [ -n "${OPENAI_API_KEY:-}" ]; then
     test_skipped "tts (online) component - OPENAI_API_KEY present but live API tests disabled"
@@ -636,7 +628,7 @@ fi
 test_skipped "email component - runtime test (set SMTP_HOST/SMTP_USER/SMTP_PASS to enable)"
 
 # remoteagent's "url" input is a parameterized component input, not
-# hardcoded (unlike search/botreply/tts-online) -- it can be pointed at a
+# hardcoded (unlike search/tts-online) -- it can be pointed at a
 # local mock HTTP server, same pattern as the scraper Tier-4 test above.
 if python3_available; then
     TMP_RA=$(mktemp -d)

@@ -31,16 +31,6 @@ import (
 	kdepslog "github.com/kdeps/kdeps/v3/pkg/log"
 )
 
-// StartBotRunners starts bot execution in either polling or stateless mode.
-// Polling mode starts long-running platform runners and blocks until SIGINT/SIGTERM.
-// Stateless mode reads one message from stdin, executes the workflow once, writes the
-// reply to stdout, and returns.
-func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
-	kdeps_debug.Log("enter: StartBotRunners")
-	engine := setupEngine(workflow, debugMode)
-	return StartBotRunnersWithEngine(engine, workflow, debugMode)
-}
-
 // StartFileRunner reads file content from fileArg (if non-empty), stdin
 // (or KDEPS_FILE_PATH / configured path), executes the workflow once, and returns.
 // File content and path are available to workflow resources via

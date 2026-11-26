@@ -57,7 +57,6 @@ source_isolated "$SCRIPT_DIR/test_examples_search_local_files.sh" test_examples_
 source_isolated "$SCRIPT_DIR/test_examples_search_web_native.sh" test_examples_search_web_native.sh
 
 # --- Examples requiring external services (validation only) ---
-source_isolated "$SCRIPT_DIR/test_examples_stateless_bot.sh" test_examples_stateless_bot.sh
 source_isolated "$SCRIPT_DIR/test_examples_vision.sh" test_examples_vision.sh
 source_isolated "$SCRIPT_DIR/test_examples_telegram_bot.sh" test_examples_telegram_bot.sh
 source_isolated "$SCRIPT_DIR/test_examples_new_features.sh" test_examples_new_features.sh

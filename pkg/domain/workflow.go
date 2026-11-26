@@ -29,17 +29,10 @@ const (
 
 	// InputSourceAPI is the input source for API (HTTP) requests (default).
 	InputSourceAPI = "api"
-	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram).
-	InputSourceBot = "bot"
 	// InputSourceFile is the input source for file content read from stdin or a file path.
 	InputSourceFile = "file"
 	// InputSourceInteractive is the terminal prompt: each line runs the workflow.
 	InputSourceInteractive = "interactive"
-	// BotExecutionTypePolling is the default long-running polling/WebSocket execution mode.
-	BotExecutionTypePolling = "polling"
-	// BotExecutionTypeStateless is a single-shot execution: reads a message from stdin (JSON),
-	// executes the workflow once, writes the reply to stdout, then exits.
-	BotExecutionTypeStateless = "stateless"
 )
 
 // Workflow represents a KDeps workflow configuration.
@@ -204,10 +197,9 @@ func (c *LetsEncryptConfig) Validate() error {
 }
 
 // InputConfig specifies the input sources for the workflow.
-// Valid sources: "api" (default), "bot", "file".
+// Valid sources: "api" (default), "file", "interactive".
 type InputConfig struct {
 	Sources []string    `yaml:"sources,omitempty" json:"sources,omitempty"`
-	Bot     *BotConfig  `yaml:"bot,omitempty"     json:"bot,omitempty"`
 	File    *FileConfig `yaml:"file,omitempty"    json:"file,omitempty"`
 	// Listen starts one workflow run for each event a listener receives.
 	Listen []ListenSpec `yaml:"listen,omitempty" json:"listen,omitempty"`

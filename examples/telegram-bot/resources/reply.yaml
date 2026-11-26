@@ -1,10 +1,14 @@
 actionId: reply
 name: Reply
 flow:
-    requires:
-        - llm
+  requires:
+    - llm
 
-# A bot sends the workflow's result: apiResponse's response is the reply text.
-apiResponse:
-  success: true
-  response: "{{ get('llm').message.content }}"
+# Send the answer to the chat the message came from (Bot API sendMessage).
+component:
+  name: telegram_post
+  with:
+    path: sendMessage
+    body:
+      chat_id: "{{ input('message').chat.id }}"
+      text: "{{ get('llm').message.content }}"

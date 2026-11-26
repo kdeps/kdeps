@@ -29,8 +29,7 @@ The examples are in groups. Pick the one closest to what you are building.
 | [Local file search](/examples/local-file-search) | `component: search_local` glob + content search |
 | [Python data processing](/examples/python-processing) | `python` component, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Web server mode, static file serving |
-| [Stateless bot](/examples/stateless-bot/) | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
-| [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
+| [Telegram bot](/examples/telegram-bot/) | `telegram_updates` listener, `telegram_post` connector, local LLM |
 | [Showcase](/examples/showcase) | Complex agents in ~20 lines of YAML - multiple real-world patterns |
 
 ### Agencies

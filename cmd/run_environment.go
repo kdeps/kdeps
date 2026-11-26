@@ -28,56 +28,6 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/infra/python"
 )
 
-func printIORequirements(workflow *domain.Workflow) {
-	kdeps_debug.Log("enter: printIORequirements")
-	input := workflow.Settings.Input
-	if input == nil {
-		return
-	}
-
-	hasIO := input.HasBotSource() || input.HasFileSource()
-	if !hasIO {
-		return
-	}
-
-	fmt.Fprintln(os.Stdout, "  I/O requirements:")
-	printBotRequirements(input)
-}
-
-func printBotPlatform(title string, lines ...string) {
-	fmt.Fprintf(os.Stdout, "    %s\n", title)
-	for _, line := range lines {
-		fmt.Fprintf(os.Stdout, "      %s\n", line)
-	}
-}
-
-// printBotRequirements prints a note for each configured bot platform.
-func printBotRequirements(input *domain.InputConfig) {
-	kdeps_debug.Log("enter: printBotRequirements")
-	if !input.HasBotSource() || input.Bot == nil {
-		return
-	}
-	b := input.Bot
-	if b.Discord != nil {
-		printBotPlatform(
-			"Discord bot:",
-			"Requires a Discord bot token (set DISCORD_BOT_TOKEN in your environment)",
-		)
-	}
-	if b.Slack != nil {
-		printBotPlatform(
-			"Slack bot (Socket Mode):",
-			"Requires a Slack bot token (xoxb-...) and app-level token (xapp-...)",
-		)
-	}
-	if b.Telegram != nil {
-		printBotPlatform(
-			"Telegram bot (long-polling):",
-			"Requires a Telegram bot token from @BotFather",
-		)
-	}
-}
-
 // SetupEnvironment sets up the execution environment.
 func SetupEnvironment(ctx context.Context, workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: SetupEnvironment")

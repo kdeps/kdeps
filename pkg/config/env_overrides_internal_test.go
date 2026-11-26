@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSplitNameField(t *testing.T) {
@@ -35,14 +34,12 @@ func TestSplitNameField(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
+func TestApplyConnectionEnvOverrides_SQLSearchHTTP(t *testing.T) {
 	t.Setenv("KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION", "postgres://u:p@h/db")
 	t.Setenv("KDEPS_SEARCH_CONNECTIONS_WEB_API_KEY", "sk-search")
 	t.Setenv("KDEPS_HTTP_CONNECTIONS_API_PROXY", "http://proxy:8080")
 	t.Setenv("KDEPS_HTTP_CONNECTIONS_API_AUTH_TYPE", "bearer")
 	t.Setenv("KDEPS_HTTP_CONNECTIONS_API_AUTH_TOKEN", "tok-123")
-	t.Setenv("KDEPS_BOT_CONNECTIONS_SLACK_BOT_TOKEN", "xoxb-1")
-	t.Setenv("KDEPS_BOT_CONNECTIONS_TELEGRAM_BOT_TOKEN", "123:abc")
 
 	cfg := &Config{}
 	applyConnectionEnvOverrides(cfg)
@@ -53,12 +50,6 @@ func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
 	if assert.NotNil(t, cfg.HTTPConnections["api"].Auth) {
 		assert.Equal(t, "bearer", cfg.HTTPConnections["api"].Auth.Type)
 		assert.Equal(t, "tok-123", cfg.HTTPConnections["api"].Auth.Token)
-	}
-	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.Slack) {
-		assert.Equal(t, "xoxb-1", cfg.BotConnections.Slack.BotToken)
-	}
-	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.Telegram) {
-		assert.Equal(t, "123:abc", cfg.BotConnections.Telegram.BotToken)
 	}
 }
 
@@ -123,44 +114,8 @@ func TestConnectionEnvFieldsHTTP(t *testing.T) {
 	assert.True(t, fields[4].Secret)
 }
 
-func TestConnectionEnvFieldsBotDiscord(t *testing.T) {
-	cfg := &Config{BotConnections: &BotConnectionConfig{
-		Discord: &DiscordConnectionConfig{BotToken: "discord-tok"},
-	}}
-	fields := ConnectionEnvFields(cfg, ConnKindBot, "discord")
-	assert.Len(t, fields, 1)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_DISCORD_BOT_TOKEN", fields[0].Name)
-	assert.Equal(t, "discord-tok", fields[0].Value)
-	assert.True(t, fields[0].Secret)
-}
-
-func TestConnectionEnvFieldsBotSlack(t *testing.T) {
-	cfg := &Config{BotConnections: &BotConnectionConfig{
-		Slack: &SlackConnectionConfig{BotToken: "xoxb-1", AppToken: "xapp-2"},
-	}}
-	fields := ConnectionEnvFields(cfg, ConnKindBot, "slack")
-	assert.Len(t, fields, 3)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_SLACK_BOT_TOKEN", fields[0].Name)
-	assert.Equal(t, "xoxb-1", fields[0].Value)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_SLACK_APP_TOKEN", fields[1].Name)
-	assert.Equal(t, "xapp-2", fields[1].Value)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_SLACK_SIGNING_SECRET", fields[2].Name)
-}
-
-func TestConnectionEnvFieldsBotTelegram(t *testing.T) {
-	fields := ConnectionEnvFields(nil, ConnKindBot, "telegram")
-	assert.Len(t, fields, 1)
-	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_TELEGRAM_BOT_TOKEN", fields[0].Name)
-	assert.Equal(t, "", fields[0].Value)
-	assert.True(t, fields[0].Secret)
-}
-
 func TestConnectionEnvFieldsUnknownKind(t *testing.T) {
 	assert.Nil(t, ConnectionEnvFields(nil, "bogus", "x"))
-}
-
-func TestConnectionEnvFieldsUnknownBot(t *testing.T) {
-	assert.Nil(t, ConnectionEnvFields(nil, ConnKindBot, "nostromo"))
 }
 
 func TestSetHTTPAuthField(t *testing.T) {
@@ -180,25 +135,4 @@ func TestSetHTTPAuthField(t *testing.T) {
 	before := *auth
 	setHTTPAuthField(auth, "AUTH_BOGUS", "x")
 	assert.Equal(t, before, *auth)
-}
-
-func TestOverlayBot(t *testing.T) {
-	cfg := &Config{}
-	overlayBot(cfg, "DISCORD_BOT_TOKEN", "d-tok")
-	overlayBot(cfg, "TELEGRAM_BOT_TOKEN", "t-tok")
-	overlayBot(cfg, "SLACK_BOT_TOKEN", "s-bot")
-	overlayBot(cfg, "SLACK_APP_TOKEN", "s-app")
-	overlayBot(cfg, "SLACK_SIGNING_SECRET", "s-sign")
-
-	require.NotNil(t, cfg.BotConnections)
-	assert.Equal(t, "d-tok", cfg.BotConnections.Discord.BotToken)
-	assert.Equal(t, "t-tok", cfg.BotConnections.Telegram.BotToken)
-	assert.Equal(t, "s-bot", cfg.BotConnections.Slack.BotToken)
-	assert.Equal(t, "s-app", cfg.BotConnections.Slack.AppToken)
-	assert.Equal(t, "s-sign", cfg.BotConnections.Slack.SigningSecret)
-
-	// An unrecognized field is a no-op, not an error.
-	before := *cfg.BotConnections
-	overlayBot(cfg, "BOGUS_FIELD", "x")
-	assert.Equal(t, before, *cfg.BotConnections)
 }

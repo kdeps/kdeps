@@ -3,21 +3,20 @@
 This page lists every field and option. The [overview](/workflow/input-sources) shows what it does and a first example.
 
 
-A workflow gets input from an HTTP server (`apiServer:` under `deploy:`), a chat bot, one file, or a terminal prompt. You set the bot, file and interactive sources under `input:` in `deploy:`.
+A workflow gets input from an HTTP server (`apiServer:` under `deploy:`), one file, a terminal prompt, or listeners. You set the file and interactive sources and `listen:` under `input:` in `deploy:`. A chat bot is a listener in and a connector out: see [Ready-made listeners](#ready-made-listeners).
 
-This sets how a run gets its input. `interactive` is one of the four sources.
+This sets how a run gets its input. `interactive` is one of the three sources.
 
 ## Overview
 
 | Source | Use Case |
 |--------|----------|
 | `api` | Valid source name. Does not open a port. |
-| `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 | `interactive` | A terminal prompt: each line you type runs the workflow |
 | `listen:` | Listeners: one run for each new line in a file or a named pipe, each item a polled tool returns, each webhook POST, or each websocket message a rule emits |
 
-An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, no file source and no `listen:`, `kdeps run` runs the workflow one time and stops.
+An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no file source and no `listen:`, `kdeps run` runs the workflow one time and stops.
 
 ## API source
 
@@ -37,36 +36,6 @@ deploy:
 Requests are JSON and routed to resources by `targetActionId:` under the workflow's `metadata:`.
 
 Use `validations.methods` and `validations.routes` in individual resources to scope them to specific routes.
-
-## Bot source
-
-The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram. WhatsApp has no long-lived connection - Meta calls a webhook - so a WhatsApp bot is an ordinary API workflow: `kdeps new my-bot --template whatsapp-bot`.
-
-Bot credentials belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. The workflow only declares which platforms to enable.
-
-```yaml
-# ~/.kdeps/config.yaml
-bot_connections:
-  discord:
-    botToken: "${DISCORD_BOT_TOKEN}"
-  slack:
-    botToken: "${SLACK_BOT_TOKEN}"
-    appToken: "${SLACK_APP_TOKEN}"
-
-# workflow.yaml
-deploy:
-  input:
-    sources: [bot]
-    bot:
-      executionType: polling
-      discord: {}   # presence enables the platform; credentials are in ~/.kdeps/config.yaml
-      slack: {}
-```
-
-Execution types:
-
-- `polling` (default): Long-running persistent connection. Blocks until SIGINT/SIGTERM.
-- `stateless`: Reads one message from stdin as JSON, runs the workflow one time, writes the result (the reply) to stdout, then stops.
 
 ## File source
 
@@ -134,7 +103,7 @@ safety limit, not a target size.
 # workflow.yaml
 deploy:
   input:
-    sources: [interactive]   # add api, bot or file to keep those running in the background
+    sources: [interactive]   # add api or file to keep those running in the background
 repl:
   prompt: "You: "            # text before each line (default "> ")
   sessionId: my-session      # get('session') for every line (default "llm-repl-session")
@@ -310,7 +279,7 @@ A `websocket` listener keeps one connection open and connects again after a fail
 | `on[].when` | The rule matches when this renders text other than `false`. Templates see `.msg` (JSON), `.raw` (text), `.state`, `.env` and `.open`. |
 | `on[].set`, `every`, `send`, `emit`, `reconnect` | Run in this order: store values in `.state`, set the heartbeat, send a message, start one run, connect again. |
 
-Listener templates use the same helpers as tool `http:` blocks (`json`, `get`, `add`, `int`, `urlquery`, `kv`, ...), not the `{{ input() }}` expressions of a resource.
+Listener templates use the same helpers as tool `http:` blocks (`json`, `get`, `add`, `int`, `urlquery`, `kv`, ...), not the `input()` expressions of a resource.
 
 A handshake answers a service's URL check. Only a POST can start a run, and `verify` applies to each POST:
 
@@ -333,8 +302,8 @@ kdeps saves the read position of a `file` listener and the cursor of a `poll` li
 
 - Serve a workflow as an HTTP JSON API for a frontend or another service
   (`apiServer:` under `deploy:`).
-- Run a workflow as a chat bot on Discord, Slack or Telegram (WhatsApp: the `whatsapp-bot` template)
-  (`bot`).
+- Run a workflow as a chat bot on Discord, Slack or Telegram
+  (`listen:` with `discord_gateway`, `slack_events` or `telegram_updates`).
 - Process one file per invocation from a pipeline, cron job, or CI step
   (`file`).
 - Run a workflow for each new log line, queued job, API item or webhook
@@ -344,4 +313,4 @@ kdeps saves the read position of a `file` listener and the cursor of a `poll` li
 
 - [Workflow configuration](/workflow/configuration) - full `deploy` reference
 - [Workflow](/workflow/) - the request and the response
-- [Bot configuration](/workflow/configuration#bot-source) - full bot settings
+- [Connectors](/workflow/resources/connectors) - send the reply with `slack_post`, `telegram_post`, `discord_post`

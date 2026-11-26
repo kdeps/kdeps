@@ -144,17 +144,6 @@ defaults:
 #   tavily:
 #     apiKey: "${TAVILY_API_KEY}"
 
-# ── Bot credentials — tokens and secrets for chat-bot platform runners ───────
-# bot_connections:
-#   discord:
-#     botToken: "${DISCORD_BOT_TOKEN}"
-#   slack:
-#     botToken: "${SLACK_BOT_TOKEN}"
-#     appToken: "${SLACK_APP_TOKEN}"         # xapp-... for Socket Mode
-#     signingSecret: "${SLACK_SIGNING_SECRET}"
-#   telegram:
-#     botToken: "${TELEGRAM_BOT_TOKEN}"
-
 # ── Named SQL connections — DSNs for sql resources ───────────────────────────
 # Resources reference connections by name via sql.connectionName.
 # Pool config (maxConnections, minConnections, maxIdleTime, connectionTimeout)

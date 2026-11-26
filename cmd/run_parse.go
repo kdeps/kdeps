@@ -105,6 +105,3 @@ func ValidateWorkflow(workflow *domain.Workflow) error {
 	// Validate.
 	return workflowValidator.Validate(workflow)
 }
-
-// printIORequirements prints the system packages needed for the workflow's I/O features.
-// It is a no-op when the workflow has no non-API input sources (bot, file).

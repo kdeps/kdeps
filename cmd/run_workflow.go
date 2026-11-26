@@ -97,7 +97,6 @@ func validateWorkflowStep(workflow *domain.Workflow) error {
 func setupEnvironmentStep(ctx context.Context, workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: setupEnvironmentStep")
 	fmt.Fprintln(os.Stdout, "\n[3/5] Setting up environment...")
-	printIORequirements(workflow)
 	if setupErr := setupEnvironmentFunc(ctx, workflow); setupErr != nil {
 		return fmt.Errorf("environment setup failed: %w", setupErr)
 	}

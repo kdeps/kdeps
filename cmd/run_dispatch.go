@@ -27,7 +27,6 @@ import (
 
 	"github.com/kdeps/kdeps/v3/pkg/config"
 	"github.com/kdeps/kdeps/v3/pkg/infra/http"
-	"github.com/kdeps/kdeps/v3/pkg/input/bot"
 )
 
 type executionMode int
@@ -36,7 +35,6 @@ const (
 	execModeBothServers executionMode = iota
 	execModeWebServer
 	execModeAPIServer
-	execModeBot
 	execModeFile
 	execModeListen
 	execModeSingleRun
@@ -54,13 +52,11 @@ var (
 	execBothServersFn                          = StartBothServers
 	execWebServerFn                            = StartWebServer
 	execHTTPServerFn                           = StartHTTPServer
-	execBotRunnersFn                           = StartBotRunners
 	execFileRunnerFn                           = StartFileRunner
 	execSingleRunFn                            = ExecuteSingleRun
 	execBothServersWithEngineFn                = startBothServersWithEngine
 	execHTTPServerWithEngineFn                 = startHTTPServerWithEngine
 	execWebServerWithEngineFn                  = StartWebServer
-	execBotRunnersWithEngineFn                 = StartBotRunnersWithEngine
 	execFileRunnerWithEngineFn                 = startFileRunnerWithEngine
 	execListenWithEngineFn                     = startListenRunner
 	execSingleRunWithEngineFn                  = executeSingleRunWithEngine
@@ -69,7 +65,6 @@ var (
 	httpServerShutdownFunc                     = defaultHTTPServerShutdown
 	webServerStartFunc                         = defaultWebServerStart
 	webServerShutdownFunc                      = defaultWebServerShutdown
-	botDispatcherRunFunc                       = defaultBotDispatcherRun
 	httpNewServerFunc                          = http.NewServer
 	httpNewWebServerFunc                       = http.NewWebServer
 	notifySignalsFunc                          = signal.Notify
@@ -88,10 +83,6 @@ func defaultHTTPServerShutdown(srv *http.Server, ctx context.Context) error {
 	return srv.Shutdown(ctx)
 }
 
-func defaultBotDispatcherRun(ctx context.Context, d *bot.Dispatcher) error {
-	return d.Run(ctx)
-}
-
 //nolint:revive // signature matches (*http.WebServer).Start(ctx)
 func defaultWebServerStart(srv *http.WebServer, ctx context.Context) error {
 	return srv.Start(ctx)
@@ -106,11 +97,6 @@ func defaultWebServerShutdown(srv *http.WebServer, ctx context.Context) error {
 //
 //nolint:gochecknoglobals // test-replaceable hook
 var loadWithAgentFunc = config.LoadWithAgent
-
-// loadStructWithAgentFunc loads bot credentials (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var loadStructWithAgentFunc = config.LoadStructWithAgent
 
 // ensureOllamaRunningFunc ensures Ollama is running (overridable in tests).
 //

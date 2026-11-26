@@ -177,16 +177,6 @@ func TestEnsureOllamaRunning_Internal(t *testing.T) {
 	})
 }
 
-func TestPrintIORequirements_Internal(_ *testing.T) {
-	// Just ensure it doesn't panic with various configs
-	w := &domain.Workflow{
-		Resources: []*domain.Resource{
-			{APIResponse: &domain.APIResponseConfig{}},
-		},
-	}
-	printIORequirements(w)
-}
-
 func TestFindWorkflowFile_Internal(t *testing.T) {
 	tmpDir := t.TempDir()
 

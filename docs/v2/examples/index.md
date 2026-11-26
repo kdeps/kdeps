@@ -22,8 +22,7 @@ Each example is a complete project. Copy its files and run the command on its pa
 | [Local file search](/examples/local-file-search) | Searches files on disk |
 | [Python data processing](/examples/python-processing) | Converts data with a Python script |
 | [Static site](/examples/static-site) | Serves static files |
-| [Stateless bot](/examples/stateless-bot/) | One message in, one reply out |
-| [Telegram bot](/examples/telegram-bot/) | A Telegram bot on a local model |
+| [Telegram bot](/examples/telegram-bot/) | A Telegram bot on a local model: a listener in, a connector out |
 | [Showcase](/examples/showcase) | Short agents for common tasks |
 | [Two-agent agency](/examples/agency) | One agent that calls another |
 | [Reusable component](/examples/custom-component) | A component you build and call |

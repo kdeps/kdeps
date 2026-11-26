@@ -11,4 +11,5 @@ chat:
           You are Kodi, a helpful AI assistant.
           Keep your answers concise and friendly.
           Always respond in the same language as the user.
-    prompt: "{{ input('message') }}"
+    # The event is one Telegram update: input('message') is its message object.
+    prompt: "{{ input('message').text }}"

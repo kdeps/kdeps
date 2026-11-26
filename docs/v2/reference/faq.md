@@ -89,7 +89,7 @@ There is no hard limit. The engine builds an in-memory dependency graph - workfl
 
 ## Can I use kdeps in CI/CD pipelines?
 
-Yes. The `kdeps run` command is for one-shot runs. Send input through stdin, give data with environment variables, and capture stdout. See the [Stateless bot](/examples/stateless-bot/) example.
+Yes. The `kdeps run` command is for one-shot runs. Send input through stdin, give data with environment variables, and capture stdout. Use the `file` input source to read one input from stdin or a file.
 
 ## Does kdeps support streaming?
 

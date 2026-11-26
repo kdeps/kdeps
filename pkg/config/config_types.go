@@ -217,30 +217,6 @@ type SearchConnectionConfig struct {
 	APIKey string `yaml:"apiKey"`
 }
 
-// DiscordConnectionConfig holds Discord bot credentials.
-type DiscordConnectionConfig struct {
-	BotToken string `yaml:"botToken"`
-}
-
-// SlackConnectionConfig holds Slack bot credentials.
-type SlackConnectionConfig struct {
-	BotToken      string `yaml:"botToken"`
-	AppToken      string `yaml:"appToken,omitempty"`      // xapp-... for Socket Mode
-	SigningSecret string `yaml:"signingSecret,omitempty"` // for request verification
-}
-
-// TelegramConnectionConfig holds Telegram bot credentials.
-type TelegramConnectionConfig struct {
-	BotToken string `yaml:"botToken"`
-}
-
-// BotConnectionConfig holds credentials for all configured bot platforms.
-type BotConnectionConfig struct {
-	Discord  *DiscordConnectionConfig  `yaml:"discord,omitempty"`
-	Slack    *SlackConnectionConfig    `yaml:"slack,omitempty"`
-	Telegram *TelegramConnectionConfig `yaml:"telegram,omitempty"`
-}
-
 // SQLConnectionConfig holds a database connection string for a named SQL connection.
 type SQLConnectionConfig struct {
 	Connection string `yaml:"connection"` // DSN, e.g. "postgres://user:pass@host/db"
@@ -248,7 +224,7 @@ type SQLConnectionConfig struct {
 
 // AccountConfig holds credentials for a named third-party account an agent
 // logs into (e.g. a CRM or a SaaS dashboard) -- distinct from
-// the HTTP/search/bot connections above, which are for kdeps' own outbound
+// the HTTP/search connections above, which are for kdeps' own outbound
 // integrations, not a general "the agent authenticates as this identity"
 // concept.
 type AccountConfig struct {
@@ -306,7 +282,6 @@ type Config struct {
 	ResourceDefaults  ResourceDefaults                  `yaml:"resource_defaults"`
 	HTTPConnections   map[string]HTTPConnectionConfig   `yaml:"http_connections,omitempty"`
 	SearchConnections map[string]SearchConnectionConfig `yaml:"search_connections,omitempty"`
-	BotConnections    *BotConnectionConfig              `yaml:"bot_connections,omitempty"`
 	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
 	Identity          *IdentityConfig                   `yaml:"identity,omitempty"`

@@ -41,11 +41,6 @@ func TestDispatchExecutionWithEngine_AllModesViaHooks(t *testing.T) {
 		},
 		{Settings: domain.WorkflowSettings{WebServer: &domain.WebServerConfig{}}},
 		{Settings: domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}}},
-		{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{Sources: []string{"bot"}, Bot: &domain.BotConfig{}},
-			},
-		},
 		{Settings: domain.WorkflowSettings{Input: &domain.InputConfig{Sources: []string{"file"}}}},
 		{
 			Metadata: domain.WorkflowMetadata{TargetActionID: "act"},
@@ -97,20 +92,6 @@ func TestDispatchExecution_AllModes(t *testing.T) {
 		}
 		err := dispatchExecutionWithEngine(eng, wf, tmp, false, false, "", false)
 		require.Error(t, err) // no file input in test
-	})
-
-	t.Run("bot-stateless", func(t *testing.T) {
-		wf := &domain.Workflow{
-			Metadata: domain.WorkflowMetadata{Name: "b"},
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{"bot"},
-					Bot:     &domain.BotConfig{ExecutionType: domain.BotExecutionTypeStateless},
-				},
-			},
-		}
-		err := dispatchExecutionWithEngine(eng, wf, tmp, false, false, "", false)
-		require.Error(t, err)
 	})
 }
 

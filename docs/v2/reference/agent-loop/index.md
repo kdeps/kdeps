@@ -47,7 +47,7 @@ cd my-agent
 kdeps run workflow.yaml   # or bare: kdeps
 ```
 
-The same chat serves an HTTP API, a bot, or a file when you change `sources:`. See [Input sources](/workflow/input-sources).
+The same chat serves an HTTP API, a file, or a chat bot when you change `input:`. See [Input sources](/workflow/input-sources).
 
 ## What the loop adds
 
