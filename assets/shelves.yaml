@@ -37,6 +37,7 @@ sets:
   memory: memory
   knowledge: rag
   codegraph: tools
+  listeners: workflow
 
 # items: a shelf other than its set's default. The key is set/name.
 items:

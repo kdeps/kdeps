@@ -1,0 +1,12 @@
+version: 1.0.0
+description: 'Open a Slack Socket Mode connection: POST https://slack.com/api/apps.connections.open with the app-level token and return the JSON with the websocket url. The slack_events listener calls it before each connect. Requires SLACK_APP_TOKEN or the vault secret slack_app_token.'
+parameters: {}
+http:
+  env:
+    TOKEN: [SLACK_APP_TOKEN, "secret:slack_app_token"]
+  method: POST
+  url: 'https://slack.com/api/apps.connections.open'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    Content-Type: application/x-www-form-urlencoded
+    User-Agent: kdeps

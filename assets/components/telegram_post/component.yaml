@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: telegram_post
+  description: Write to the Telegram Bot API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: 'The Bot API method (sendMessage)'
+    - name: body
+      type: object
+      required: true
+      description: 'The JSON request body, for example {"chat_id": 123, "text": "..."}'
+  # The Telegram reply, parsed from JSON. A missing token is an error that names its sources.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Telegram POST
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/telegram_post/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('telegram_post.path') }}"
+        body: "{{ get('telegram_post.body') }}"

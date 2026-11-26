@@ -251,6 +251,8 @@ A configured [identity](/reference/advanced-config#agent-identity) takes priorit
 | `airtable_get`, `airtable_post`, `airtable_patch` | `AIRTABLE_TOKEN`, `AIRTABLE_API_KEY` or vault `airtable_token` | Read, create and change Airtable records |
 | `stripe_get` | `STRIPE_SECRET_KEY`, `STRIPE_API_KEY` or vault `stripe_secret_key` | Read Stripe customers, payments and invoices |
 | `stripe_post` | same as `stripe_get` | Create and change Stripe objects; a person approves each call (T2) |
+| `telegram_get`, `telegram_post` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_TOKEN` or vault `telegram_bot_token` | Read the Telegram Bot API, send and edit messages |
+| `discord_get`, `discord_post` | `DISCORD_BOT_TOKEN` or vault `discord_bot_token` | Read Discord channels and messages, send messages |
 | `jira_get`, `jira_post`, `jira_put` | `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` or their vault secrets | Read, create and edit Jira issues |
 | `google_cache_create` | `GOOGLE_API_KEY` | Create a Google AI cached content object |
 | `google_cache_list` | `GOOGLE_API_KEY` | List Google AI cached content objects |

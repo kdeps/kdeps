@@ -37,6 +37,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v3/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v3/pkg/infra/k8s"
+	"github.com/kdeps/kdeps/v3/pkg/input/listen"
 	"github.com/kdeps/kdeps/v3/pkg/llmserver/catalog"
 	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
@@ -166,6 +167,9 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 	require.NoError(t, assetsetup.EnsureSets(t.Context(), io.Discard, nil, allStartSets()))
 	assert.Empty(t, assets.Missing())
 	assert.Contains(t, agent.PresetNames(), "frugal")
+	for _, name := range listen.RequiredListeners {
+		assert.True(t, assets.Required("listeners", name), name)
+	}
 	assert.NotEmpty(t, llm.GGUFAliasNames())
 	_, err = catalog.Get("tgi")
 	require.NoError(t, err)

@@ -106,6 +106,17 @@ var generatedFlows = map[string]SetInfo{
 		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps knowledge build"},
 		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "agent.(*Loop).startSubagents", "knowledge.SharedIndex", "knowledge.recallRules"},
 	},
+	"listeners": {
+		Mode: "both",
+		Flow: []FlowStep{
+			{Label: "a workflow names a listener under deploy.input.listen"},
+			{Label: "the listener is read from the listeners set when kdeps run starts", Here: true},
+			{Label: "its transport (poll, websocket, ...) starts"},
+			{Label: "each event runs the workflow once"},
+		},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec"},
+		Code:   []string{"kdeps (agent loop)", "listen.Run", "listen.readListenerAsset"},
+	},
 	"memory": {
 		Mode: "both",
 		Flow: []FlowStep{

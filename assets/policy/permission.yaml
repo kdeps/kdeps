@@ -1,4 +1,4 @@
-version: 1.4.5
+version: 1.4.6
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
@@ -37,6 +37,9 @@ tools:
   airtable_get: T0
   stripe_get: T0
   jira_get: T0
+  telegram_get: T0
+  discord_get: T0
+  slack_socket_open: T0   # opens the Socket Mode connection of the slack_events listener
   google_cache_list: T0
   bash_job_list: T0
   subagent: T0           # the subagent it starts gets only T0 tools
@@ -55,6 +58,8 @@ tools:
   airtable_patch: T1
   jira_post: T1           # creates issues and comments, moves issue status
   jira_put: T1
+  telegram_post: T1       # sends, edits and deletes messages
+  discord_post: T1        # sends messages and reactions
   google_cache_create: T1
   google_cache_delete: T1
   stripe_post: T2         # can charge, refund and move money

@@ -1,0 +1,14 @@
+version: 1.0.0
+kdeps: ">=3.6.0"
+description: 'Telegram bot messages: polls getUpdates and runs the workflow once for each update. The event is the update: input(''message'').text, input(''message'').chat.id. Reply with the telegram_post component (sendMessage).'
+requires:
+  tools/telegram_get: ""
+poll:
+  tool: telegram_get
+  with:
+    path: 'getUpdates?timeout=0&offset={{.cursor}}'
+  every: 2s
+  items: result
+  # The next getUpdates asks for the updates after the last one that ran.
+  cursor: '{{add (int .item.update_id) 1}}'
+  start: "0"

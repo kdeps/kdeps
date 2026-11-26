@@ -24,13 +24,16 @@ const (
 	ListenFramingJSON = "json"
 )
 
-// ListenSpec is one listener under deploy.input.listen. Exactly one of Fifo,
-// File, Poll, Webhook and Websocket is set. Each event the listener receives starts one workflow
+// ListenSpec is one listener under deploy.input.listen. Exactly one of Listener,
+// Fifo, File, Poll, Webhook and Websocket is set. Each event the listener receives starts one workflow
 // run; the event is the run's input (input('line'), input('id'), ...).
 type ListenSpec struct {
-	// ID names the listener in logs and names its saved cursor. Default:
-	// listen-<index>.
+	// ID names the listener in logs and names its saved cursor. Default: the
+	// listener name, else listen-<index>.
 	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+	// Listener names an asset in the listeners set (telegram_updates,
+	// slack_events, discord_gateway). The asset holds the transport.
+	Listener string `yaml:"listener,omitempty" json:"listener,omitempty"`
 	// Key is a template over .event. Events with the same key run in order;
 	// events with different keys run in parallel. Empty: every event of this
 	// listener runs in order.

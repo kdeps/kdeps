@@ -149,9 +149,12 @@ func validateListen(config *domain.InputConfig) error {
 	seen := map[string]bool{}
 	for i, spec := range config.Listen {
 		id := spec.ID
-		if id == "" {
+		switch {
+		case id == "" && spec.Listener != "":
+			id = spec.Listener
+		case id == "":
 			id = fmt.Sprintf("listen-%d", i)
-		} else if !listenIDPattern.MatchString(id) {
+		case !listenIDPattern.MatchString(id):
 			return listenError(fmt.Sprintf("input.listen[%d].id %q: use letters, digits, _, . and -", i, id))
 		}
 		if seen[id] {
@@ -166,16 +169,23 @@ func validateListen(config *domain.InputConfig) error {
 }
 
 func validateListenSpec(id string, spec domain.ListenSpec) error {
+	if spec.Listener != "" && !listenIDPattern.MatchString(spec.Listener) {
+		return listenError(fmt.Sprintf("listen %s: listener %q: use letters, digits, _, . and -", id, spec.Listener))
+	}
 	set := 0
-	for _, ok := range []bool{spec.Fifo != nil, spec.File != nil, spec.Poll != nil, spec.Webhook != nil, spec.Websocket != nil} {
+	for _, ok := range []bool{spec.Listener != "", spec.Fifo != nil, spec.File != nil, spec.Poll != nil, spec.Webhook != nil, spec.Websocket != nil} {
 		if ok {
 			set++
 		}
 	}
 	if set != 1 {
-		return listenError(fmt.Sprintf("listen %s: set exactly one of fifo, file, poll, webhook and websocket", id))
+		return listenError(
+			fmt.Sprintf("listen %s: set exactly one of listener, fifo, file, poll, webhook and websocket", id),
+		)
 	}
 	switch {
+	case spec.Listener != "":
+		return nil // the listener asset is read and checked when kdeps run starts
 	case spec.Fifo != nil:
 		return validateListenPath(id, "fifo", spec.Fifo.Path, spec.Fifo.Framing)
 	case spec.File != nil:

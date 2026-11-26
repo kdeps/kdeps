@@ -59,6 +59,7 @@ var setTypes = map[string]string{
 	"memory":     "memory-rules",
 	"knowledge":  "knowledge-rules",
 	"codegraph":  "codegraph-rules",
+	"listeners":  "listener",
 }
 
 // PackageType is the registry package type of set's items ("" if set is not
