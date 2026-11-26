@@ -32,7 +32,8 @@ type ListenSpec struct {
 	// listener name, else listen-<index>.
 	ID string `yaml:"id,omitempty" json:"id,omitempty"`
 	// Listener names an asset in the listeners set (telegram_updates,
-	// slack_events, discord_gateway). The asset holds the transport.
+	// slack_events, discord_gateway, whatsapp_webhook). The asset holds the
+	// transport.
 	Listener string `yaml:"listener,omitempty" json:"listener,omitempty"`
 	// Key is a template over .event. Events with the same key run in order;
 	// events with different keys run in parallel. Empty: every event of this
@@ -92,10 +93,18 @@ type ListenWebhookSpec struct {
 	// Wait runs the workflow before the answer and returns its result. By
 	// default kdeps answers 202 at once and runs the workflow after.
 	Wait bool `yaml:"wait,omitempty" json:"wait,omitempty"`
+	// Env maps a name to environment variables and "secret:NAME" vault
+	// entries; the first one with a value wins. Templates see it as .env.
+	Env map[string][]string `yaml:"env,omitempty" json:"env,omitempty"`
 	// Handshake is a template over .event, .body and .headers. When it
 	// renders text, kdeps answers with that text and starts no run (a
 	// service's URL check, such as Slack url_verification).
 	Handshake string `yaml:"handshake,omitempty" json:"handshake,omitempty"`
+	// When is a template over .event, .body, .headers and .env. A POST
+	// runs only when it renders text other than "false"; any other POST
+	// gets 200 and starts no run (a status callback, an event the
+	// workflow does not handle).
+	When string `yaml:"when,omitempty" json:"when,omitempty"`
 	// Verify rejects a request whose HMAC signature does not match.
 	Verify *ListenVerifySpec `yaml:"verify,omitempty" json:"verify,omitempty"`
 }

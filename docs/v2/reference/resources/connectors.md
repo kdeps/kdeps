@@ -56,6 +56,7 @@ In the agent loop, a connector tool with no token is not offered to the model.
 | `telegram_post` | POST | same as `telegram_get` | T1 (workspace-write) | send, edit and delete messages |
 | `discord_get` | GET | `DISCORD_BOT_TOKEN`, vault `discord_bot_token` | T0 (read-only) | channels, messages, users |
 | `discord_post` | POST | same as `discord_get` | T1 (workspace-write) | send messages and reactions |
+| `whatsapp_post` | POST | `WHATSAPP_ACCESS_TOKEN`, vault `whatsapp_access_token` | T1 (workspace-write) | send messages |
 
 The tool tier comes from `assets/policy/permission.yaml`. A `T1` tool needs the `workspace-write` permission mode or higher. In the agent loop, a person approves each `T2` call; a run with no one to ask refuses it. A workflow step that names the component runs it without approval.
 
@@ -229,9 +230,9 @@ component:
 
 `jira_put` returns an empty output: Jira answers an edit with `204 No Content`.
 
-## Telegram and Discord
+## Telegram, Discord and WhatsApp
 
-`path` is a Telegram Bot API method (`sendMessage`), or the part of the URL after `https://discord.com/api/v10/` (`channels/ID/messages`). The [listeners](/reference/workflow/input-sources#ready-made-listeners) `telegram_updates` and `discord_gateway` receive the messages these connectors answer.
+`path` is a Telegram Bot API method (`sendMessage`), the part of the URL after `https://discord.com/api/v10/` (`channels/ID/messages`), or the part after `https://graph.facebook.com/` with its version (`v23.0/PHONE_NUMBER_ID/messages`). The [listeners](/reference/workflow/input-sources#ready-made-listeners) `telegram_updates`, `discord_gateway` and `whatsapp_webhook` receive the messages these connectors answer.
 
 ## Add a connector
 

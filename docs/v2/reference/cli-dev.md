@@ -155,14 +155,14 @@ kdeps new [agent-name] [flags]
 | `--template, -t` | Agent template to use | `api-service` |
 | `--force` | Overwrite existing directory | `false` |
 
-**Available templates:** `api-service`, `sql-agent`, `agency`, `whatsapp-bot` (a WhatsApp Cloud API webhook: verification handshake, signed messages answered by an LLM and sent back through the `http_request` component), `assistant` (a coding assistant: an `interactive` prompt and a `chat` with `loop:` over the file and shell tools)
+**Available templates:** `api-service`, `sql-agent`, `agency`, `whatsapp-bot` (the `whatsapp_webhook` listener: verification handshake, signed messages answered by an LLM and sent back with the `whatsapp_post` connector), `assistant` (a coding assistant: an `interactive` prompt and a `chat` with `loop:` over the file and shell tools)
 
 **Examples:**
 
 ```bash
 kdeps new my-agent                           # Uses api-service template
 kdeps new my-agent --template sql-agent      # SQL agent template
-kdeps new my-bot --template whatsapp-bot     # WhatsApp bot (webhook + Graph API reply)
+kdeps new my-bot --template whatsapp-bot     # WhatsApp bot (whatsapp_webhook listener + whatsapp_post)
 kdeps new my-helper --template assistant     # coding assistant; then cd my-helper && kdeps
 kdeps new my-agent --force                   # Overwrite existing
 ```

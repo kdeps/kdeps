@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -142,6 +143,49 @@ func TestTelegramUpdatesListener(t *testing.T) {
 	assert.Equal(t, "getUpdates?timeout=0&offset=8", calls()[1]["path"])
 	require.Len(t, rec.snapshot(), 1)
 	assert.Equal(t, "hi", rec.snapshot()[0]["message"].(map[string]any)["text"])
+}
+
+// TestWhatsAppWebhookListener runs the shipped asset: Meta's GET check gets
+// the challenge only with the verify token, and only signed POSTs start runs.
+func TestWhatsAppWebhookListener(t *testing.T) {
+	_, rec, _, opts := setup(t)
+	t.Setenv("WHATSAPP_VERIFY_TOKEN", "vt")
+	t.Setenv("WHATSAPP_APP_SECRET", "app-secret")
+	spec, err := parseListener(repoListener(t, "whatsapp_webhook"), "whatsapp_webhook")
+	require.NoError(t, err)
+	spec.ID = "whatsapp_webhook"
+	spec.Webhook.Addr = freeAddr(t)
+	base := startHooks(t, opts, spec)
+
+	get := func(query string) (int, string) {
+		req, rErr := http.NewRequestWithContext(t.Context(), http.MethodGet, base+"/whatsapp?"+query, nil)
+		require.NoError(t, rErr)
+		return do(t, req)
+	}
+	code, body := get("hub.mode=subscribe&hub.verify_token=vt&hub.challenge=1158201444")
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, "1158201444", body)
+	code, _ = get("hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1")
+	assert.NotEqual(t, http.StatusOK, code, "a wrong verify token gets no challenge")
+	_, body = get("hub.mode=subscribe&hub.verify_token=vt&hub.challenge=<b>7</b>")
+	assert.NotContains(t, body, "<b>", "only a number is echoed")
+
+	msg := `{"entry":[{"changes":[{"value":{"messages":[{"from":"15551234567","text":{"body":"hi"}}]}}]}]}`
+	code, _ = post(t, base+"/whatsapp", "application/json", msg,
+		"X-Hub-Signature-256", "sha256="+sign("app-secret", msg, false, false))
+	assert.Equal(t, http.StatusAccepted, code)
+	code, _ = post(t, base+"/whatsapp", "application/json", msg,
+		"X-Hub-Signature-256", "sha256="+sign("forged", msg, false, false))
+	assert.Equal(t, http.StatusUnauthorized, code)
+	status := `{"entry":[{"changes":[{"value":{"statuses":[{"status":"read"}]}}]}]}`
+	code, _ = post(t, base+"/whatsapp", "application/json", status,
+		"X-Hub-Signature-256", "sha256="+sign("app-secret", status, false, false))
+	assert.Equal(t, http.StatusOK, code, "a status callback starts no run")
+
+	require.Eventually(t, func() bool { return rec.count() == 1 }, 5*time.Second, 10*time.Millisecond)
+	entry := rec.snapshot()[0]["entry"].([]any)[0].(map[string]any)
+	value := entry["changes"].([]any)[0].(map[string]any)["value"].(map[string]any)
+	assert.Equal(t, "15551234567", value["messages"].([]any)[0].(map[string]any)["from"])
 }
 
 func TestSlackEventsListener(t *testing.T) {

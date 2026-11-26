@@ -223,7 +223,19 @@
                       "wait": {
                         "type": "boolean"
                       },
+                      "env": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
                       "handshake": {
+                        "type": "string"
+                      },
+                      "when": {
                         "type": "string"
                       },
                       "verify": {

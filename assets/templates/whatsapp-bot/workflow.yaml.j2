@@ -5,13 +5,11 @@ metadata:
   name: {{ name }}
   description: {{ description }}
   version: "{{ version }}"
-  targetActionId: respond       # its result is the webhook's HTTP response
+  targetActionId: reply
 
 deploy:
-  apiServer:
-    hostIp: "0.0.0.0"
-    portNum: {{ port }}
-    routes:
-      - path: /webhook
-        methods: [GET, POST]    # GET: Meta's verification handshake; POST: messages
-        public: true            # Meta sends no bearer token; the POST signature is checked instead
+  input:
+    listen:
+      # POST /whatsapp on :16396. Answers Meta's verification GET and checks
+      # X-Hub-Signature-256 on every POST; each signed notification is one run.
+      - listener: whatsapp_webhook

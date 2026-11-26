@@ -51,13 +51,19 @@ func TestBotConnectorTools_Requests(t *testing.T) {
 			body: map[string]any{"content": "hi"}, wantBody: `{"content":"hi"}`,
 		},
 		{
+			id: "whatsapp_post", method: http.MethodPost, path: "v23.0/555/messages", host: "graph.facebook.com",
+			wantPath: "/v23.0/555/messages", auth: "Bearer wtok", env: map[string]string{"WHATSAPP_ACCESS_TOKEN": "wtok"},
+			body:     map[string]any{"messaging_product": "whatsapp", "to": "1555"},
+			wantBody: `{"messaging_product":"whatsapp","to":"1555"}`,
+		},
+		{
 			id: "slack_socket_open", method: http.MethodPost, host: "slack.com",
 			wantPath: "/api/apps.connections.open", auth: "Bearer xapp-1", env: map[string]string{"SLACK_APP_TOKEN": "xapp-1"},
 		},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			noBatchTokens(t)
-			for _, v := range []string{"TELEGRAM_BOT_TOKEN", "TELEGRAM_TOKEN", "DISCORD_BOT_TOKEN", "SLACK_APP_TOKEN"} {
+			for _, v := range []string{"TELEGRAM_BOT_TOKEN", "TELEGRAM_TOKEN", "DISCORD_BOT_TOKEN", "SLACK_APP_TOKEN", "WHATSAPP_ACCESS_TOKEN"} {
 				t.Setenv(v, "")
 			}
 			d, ok := toolDefinitions[tc.id]

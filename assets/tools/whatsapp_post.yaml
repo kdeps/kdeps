@@ -1,0 +1,22 @@
+version: 1.0.0
+description: 'Write to the WhatsApp Cloud API: POST a JSON body to https://graph.facebook.com/PATH and return the JSON. Use it to send messages and mark them read. Requires WHATSAPP_ACCESS_TOKEN or the vault secret whatsapp_access_token.'
+parameters:
+  path:
+    type: string
+    description: 'The Graph API path with its version. Example: v23.0/PHONE_NUMBER_ID/messages.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example for a reply: {"messaging_product": "whatsapp", "to": "15551234567", "type": "text", "text": {"body": "..."}}.'
+    required: true
+http:
+  env:
+    TOKEN: [WHATSAPP_ACCESS_TOKEN, "secret:whatsapp_access_token"]
+  method: POST
+  # The host is fixed; path only adds to it.
+  url: 'https://graph.facebook.com/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    Content-Type: application/json
+    User-Agent: kdeps
+  body: '{{json .args.body}}'

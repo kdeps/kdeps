@@ -274,7 +274,7 @@ elif kind == "tools":
         "ocr_image", "python", "read_file", "retrieve_context", "search_local", "slack_get", "slack_post", "slack_socket_open",
         "sql_describe_table", "sql_list_tables", "sql_ops",
         "sql_query", "stripe_get", "stripe_post", "tail_file", "telegram_get", "telegram_post", "transcribe_audio", "transcribe_audio_offline", "vector_store",
-        "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
+        "voyageai_rerank", "web_scraper", "web_search", "whatsapp_post", "wikipedia", "wolfram_alpha", "write_file",
         "zapier_list_actions", "zapier_run_action",
     ]
     if names != want:
