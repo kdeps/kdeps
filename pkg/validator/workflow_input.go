@@ -20,6 +20,8 @@ package validator
 
 import (
 	"fmt"
+	"regexp"
+	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
@@ -117,10 +119,10 @@ func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
 // ValidateInputConfig validates the workflow input source configuration.
 func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) error {
 	kdeps_debug.Log("enter: ValidateInputConfig")
-	if len(config.Sources) == 0 {
+	if len(config.Sources) == 0 && len(config.Listen) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			"input.sources is required and must have at least one source",
+			"input needs sources or listen",
 			nil,
 		)
 	}
@@ -129,5 +131,79 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 		return err
 	}
 
+	return validateListen(config)
+}
+
+var listenIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+// validateListen checks the structure of input.listen. The templates are
+// parsed when the listener starts.
+func validateListen(config *domain.InputConfig) error {
+	if len(config.Listen) == 0 {
+		return nil
+	}
+	if config.HasBotSource() || config.HasFileSource() {
+		return listenError("input.listen cannot be used with the bot or file source")
+	}
+	seen := map[string]bool{}
+	for i, spec := range config.Listen {
+		id := spec.ID
+		if id == "" {
+			id = fmt.Sprintf("listen-%d", i)
+		} else if !listenIDPattern.MatchString(id) {
+			return listenError(fmt.Sprintf("input.listen[%d].id %q: use letters, digits, _, . and -", i, id))
+		}
+		if seen[id] {
+			return listenError(fmt.Sprintf("input.listen: duplicate id %q", id))
+		}
+		seen[id] = true
+		if err := validateListenSpec(id, spec); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validateListenSpec(id string, spec domain.ListenSpec) error {
+	set := 0
+	for _, ok := range []bool{spec.Fifo != nil, spec.File != nil, spec.Poll != nil} {
+		if ok {
+			set++
+		}
+	}
+	if set != 1 {
+		return listenError(fmt.Sprintf("listen %s: set exactly one of fifo, file and poll", id))
+	}
+	switch {
+	case spec.Fifo != nil:
+		return validateListenPath(id, "fifo", spec.Fifo.Path, spec.Fifo.Framing)
+	case spec.File != nil:
+		return validateListenPath(id, "file", spec.File.Path, spec.File.Framing)
+	}
+	if spec.Poll.Tool == "" {
+		return listenError(fmt.Sprintf("listen %s: poll.tool is required", id))
+	}
+	if spec.Poll.Every != "" {
+		d, err := time.ParseDuration(spec.Poll.Every)
+		if err != nil || d < time.Second {
+			return listenError(
+				fmt.Sprintf("listen %s: poll.every %q: use a duration of 1s or more", id, spec.Poll.Every),
+			)
+		}
+	}
+	return nil
+}
+
+func validateListenPath(id, kind, path, framing string) error {
+	if path == "" {
+		return listenError(fmt.Sprintf("listen %s: %s.path is required", id, kind))
+	}
+	if framing != "" && framing != domain.ListenFramingLine && framing != domain.ListenFramingJSON {
+		return listenError(fmt.Sprintf("listen %s: %s.framing %q: use line or json", id, kind, framing))
+	}
+	return nil
+}
+
+func listenError(msg string) error {
+	return domain.NewError(domain.ErrCodeInvalidWorkflow, msg, nil)
 }

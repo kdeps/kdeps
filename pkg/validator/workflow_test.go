@@ -1353,8 +1353,8 @@ func TestWorkflowValidator_ValidateInputConfig_EmptySources(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty sources, got nil")
 	}
-	if !strings.Contains(err.Error(), "input.sources is required") {
-		t.Errorf("expected 'input.sources is required', got: %v", err)
+	if !strings.Contains(err.Error(), "input needs sources or listen") {
+		t.Errorf("expected 'input needs sources or listen', got: %v", err)
 	}
 }
 

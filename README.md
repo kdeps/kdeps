@@ -13,7 +13,7 @@
 
 kdeps turns one `workflow.yaml` into an offline AI appliance: an API, a binary, an image, or an ISO.
 
-1. **Workflows** - a YAML pipeline, fed by an API, a bot, a file, or a prompt.
+1. **Workflows** - a YAML pipeline, fed by an API, a bot, a file, a prompt, or listeners (a followed file, a named pipe, a polled API).
 2. **Agents** - a `chat` with `loop:` calls tools, as one step of the workflow.
 3. **Deploy** - ship the same YAML on your own infrastructure.
 

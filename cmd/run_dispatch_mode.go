@@ -44,6 +44,9 @@ func executionModeFor(workflow *domain.Workflow) executionMode {
 	if s.Input != nil && s.Input.HasFileSource() {
 		return execModeFile
 	}
+	if s.Input != nil && len(s.Input.Listen) > 0 {
+		return execModeListen
+	}
 	return execModeSingleRun
 }
 
@@ -70,7 +73,11 @@ func dispatchExecution(
 		eng.SetEmitter(events.NewNDJSONEmitter(os.Stderr))
 	}
 
-	switch executionModeForFunc(workflow) {
+	mode := executionModeForFunc(workflow)
+	if isServerMode(mode) {
+		startBackgroundListeners(eng, workflow, workflowPath, debugMode)
+	}
+	switch mode {
 	case execModeBothServers:
 		return execBothServersWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
 	case execModeWebServer:
@@ -81,8 +88,16 @@ func dispatchExecution(
 		return execBotRunnersWithEngineFn(eng, workflow, debugMode)
 	case execModeFile:
 		return execFileRunnerWithEngineFn(eng, workflow, debugMode, fileArg)
+	case execModeListen:
+		return execListenWithEngineFn(eng, workflow, workflowPath, debugMode)
 	case execModeSingleRun:
 		return execSingleRunWithEngineFn(eng, workflow)
 	}
 	return nil
+}
+
+// isServerMode reports whether mode starts an API or web server, which can
+// run listeners next to it.
+func isServerMode(mode executionMode) bool {
+	return mode == execModeBothServers || mode == execModeWebServer || mode == execModeAPIServer
 }

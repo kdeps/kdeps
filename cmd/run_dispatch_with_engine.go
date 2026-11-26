@@ -35,7 +35,11 @@ func dispatchExecutionWithEngine(
 	_ bool, // was skipLLMRepl
 ) error {
 	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
-	switch executionModeForFunc(workflow) {
+	mode := executionModeForFunc(workflow)
+	if isServerMode(mode) {
+		startBackgroundListeners(eng, workflow, workflowPath, debugMode)
+	}
+	switch mode {
 	case execModeBothServers:
 		return execBothServersWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
 	case execModeWebServer:
@@ -46,6 +50,8 @@ func dispatchExecutionWithEngine(
 		return execBotRunnersWithEngineFn(eng, workflow, debugMode)
 	case execModeFile:
 		return execFileRunnerWithEngineFn(eng, workflow, debugMode, fileArg)
+	case execModeListen:
+		return execListenWithEngineFn(eng, workflow, workflowPath, debugMode)
 	case execModeSingleRun:
 		return execSingleRunWithEngineFn(eng, workflow)
 	}

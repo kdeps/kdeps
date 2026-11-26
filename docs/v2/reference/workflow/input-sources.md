@@ -15,8 +15,9 @@ This sets how a run gets its input. `interactive` is one of the four sources.
 | `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 | `interactive` | A terminal prompt: each line you type runs the workflow |
+| `listen:` | Listeners: one run for each new line in a file or a named pipe, or each item a polled tool returns |
 
-An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, and no file source, `kdeps run` runs the workflow one time and stops.
+An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, no file source and no `listen:`, `kdeps run` runs the workflow one time and stops.
 
 ## API source
 
@@ -150,6 +151,66 @@ You: /quit
 
 When the target is a `chat` with `loop:`, each line goes to that chat as the prompt, and the chat runs as the [agent loop](/workflow/agent-loop/).
 
+## Listeners
+
+`listen:` starts one workflow run for each event. The event is the run's input. `kdeps run` keeps running until you stop it. With `apiServer:` or `webServer:`, the listeners run next to the server.
+
+```d2
+direction: right
+file: "file: new line" {shape: oval}
+fifo: "fifo: line in a named pipe" {shape: oval}
+poll: "poll: tool reply item" {shape: oval}
+q: "queue per key"
+run: "one workflow run\ninput('line'), input('id')"
+file -> q
+fifo -> q
+poll -> q
+q -> run
+```
+
+<div v-pre>
+
+```yaml
+# workflow.yaml
+deploy:
+  input:
+    listen:
+      - id: inbox                      # names the listener in logs and its saved position
+        file:
+          path: /data/inbox.ndjson     # followed like tail -f; each new line is one run
+          framing: json                # line (default): input('line'); json: the object's fields
+      - id: pipe
+        fifo:
+          path: /run/kdeps/in          # named pipe, created when missing (Linux and macOS)
+      - id: notifications
+        key: "{{.event.repository.full_name}}"   # same key: in order; other keys: in parallel
+        poll:
+          tool: github_get             # any kdeps API tool
+          with:
+            path: "notifications?since={{.cursor}}"
+          every: 60s                   # default 30s, minimum 1s
+          items: ""                    # dotted path to the list in the reply; empty: the reply
+          cursor: "{{.item.updated_at}}"   # saved after each item, read back as .cursor
+          start: "2026-01-01T00:00:00Z"    # .cursor before anything is saved
+```
+
+</div>
+
+| Key | Meaning |
+|---|---|
+| `id` | Listener name. Default `listen-<index>`. Letters, digits, `_`, `.` and `-`. |
+| `key` | A template over `.event`. Events with the same key run in order; different keys run in parallel. Empty: every event of the listener runs in order. |
+| `file.path`, `fifo.path` | The file to follow, or the named pipe to read. |
+| `framing` | `line` (default): the event is `{"line": "..."}`. `json`: each line is a JSON object, and its fields are the event. |
+| `poll.tool` | A kdeps API tool, such as a [connector](/reference/resources/connectors). Its reply must be JSON. |
+| `poll.with` | The tool arguments. Each string is a template over `.cursor`. |
+| `poll.items` | A dotted path to the event list in the reply (`result`, `data.items`). A single object is one event. |
+| `poll.cursor`, `poll.start` | The next cursor, a template over `.item` and `.cursor`, and the first cursor. |
+
+Listener templates use the same helpers as tool `http:` blocks (`json`, `get`, `add`, `int`, `urlquery`, ...), not the `{{ input() }}` expressions of a resource.
+
+kdeps saves the read position of a `file` listener and the cursor of a `poll` listener under `~/.kdeps/projects/`, never in the project. A restart goes on after the last event that ran. Each finished run prints `[listen ID] RESULT`; a failed run prints the error, and the listener goes on.
+
 ## Use cases
 
 - Serve a workflow as an HTTP JSON API for a frontend or another service
@@ -158,6 +219,8 @@ When the target is a `chat` with `loop:`, each line goes to that chat as the pro
   (`bot`).
 - Process one file per invocation from a pipeline, cron job, or CI step
   (`file`).
+- Run a workflow for each new log line, queued job or API item
+  (`listen:`).
 
 ## See also
 

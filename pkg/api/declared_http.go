@@ -112,6 +112,18 @@ var declaredToolFuncs = template.FuncMap{
 	"get": getPath,
 }
 
+// ParseTemplate parses a template with the helpers declared tool blocks use
+// (json, fromJSON, base64, form, get, ...). Listeners use it too.
+func ParseTemplate(name, src string) (*template.Template, error) {
+	return parseDeclaredTemplate(name, src)
+}
+
+// GetPath walks nested maps and lists by key or index, the same as the get
+// template helper.
+func GetPath(v any, keys ...any) any {
+	return getPath(v, keys...)
+}
+
 // parseDeclaredTemplate parses one of an http: or exec: block's templates.
 func parseDeclaredTemplate(name, src string) (*template.Template, error) {
 	return template.New(name).Funcs(declaredToolFuncs).Option("missingkey=zero").Parse(src)

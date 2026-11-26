@@ -206,9 +206,11 @@ func (c *LetsEncryptConfig) Validate() error {
 // InputConfig specifies the input sources for the workflow.
 // Valid sources: "api" (default), "bot", "file".
 type InputConfig struct {
-	Sources []string    `yaml:"sources"        json:"sources"`
-	Bot     *BotConfig  `yaml:"bot,omitempty"  json:"bot,omitempty"`
-	File    *FileConfig `yaml:"file,omitempty" json:"file,omitempty"`
+	Sources []string    `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Bot     *BotConfig  `yaml:"bot,omitempty"     json:"bot,omitempty"`
+	File    *FileConfig `yaml:"file,omitempty"    json:"file,omitempty"`
+	// Listen starts one workflow run for each event a listener receives.
+	Listen []ListenSpec `yaml:"listen,omitempty" json:"listen,omitempty"`
 }
 
 // HasSource reports whether the given source is in the Sources list.
