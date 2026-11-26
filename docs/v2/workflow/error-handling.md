@@ -2,6 +2,17 @@
 
 `onError` sets what happens when a resource fails: retry, use a fallback value, or log and continue. Without it, any error stops the workflow.
 
+```yaml
+# resources/example.yaml
+onError:
+  action: continue
+  fallback:
+    status: "timeout"
+  when:
+    - error.type == 'TIMEOUT'
+    - error.message contains 'deadline exceeded'
+```
+
 ## Read next
 
 - [Error handling (onError) reference](/reference/workflow/error-handling) - every key, option and detail

@@ -5,6 +5,22 @@ document, the other searches the indexed documents and returns the closest
 matches. It uses the built-in `embedding` component, which stores text in a
 local SQLite index - no external vector database, no API key.
 
+The search resource:
+
+<div v-pre>
+
+```yaml
+# resources/search.yaml (part)
+component:
+  name: embedding
+  with:
+    operation: search          # return ranked matches
+    text: "{{ get('query') }}"
+    limit: 5
+```
+
+</div>
+
 ## Read next
 
 - [Full walkthrough](/reference/examples/rag-search) - every step, file and command

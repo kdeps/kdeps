@@ -7,6 +7,14 @@ description: Run kdeps entirely offline with local models. Your code and prompts
 
 kdeps runs fully offline with a local model backend. Your prompts, code and replies stay on your machine.
 
+The default backend is a local llamafile:
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: file    # default -- no change needed unless you switched backends
+```
+
 ## Read next
 
 - [Full text](/reference/start/local-models) - the complete page
