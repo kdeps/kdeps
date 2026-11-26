@@ -25,7 +25,7 @@ const (
 )
 
 // ListenSpec is one listener under deploy.input.listen. Exactly one of Fifo,
-// File, Poll and Webhook is set. Each event the listener receives starts one workflow
+// File, Poll, Webhook and Websocket is set. Each event the listener receives starts one workflow
 // run; the event is the run's input (input('line'), input('id'), ...).
 type ListenSpec struct {
 	// ID names the listener in logs and names its saved cursor. Default:
@@ -40,6 +40,8 @@ type ListenSpec struct {
 	Poll *ListenPollSpec `yaml:"poll,omitempty" json:"poll,omitempty"`
 	// Webhook takes HTTP POSTs on its own address.
 	Webhook *ListenWebhookSpec `yaml:"webhook,omitempty" json:"webhook,omitempty"`
+	// Websocket keeps a websocket connection open and reconnects it.
+	Websocket *ListenWebsocketSpec `yaml:"websocket,omitempty" json:"websocket,omitempty"`
 }
 
 // ListenFifoSpec reads events from a named pipe. kdeps creates the pipe when
@@ -110,4 +112,56 @@ type ListenVerifySpec struct {
 	// Signature is a template over .headers that gives the signature the
 	// request carries.
 	Signature string `yaml:"signature" json:"signature"`
+}
+
+// ListenWebsocketSpec keeps a websocket open. Its templates see .env (the
+// resolved env:), .open (the open: tool reply), .state (set: values), and,
+// in rules, .msg (the message as JSON) and .raw (the message text).
+type ListenWebsocketSpec struct {
+	// Env maps a name to environment variables and "secret:NAME" vault
+	// entries; the first one with a value wins, as in a tool's http.env.
+	Env map[string][]string `yaml:"env,omitempty" json:"env,omitempty"`
+	// Open calls a kdeps API tool before each connect. Its JSON reply is
+	// .open, for a service that hands out the URL (Slack Socket Mode).
+	Open *ListenToolCall `yaml:"open,omitempty" json:"open,omitempty"`
+	// URL is the ws:// or wss:// address, a template.
+	URL string `yaml:"url" json:"url"`
+	// Headers go with the connect request; each value is a template.
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	// Send lists messages sent after each connect.
+	Send []string `yaml:"send,omitempty" json:"send,omitempty"`
+	// Heartbeat sends a message on a timer.
+	Heartbeat *ListenHeartbeat `yaml:"heartbeat,omitempty" json:"heartbeat,omitempty"`
+	// On lists rules. kdeps checks every rule for each message.
+	On []ListenWebsocketRule `yaml:"on,omitempty" json:"on,omitempty"`
+}
+
+// ListenToolCall names a kdeps API tool and its arguments.
+type ListenToolCall struct {
+	Tool string         `yaml:"tool"           json:"tool"`
+	With map[string]any `yaml:"with,omitempty" json:"with,omitempty"`
+}
+
+// ListenHeartbeat sends Send every Every. A rule's every: sets or changes
+// the interval; with no interval, no heartbeat is sent.
+type ListenHeartbeat struct {
+	Every string `yaml:"every,omitempty" json:"every,omitempty"`
+	Send  string `yaml:"send"            json:"send"`
+}
+
+// ListenWebsocketRule acts on a message when When renders text (other than
+// "false"). Its parts run in this order: set, every, send, emit, reconnect.
+type ListenWebsocketRule struct {
+	When string `yaml:"when" json:"when"`
+	// Set stores values in .state.
+	Set map[string]string `yaml:"set,omitempty" json:"set,omitempty"`
+	// Every sets the heartbeat interval (a Go duration, such as 41250ms).
+	Every string `yaml:"every,omitempty" json:"every,omitempty"`
+	// Send is a message to send back, such as an acknowledgement.
+	Send string `yaml:"send,omitempty" json:"send,omitempty"`
+	// Emit renders the event: JSON gives its fields, other text is
+	// {"text": ...}. Empty: no run.
+	Emit string `yaml:"emit,omitempty" json:"emit,omitempty"`
+	// Reconnect closes the connection and opens a new one.
+	Reconnect bool `yaml:"reconnect,omitempty" json:"reconnect,omitempty"`
 }

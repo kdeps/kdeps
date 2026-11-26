@@ -305,6 +305,104 @@
                         }
                       }
                     }
+                  },
+                  "websocket": {
+                    "type": "object",
+                    "required": [
+                      "url"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "env": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "open": {
+                        "type": "object",
+                        "required": [
+                          "tool"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "tool": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "with": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "url": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "headers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "send": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "heartbeat": {
+                        "type": "object",
+                        "required": [
+                          "send"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "every": {
+                            "type": "string"
+                          },
+                          "send": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "on": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "when"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "when": {
+                              "type": "string"
+                            },
+                            "set": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            },
+                            "every": {
+                              "type": "string"
+                            },
+                            "send": {
+                              "type": "string"
+                            },
+                            "emit": {
+                              "type": "string"
+                            },
+                            "reconnect": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
                 },
                 "oneOf": [
@@ -326,6 +424,11 @@
                   {
                     "required": [
                       "webhook"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "websocket"
                     ]
                   }
                 ]
