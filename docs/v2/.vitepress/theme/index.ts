@@ -22,6 +22,7 @@ import DefaultTheme from 'vitepress/theme'
 import { h, nextTick, onMounted, watch } from 'vue'
 import { useRoute, type Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
+import StepBadge from './StepBadge.vue'
 import HeroCode from './HeroCode.vue'
 import MegaNav from './MegaNav.vue'
 import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
@@ -84,6 +85,7 @@ export default {
     return h(DefaultTheme.Layout, null, {
       'nav-bar-content-before': () => h(MegaNav),
       'home-hero-info': () => h(HeroInfo),
+      'doc-before': () => h(StepBadge),
       'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [
         h(HomeWhoNeedsThis),
