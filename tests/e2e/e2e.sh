@@ -159,7 +159,7 @@ scenario test_bundle_export.sh
 scenario test_export_k8s.sh
 scenario test_update.sh
 scenario test_secret.sh
-scenario test_connector_github.sh
+scenario test_connectors.sh
 scenario test_assets.sh
 scenario test_asset_profiles.sh
 scenario test_asset_sets.sh

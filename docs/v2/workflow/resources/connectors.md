@@ -11,6 +11,7 @@ component: github_get -> token (env or vault) -> https://api.github.com/PATH -> 
 actionId: issues
 component:
   name: github_get                    # GET; github_post creates issues and comments
+                                      # slack_get and slack_post use the Slack Web API
   with:
     path: repos/OWNER/REPO/issues?state=open
 ```

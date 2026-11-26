@@ -1,4 +1,4 @@
-version: 1.4.2
+version: 1.4.3
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
@@ -32,6 +32,7 @@ tools:
   jina_rerank: T0
   zapier_list_actions: T0
   github_get: T0
+  slack_get: T0
   google_cache_list: T0
   bash_job_list: T0
   subagent: T0           # the subagent it starts gets only T0 tools
@@ -43,6 +44,7 @@ tools:
   http_request: T1       # can POST or mutate remote state
   zapier_run_action: T1
   github_post: T1         # creates issues, comments and pull requests
+  slack_post: T1          # sends, updates and deletes messages
   google_cache_create: T1
   google_cache_delete: T1
 # Workflow stages. Every run checks each stage's primary kind against these

@@ -122,3 +122,50 @@ func TestGitHubComponent_NoToken(t *testing.T) {
 	_, err := runComponentValue(t, "github_get", "    path: user\n")
 	require.ErrorContains(t, err, "set GITHUB_TOKEN or GH_TOKEN or the vault secret github_token")
 }
+
+func slackEnv(t *testing.T) {
+	t.Helper()
+	githubEnv(t)
+	t.Setenv("SLACK_TOKEN", "")
+	t.Setenv("SLACK_BOT_TOKEN", "xoxb-integration")
+}
+
+func TestSlackGetComponent(t *testing.T) {
+	slackEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"ok":true,"channels":[{"id":"C1"}]}`)
+
+	out, err := runComponentValue(t, "slack_get", "    path: conversations.list?limit=1\n")
+	require.NoError(t, err)
+	m, ok := out.(map[string]interface{})
+	require.True(t, ok, "the reply is parsed JSON")
+	assert.Equal(t, true, m["ok"])
+
+	req, _ := last()
+	require.NotNil(t, req)
+	assert.Equal(t, http.MethodGet, req.Method)
+	assert.Equal(t, "slack.com", req.Header.Get("X-Orig-Host"))
+	assert.Equal(t, "/api/conversations.list", req.URL.Path)
+	assert.Equal(t, "Bearer xoxb-integration", req.Header.Get("Authorization"))
+}
+
+func TestSlackPostComponent_BodyStaysJSON(t *testing.T) {
+	slackEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"ok":true,"ts":"1.2"}`)
+
+	out, err := runComponentValue(t, "slack_post",
+		"    path: chat.postMessage\n    body:\n      channel: C1\n      text: Build done\n")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"ok": true, "ts": "1.2"}, out)
+
+	req, body := last()
+	require.NotNil(t, req)
+	assert.Equal(t, "/api/chat.postMessage", req.URL.Path)
+	assert.JSONEq(t, `{"channel":"C1","text":"Build done"}`, body)
+}
+
+func TestSlackComponent_NoToken(t *testing.T) {
+	slackEnv(t)
+	t.Setenv("SLACK_BOT_TOKEN", "")
+	_, err := runComponentValue(t, "slack_get", "    path: auth.test\n")
+	require.ErrorContains(t, err, "set SLACK_BOT_TOKEN or SLACK_TOKEN or the vault secret slack_token")
+}

@@ -271,7 +271,7 @@ elif kind == "tools":
         "google_cache_delete", "google_cache_list", "hf_repo_files", "hf_search", "http_request",
         "instruct", "jina_rerank", "knowledge_recall", "list_files", "load_document",
         "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search",
-        "ocr_image", "python", "read_file", "retrieve_context", "search_local",
+        "ocr_image", "python", "read_file", "retrieve_context", "search_local", "slack_get", "slack_post",
         "sql_describe_table", "sql_list_tables", "sql_ops",
         "sql_query", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",

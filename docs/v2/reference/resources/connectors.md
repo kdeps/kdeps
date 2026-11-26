@@ -39,6 +39,8 @@ In the agent loop, a connector tool with no token is not offered to the model.
 |---|---|---|---|---|
 | `github_get` | GET | `GITHUB_TOKEN`, `GH_TOKEN`, vault `github_token` | T0 (read-only) | repositories, issues, pull requests, commits, files, search |
 | `github_post` | POST | `GITHUB_TOKEN`, `GH_TOKEN`, vault `github_token` | T1 (workspace-write) | new issues, comments, pull requests, labels |
+| `slack_get` | GET | `SLACK_BOT_TOKEN`, `SLACK_TOKEN`, vault `slack_token` | T0 (read-only) | channels, messages, threads, users |
+| `slack_post` | POST | `SLACK_BOT_TOKEN`, `SLACK_TOKEN`, vault `slack_token` | T1 (workspace-write) | send, update and delete messages, reactions |
 
 The tool tier comes from `assets/policy/permission.yaml`. A `T1` tool needs the `workspace-write` permission mode or higher.
 
@@ -77,6 +79,39 @@ component:
 The output is the parsed JSON that GitHub returns. A status of 400 or higher fails the step with the GitHub error message.
 
 Each request sends `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28` and `User-Agent: kdeps`.
+
+## Slack
+
+`path` is the Web API method after `https://slack.com/api/`. A `slack_get` path holds the arguments as a query string; `slack_post` sends them as a JSON body. Use a bot token (`xoxb-...`) with the scopes the method needs.
+
+<div v-pre>
+
+```yaml
+# resources/history.yaml
+actionId: history
+name: Last messages
+component:
+  name: slack_get
+  with:
+    path: conversations.history?channel=C0123&limit=20
+```
+
+```yaml
+# resources/notify.yaml
+actionId: notify
+name: Post the summary
+component:
+  name: slack_post
+  with:
+    path: chat.postMessage
+    body:                              # sent as JSON
+      channel: C0123
+      text: "{{ output('summary') }}"
+```
+
+</div>
+
+The output is the parsed JSON that Slack returns. Slack answers a failed call with status 200, `"ok": false` and an `error` text (`invalid_auth`, `channel_not_found`), so the step does not fail. Test `output('notify').ok` in the next step.
 
 ## Add a connector
 

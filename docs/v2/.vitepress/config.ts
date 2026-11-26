@@ -269,7 +269,7 @@ export default defineConfig({
           items: [
             { text: 'API response resource', link: '/reference/resources/api-response' },
             { text: 'Bot replies', link: '/reference/resources/bot-reply' },
-            { text: 'Connectors (GitHub, ...)', link: '/reference/resources/connectors' },
+            { text: 'Connectors (GitHub, Slack)', link: '/reference/resources/connectors' },
             { text: 'embedding component', link: '/reference/resources/embedding' },
             { text: 'exec component', link: '/reference/resources/exec' },
             { text: 'File component', link: '/reference/resources/file' },
