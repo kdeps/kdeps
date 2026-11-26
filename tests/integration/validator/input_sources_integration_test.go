@@ -80,7 +80,7 @@ func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
 
 	err = workflowValidator.Validate(workflow)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "input.sources is required and must have at least one source")
+	assert.Contains(t, err.Error(), "input needs sources or listen")
 }
 
 // ---------------------------------------------------------------------------

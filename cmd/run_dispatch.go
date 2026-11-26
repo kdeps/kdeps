@@ -38,6 +38,7 @@ const (
 	execModeAPIServer
 	execModeBot
 	execModeFile
+	execModeListen
 	execModeSingleRun
 )
 
@@ -61,6 +62,7 @@ var (
 	execWebServerWithEngineFn                  = StartWebServer
 	execBotRunnersWithEngineFn                 = StartBotRunnersWithEngine
 	execFileRunnerWithEngineFn                 = startFileRunnerWithEngine
+	execListenWithEngineFn                     = startListenRunner
 	execSingleRunWithEngineFn                  = executeSingleRunWithEngine
 	createHTTPServerWithEngineFunc             = createHTTPServerWithEngine
 	httpServerStartFunc                        = defaultHTTPServerStart

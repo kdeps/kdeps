@@ -101,9 +101,6 @@
         },
         "input": {
           "type": "object",
-          "required": [
-            "sources"
-          ],
           "properties": {
             "sources": {
               "type": "array",
@@ -167,9 +164,123 @@
                 }
               },
               "additionalProperties": false
+            },
+            "listen": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "fifo": {
+                    "type": "object",
+                    "required": [
+                      "path"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "framing": {
+                        "type": "string",
+                        "enum": [
+                          "line",
+                          "json"
+                        ]
+                      }
+                    }
+                  },
+                  "file": {
+                    "type": "object",
+                    "required": [
+                      "path"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "framing": {
+                        "type": "string",
+                        "enum": [
+                          "line",
+                          "json"
+                        ]
+                      }
+                    }
+                  },
+                  "poll": {
+                    "type": "object",
+                    "required": [
+                      "tool"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "tool": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "with": {
+                        "type": "object"
+                      },
+                      "every": {
+                        "type": "string"
+                      },
+                      "items": {
+                        "type": "string"
+                      },
+                      "cursor": {
+                        "type": "string"
+                      },
+                      "start": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "fifo"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "file"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "poll"
+                    ]
+                  }
+                ]
+              }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "sources"
+              ]
+            },
+            {
+              "required": [
+                "listen"
+              ]
+            }
+          ]
         },
         "runtime": {
           "type": "object",

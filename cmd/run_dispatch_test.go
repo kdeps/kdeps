@@ -921,6 +921,13 @@ func TestExecutionModeFor_AllModes(t *testing.T) {
 			execModeFile,
 		},
 		{
+			"listen",
+			&domain.Workflow{Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{Listen: []domain.ListenSpec{{File: &domain.ListenFileSpec{Path: "x"}}}},
+			}},
+			execModeListen,
+		},
+		{
 			"single",
 			&domain.Workflow{Settings: domain.WorkflowSettings{}},
 			execModeSingleRun,
