@@ -167,13 +167,13 @@ func validateListen(config *domain.InputConfig) error {
 
 func validateListenSpec(id string, spec domain.ListenSpec) error {
 	set := 0
-	for _, ok := range []bool{spec.Fifo != nil, spec.File != nil, spec.Poll != nil, spec.Webhook != nil} {
+	for _, ok := range []bool{spec.Fifo != nil, spec.File != nil, spec.Poll != nil, spec.Webhook != nil, spec.Websocket != nil} {
 		if ok {
 			set++
 		}
 	}
 	if set != 1 {
-		return listenError(fmt.Sprintf("listen %s: set exactly one of fifo, file, poll and webhook", id))
+		return listenError(fmt.Sprintf("listen %s: set exactly one of fifo, file, poll, webhook and websocket", id))
 	}
 	switch {
 	case spec.Fifo != nil:
@@ -182,6 +182,8 @@ func validateListenSpec(id string, spec domain.ListenSpec) error {
 		return validateListenPath(id, "file", spec.File.Path, spec.File.Framing)
 	case spec.Webhook != nil:
 		return validateWebhook(id, spec.Webhook)
+	case spec.Websocket != nil:
+		return validateWebsocket(id, spec.Websocket)
 	}
 	if spec.Poll.Tool == "" {
 		return listenError(fmt.Sprintf("listen %s: poll.tool is required", id))
@@ -192,6 +194,23 @@ func validateListenSpec(id string, spec domain.ListenSpec) error {
 			return listenError(
 				fmt.Sprintf("listen %s: poll.every %q: use a duration of 1s or more", id, spec.Poll.Every),
 			)
+		}
+	}
+	return nil
+}
+
+func validateWebsocket(id string, w *domain.ListenWebsocketSpec) error {
+	switch {
+	case w.URL == "":
+		return listenError(fmt.Sprintf("listen %s: websocket.url is required", id))
+	case w.Open != nil && w.Open.Tool == "":
+		return listenError(fmt.Sprintf("listen %s: websocket.open.tool is required", id))
+	case w.Heartbeat != nil && w.Heartbeat.Send == "":
+		return listenError(fmt.Sprintf("listen %s: websocket.heartbeat.send is required", id))
+	}
+	for i, r := range w.On {
+		if r.When == "" {
+			return listenError(fmt.Sprintf("listen %s: websocket.on[%d].when is required", id, i))
 		}
 	}
 	return nil

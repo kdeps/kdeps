@@ -134,8 +134,10 @@ func newSource(spec domain.ListenSpec, id string, hub *webhookHub, opts Options)
 		return newPollSource(spec.Poll, id, statePath(opts.ProjectDir, id, "cursor"), opts.Logger)
 	case spec.Webhook != nil:
 		return newWebhookSource(spec.Webhook, id, hub, opts)
+	case spec.Websocket != nil:
+		return newWebsocketSource(spec.Websocket, id, opts.Logger)
 	}
-	return nil, fmt.Errorf("listen %s: set fifo, file, poll or webhook", id)
+	return nil, fmt.Errorf("listen %s: set fifo, file, poll, webhook or websocket", id)
 }
 
 // statePath is where a listener keeps its read position.

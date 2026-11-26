@@ -56,8 +56,10 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 		`duplicate id "listen-0"`: {
 			Listen: []domain.ListenSpec{{File: file}, {ID: "listen-0", File: file}},
 		},
-		"set exactly one of fifo, file, poll and webhook": {Listen: []domain.ListenSpec{{File: file, Poll: poll}}},
-		"listen listen-0: set exactly one":                {Listen: []domain.ListenSpec{{}}},
+		"set exactly one of fifo, file, poll, webhook and websocket": {
+			Listen: []domain.ListenSpec{{File: file, Poll: poll}},
+		},
+		"listen listen-0: set exactly one": {Listen: []domain.ListenSpec{{}}},
 		"fifo.path is required": {
 			Listen: []domain.ListenSpec{{Fifo: &domain.ListenFifoSpec{}}},
 		},
@@ -84,6 +86,21 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 	bad["webhook.verify.signature is required"] = hook(&domain.ListenVerifySpec{Secret: []string{"S"}})
 	bad[`algorithm "md5"`] = hook(&domain.ListenVerifySpec{Secret: []string{"S"}, Signature: "x", Algorithm: "md5"})
 	bad[`encoding "b32"`] = hook(&domain.ListenVerifySpec{Secret: []string{"S"}, Signature: "x", Encoding: "b32"})
+	ws := func(w *domain.ListenWebsocketSpec) *domain.InputConfig {
+		return &domain.InputConfig{Listen: []domain.ListenSpec{{Websocket: w}}}
+	}
+	require.NoError(t, v.ValidateInputConfig(ws(&domain.ListenWebsocketSpec{
+		URL: "wss://x", Open: &domain.ListenToolCall{Tool: "t"}, Heartbeat: &domain.ListenHeartbeat{Send: "x"},
+		On: []domain.ListenWebsocketRule{{When: "y"}},
+	})))
+	bad["websocket.url is required"] = ws(&domain.ListenWebsocketSpec{})
+	bad["websocket.open.tool is required"] = ws(&domain.ListenWebsocketSpec{URL: "x", Open: &domain.ListenToolCall{}})
+	bad["websocket.heartbeat.send is required"] = ws(
+		&domain.ListenWebsocketSpec{URL: "x", Heartbeat: &domain.ListenHeartbeat{Every: "1s"}},
+	)
+	bad["websocket.on[0].when is required"] = ws(
+		&domain.ListenWebsocketSpec{URL: "x", On: []domain.ListenWebsocketRule{{Send: "x"}}},
+	)
 	for want, c := range bad {
 		err := v.ValidateInputConfig(c)
 		require.Error(t, err, want)

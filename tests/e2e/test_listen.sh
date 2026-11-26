@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # E2E: deploy.input.listen. kdeps run follows a file, reads a named pipe (Linux
-# and macOS) and takes signed webhook POSTs; each event runs the workflow once.
+# and macOS), takes signed webhook POSTs and keeps a websocket open; each event
+# runs the workflow once.
 
 set -uo pipefail
 
@@ -168,6 +169,75 @@ pkill -P "$HPID" 2>/dev/null || true
 kill "$HPID" 2>/dev/null || true
 wait "$HPID" 2>/dev/null || true
 rm -rf "$HDIR"
+
+# Websocket: a fake gateway sends hello; kdeps identifies, sends heartbeats
+# with the last sequence, and runs the workflow for MESSAGE_CREATE.
+if command -v python3 >/dev/null 2>&1; then
+    WDIR=$(mktemp -d)
+    mkdir -p "$WDIR/home" "$WDIR/data" "$WDIR/proj/resources"
+    WPORT=$((20000 + RANDOM % 20000))
+    python3 "$SCRIPT_DIR/helpers/ws_gateway.py" "$WPORT" "$WDIR/gw.log" &
+    GWPID=$!
+    cat > "$WDIR/proj/workflow.yaml" <<YAML
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: websocket-e2e
+  version: "1.0.0"
+  targetActionId: echo
+deploy:
+  input:
+    listen:
+      - id: gw
+        websocket:
+          env:
+            TOKEN: [KDEPS_E2E_WS_TOKEN]
+          url: "ws://127.0.0.1:$WPORT/gateway"
+          heartbeat:
+            send: '{"op":1,"d":{{or .state.seq "null"}}}'
+          on:
+            - when: '{{if eq (int .msg.op) 10}}y{{end}}'
+              every: '{{.msg.d.heartbeat_interval}}ms'
+              send: '{"op":2,"d":{"token":"{{.env.TOKEN}}"}}'
+            - when: '{{.msg.s}}'
+              set:
+                seq: '{{.msg.s}}'
+            - when: '{{if eq .msg.t "MESSAGE_CREATE"}}y{{end}}'
+              emit: '{{json .msg.d}}'
+YAML
+    cat > "$WDIR/proj/resources/echo.yaml" <<'YAML'
+actionId: echo
+name: Echo
+apiResponse:
+  success: true
+  response:
+    got: "{{ input('content') }}"
+YAML
+    (cd "$WDIR/proj" && HOME="$WDIR/home" USERPROFILE="$(to_native_path "$WDIR/home")" \
+        KDEPS_DATA_DIR="$(to_native_path "$WDIR/data")" KDEPS_E2E_WS_TOKEN=tok \
+        "$KDEPS_BIN" run workflow.yaml > "$WDIR/out.log" 2>&1) &
+    WPID=$!
+    OK=false
+    for i in $(seq 1 100); do
+        if grep -qF '[listen gw] {"got":"hello from the gateway"}' "$WDIR/out.log" 2>/dev/null \
+            && grep -qF '{"op":1,"d":1}' "$WDIR/gw.log" 2>/dev/null; then
+            OK=true
+            break
+        fi
+        sleep 0.2
+    done
+    if [ "$OK" = true ] && grep -qF '{"op":2,"d":{"token":"tok"}}' "$WDIR/gw.log"; then
+        test_passed "listen - a websocket listener identifies, sends heartbeats and runs the workflow per event"
+    else
+        test_failed "listen - websocket" "$(tail -10 "$WDIR/out.log"; cat "$WDIR/gw.log" 2>/dev/null)"
+    fi
+    pkill -P "$WPID" 2>/dev/null || true
+    kill "$WPID" "$GWPID" 2>/dev/null || true
+    wait "$WPID" "$GWPID" 2>/dev/null || true
+    rm -rf "$WDIR"
+else
+    echo "  (skip websocket: python3 not found)"
+fi
 
 rm -rf "$LDIR"
 echo ""

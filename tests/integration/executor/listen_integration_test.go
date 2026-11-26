@@ -27,6 +27,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -243,4 +245,78 @@ apiResponse:
 	}, 5*time.Second, 20*time.Millisecond)
 	assert.Equal(t, http.StatusOK, code)
 	assert.Contains(t, reply, `"action":"opened"`)
+}
+
+// TestListen_WebsocketRunsTheWorkflow parses a websocket listener that
+// acknowledges each envelope (as Slack Socket Mode needs) and runs the
+// workflow for each event.
+func TestListen_WebsocketRunsTheWorkflow(t *testing.T) {
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	acks := make(chan string, 4)
+	up := websocket.Upgrader{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := up.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		_ = c.WriteMessage(websocket.TextMessage,
+			[]byte(`{"envelope_id":"e1","type":"events_api","payload":{"event":{"text":"deploy now"}}}`))
+		_, m, err := c.ReadMessage()
+		if err == nil {
+			acks <- string(m)
+		}
+		time.Sleep(time.Second)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: websocket-integration
+  version: "1.0.0"
+  targetActionId: echo
+deploy:
+  input:
+    listen:
+      - id: socket
+        websocket:
+          url: "ws`+strings.TrimPrefix(srv.URL, "http")+`/socket"
+          on:
+            - when: '{{.msg.envelope_id}}'
+              send: '{"envelope_id":"{{.msg.envelope_id}}"}'
+            - when: '{{if eq .msg.type "events_api"}}y{{end}}'
+              emit: '{{json .msg.payload.event}}'
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "echo.yaml"), []byte(`actionId: echo
+name: Echo
+apiResponse:
+  success: true
+  response:
+    text: "{{ input('text') }}"
+`), 0o600))
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+	require.NoError(t, err)
+
+	eng := newExecEngine(t)
+	out := &lockedBuf{}
+	opts := listen.Options{
+		ProjectDir: dir,
+		Out:        out,
+		Exec: func(ctx context.Context, id string, ev listen.Event) (any, error) {
+			return eng.Execute(wf, &executor.RequestContext{Ctx: ctx, Method: "POST", Path: "/listen/" + id, Body: ev})
+		},
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- listen.Run(ctx, wf.Settings.Input.Listen, opts) }()
+	require.Eventually(t, func() bool { return strings.Contains(out.String(), `"text":"deploy now"`) },
+		10*time.Second, 20*time.Millisecond)
+	cancel()
+	require.NoError(t, <-done)
+	assert.JSONEq(t, `{"envelope_id":"e1"}`, <-acks)
 }

@@ -15,7 +15,7 @@ This sets how a run gets its input. `interactive` is one of the four sources.
 | `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 | `interactive` | A terminal prompt: each line you type runs the workflow |
-| `listen:` | Listeners: one run for each new line in a file or a named pipe, each item a polled tool returns, or each webhook POST |
+| `listen:` | Listeners: one run for each new line in a file or a named pipe, each item a polled tool returns, each webhook POST, or each websocket message a rule emits |
 
 An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, no file source and no `listen:`, `kdeps run` runs the workflow one time and stops.
 
@@ -161,12 +161,14 @@ file: "file: new line" {shape: oval}
 fifo: "fifo: line in a named pipe" {shape: oval}
 poll: "poll: tool reply item" {shape: oval}
 hook: "webhook: signed POST" {shape: oval}
+ws: "websocket: message a rule emits" {shape: oval}
 q: "queue per key"
 run: "one workflow run\ninput('line'), input('id')"
 file -> q
 fifo -> q
 poll -> q
 hook -> q
+ws -> q
 q -> run
 ```
 
@@ -221,6 +223,57 @@ deploy:
 | `webhook.wait` | `false` (default): answer `202` at once and run after. `true`: run, then answer with the result, or `500` and the error. |
 | `webhook.handshake` | A template over `.event`, `.body`, `.headers`, `.query` and `.method`. When it renders text, kdeps answers with that text and starts no run. |
 | `webhook.verify` | An HMAC check: `secret` (env names and `secret:NAME` entries), `algorithm` (`sha256` or `sha1`), `encoding` (`hex` or `base64`), `message` and `signature` templates. |
+
+### Websocket
+
+A `websocket` listener keeps one connection open and connects again after a failure (wait 1s, doubling up to 1m). `on:` rules describe the service's protocol in YAML: kdeps checks every rule for each message, in order. A rule matches when `when` renders text other than `false`.
+
+<div v-pre>
+
+```yaml
+# a gateway that says hello, wants an identify, and a heartbeat with the last sequence
+- id: gateway
+  websocket:
+    env:
+      TOKEN: [BOT_TOKEN, "secret:bot_token"]     # .env.TOKEN; the listener does not start without it
+    url: "wss://gateway.example.com/?v=10"
+    headers: { User-Agent: kdeps }
+    heartbeat:
+      send: '{"op":1,"d":{{or .state.seq "null"}}}'   # starts when a rule sets every:
+    on:
+      - when: '{{if eq (int .msg.op) 10}}y{{end}}'     # hello
+        every: '{{.msg.d.heartbeat_interval}}ms'
+        send: '{"op":2,"d":{"token":"{{.env.TOKEN}}"}}'
+      - when: '{{.msg.s}}'
+        set: { seq: '{{.msg.s}}' }                     # kept in .state across messages and reconnects
+      - when: '{{if eq .msg.t "MESSAGE_CREATE"}}y{{end}}'
+        emit: '{{json .msg.d}}'                        # one run; JSON gives the event fields
+      - when: '{{if eq (int .msg.op) 7}}y{{end}}'
+        reconnect: true
+
+# a service that hands out the URL and wants each envelope acknowledged
+- id: socket
+  websocket:
+    open: { tool: socket_open }                        # any kdeps API tool; its JSON reply is .open
+    url: "{{.open.url}}"
+    on:
+      - when: '{{.msg.envelope_id}}'
+        send: '{"envelope_id":"{{.msg.envelope_id}}"}'
+      - when: '{{if eq .msg.type "events_api"}}y{{end}}'
+        emit: '{{json .msg.payload.event}}'
+```
+
+</div>
+
+| Key | Meaning |
+|---|---|
+| `env` | Names for `.env`: each lists environment variables and `secret:NAME` vault entries. |
+| `open` | A kdeps API tool called before each connect; its JSON reply is `.open`. |
+| `url`, `headers` | The `ws://` or `wss://` address and the connect headers. |
+| `send` | Messages sent after each connect. |
+| `heartbeat` | `send` on a timer; `every` sets the first interval, and a rule's `every` sets or changes it. |
+| `on[].when` | The rule matches when this renders text other than `false`. Templates see `.msg` (JSON), `.raw` (text), `.state`, `.env` and `.open`. |
+| `on[].set`, `every`, `send`, `emit`, `reconnect` | Run in this order: store values in `.state`, set the heartbeat, send a message, start one run, connect again. |
 
 Listener templates use the same helpers as tool `http:` blocks (`json`, `get`, `add`, `int`, `urlquery`, `kv`, ...), not the `{{ input() }}` expressions of a resource.
 
