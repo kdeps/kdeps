@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: notion_get
+  description: Read the Notion API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: The API path after https://api.notion.com/v1/, with its query string (pages/PAGE_ID)
+  # The Notion reply, parsed from JSON. No NOTION_TOKEN, NOTION_API_KEY or vault secret notion_token is an error.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Notion GET
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/notion_get/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('notion_get.path') }}"

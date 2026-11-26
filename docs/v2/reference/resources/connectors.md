@@ -41,6 +41,9 @@ In the agent loop, a connector tool with no token is not offered to the model.
 | `github_post` | POST | `GITHUB_TOKEN`, `GH_TOKEN`, vault `github_token` | T1 (workspace-write) | new issues, comments, pull requests, labels |
 | `slack_get` | GET | `SLACK_BOT_TOKEN`, `SLACK_TOKEN`, vault `slack_token` | T0 (read-only) | channels, messages, threads, users |
 | `slack_post` | POST | `SLACK_BOT_TOKEN`, `SLACK_TOKEN`, vault `slack_token` | T1 (workspace-write) | send, update and delete messages, reactions |
+| `notion_get` | GET | `NOTION_TOKEN`, `NOTION_API_KEY`, vault `notion_token` | T0 (read-only) | pages, properties, blocks, users |
+| `notion_post` | POST | `NOTION_TOKEN`, `NOTION_API_KEY`, vault `notion_token` | T1 (workspace-write) | search, database queries, new pages |
+| `notion_patch` | PATCH | `NOTION_TOKEN`, `NOTION_API_KEY`, vault `notion_token` | T1 (workspace-write) | page properties, new blocks, archive |
 
 The tool tier comes from `assets/policy/permission.yaml`. A `T1` tool needs the `workspace-write` permission mode or higher.
 
@@ -112,6 +115,41 @@ component:
 </div>
 
 The output is the parsed JSON that Slack returns. Slack answers a failed call with status 200, `"ok": false` and an `error` text (`invalid_auth`, `channel_not_found`), so the step does not fail. Test `output('notify').ok` in the next step.
+
+## Notion
+
+`path` is the part of the URL after `https://api.notion.com/v1/`. Use an internal integration token, and share each page or database with the integration in Notion. Each request sends `Notion-Version: 2022-06-28`.
+
+<div v-pre>
+
+```yaml
+# resources/tasks.yaml
+actionId: tasks
+name: Open tasks
+component:
+  name: notion_post                    # search and database queries are POST in Notion
+  with:
+    path: databases/DATABASE_ID/query
+    body:
+      filter: { property: Status, status: { equals: Open } }
+```
+
+```yaml
+# resources/done.yaml
+actionId: done
+name: Close the task
+component:
+  name: notion_patch
+  with:
+    path: "pages/{{ get('page_id') }}"
+    body:
+      properties:
+        Status: { status: { name: Done } }
+```
+
+</div>
+
+The output is the parsed JSON that Notion returns. A status of 400 or higher fails the step with the Notion error message.
 
 ## Add a connector
 

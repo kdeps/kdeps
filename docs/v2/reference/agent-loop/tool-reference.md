@@ -245,6 +245,9 @@ A configured [identity](/reference/advanced-config#agent-identity) takes priorit
 | `github_post` | `GITHUB_TOKEN`, `GH_TOKEN` or vault `github_token` | Create GitHub issues, comments and pull requests |
 | `slack_get` | `SLACK_BOT_TOKEN`, `SLACK_TOKEN` or vault `slack_token` | Read Slack channels, messages and users |
 | `slack_post` | `SLACK_BOT_TOKEN`, `SLACK_TOKEN` or vault `slack_token` | Send and update Slack messages |
+| `notion_get` | `NOTION_TOKEN`, `NOTION_API_KEY` or vault `notion_token` | Read Notion pages and blocks |
+| `notion_post` | `NOTION_TOKEN`, `NOTION_API_KEY` or vault `notion_token` | Search Notion, query databases, create pages |
+| `notion_patch` | `NOTION_TOKEN`, `NOTION_API_KEY` or vault `notion_token` | Update and archive Notion pages, append blocks |
 | `google_cache_create` | `GOOGLE_API_KEY` | Create a Google AI cached content object |
 | `google_cache_list` | `GOOGLE_API_KEY` | List Google AI cached content objects |
 | `google_cache_delete` | `GOOGLE_API_KEY` | Delete a Google AI cached content object |

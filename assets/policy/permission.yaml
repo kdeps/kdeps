@@ -1,4 +1,4 @@
-version: 1.4.3
+version: 1.4.4
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
@@ -33,6 +33,7 @@ tools:
   zapier_list_actions: T0
   github_get: T0
   slack_get: T0
+  notion_get: T0
   google_cache_list: T0
   bash_job_list: T0
   subagent: T0           # the subagent it starts gets only T0 tools
@@ -45,6 +46,8 @@ tools:
   zapier_run_action: T1
   github_post: T1         # creates issues, comments and pull requests
   slack_post: T1          # sends, updates and deletes messages
+  notion_post: T1         # creates pages (also search and database queries)
+  notion_patch: T1        # updates and archives pages and blocks
   google_cache_create: T1
   google_cache_delete: T1
 # Workflow stages. Every run checks each stage's primary kind against these

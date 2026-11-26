@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: notion_post
+  description: Search, query and create in Notion through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: The API path after https://api.notion.com/v1/ (search, databases/DATABASE_ID/query, pages)
+    - name: body
+      type: object
+      required: true
+      description: 'The JSON request body, for example {"query": "roadmap"} for a search'
+  # The Notion reply, parsed from JSON. No NOTION_TOKEN, NOTION_API_KEY or vault secret notion_token is an error.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Notion POST
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/notion_post/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('notion_post.path') }}"
+        body: "{{ get('notion_post.body') }}"

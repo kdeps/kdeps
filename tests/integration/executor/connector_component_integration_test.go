@@ -169,3 +169,47 @@ func TestSlackComponent_NoToken(t *testing.T) {
 	_, err := runComponentValue(t, "slack_get", "    path: auth.test\n")
 	require.ErrorContains(t, err, "set SLACK_BOT_TOKEN or SLACK_TOKEN or the vault secret slack_token")
 }
+
+func notionEnv(t *testing.T) {
+	t.Helper()
+	githubEnv(t)
+	t.Setenv("NOTION_API_KEY", "")
+	t.Setenv("NOTION_TOKEN", "ntn_integration")
+}
+
+func TestNotionGetComponent(t *testing.T) {
+	notionEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"object":"page","id":"p1"}`)
+
+	out, err := runComponentValue(t, "notion_get", "    path: pages/p1\n")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"object": "page", "id": "p1"}, out, "the reply is parsed JSON")
+
+	req, _ := last()
+	require.NotNil(t, req)
+	assert.Equal(t, http.MethodGet, req.Method)
+	assert.Equal(t, "api.notion.com", req.Header.Get("X-Orig-Host"))
+	assert.Equal(t, "/v1/pages/p1", req.URL.Path)
+	assert.Equal(t, "Bearer ntn_integration", req.Header.Get("Authorization"))
+}
+
+func TestNotionPatchComponent_BodyStaysJSON(t *testing.T) {
+	notionEnv(t)
+	last := fakeGitHub(t, http.StatusOK, `{"object":"page","archived":true}`)
+
+	out, err := runComponentValue(t, "notion_patch", "    path: pages/p1\n    body:\n      archived: true\n")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"object": "page", "archived": true}, out)
+
+	req, body := last()
+	require.NotNil(t, req)
+	assert.Equal(t, http.MethodPatch, req.Method)
+	assert.JSONEq(t, `{"archived":true}`, body)
+}
+
+func TestNotionComponent_NoToken(t *testing.T) {
+	notionEnv(t)
+	t.Setenv("NOTION_TOKEN", "")
+	_, err := runComponentValue(t, "notion_post", "    path: search\n    body:\n      query: roadmap\n")
+	require.ErrorContains(t, err, "set NOTION_TOKEN or NOTION_API_KEY or the vault secret notion_token")
+}
