@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 )
 
 // HTTPToolSpec is a tool asset's http: block: the HTTP call that implements
@@ -44,9 +45,11 @@ import (
 // string except method is a text/template over httpToolData.
 type HTTPToolSpec struct {
 	// Env maps a name templates use (.env.NAME) to the environment variables
-	// that may hold it; the first non-empty one wins. The tool is registered
-	// only when every entry resolves; an entry whose list ends with "" is
-	// optional and may resolve to "". Templates see no other variable.
+	// that may hold it; the first non-empty one wins. An item "secret:NAME"
+	// reads NAME from the vault (the workflow's secrets.age, then
+	// ~/.kdeps/secrets.age). The tool is registered only when every entry
+	// resolves; an entry whose list ends with "" is optional and may resolve
+	// to "". Templates see no other variable.
 	Env     map[string][]string `yaml:"env,omitempty"`
 	Method  string              `yaml:"method"`
 	URL     string              `yaml:"url"`
@@ -153,7 +156,7 @@ func (s *HTTPToolSpec) ResolveEnv() (map[string]string, bool) {
 			if v == "" {
 				break // optional: may stay empty
 			}
-			if val := os.Getenv(v); val != "" {
+			if val := envOrSecret(v); val != "" {
 				out[name] = val
 				break
 			}
@@ -163,6 +166,20 @@ func (s *HTTPToolSpec) ResolveEnv() (map[string]string, bool) {
 		}
 	}
 	return out, true
+}
+
+// envOrSecret returns the environment variable v, or the vault secret NAME
+// when v is "secret:NAME". A missing secret or a locked vault is "".
+func envOrSecret(v string) string {
+	name, isSecret := strings.CutPrefix(v, "secret:")
+	if !isSecret {
+		return os.Getenv(v)
+	}
+	val, err := secrets.Project().Lookup(name)
+	if err != nil {
+		return ""
+	}
+	return val
 }
 
 // withParamDefaults copies args, fills declared defaults and checks that

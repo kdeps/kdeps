@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: github_get
+  description: Read the GitHub REST API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: The API path after https://api.github.com/, with its query string (repos/OWNER/REPO/issues?state=open)
+  # The GitHub reply, parsed from JSON. No GITHUB_TOKEN, GH_TOKEN or vault secret github_token is an error.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: GitHub GET
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/github_get/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('github_get.path') }}"

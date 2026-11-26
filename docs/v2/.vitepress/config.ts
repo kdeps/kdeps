@@ -64,6 +64,7 @@ const readingPath: [string, string, string][] = [
   ['Control flow', 'CORS', '/workflow/cors'],
   ['Resources', 'API response', '/workflow/resources/api-response'],
   ['Resources', 'HTTP client', '/workflow/resources/http-client'],
+  ['Resources', 'Connectors', '/workflow/resources/connectors'],
   ['Resources', 'Web scraper', '/workflow/resources/web-scraper'],
   ['Resources', 'Search', '/workflow/resources/search'],
   ['Resources', 'search_local', '/workflow/resources/search-local'],
@@ -268,6 +269,7 @@ export default defineConfig({
           items: [
             { text: 'API response resource', link: '/reference/resources/api-response' },
             { text: 'Bot replies', link: '/reference/resources/bot-reply' },
+            { text: 'Connectors (GitHub, ...)', link: '/reference/resources/connectors' },
             { text: 'embedding component', link: '/reference/resources/embedding' },
             { text: 'exec component', link: '/reference/resources/exec' },
             { text: 'File component', link: '/reference/resources/file' },
@@ -495,6 +497,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'HTTP client', link: '/workflow/resources/http-client' },
+            { text: 'Connectors', link: '/workflow/resources/connectors' },
             { text: 'Web scraper', link: '/workflow/resources/web-scraper' },
             { text: 'Search', link: '/workflow/resources/search' },
             { text: 'search_local', link: '/workflow/resources/search-local' },
