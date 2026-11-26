@@ -129,6 +129,16 @@ Accesses the output of a completed resource.
 output('llmResource')        # Get LLM output
 ```
 
+### Secret(name)
+Returns a secret from the vault: `secrets.age` next to the workflow, then `~/.kdeps/secrets.age`. An unknown name or a locked vault fails the expression. See [Secrets](/reference/workflow/secrets).
+
+- **name**: Secret name, as stored with `kdeps secret set`.
+
+**Examples:**
+```yaml
+"Bearer {{ secret('github_token') }}"   # an Authorization header value
+```
+
 ### FileExists(path)
 Tells if a file or directory exists on the machine that runs the workflow. Typical use is a `validations.skip` that avoids repeating a download.
 

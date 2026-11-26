@@ -248,13 +248,15 @@ deploy:
       DATABASE_URL: "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}"
 ```
 
-### In SQL connections
+### In `~/.kdeps/config.yaml`
+
+kdeps expands `${NAME}` from the environment and `${secret:NAME}` from `~/.kdeps/secrets.age` when it reads the file. `${NAME:-default}` is not supported here. See [Secrets](/reference/workflow/secrets).
 
 ```yaml
 # ~/.kdeps/config.yaml
 sql_connections:
   primary:
-    connection: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}"
+    connection: "postgres://${POSTGRES_USER}:${secret:postgres_password}@${POSTGRES_HOST}:5432/${POSTGRES_DB}"
 ```
 
 ## Multiple route definitions

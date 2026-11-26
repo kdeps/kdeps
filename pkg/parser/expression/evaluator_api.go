@@ -168,6 +168,13 @@ func (e *Evaluator) addIterationAPIWrappers(evalEnv map[string]interface{}) {
 		}
 		return val
 	}
+	// secret('NAME') returns a vault secret; an unknown name or a locked
+	// vault fails the expression instead of returning an empty value.
+	if e.api.Secret != nil {
+		evalEnv["secret"] = func(name string) (string, error) {
+			return e.api.Secret(name)
+		}
+	}
 	// fileExists('path') reports whether a file or directory exists (a
 	// component skips a download whose target is already cached).
 	evalEnv["fileExists"] = func(path string) bool {

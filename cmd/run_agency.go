@@ -29,6 +29,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 )
 
 func parseAgencyStep(agencyPath string) (*domain.Agency, []string, *yaml.Parser, error) {
@@ -77,6 +78,7 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 	if projErr := agent.UseProjectAssets(agencyDir); projErr != nil {
 		return projErr
 	}
+	secrets.UseProject(agencyDir)
 
 	agency, agentPaths, yamlParser, err := parseAgencyStep(agencyPath)
 	if err != nil {

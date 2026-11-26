@@ -204,6 +204,21 @@ Registries: /Users/me/.kdeps/registries
 
 ---
 
+## `kdeps secret`
+
+Keep API keys and passwords in an encrypted vault (age, scrypt password). Details: [Secrets reference](/reference/workflow/secrets).
+
+```bash
+kdeps secret set NAME        # value from a hidden prompt, or from stdin
+kdeps secret list            # names only
+kdeps secret rm NAME
+kdeps secret edit            # decrypt into your editor, encrypt again on exit
+```
+
+| Flag | Description |
+|---|---|
+| `--global` | Use `~/.kdeps/secrets.age`. Without it, the vault is `./secrets.age` when the folder holds `workflow.yaml` or `agency.yaml`. |
+
 ## `kdeps edit`
 
 Open a formula in the local copy of its registry (`~/.kdeps/registries/<owner>/<repo>/formulas/<name>.yaml`). `kdeps install` reads the changed file at once, so you can test the change. `kdeps update` replaces the copy, so publish the change on GitHub: kdeps prints the link.

@@ -6,6 +6,7 @@ tool golang.org/x/vuln/cmd/govulncheck
 
 require (
 	charm.land/lipgloss/v2 v2.0.6
+	filippo.io/age v1.2.1
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/IBM/watsonx-go v1.0.2
 	github.com/PuerkitoBio/goquery v1.13.0

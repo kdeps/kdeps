@@ -34,6 +34,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/judge"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 	"github.com/kdeps/kdeps/v3/pkg/selftest"
 )
 
@@ -122,6 +123,7 @@ func runTestCmd(cmd *cobra.Command, args []string, flags *TestFlags) error {
 	if projErr := agent.UseProjectAssets(filepath.Dir(workflowPath)); projErr != nil {
 		return projErr
 	}
+	secrets.UseProject(filepath.Dir(workflowPath))
 
 	workflow, err := ParseWorkflowFile(workflowPath)
 	if err != nil {

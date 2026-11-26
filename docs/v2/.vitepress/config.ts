@@ -45,6 +45,7 @@ const readingPath: [string, string, string][] = [
   ['Data and checks', 'Expressions', '/workflow/expressions'],
   ['Data and checks', 'Data access', '/workflow/data-access'],
   ['Data and checks', 'Expression helpers', '/workflow/expression-helpers'],
+  ['Data and checks', 'Secrets', '/workflow/secrets'],
   ['Data and checks', 'Validation', '/workflow/validation'],
   ['Data and checks', 'Route restrictions', '/workflow/route-restrictions'],
   ['Data and checks', 'Error handling', '/workflow/error-handling'],
@@ -254,6 +255,7 @@ export default defineConfig({
             { text: 'Quickstart', link: '/reference/workflow/quickstart' },
             { text: 'Resources overview', link: '/reference/workflow/resources' },
             { text: 'Route and method restrictions', link: '/reference/workflow/route-restrictions' },
+            { text: 'Secrets reference', link: '/reference/workflow/secrets' },
             { text: 'Session configuration', link: '/reference/workflow/sessions' },
             { text: 'Validation and control flow', link: '/reference/workflow/validation' },
             { text: 'While-loop iteration', link: '/reference/workflow/loop' },
@@ -431,6 +433,7 @@ export default defineConfig({
           items: [
             { text: 'Expressions', link: '/workflow/expressions' },
             { text: 'Expression helpers', link: '/workflow/expression-helpers' },
+            { text: 'Secrets (vault)', link: '/workflow/secrets' },
             { text: 'Data access (get/set/input)', link: '/workflow/data-access' },
             { text: 'Templates (Jinja2)', link: '/workflow/templates' },
             { text: 'Function calling', link: '/workflow/tools' },

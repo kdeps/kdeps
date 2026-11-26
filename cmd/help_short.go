@@ -40,6 +40,7 @@ Build and run:
   kdeps validate | test
   kdeps bundle build|package|prepackage
   kdeps export iso|k8s
+  kdeps secret set|list|rm|edit
 
 Troubleshooting:
   kdeps --version | --upgrade
