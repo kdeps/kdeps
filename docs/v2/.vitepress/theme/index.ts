@@ -24,11 +24,9 @@ import { useRoute, type Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
 import MegaNav from './MegaNav.vue'
-import HomeBoxes from './HomeBoxes.vue'
 import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
 import HomeGitNative from './HomeGitNative.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
-import HomeComparison from './HomeComparison.vue'
 import HomeBook from './HomeBook.vue'
 import FooterCTAs from './FooterCTAs.vue'
 import './custom.css'
@@ -88,11 +86,9 @@ export default {
       'home-hero-info': () => h(HeroInfo),
       'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [
-        h(HomeBoxes),
         h(HomeWhoNeedsThis),
         h(HomeGitNative),
         h(HomeHowItWorks),
-        h(HomeComparison),
         h(HomeBook),
       ],
       'layout-bottom': () => h(FooterCTAs),

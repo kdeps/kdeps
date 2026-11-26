@@ -40,7 +40,7 @@ onUnmounted(() => {
           <div class="step-num">01</div>
           <div class="step-body">
             <h3>Write YAML</h3>
-            <p>Put the steps in one <code>workflow.yaml</code>. A check can return 400 before the model runs. A <code>chat</code> with <code>loop:</code> is an agent, and <code>maxRounds</code> bounds it.</p>
+            <p>Put the steps in one <code>workflow.yaml</code>.</p>
           </div>
         </div>
 
@@ -50,7 +50,7 @@ onUnmounted(() => {
           <div class="step-num">02</div>
           <div class="step-body">
             <h3>Run it</h3>
-            <p><code>kdeps</code> runs <code>./workflow.yaml</code> as an API, a bot, a file processor, or a prompt. <code>kdeps test</code> runs the <code>evals:</code> in the process.</p>
+            <p><code>kdeps run</code> serves it as an API, a bot, a file job, or a prompt.</p>
           </div>
         </div>
 
@@ -60,7 +60,7 @@ onUnmounted(() => {
           <div class="step-num">03</div>
           <div class="step-body">
             <h3>Ship it</h3>
-            <p>Ship that file as a Docker image, Kubernetes manifests, a bootable ISO, or one binary. Pass <code>--include-models</code> to <code>kdeps bundle prepackage</code>. That flag puts the llamafile in the binary.</p>
+            <p>Ship the same file as an image, a binary, or an ISO.</p>
           </div>
         </div>
       </div>
