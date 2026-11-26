@@ -265,15 +265,15 @@ elif kind == "tools":
         die(repr(doc))
     names = [item.get("name") for item in (doc.get("items") or [])]
     want = [
-        "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
+        "airtable_get", "airtable_patch", "airtable_post", "approval_grant", "approval_list", "approval_request", "approval_revoke", "bash_exec",
         "bash_job_list", "bash_job_wait", "calculator", "clipboard_copy", "cohere_rerank", "e2e_py_tool", "e2e_user_tool", "edit_file", "embedding", "embedding_search",
         "embedding_vectorize", "exa_search", "exec", "file_ops", "git_ops", "github_get", "github_post", "google_cache_create",
         "google_cache_delete", "google_cache_list", "hf_repo_files", "hf_search", "http_request",
-        "instruct", "jina_rerank", "knowledge_recall", "list_files", "load_document",
+        "instruct", "jina_rerank", "jira_get", "jira_post", "jira_put", "knowledge_recall", "list_files", "load_document",
         "md5_file", "memory_delete", "memory_query", "memory_save", "memory_search", "notion_get", "notion_patch", "notion_post",
         "ocr_image", "python", "read_file", "retrieve_context", "search_local", "slack_get", "slack_post",
         "sql_describe_table", "sql_list_tables", "sql_ops",
-        "sql_query", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
+        "sql_query", "stripe_get", "stripe_post", "tail_file", "transcribe_audio", "transcribe_audio_offline", "vector_store",
         "voyageai_rerank", "web_scraper", "web_search", "wikipedia", "wolfram_alpha", "write_file",
         "zapier_list_actions", "zapier_run_action",
     ]

@@ -248,6 +248,10 @@ A configured [identity](/reference/advanced-config#agent-identity) takes priorit
 | `notion_get` | `NOTION_TOKEN`, `NOTION_API_KEY` or vault `notion_token` | Read Notion pages and blocks |
 | `notion_post` | `NOTION_TOKEN`, `NOTION_API_KEY` or vault `notion_token` | Search Notion, query databases, create pages |
 | `notion_patch` | `NOTION_TOKEN`, `NOTION_API_KEY` or vault `notion_token` | Update and archive Notion pages, append blocks |
+| `airtable_get`, `airtable_post`, `airtable_patch` | `AIRTABLE_TOKEN`, `AIRTABLE_API_KEY` or vault `airtable_token` | Read, create and change Airtable records |
+| `stripe_get` | `STRIPE_SECRET_KEY`, `STRIPE_API_KEY` or vault `stripe_secret_key` | Read Stripe customers, payments and invoices |
+| `stripe_post` | same as `stripe_get` | Create and change Stripe objects; a person approves each call (T2) |
+| `jira_get`, `jira_post`, `jira_put` | `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` or their vault secrets | Read, create and edit Jira issues |
 | `google_cache_create` | `GOOGLE_API_KEY` | Create a Google AI cached content object |
 | `google_cache_list` | `GOOGLE_API_KEY` | List Google AI cached content objects |
 | `google_cache_delete` | `GOOGLE_API_KEY` | Delete a Google AI cached content object |

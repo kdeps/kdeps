@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: airtable_get
+  description: Read the Airtable API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: 'The API path after https://api.airtable.com/v0/, with its query string. Examples: BASE_ID/TABLE?maxRecords=20, BASE_ID/TABLE/RECORD_ID, meta/bases.'
+  # The Airtable reply, parsed from JSON. A missing token is an error that names its sources.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Airtable GET
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/airtable_get/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('airtable_get.path') }}"

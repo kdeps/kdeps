@@ -1,0 +1,19 @@
+version: 1.0.0
+description: 'Read the Jira Cloud REST API: GET JIRA_URL/rest/api/3/PATH and return the JSON. Use it for issues, projects, transitions and JQL search. Requires JIRA_URL, JIRA_EMAIL and JIRA_API_TOKEN (or the vault secrets jira_url, jira_email and jira_api_token).'
+parameters:
+  path:
+    type: string
+    description: 'The API path after /rest/api/3/, with its query string. Examples: issue/KEY-1, search/jql?jql=project=KEY, project.'
+    required: true
+http:
+  env:
+    SITE: [JIRA_URL, "secret:jira_url"]
+    USER: [JIRA_EMAIL, "secret:jira_email"]
+    TOKEN: [JIRA_API_TOKEN, "secret:jira_api_token"]
+  method: GET
+  # The site comes from JIRA_URL or the vault, never from the model; path only adds to it.
+  url: '{{trimSuffix .env.SITE "/"}}/rest/api/3/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Basic {{base64 (print .env.USER ":" .env.TOKEN)}}'
+    Accept: application/json
+    User-Agent: kdeps

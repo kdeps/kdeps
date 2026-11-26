@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E: the connector components (GitHub, Slack, Notion). No network: the runs have
+# E2E: the connector components (GitHub, Slack, Notion, Airtable, Stripe, Jira). No network: the runs have
 # no token, so each call stops before it reaches the service.
 
 set -uo pipefail
@@ -185,6 +185,74 @@ if output_grep "notion_post: required environment variables are not set: set NOT
     test_passed "notion connector - no token names NOTION_TOKEN, NOTION_API_KEY and the vault secret"
 else
     test_failed "notion connector - no token" "$OUT"
+fi
+
+mkdir -p "$GH_DIR/batch/resources"
+cp "$GH_DIR/proj/workflow.yaml" "$GH_DIR/batch/workflow.yaml"
+cat > "$GH_DIR/batch/resources/rows.yaml" <<'YAML'
+actionId: rows
+name: Airtable rows
+component:
+  name: airtable_get
+  with:
+    path: appX/Tasks?maxRecords=5
+YAML
+cat > "$GH_DIR/batch/resources/customer.yaml" <<'YAML'
+actionId: customer
+name: Stripe customer
+flow:
+  requires: [rows]
+component:
+  name: stripe_post
+  with:
+    path: customers
+    body:
+      email: a@example.com
+      metadata:
+        plan: pro
+YAML
+cat > "$GH_DIR/batch/resources/issue.yaml" <<'YAML'
+actionId: issue
+name: Jira issue
+flow:
+  requires: [customer]
+component:
+  name: jira_put
+  with:
+    path: issue/KEY-1
+    body:
+      fields:
+        summary: Updated by kdeps
+YAML
+cat > "$GH_DIR/batch/resources/response.yaml" <<'YAML'
+actionId: response
+name: Response
+flow:
+  requires: [issue]
+apiResponse:
+  success: true
+  response:
+    rows: "{{ output('rows') }}"
+YAML
+
+batchrun() {
+    (cd "$GH_DIR/batch" && HOME="$GH_DIR/home" USERPROFILE="$(to_native_path "$GH_DIR/home")" \
+        AIRTABLE_TOKEN="" AIRTABLE_API_KEY="" STRIPE_SECRET_KEY="" STRIPE_API_KEY="" \
+        JIRA_URL="" JIRA_EMAIL="" JIRA_API_TOKEN="" KDEPS_VAULT_PASSWORD="" "$KDEPS_BIN" "$@")
+}
+
+OUT=$(batchrun validate workflow.yaml 2>&1)
+if [ $? -eq 0 ]; then
+    test_passed "airtable, stripe and jira connectors - a workflow with all three validates"
+else
+    test_failed "airtable, stripe and jira connectors - validate" "$OUT"
+fi
+
+OUT=$(batchrun run workflow.yaml </dev/null 2>&1)
+if output_grep "airtable_get: required environment variables are not set: set AIRTABLE_TOKEN or AIRTABLE_API_KEY or the vault secret airtable_token" "$OUT"; then
+    test_passed "airtable connector - no token names AIRTABLE_TOKEN, AIRTABLE_API_KEY and the vault secret"
+else
+    test_failed "airtable connector - no token" "$OUT"
 fi
 
 rm -rf "$GH_DIR"

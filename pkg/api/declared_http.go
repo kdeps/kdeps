@@ -21,6 +21,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +33,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -100,6 +102,11 @@ var declaredToolFuncs = template.FuncMap{
 	"add":        func(a, b int) int { return a + b },
 	"int":        ToInt,
 	"min":        func(a, b any) int { return min(ToInt(a), ToInt(b)) },
+	// base64 builds Basic auth headers: {{base64 (print .env.USER ":" .env.TOKEN)}}.
+	"base64": func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) },
+	// form encodes an object as application/x-www-form-urlencoded. Nested
+	// objects and lists use brackets: {"a": {"b": 1}, "c": [2]} -> a[b]=1&c[0]=2.
+	"form": formEncode,
 	// get walks nested maps and lists by key or index, returning nil
 	// (not an error) where a level is missing.
 	"get": getPath,
@@ -386,4 +393,37 @@ func addFilePart(mw *multipart.Writer, field, path string) error {
 	}
 	_, err = io.Copy(part, f)
 	return err
+}
+
+// formEncode encodes v as form fields, with sorted keys and bracket keys for
+// nested objects and lists. A number keeps its plain digits (1000000, not 1e+06).
+func formEncode(v any) string {
+	vals := url.Values{}
+	formFlatten(vals, "", v)
+	return vals.Encode()
+}
+
+func formFlatten(vals url.Values, key string, v any) {
+	sub := func(k string) string {
+		if key == "" {
+			return k
+		}
+		return key + "[" + k + "]"
+	}
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			formFlatten(vals, sub(k), e)
+		}
+	case []any:
+		for i, e := range x {
+			formFlatten(vals, sub(strconv.Itoa(i)), e)
+		}
+	case nil:
+		vals.Add(key, "")
+	case float64:
+		vals.Add(key, strconv.FormatFloat(x, 'f', -1, 64))
+	default:
+		vals.Add(key, fmt.Sprint(x))
+	}
 }

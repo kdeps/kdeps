@@ -1,4 +1,4 @@
-version: 1.4.4
+version: 1.4.5
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
@@ -8,7 +8,7 @@ default: allow
 tiers:
   T0: read-only        # reversible, self-contained: reads and searches
   T1: workspace-write  # reversible, team-visible: writes, commands, requests
-  T2: ask              # irreversible: a person approves each call (no tool uses it by default)
+  T2: ask              # irreversible: a person approves each call
   T3: token            # regulated or external reach: needs a capability token from `kdeps token grant` (none by default)
 tools:
   calculator: T0
@@ -34,6 +34,9 @@ tools:
   github_get: T0
   slack_get: T0
   notion_get: T0
+  airtable_get: T0
+  stripe_get: T0
+  jira_get: T0
   google_cache_list: T0
   bash_job_list: T0
   subagent: T0           # the subagent it starts gets only T0 tools
@@ -48,8 +51,13 @@ tools:
   slack_post: T1          # sends, updates and deletes messages
   notion_post: T1         # creates pages (also search and database queries)
   notion_patch: T1        # updates and archives pages and blocks
+  airtable_post: T1
+  airtable_patch: T1
+  jira_post: T1           # creates issues and comments, moves issue status
+  jira_put: T1
   google_cache_create: T1
   google_cache_delete: T1
+  stripe_post: T2         # can charge, refund and move money
 # Workflow stages. Every run checks each stage's primary kind against these
 # tiers before the stage runs, so an operator's KDEPS_PERMISSION_MODE also
 # limits workflows. A kind not listed uses default.

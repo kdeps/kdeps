@@ -1,0 +1,22 @@
+version: 1.0.0
+description: 'Write to the Airtable API: POST a JSON body to https://api.airtable.com/v0/PATH and return the JSON. Use it to create records. Requires AIRTABLE_TOKEN, AIRTABLE_API_KEY or the vault secret airtable_token.'
+parameters:
+  path:
+    type: string
+    description: 'The API path after https://api.airtable.com/v0/. Example: BASE_ID/TABLE.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example: {"records": [{"fields": {"Name": "..."}}]}.'
+    required: true
+http:
+  env:
+    TOKEN: [AIRTABLE_TOKEN, AIRTABLE_API_KEY, "secret:airtable_token"]
+  method: POST
+  # The host is fixed; path only adds to it.
+  url: 'https://api.airtable.com/v0/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    User-Agent: kdeps
+    Content-Type: application/json
+  body: '{{json .args.body}}'

@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: jira_post
+  description: Write to the Jira API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: 'The API path after /rest/api/3/. Examples: issue, issue/KEY-1/comment, issue/KEY-1/transitions.'
+    - name: body
+      type: object
+      required: true
+      description: 'The JSON request body. Example for a new issue: {"fields": {"project": {"key": "KEY"}, "summary": "...", "issuetype": {"name": "Task"}}}.'
+  # The Jira reply, parsed from JSON. A missing token is an error that names its sources.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Jira POST
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/jira_post/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('jira_post.path') }}"
+        body: "{{ get('jira_post.body') }}"
