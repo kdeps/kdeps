@@ -1,0 +1,23 @@
+version: 1.0.0
+description: 'Change Notion content: PATCH a JSON body to https://api.notion.com/v1/PATH and return the JSON. Use it to update page properties, append blocks and archive pages. Requires NOTION_TOKEN, NOTION_API_KEY or the vault secret notion_token.'
+parameters:
+  path:
+    type: string
+    description: 'The API path after https://api.notion.com/v1/. Examples: pages/PAGE_ID, blocks/BLOCK_ID/children.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example to archive a page: {"archived": true}.'
+    required: true
+http:
+  env:
+    TOKEN: [NOTION_TOKEN, NOTION_API_KEY, "secret:notion_token"]
+  method: PATCH
+  # The host is fixed; path only adds to it.
+  url: 'https://api.notion.com/v1/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    Notion-Version: '2022-06-28'
+    User-Agent: kdeps
+    Content-Type: application/json
+  body: '{{json .args.body}}'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E: the connector components (GitHub, Slack). No network: the runs have
+# E2E: the connector components (GitHub, Slack, Notion). No network: the runs have
 # no token, so each call stops before it reaches the service.
 
 set -uo pipefail
@@ -121,6 +121,70 @@ if output_grep "slack_get: required environment variables are not set: set SLACK
     test_passed "slack connector - no token names SLACK_BOT_TOKEN, SLACK_TOKEN and the vault secret"
 else
     test_failed "slack connector - no token" "$OUT"
+fi
+
+mkdir -p "$GH_DIR/notion/resources"
+cp "$GH_DIR/proj/workflow.yaml" "$GH_DIR/notion/workflow.yaml"
+cat > "$GH_DIR/notion/resources/find.yaml" <<'YAML'
+actionId: find
+name: Search
+component:
+  name: notion_post
+  with:
+    path: search
+    body:
+      query: roadmap
+YAML
+cat > "$GH_DIR/notion/resources/page.yaml" <<'YAML'
+actionId: page
+name: Read the page
+flow:
+  requires: [find]
+component:
+  name: notion_get
+  with:
+    path: pages/PAGE_ID
+YAML
+cat > "$GH_DIR/notion/resources/archive.yaml" <<'YAML'
+actionId: archive
+name: Archive the page
+flow:
+  requires: [page]
+component:
+  name: notion_patch
+  with:
+    path: pages/PAGE_ID
+    body:
+      archived: true
+YAML
+cat > "$GH_DIR/notion/resources/response.yaml" <<'YAML'
+actionId: response
+name: Response
+flow:
+  requires: [archive]
+apiResponse:
+  success: true
+  response:
+    page: "{{ output('archive') }}"
+YAML
+
+notionrun() {
+    (cd "$GH_DIR/notion" && HOME="$GH_DIR/home" USERPROFILE="$(to_native_path "$GH_DIR/home")" \
+        NOTION_TOKEN="" NOTION_API_KEY="" KDEPS_VAULT_PASSWORD="" "$KDEPS_BIN" "$@")
+}
+
+OUT=$(notionrun validate workflow.yaml 2>&1)
+if [ $? -eq 0 ]; then
+    test_passed "notion connector - a workflow with notion_post, notion_get and notion_patch validates"
+else
+    test_failed "notion connector - validate" "$OUT"
+fi
+
+OUT=$(notionrun run workflow.yaml </dev/null 2>&1)
+if output_grep "notion_post: required environment variables are not set: set NOTION_TOKEN or NOTION_API_KEY or the vault secret notion_token" "$OUT"; then
+    test_passed "notion connector - no token names NOTION_TOKEN, NOTION_API_KEY and the vault secret"
+else
+    test_failed "notion connector - no token" "$OUT"
 fi
 
 rm -rf "$GH_DIR"
