@@ -83,7 +83,7 @@ kdeps bundle build .                                          # container image
 kdeps bundle prepackage my-agent-1.0.0.kdeps --include-models # binary with the model
 ```
 
-API keys go in an encrypted vault (`kdeps secret set NAME`), read with `secret('NAME')`. The vault ships with the image; give it `KDEPS_VAULT_PASSWORD` at run time.
+API keys go in an encrypted vault (`kdeps secret set NAME`), read with `secret('NAME')` and by connectors such as `github_get`. The vault ships with the image; give it `KDEPS_VAULT_PASSWORD` at run time.
 
 See [deploy](https://kdeps.com/deploy/), [secrets](https://kdeps.com/workflow/secrets) and [LLM server](https://kdeps.com/llm-server/).
 

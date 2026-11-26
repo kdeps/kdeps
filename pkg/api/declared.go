@@ -22,6 +22,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 )
@@ -51,19 +54,19 @@ func (s DeclaredSpec) run(ctx context.Context, name string, args map[string]any)
 	case s.Python != nil:
 		env, ok := s.Python.ResolveEnv()
 		if !ok {
-			return "", fmt.Errorf("%s: %s", name, msgEnvUnset)
+			return "", envUnsetError(name, s.Python.Env)
 		}
 		return callDeclaredPythonTool(ctx, name, s.Python, args, env)
 	case s.HTTP != nil:
 		env, ok := s.HTTP.ResolveEnv()
 		if !ok {
-			return "", fmt.Errorf("%s: %s", name, msgEnvUnset)
+			return "", envUnsetError(name, s.HTTP.Env)
 		}
 		return callDeclaredHTTPTool(ctx, name, s.HTTP, args, env)
 	case s.Exec != nil:
 		env, ok := s.Exec.ResolveEnv()
 		if !ok {
-			return "", fmt.Errorf("%s: %s", name, msgEnvUnset)
+			return "", envUnsetError(name, s.Exec.Env)
 		}
 		return callDeclaredExecTool(ctx, name, s.Exec, args, env)
 	}
@@ -90,4 +93,29 @@ func RegisterDeclaredTool(name, description string, params map[string]domain.Too
 			return spec().run(ctx, name, full)
 		},
 	})
+}
+
+// envUnsetError names the sources of every env entry that has no value:
+// environment variables, and vault secrets for "secret:NAME" items.
+func envUnsetError(tool string, env map[string][]string) error {
+	var hints []string
+	for _, name := range slices.Sorted(maps.Keys(env)) {
+		vars := env[name]
+		if _, ok := (&HTTPToolSpec{Env: map[string][]string{name: vars}}).ResolveEnv(); ok {
+			continue
+		}
+		var srcs []string
+		for _, v := range vars {
+			if secret, ok := strings.CutPrefix(v, "secret:"); ok {
+				srcs = append(srcs, "the vault secret "+secret)
+			} else {
+				srcs = append(srcs, v)
+			}
+		}
+		hints = append(hints, strings.Join(srcs, " or "))
+	}
+	if len(hints) == 0 {
+		return fmt.Errorf("%s: %s", tool, msgEnvUnset)
+	}
+	return fmt.Errorf("%s: %s: set %s", tool, msgEnvUnset, strings.Join(hints, "; and "))
 }
