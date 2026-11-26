@@ -243,6 +243,8 @@ A configured [identity](/reference/advanced-config#agent-identity) takes priorit
 | `zapier_run_action` | `ZAPIER_NLA_API_KEY` | Execute a Zapier NLA action |
 | `github_get` | `GITHUB_TOKEN`, `GH_TOKEN` or vault `github_token` | Read the GitHub REST API |
 | `github_post` | `GITHUB_TOKEN`, `GH_TOKEN` or vault `github_token` | Create GitHub issues, comments and pull requests |
+| `slack_get` | `SLACK_BOT_TOKEN`, `SLACK_TOKEN` or vault `slack_token` | Read Slack channels, messages and users |
+| `slack_post` | `SLACK_BOT_TOKEN`, `SLACK_TOKEN` or vault `slack_token` | Send and update Slack messages |
 | `google_cache_create` | `GOOGLE_API_KEY` | Create a Google AI cached content object |
 | `google_cache_list` | `GOOGLE_API_KEY` | List Google AI cached content objects |
 | `google_cache_delete` | `GOOGLE_API_KEY` | Delete a Google AI cached content object |

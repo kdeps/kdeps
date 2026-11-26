@@ -1,0 +1,22 @@
+version: 1.0.0
+description: 'Write to the Slack Web API: POST a JSON body to https://slack.com/api/METHOD and return the JSON. Use it to send, update and delete messages and to add reactions. A failed call returns "ok": false and an "error" text. Requires SLACK_BOT_TOKEN, SLACK_TOKEN or the vault secret slack_token.'
+parameters:
+  path:
+    type: string
+    description: 'The Web API method after https://slack.com/api/. Examples: chat.postMessage, chat.update, reactions.add.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example for a message: {"channel": "C0123", "text": "..."}.'
+    required: true
+http:
+  env:
+    TOKEN: [SLACK_BOT_TOKEN, SLACK_TOKEN, "secret:slack_token"]
+  method: POST
+  # The host is fixed; path only adds to it.
+  url: 'https://slack.com/api/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    Content-Type: application/json; charset=utf-8
+    User-Agent: kdeps
+  body: '{{json .args.body}}'

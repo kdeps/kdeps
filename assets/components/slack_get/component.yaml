@@ -1,0 +1,28 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: slack_get
+  description: Read the Slack Web API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: The Web API method after https://slack.com/api/, with its query string (conversations.history?channel=C0123)
+  # The Slack reply, parsed from JSON. Slack answers a failed call with "ok": false and an "error" text.
+  # No SLACK_BOT_TOKEN, SLACK_TOKEN or vault secret slack_token is an error.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Slack GET
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/slack_get/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('slack_get.path') }}"

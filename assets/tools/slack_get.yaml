@@ -1,0 +1,16 @@
+version: 1.0.0
+description: 'Read the Slack Web API: GET https://slack.com/api/METHOD and return the JSON. Use it for channels, messages, users and threads. A failed call returns "ok": false and an "error" text. Requires SLACK_BOT_TOKEN, SLACK_TOKEN or the vault secret slack_token.'
+parameters:
+  path:
+    type: string
+    description: 'The Web API method after https://slack.com/api/, with its query string. Examples: conversations.list, conversations.history?channel=C0123&limit=20, users.info?user=U0123.'
+    required: true
+http:
+  env:
+    TOKEN: [SLACK_BOT_TOKEN, SLACK_TOKEN, "secret:slack_token"]
+  method: GET
+  # The host is fixed; path only adds to it.
+  url: 'https://slack.com/api/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bearer {{.env.TOKEN}}'
+    User-Agent: kdeps
