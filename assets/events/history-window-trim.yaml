@@ -1,5 +1,5 @@
-version: 1.0.5
-# kdeps update installs these with this event: the action it runs
+version: 1.0.6
+# kdeps installs these with this event: the action it runs
 requires:
   actions/drop_oldest: ""
 name: history-window-trim
