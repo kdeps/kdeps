@@ -26,9 +26,7 @@
           <h3 class="book-title">AI Appliances</h3>
           <p class="book-subtitle">Build &amp; Deploy Autonomous AI Agents and Agencies in YAML</p>
           <p class="book-desc">
-            Your AI prototype works. Now ship it. This practical guide covers deterministic
-            pipelines, multi-agent orchestration, error handling, and vendor-agnostic
-            deployment. Most AI frameworks leave these production problems to you.
+            From a first workflow to an offline appliance in production.
           </p>
           <span class="read-link">Read the book -></span>
         </div>

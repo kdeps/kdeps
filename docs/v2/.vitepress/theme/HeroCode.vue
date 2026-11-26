@@ -68,13 +68,9 @@ const files = [
     name: 'resources/llm.yaml',
     html: [
       `${K('actionId')}${O(': ')}${S('llm')}`,
-      `${K('name')}${O(': ')}${S('Ask the AI')}`,
       `${K('validations')}${O(':')}`,
       `  ${K('check')}${O(':')}`,
       `    ${O('- ')}${S("get('q') != ''")}   ${D('# 400 before any model call')}`,
-      `  ${K('error')}${O(':')}`,
-      `    ${K('code')}${O(': ')}${N('400')}`,
-      `    ${K('message')}${O(': ')}${S('"\'q\' is required"')}`,
       `${K('chat')}${O(':')}`,
       `  ${K('model')}${O(':')}`,
       `    ${K('name')}${O(': ')}${S('ministral3')}   ${D('# local, no API key')}`,

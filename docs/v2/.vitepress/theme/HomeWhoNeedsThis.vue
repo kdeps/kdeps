@@ -7,38 +7,28 @@
     <div class="container">
       <p class="section-eyebrow">who it's for</p>
       <h2 class="section-title">When you cannot send data to an external AI service</h2>
-      <p class="section-sub">kdeps packages the model with the workflow. As a result, all of it runs in your boundary.</p>
+      <p class="section-sub">The model ships with the workflow, so all of it runs inside your boundary.</p>
 
       <div class="kd-play cards">
         <a href="/deploy/kubernetes" class="kd-stagger card" style="--i: 0">
           <h3>Private enterprise AI</h3>
-          <p>Deploy an internal RAG or document agent fully in the VPC of your customer. No prompts, documents, or embeddings go out of their infrastructure.</p>
+          <p>A document agent in your own network. No data goes out.</p>
           <span class="tag">on-prem &middot; regulated</span>
         </a>
 
         <a href="/deploy/binaries" class="kd-stagger card" style="--i: 1">
           <h3>Edge &amp; air-gapped AI</h3>
-          <p>Ship the model and the workflow as a bootable ISO or one binary. Write the ISO to a USB stick. It runs on a disconnected device, with no network at inference time.</p>
+          <p>One binary or a bootable ISO. It runs with no network.</p>
           <span class="tag">edge &middot; offline</span>
         </a>
 
         <a href="/workflow/quickstart" class="kd-stagger card" style="--i: 2">
           <h3>AI APIs without glue code</h3>
-          <p>Change a YAML workflow into a production HTTP API and container. You do not need FastAPI, LangChain code, or a Dockerfile that you write manually. You declare the validation, the order, and the response shape.</p>
+          <p>A YAML file becomes an HTTP API and a container. You write no server code.</p>
           <span class="tag">workflow</span>
         </a>
       </div>
 
-      <p class="build-label">Working examples. Each example is a project that you can run:</p>
-      <div class="kd-play chips">
-        <a href="/examples/file-processor" class="kd-stagger chip" style="--i: 0">Document summarizer</a>
-        <a href="/examples/rag-search" class="kd-stagger chip" style="--i: 1">RAG over your docs</a>
-        <a href="/examples/function-calling" class="kd-stagger chip" style="--i: 2">Function calling</a>
-        <a href="/examples/sql-api" class="kd-stagger chip" style="--i: 3">SQL-backed API</a>
-        <a href="/examples/telegram-bot/" class="kd-stagger chip" style="--i: 4">Telegram bot</a>
-        <a href="/examples/agency" class="kd-stagger chip" style="--i: 5">Multi-agent agency</a>
-        <a href="/examples/" class="kd-stagger chip chip-more" style="--i: 6">All examples</a>
-      </div>
     </div>
   </section>
 </template>
@@ -129,36 +119,6 @@
   padding: 2px 8px;
 }
 
-.build-label {
-  font-size: 13px;
-  color: var(--vp-c-text-3);
-  margin: 40px 0 12px;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chip {
-  font-size: 13px;
-  color: var(--vp-c-text-2);
-  text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-  padding: 5px 10px;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-
-.chip:hover {
-  border-color: rgba(0, 229, 255, 0.3);
-  color: var(--vp-c-text-1);
-}
-
-.chip-more {
-  color: var(--vp-c-brand-1);
-}
 
 @media (max-width: 768px) {
   .who-needs { padding: 48px 16px; }

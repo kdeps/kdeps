@@ -7,7 +7,7 @@
     <div class="container">
       <p class="section-eyebrow">git-native</p>
       <h2 class="section-title">The YAML is the behavior spec</h2>
-      <p class="section-sub">The YAML in your repository fully defines what the appliance does: the model, the validation, the step order, and the response shape. When you change the YAML and commit it, the behavior changes. Your git history is the changelog of the agent behavior. Only the model binding is outside the repository. As a result, the same commit runs with a local model on a laptop and with a cloud model in production.</p>
+      <p class="section-sub">The YAML in your repository defines what the appliance does. A commit changes the behavior, and git history is its changelog.</p>
 
       <div class="diff-block kd-play">
         <div class="diff-head">git show HEAD - resources/llm.yaml</div>
@@ -21,27 +21,9 @@
 <span class="add" style="--i: 7">+    name: qwen2.5:7b</span>
 <span class="ctx" style="--i: 8">  context:</span>
 <span class="ctx" style="--i: 9">    prompt: "&lcub;&lcub; get('q') &rcub;&rcub;"</span></code></pre>
-        <p class="diff-caption">One commit makes two behavior changes: a larger model, and a 400 error for input that is too large. You do not change a deploy configuration or a console setting. The diff <em>is</em> the change.</p>
+        <p class="diff-caption">One commit, two behavior changes. The diff <em>is</em> the change.</p>
       </div>
 
-      <div class="kd-play cards">
-        <div class="kd-stagger card" style="--i: 0">
-          <h3>Reviewable</h3>
-          <p>A change to an agent is a diff: a new resource, a stricter validation, or a different response shape. Review it in a pull request, as you review all other code.</p>
-        </div>
-        <div class="kd-stagger card" style="--i: 1">
-          <h3>Versioned</h3>
-          <p>A git tag is a release. <code>kdeps test</code> runs the evals on that tag. The built appliance also pins the runtime and the model.</p>
-        </div>
-        <div class="kd-stagger card" style="--i: 2">
-          <h3>Reproducible</h3>
-          <p>In CI, check out a tag and run <code>kdeps test</code>. Then run <code>kdeps validate</code> and <code>kdeps bundle build</code>. The same commit always makes the same appliance.</p>
-        </div>
-        <div class="kd-stagger card" style="--i: 3">
-          <h3>Shareable (optional)</h3>
-          <p>With the <a href="/registry/">registry</a>, you can install and publish agents by name. <code>kdeps install owner/repo</code> pulls from a GitHub repository. You do not need the registry to build or deploy your own agent.</p>
-        </div>
-      </div>
     </div>
   </section>
 </template>
@@ -123,50 +105,9 @@
   font-style: italic;
 }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 16px;
-}
-
-.card {
-  background: var(--vp-c-bg-soft);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 2px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.card h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--vp-c-text-1);
-  margin: 0;
-}
-
-.card p {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--vp-c-text-2);
-  margin: 0;
-}
-
-.card code {
-  font-family: var(--vp-font-family-mono);
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1px 5px;
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #00E5FF;
-  word-break: break-word;
-}
 
 @media (max-width: 768px) {
   .git-native { padding: 48px 16px; }
-  .cards { grid-template-columns: 1fr; }
 }
 
 /* The diff plays like git show: lines print in order, the removed line is
