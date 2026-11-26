@@ -21,6 +21,11 @@ package executor_test
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,6 +41,7 @@ import (
 	"github.com/kdeps/kdeps/v3/pkg/input/listen"
 	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v3/pkg/secrets"
 	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
@@ -146,4 +152,95 @@ resources:
 	require.NoError(t, err)
 	_, err = yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
 	require.Error(t, err)
+}
+
+// TestListen_SignedWebhookAnswersWithTheRun parses a webhook listener whose
+// HMAC secret is in the vault, and answers a signed POST with the run result.
+func TestListen_SignedWebhookAnswersWithTheRun(t *testing.T) {
+	githubEnv(t)
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	t.Cleanup(secrets.SetWorkFactorForTesting(10))
+	dir := t.TempDir()
+	require.NoError(t, secrets.Write(secrets.ProjectPath(dir), "pw", map[string]string{"hook_secret": "s3cret"}))
+	secrets.UseProject(dir)
+	t.Cleanup(func() { secrets.UseProject("") })
+	t.Setenv(secrets.EnvPassword, "pw")
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := ln.Addr().String()
+	require.NoError(t, ln.Close())
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: webhook-integration
+  version: "1.0.0"
+  targetActionId: echo
+deploy:
+  input:
+    listen:
+      - id: gh
+        webhook:
+          addr: "`+addr+`"
+          path: /hooks/github
+          wait: true
+          verify:
+            secret: ["secret:hook_secret"]
+            signature: '{{trimPrefix (index .headers "X-Hub-Signature-256") "sha256="}}'
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "echo.yaml"), []byte(`actionId: echo
+name: Echo
+apiResponse:
+  success: true
+  response:
+    action: "{{ input('action') }}"
+`), 0o600))
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+	require.NoError(t, err)
+
+	eng := newExecEngine(t)
+	opts := listen.Options{
+		ProjectDir: dir,
+		Out:        &lockedBuf{},
+		Exec: func(ctx context.Context, id string, ev listen.Event) (any, error) {
+			return eng.Execute(wf, &executor.RequestContext{Ctx: ctx, Method: "POST", Path: "/listen/" + id, Body: ev})
+		},
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- listen.Run(ctx, wf.Settings.Input.Listen, opts) }()
+	defer func() {
+		cancel()
+		require.NoError(t, <-done)
+	}()
+
+	body := `{"action":"opened"}`
+	mac := hmac.New(sha256.New, []byte("s3cret"))
+	_, _ = mac.Write([]byte(body))
+	sig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	var code int
+	var reply string
+	require.Eventually(t, func() bool {
+		req, rErr := http.NewRequestWithContext(t.Context(), http.MethodPost,
+			"http://"+addr+"/hooks/github", strings.NewReader(body))
+		if rErr != nil {
+			return false
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Hub-Signature-256", sig)
+		resp, dErr := http.DefaultClient.Do(req)
+		if dErr != nil {
+			return false
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b, _ := io.ReadAll(resp.Body)
+		code, reply = resp.StatusCode, string(b)
+		return true
+	}, 5*time.Second, 20*time.Millisecond)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Contains(t, reply, `"action":"opened"`)
 }

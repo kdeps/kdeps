@@ -90,9 +90,10 @@ func Run(ctx context.Context, specs []domain.ListenSpec, opts Options) error {
 
 	errs := make(chan error, len(specs))
 	var wg sync.WaitGroup
+	hub := newWebhookHub()
 	for i, spec := range specs {
 		id := ID(spec, i)
-		src, err := newSource(spec, id, opts)
+		src, err := newSource(spec, id, hub, opts)
 		if err != nil {
 			return err
 		}
@@ -120,7 +121,7 @@ func Run(ctx context.Context, specs []domain.ListenSpec, opts Options) error {
 	}
 }
 
-func newSource(spec domain.ListenSpec, id string, opts Options) (source, error) {
+func newSource(spec domain.ListenSpec, id string, hub *webhookHub, opts Options) (source, error) {
 	switch {
 	case spec.Fifo != nil:
 		return &fifoSource{path: spec.Fifo.Path, framing: spec.Fifo.Framing}, nil
@@ -131,8 +132,10 @@ func newSource(spec domain.ListenSpec, id string, opts Options) (source, error) 
 		}, nil
 	case spec.Poll != nil:
 		return newPollSource(spec.Poll, id, statePath(opts.ProjectDir, id, "cursor"), opts.Logger)
+	case spec.Webhook != nil:
+		return newWebhookSource(spec.Webhook, id, hub, opts)
 	}
-	return nil, fmt.Errorf("listen %s: set fifo, file or poll", id)
+	return nil, fmt.Errorf("listen %s: set fifo, file, poll or webhook", id)
 }
 
 // statePath is where a listener keeps its read position.

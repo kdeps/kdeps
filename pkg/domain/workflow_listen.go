@@ -25,7 +25,7 @@ const (
 )
 
 // ListenSpec is one listener under deploy.input.listen. Exactly one of Fifo,
-// File and Poll is set. Each event the listener receives starts one workflow
+// File, Poll and Webhook is set. Each event the listener receives starts one workflow
 // run; the event is the run's input (input('line'), input('id'), ...).
 type ListenSpec struct {
 	// ID names the listener in logs and names its saved cursor. Default:
@@ -38,6 +38,8 @@ type ListenSpec struct {
 	Fifo *ListenFifoSpec `yaml:"fifo,omitempty" json:"fifo,omitempty"`
 	File *ListenFileSpec `yaml:"file,omitempty" json:"file,omitempty"`
 	Poll *ListenPollSpec `yaml:"poll,omitempty" json:"poll,omitempty"`
+	// Webhook takes HTTP POSTs on its own address.
+	Webhook *ListenWebhookSpec `yaml:"webhook,omitempty" json:"webhook,omitempty"`
 }
 
 // ListenFifoSpec reads events from a named pipe. kdeps creates the pipe when
@@ -72,4 +74,40 @@ type ListenPollSpec struct {
 	Cursor string `yaml:"cursor,omitempty" json:"cursor,omitempty"`
 	// Start is the first .cursor when none is saved.
 	Start string `yaml:"start,omitempty" json:"start,omitempty"`
+}
+
+// ListenWebhookSpec takes HTTP POSTs. A JSON body is the event; a form body
+// is its fields; any other body is {"body": text}.
+type ListenWebhookSpec struct {
+	// Addr is the listen address (default :16396). Webhooks with the same
+	// address share one server.
+	Addr string `yaml:"addr,omitempty" json:"addr,omitempty"`
+	// Path is the URL path, for example /hooks/github.
+	Path string `yaml:"path" json:"path"`
+	// Wait runs the workflow before the answer and returns its result. By
+	// default kdeps answers 202 at once and runs the workflow after.
+	Wait bool `yaml:"wait,omitempty" json:"wait,omitempty"`
+	// Handshake is a template over .event, .body and .headers. When it
+	// renders text, kdeps answers with that text and starts no run (a
+	// service's URL check, such as Slack url_verification).
+	Handshake string `yaml:"handshake,omitempty" json:"handshake,omitempty"`
+	// Verify rejects a request whose HMAC signature does not match.
+	Verify *ListenVerifySpec `yaml:"verify,omitempty" json:"verify,omitempty"`
+}
+
+// ListenVerifySpec checks an HMAC signature. kdeps computes the HMAC of
+// Message with the secret and compares it with Signature.
+type ListenVerifySpec struct {
+	// Secret lists environment variables and "secret:NAME" vault entries;
+	// the first one with a value is the key.
+	Secret []string `yaml:"secret" json:"secret"`
+	// Algorithm is sha256 (default) or sha1.
+	Algorithm string `yaml:"algorithm,omitempty" json:"algorithm,omitempty"`
+	// Encoding of the signature: hex (default) or base64.
+	Encoding string `yaml:"encoding,omitempty" json:"encoding,omitempty"`
+	// Message is a template over .body and .headers (default {{.body}}).
+	Message string `yaml:"message,omitempty" json:"message,omitempty"`
+	// Signature is a template over .headers that gives the signature the
+	// request carries.
+	Signature string `yaml:"signature" json:"signature"`
 }
