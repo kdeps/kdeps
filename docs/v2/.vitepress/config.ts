@@ -28,6 +28,86 @@ import pkg from '../package.json' with { type: 'json' }
 // version is only the local-dev fallback.
 const navVersion = process.env.KDEPS_DOCS_VERSION || pkg.version
 
+
+// The reading path: every guide page in teaching order. Previous and Next
+// follow it across sections, and each page shows its step number.
+const readingPath: [string, string, string][] = [
+  ['Start', 'What is kdeps?', '/start/'],
+  ['Start', 'Why kdeps?', '/start/why-kdeps'],
+  ['Start', 'Installation', '/start/installation'],
+  ['Start', 'Quickstart', '/workflow/quickstart'],
+  ['Start', 'Concepts', '/start/concepts'],
+  ['Workflow basics', 'Workflow', '/workflow/'],
+  ['Workflow basics', 'Resources', '/workflow/resources'],
+  ['Workflow basics', 'Execution flow', '/workflow/execution-flow'],
+  ['Workflow basics', 'workflow.yaml', '/workflow/configuration'],
+  ['Workflow basics', 'Input sources', '/workflow/input-sources'],
+  ['Data and checks', 'Expressions', '/workflow/expressions'],
+  ['Data and checks', 'Data access', '/workflow/data-access'],
+  ['Data and checks', 'Expression helpers', '/workflow/expression-helpers'],
+  ['Data and checks', 'Validation', '/workflow/validation'],
+  ['Data and checks', 'Route restrictions', '/workflow/route-restrictions'],
+  ['Data and checks', 'Error handling', '/workflow/error-handling'],
+  ['The model', 'LLM resource', '/workflow/resources/llm'],
+  ['The model', 'Local models', '/start/local-models'],
+  ['The model', 'LLM backends', '/workflow/resources/llm-backends'],
+  ['The model', 'Routing', '/workflow/resources/llm-routing'],
+  ['The model', 'Function calling', '/workflow/tools'],
+  ['The model', 'Answer quality', '/workflow/quality'],
+  ['The model', 'Evals', '/workflow/testing'],
+  ['Control flow', 'Items', '/workflow/items'],
+  ['Control flow', 'While-loop', '/workflow/loop'],
+  ['Control flow', 'Inline resources', '/workflow/inline-resources'],
+  ['Control flow', 'Templates', '/workflow/templates'],
+  ['Control flow', 'Sessions', '/workflow/sessions'],
+  ['Control flow', 'CORS', '/workflow/cors'],
+  ['Resources', 'API response', '/workflow/resources/api-response'],
+  ['Resources', 'HTTP client', '/workflow/resources/http-client'],
+  ['Resources', 'Web scraper', '/workflow/resources/web-scraper'],
+  ['Resources', 'Search', '/workflow/resources/search'],
+  ['Resources', 'search_local', '/workflow/resources/search-local'],
+  ['Resources', 'RAG', '/workflow/resources/rag'],
+  ['Resources', 'Loader', '/workflow/resources/loader'],
+  ['Resources', 'Embedding', '/workflow/resources/embedding'],
+  ['Resources', 'Vector store', '/workflow/resources/vector-store'],
+  ['Resources', 'SQL', '/workflow/resources/sql'],
+  ['Resources', 'File', '/workflow/resources/file'],
+  ['Resources', 'Git', '/workflow/resources/git'],
+  ['Resources', 'Python', '/workflow/resources/python'],
+  ['Resources', 'Exec', '/workflow/resources/exec'],
+  ['Resources', 'Transcribe', '/workflow/resources/transcribe'],
+  ['Resources', 'OCR', '/workflow/resources/ocr'],
+  ['Resources', 'Bot replies', '/workflow/resources/bot-reply'],
+  ['Agent loop', 'Agent loop', '/workflow/agent-loop/'],
+  ['Agent loop', 'Built-in tools', '/workflow/agent-loop/tools'],
+  ['Agent loop', 'Fenced tools', '/workflow/agent-loop/fenced-tools'],
+  ['Agent loop', 'Persistent memory', '/workflow/agent-loop/memory'],
+  ['Agent loop', 'Knowledge vault', '/workflow/agent-loop/knowledge'],
+  ['Agent loop', 'Skills and instructions', '/workflow/agent-loop/skills'],
+  ['Agent loop', 'Subagents', '/workflow/agent-loop/subagent'],
+  ['Agent loop', 'Judge panel', '/workflow/agent-loop/judges'],
+  ['Agent loop', 'Approval tokens', '/workflow/agent-loop/approvals'],
+  ['Agent loop', 'Events', '/workflow/agent-loop/events'],
+  ['Agent loop', 'Event guards', '/workflow/agent-loop/events-guards'],
+  ['Agent loop', 'Event actions', '/workflow/agent-loop/events-actions'],
+  ['Agent loop', 'Event presets', '/workflow/agent-loop/events-presets'],
+  ['Agencies', 'Agencies', '/agencies/'],
+  ['Agencies', 'Components', '/agencies/components'],
+  ['Agencies', 'Component resource', '/agencies/component-resource'],
+  ['Agencies', 'Delegation', '/agencies/delegation'],
+  ['Agencies', 'Agent resource', '/agencies/agent-resource'],
+  ['Deploy', 'Deploy', '/deploy/'],
+  ['Deploy', 'Docker', '/deploy/docker'],
+  ['Deploy', 'Kubernetes', '/deploy/kubernetes'],
+  ['Deploy', 'Standalone binaries', '/deploy/binaries'],
+  ['Deploy', 'Web server mode', '/deploy/webserver'],
+  ['Deploy', 'TLS and HTTPS', '/deploy/tls-https'],
+  ['Deploy', 'Data sovereignty', '/start/data-sovereignty'],
+  ['Deploy', 'LLM server', '/llm-server/'],
+  ['Share', 'Registry', '/registry/'],
+  ['Share', 'Examples', '/examples/'],
+]
+
 export default defineConfig({
   title: 'kdeps',
   description: 'One workflow.yaml becomes an offline API, a binary, an image, or an ISO.',
@@ -47,6 +127,22 @@ export default defineConfig({
     ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
     ['meta', { name: 'og:description', content: 'One workflow.yaml becomes an offline API, a binary, an image, or an ISO.' }],
   ],
+
+  transformPageData(pageData) {
+    const url = '/' + pageData.relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '')
+    if (pageData.relativePath.startsWith('reference/')) {
+      // Reference pages are for lookup, not reading in order.
+      pageData.frontmatter.prev = false
+      pageData.frontmatter.next = false
+      return
+    }
+    const i = readingPath.findIndex((p) => p[2] === url)
+    if (i < 0) return
+    const step = (j: number) => (readingPath[j] ? { text: readingPath[j][1], link: readingPath[j][2] } : false)
+    pageData.frontmatter.prev = step(i - 1)
+    pageData.frontmatter.next = step(i + 1)
+    pageData.frontmatter.step = { n: i + 1, total: readingPath.length, part: readingPath[i][0] }
+  },
 
   lastUpdated: true,
   cleanUrls: true,
@@ -93,10 +189,16 @@ export default defineConfig({
           items: [
             { text: 'What is kdeps?', link: '/start/' },
             { text: 'Why kdeps?', link: '/start/why-kdeps' },
-            { text: 'Concepts overview', link: '/start/concepts' },
             { text: 'Installation', link: '/start/installation' },
+            { text: 'Quickstart', link: '/workflow/quickstart' },
+            { text: 'Concepts overview', link: '/start/concepts' },
             { text: 'Local models', link: '/start/local-models' },
             { text: 'Data sovereignty', link: '/start/data-sovereignty' },
+          ]
+        },
+        {
+          text: 'Reference',
+          items: [
             { text: 'Glossary', link: '/reference/glossary' },
             { text: 'AI-assisted authoring', link: '/reference/ai-assisted-authoring' },
           ]
