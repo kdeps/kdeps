@@ -15,7 +15,7 @@ This sets how a run gets its input. `interactive` is one of the four sources.
 | `bot` | Chat bot platforms (Discord, Slack, Telegram) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 | `interactive` | A terminal prompt: each line you type runs the workflow |
-| `listen:` | Listeners: one run for each new line in a file or a named pipe, or each item a polled tool returns |
+| `listen:` | Listeners: one run for each new line in a file or a named pipe, each item a polled tool returns, or each webhook POST |
 
 An HTTP server starts only when you set `apiServer:` under `settings:`. If you do not set `portNum`, it listens on port 16395. If you do not set `input:`, that server does not start. With no `apiServer`, no `webServer`, no bot source, no file source and no `listen:`, `kdeps run` runs the workflow one time and stops.
 
@@ -160,11 +160,13 @@ direction: right
 file: "file: new line" {shape: oval}
 fifo: "fifo: line in a named pipe" {shape: oval}
 poll: "poll: tool reply item" {shape: oval}
+hook: "webhook: signed POST" {shape: oval}
 q: "queue per key"
 run: "one workflow run\ninput('line'), input('id')"
 file -> q
 fifo -> q
 poll -> q
+hook -> q
 q -> run
 ```
 
@@ -192,6 +194,15 @@ deploy:
           items: ""                    # dotted path to the list in the reply; empty: the reply
           cursor: "{{.item.updated_at}}"   # saved after each item, read back as .cursor
           start: "2026-01-01T00:00:00Z"    # .cursor before anything is saved
+      - id: github
+        webhook:
+          addr: ":8090"                # default :16396; webhooks on one addr share a server
+          path: /hooks/github
+          wait: false                  # true: run first, answer with the result (200)
+          verify:                      # a POST without a matching HMAC gets 401
+            secret: [GITHUB_WEBHOOK_SECRET, "secret:github_webhook_secret"]
+            message: "{{.body}}"       # default
+            signature: '{{trimPrefix (index .headers "X-Hub-Signature-256") "sha256="}}'
 ```
 
 </div>
@@ -206,8 +217,27 @@ deploy:
 | `poll.with` | The tool arguments. Each string is a template over `.cursor`. |
 | `poll.items` | A dotted path to the event list in the reply (`result`, `data.items`). A single object is one event. |
 | `poll.cursor`, `poll.start` | The next cursor, a template over `.item` and `.cursor`, and the first cursor. |
+| `webhook.path`, `webhook.addr` | The URL path and the listen address. A JSON body is the event; a form body is its fields; another body is `{"body": "..."}`. |
+| `webhook.wait` | `false` (default): answer `202` at once and run after. `true`: run, then answer with the result, or `500` and the error. |
+| `webhook.handshake` | A template over `.event`, `.body`, `.headers`, `.query` and `.method`. When it renders text, kdeps answers with that text and starts no run. |
+| `webhook.verify` | An HMAC check: `secret` (env names and `secret:NAME` entries), `algorithm` (`sha256` or `sha1`), `encoding` (`hex` or `base64`), `message` and `signature` templates. |
 
-Listener templates use the same helpers as tool `http:` blocks (`json`, `get`, `add`, `int`, `urlquery`, ...), not the `{{ input() }}` expressions of a resource.
+Listener templates use the same helpers as tool `http:` blocks (`json`, `get`, `add`, `int`, `urlquery`, `kv`, ...), not the `{{ input() }}` expressions of a resource.
+
+A handshake answers a service's URL check. Only a POST can start a run, and `verify` applies to each POST:
+
+<div v-pre>
+
+```yaml
+handshake: '{{if eq .event.type "url_verification"}}{{.event.challenge}}{{end}}'   # Slack Events API
+handshake: '{{index .query "hub.challenge"}}'                                       # a GET check, such as Meta
+verify:                                                                             # Stripe
+  secret: ["secret:stripe_webhook_secret"]
+  message: '{{kv (index .headers "Stripe-Signature") "t"}}.{{.body}}'
+  signature: '{{kv (index .headers "Stripe-Signature") "v1"}}'
+```
+
+</div>
 
 kdeps saves the read position of a `file` listener and the cursor of a `poll` listener under `~/.kdeps/projects/`, never in the project. A restart goes on after the last event that ran. Each finished run prints `[listen ID] RESULT`; a failed run prints the error, and the listener goes on.
 
@@ -219,7 +249,7 @@ kdeps saves the read position of a `file` listener and the cursor of a `poll` li
   (`bot`).
 - Process one file per invocation from a pipeline, cron job, or CI step
   (`file`).
-- Run a workflow for each new log line, queued job or API item
+- Run a workflow for each new log line, queued job, API item or webhook
   (`listen:`).
 
 ## See also

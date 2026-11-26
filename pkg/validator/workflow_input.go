@@ -21,6 +21,7 @@ package validator
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
@@ -166,19 +167,21 @@ func validateListen(config *domain.InputConfig) error {
 
 func validateListenSpec(id string, spec domain.ListenSpec) error {
 	set := 0
-	for _, ok := range []bool{spec.Fifo != nil, spec.File != nil, spec.Poll != nil} {
+	for _, ok := range []bool{spec.Fifo != nil, spec.File != nil, spec.Poll != nil, spec.Webhook != nil} {
 		if ok {
 			set++
 		}
 	}
 	if set != 1 {
-		return listenError(fmt.Sprintf("listen %s: set exactly one of fifo, file and poll", id))
+		return listenError(fmt.Sprintf("listen %s: set exactly one of fifo, file, poll and webhook", id))
 	}
 	switch {
 	case spec.Fifo != nil:
 		return validateListenPath(id, "fifo", spec.Fifo.Path, spec.Fifo.Framing)
 	case spec.File != nil:
 		return validateListenPath(id, "file", spec.File.Path, spec.File.Framing)
+	case spec.Webhook != nil:
+		return validateWebhook(id, spec.Webhook)
 	}
 	if spec.Poll.Tool == "" {
 		return listenError(fmt.Sprintf("listen %s: poll.tool is required", id))
@@ -190,6 +193,27 @@ func validateListenSpec(id string, spec domain.ListenSpec) error {
 				fmt.Sprintf("listen %s: poll.every %q: use a duration of 1s or more", id, spec.Poll.Every),
 			)
 		}
+	}
+	return nil
+}
+
+func validateWebhook(id string, w *domain.ListenWebhookSpec) error {
+	if !strings.HasPrefix(w.Path, "/") {
+		return listenError(fmt.Sprintf("listen %s: webhook.path must start with /", id))
+	}
+	v := w.Verify
+	if v == nil {
+		return nil
+	}
+	switch {
+	case len(v.Secret) == 0:
+		return listenError(fmt.Sprintf("listen %s: webhook.verify.secret is required", id))
+	case v.Signature == "":
+		return listenError(fmt.Sprintf("listen %s: webhook.verify.signature is required", id))
+	case v.Algorithm != "" && v.Algorithm != "sha256" && v.Algorithm != "sha1":
+		return listenError(fmt.Sprintf("listen %s: webhook.verify.algorithm %q: use sha256 or sha1", id, v.Algorithm))
+	case v.Encoding != "" && v.Encoding != "hex" && v.Encoding != "base64":
+		return listenError(fmt.Sprintf("listen %s: webhook.verify.encoding %q: use hex or base64", id, v.Encoding))
 	}
 	return nil
 }

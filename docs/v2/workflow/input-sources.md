@@ -1,6 +1,6 @@
 # Input sources
 
-A workflow gets input from an HTTP server (`apiServer:` under `deploy:`), a chat bot, one file, a terminal prompt, or listeners. A listener starts one run for each event: a new line in a file or a named pipe, or an item that a polled tool returns.
+A workflow gets input from an HTTP server (`apiServer:` under `deploy:`), a chat bot, one file, a terminal prompt, or listeners. A listener starts one run for each event: a new line in a file or a named pipe, an item that a polled tool returns, or a webhook POST.
 
 ```yaml
 # workflow.yaml

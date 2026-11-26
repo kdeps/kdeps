@@ -107,6 +107,8 @@ var declaredToolFuncs = template.FuncMap{
 	// form encodes an object as application/x-www-form-urlencoded. Nested
 	// objects and lists use brackets: {"a": {"b": 1}, "c": [2]} -> a[b]=1&c[0]=2.
 	"form": formEncode,
+	// kv reads one field of a "k=v,k2=v2" header, such as Stripe-Signature.
+	"kv": headerField,
 	// get walks nested maps and lists by key or index, returning nil
 	// (not an error) where a level is missing.
 	"get": getPath,
@@ -438,4 +440,15 @@ func formFlatten(vals url.Values, key string, v any) {
 	default:
 		vals.Add(key, fmt.Sprint(x))
 	}
+}
+
+// headerField returns the value of key in a comma-separated list of k=v pairs.
+func headerField(s, key string) string {
+	for part := range strings.SplitSeq(s, ",") {
+		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if ok && k == key {
+			return v
+		}
+	}
+	return ""
 }

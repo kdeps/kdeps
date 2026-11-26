@@ -246,6 +246,65 @@
                         "type": "string"
                       }
                     }
+                  },
+                  "webhook": {
+                    "type": "object",
+                    "required": [
+                      "path"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "addr": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "^/"
+                      },
+                      "wait": {
+                        "type": "boolean"
+                      },
+                      "handshake": {
+                        "type": "string"
+                      },
+                      "verify": {
+                        "type": "object",
+                        "required": [
+                          "secret",
+                          "signature"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "secret": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "algorithm": {
+                            "type": "string",
+                            "enum": [
+                              "sha256",
+                              "sha1"
+                            ]
+                          },
+                          "encoding": {
+                            "type": "string",
+                            "enum": [
+                              "hex",
+                              "base64"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "signature": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
                   }
                 },
                 "oneOf": [
@@ -262,6 +321,11 @@
                   {
                     "required": [
                       "poll"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "webhook"
                     ]
                   }
                 ]

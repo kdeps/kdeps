@@ -38,6 +38,10 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 		{Sources: []string{"api"}, Listen: []domain.ListenSpec{{ID: "a", Poll: poll}, {ID: "b", File: file}}},
 		{Listen: []domain.ListenSpec{{Fifo: &domain.ListenFifoSpec{Path: "p", Framing: "json"}}}},
 		{Listen: []domain.ListenSpec{{Poll: &domain.ListenPollSpec{Tool: "t"}}}},
+		{Listen: []domain.ListenSpec{{Webhook: &domain.ListenWebhookSpec{Path: "/h"}}}},
+		{Listen: []domain.ListenSpec{{Webhook: &domain.ListenWebhookSpec{Path: "/h", Verify: &domain.ListenVerifySpec{
+			Secret: []string{"S"}, Signature: "x", Algorithm: "sha1", Encoding: "base64",
+		}}}}},
 	}
 	for _, c := range ok {
 		require.NoError(t, v.ValidateInputConfig(c))
@@ -52,9 +56,11 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 		`duplicate id "listen-0"`: {
 			Listen: []domain.ListenSpec{{File: file}, {ID: "listen-0", File: file}},
 		},
-		"set exactly one of fifo, file and poll": {Listen: []domain.ListenSpec{{File: file, Poll: poll}}},
-		"listen listen-0: set exactly one":       {Listen: []domain.ListenSpec{{}}},
-		"fifo.path is required":                  {Listen: []domain.ListenSpec{{Fifo: &domain.ListenFifoSpec{}}}},
+		"set exactly one of fifo, file, poll and webhook": {Listen: []domain.ListenSpec{{File: file, Poll: poll}}},
+		"listen listen-0: set exactly one":                {Listen: []domain.ListenSpec{{}}},
+		"fifo.path is required": {
+			Listen: []domain.ListenSpec{{Fifo: &domain.ListenFifoSpec{}}},
+		},
 		`file.framing "xml"`: {
 			Listen: []domain.ListenSpec{{File: &domain.ListenFileSpec{Path: "x", Framing: "xml"}}},
 		},
@@ -66,6 +72,18 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 			Listen: []domain.ListenSpec{{Poll: &domain.ListenPollSpec{Tool: "t", Every: "often"}}},
 		},
 	}
+	hook := func(v *domain.ListenVerifySpec) *domain.InputConfig {
+		return &domain.InputConfig{
+			Listen: []domain.ListenSpec{{Webhook: &domain.ListenWebhookSpec{Path: "/h", Verify: v}}},
+		}
+	}
+	bad["webhook.path must start with /"] = &domain.InputConfig{
+		Listen: []domain.ListenSpec{{Webhook: &domain.ListenWebhookSpec{Path: "h"}}},
+	}
+	bad["webhook.verify.secret is required"] = hook(&domain.ListenVerifySpec{Signature: "x"})
+	bad["webhook.verify.signature is required"] = hook(&domain.ListenVerifySpec{Secret: []string{"S"}})
+	bad[`algorithm "md5"`] = hook(&domain.ListenVerifySpec{Secret: []string{"S"}, Signature: "x", Algorithm: "md5"})
+	bad[`encoding "b32"`] = hook(&domain.ListenVerifySpec{Secret: []string{"S"}, Signature: "x", Encoding: "b32"})
 	for want, c := range bad {
 		err := v.ValidateInputConfig(c)
 		require.Error(t, err, want)

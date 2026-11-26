@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2E: deploy.input.listen. kdeps run follows a file (and, on Linux and macOS,
-# reads a named pipe) and runs the workflow once for each new line.
+# E2E: deploy.input.listen. kdeps run follows a file, reads a named pipe (Linux
+# and macOS) and takes signed webhook POSTs; each event runs the workflow once.
 
 set -uo pipefail
 
@@ -108,6 +108,66 @@ fi
 pkill -P "$PID" 2>/dev/null || true
 kill "$PID" 2>/dev/null || true
 wait "$PID" 2>/dev/null || true
+
+# Webhook: a signed POST runs the workflow and gets the result back (wait: true).
+HDIR=$(mktemp -d)
+mkdir -p "$HDIR/home" "$HDIR/data" "$HDIR/proj/resources"
+HPORT=$((20000 + RANDOM % 20000))
+cat > "$HDIR/proj/workflow.yaml" <<YAML
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: webhook-e2e
+  version: "1.0.0"
+  targetActionId: echo
+deploy:
+  input:
+    listen:
+      - id: hook
+        webhook:
+          addr: "127.0.0.1:$HPORT"
+          path: /hooks/github
+          wait: true
+          verify:
+            secret: [KDEPS_E2E_HOOK_SECRET]
+            signature: '{{trimPrefix (index .headers "X-Hub-Signature-256") "sha256="}}'
+YAML
+cat > "$HDIR/proj/resources/echo.yaml" <<'YAML'
+actionId: echo
+name: Echo
+apiResponse:
+  success: true
+  response:
+    action: "{{ input('action') }}"
+YAML
+(cd "$HDIR/proj" && HOME="$HDIR/home" USERPROFILE="$(to_native_path "$HDIR/home")" \
+    KDEPS_DATA_DIR="$(to_native_path "$HDIR/data")" KDEPS_E2E_HOOK_SECRET=shh \
+    "$KDEPS_BIN" run workflow.yaml > "$HDIR/out.log" 2>&1) &
+HPID=$!
+BODY='{"action":"opened"}'
+SIG=sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac shh | awk '{print $NF}')
+REPLY=""
+for i in $(seq 1 100); do
+    REPLY=$(curl -s -X POST -H 'Content-Type: application/json' -H "X-Hub-Signature-256: $SIG" \
+        --data "$BODY" "http://127.0.0.1:$HPORT/hooks/github" 2>/dev/null) && [ -n "$REPLY" ] && break
+    sleep 0.2
+done
+if printf '%s' "$REPLY" | grep -qF '"action":"opened"'; then
+    test_passed "listen - a signed webhook POST answers with the run result"
+else
+    test_failed "listen - signed webhook" "reply=$REPLY $(tail -20 "$HDIR/out.log")"
+fi
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+    -H 'X-Hub-Signature-256: sha256=00' --data "$BODY" "http://127.0.0.1:$HPORT/hooks/github")
+if [ "$CODE" = "401" ]; then
+    test_passed "listen - a webhook POST with a wrong signature gets 401"
+else
+    test_failed "listen - wrong signature" "status $CODE"
+fi
+pkill -P "$HPID" 2>/dev/null || true
+kill "$HPID" 2>/dev/null || true
+wait "$HPID" 2>/dev/null || true
+rm -rf "$HDIR"
 
 rm -rf "$LDIR"
 echo ""

@@ -88,14 +88,21 @@ const queueSize = 64
 
 func (d *dispatcher) execute(ctx context.Context, ev Event) {
 	result, err := d.opts.Exec(ctx, d.id, ev)
+	report(d.opts, d.id, result, err)
+}
+
+// report prints one finished run: [listen ID] RESULT, or the error.
+func report(opts Options, id string, result any, err error) {
 	if err != nil {
-		d.opts.Logger.ErrorContext(ctx, "listen: run failed", "listener", d.id, "err", err)
-		_, _ = fmt.Fprintf(d.opts.Out, "[listen %s] error: %v\n", d.id, err)
+		if opts.Logger != nil {
+			opts.Logger.Error("listen: run failed", "listener", id, "err", err)
+		}
+		_, _ = fmt.Fprintf(opts.Out, "[listen %s] error: %v\n", id, err)
 		return
 	}
 	out, mErr := json.Marshal(result)
 	if mErr != nil {
 		out = []byte(fmt.Sprint(result))
 	}
-	_, _ = fmt.Fprintf(d.opts.Out, "[listen %s] %s\n", d.id, out)
+	_, _ = fmt.Fprintf(opts.Out, "[listen %s] %s\n", id, out)
 }

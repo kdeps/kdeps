@@ -118,11 +118,13 @@ func TestRun_StartErrors(t *testing.T) {
 	_, rec, _, opts := setup(t)
 	opts.Exec = rec.exec
 	cases := map[string]domain.ListenSpec{
-		"set fifo, file or poll": {},
-		"key":                    {Key: "{{", File: &domain.ListenFileSpec{Path: "x"}},
-		"every":                  {Poll: &domain.ListenPollSpec{Tool: "t", Every: "10ms"}},
-		"cursor":                 {Poll: &domain.ListenPollSpec{Tool: "t", Cursor: "{{"}},
-		"with.path":              {Poll: &domain.ListenPollSpec{Tool: "t", With: map[string]any{"path": "{{"}}},
+		"set fifo, file, poll or webhook": {},
+		"key":                             {Key: "{{", File: &domain.ListenFileSpec{Path: "x"}},
+		"every":                           {Poll: &domain.ListenPollSpec{Tool: "t", Every: "10ms"}},
+		"cursor":                          {Poll: &domain.ListenPollSpec{Tool: "t", Cursor: "{{"}},
+		"with.path": {
+			Poll: &domain.ListenPollSpec{Tool: "t", With: map[string]any{"path": "{{"}},
+		},
 	}
 	for want, spec := range cases {
 		err := Run(t.Context(), []domain.ListenSpec{spec}, opts)
