@@ -4,6 +4,12 @@ Build a single-shot workflow that reads a document from a file. It sends the
 document to a local LLM and returns a structured JSON summary. It runs one time
 and stops. It has no server and no polling.
 
+Run it with a file:
+
+```bash
+kdeps run . --file ./notes.txt
+```
+
 ## Read next
 
 - [Full walkthrough](/reference/examples/file-processor) - every step, file and command

@@ -5,6 +5,21 @@ Give an LLM tools from an external
 from your own resources. kdeps starts the server as a subprocess, performs the
 handshake, calls the tool, and shuts it down.
 
+A tool can come from an MCP server:
+
+```yaml
+# resources/chat.yaml (part)
+chat:
+  tools:
+    list:
+      - name: read_file
+        description: "Read the contents of a file at the given path."
+        mcp:
+          server: npx
+          args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+          transport: stdio
+```
+
 ## Read next
 
 - [Full walkthrough](/reference/examples/mcp-tools) - every step, file and command
