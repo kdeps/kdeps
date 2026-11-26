@@ -1,5 +1,5 @@
-version: 1.3.0
-# kdeps update installs these with this component: its schema and the kdeps API tool it calls
+version: 1.3.1
+# kdeps installs these with this component: its schema and the kdeps API tool it calls
 requires:
   schemas/v1: ""
   tools/search_local: ""

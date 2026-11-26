@@ -1,5 +1,5 @@
-version: 1.0.4
-# kdeps update installs these with this event: the action it runs
+version: 1.0.5
+# kdeps installs these with this event: the action it runs
 requires:
   actions/cap: ""
 name: memory-chain-max

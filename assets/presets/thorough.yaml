@@ -1,5 +1,5 @@
-version: 1.4.0
-# kdeps update installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
+version: 1.4.1
+# kdeps installs these with this preset: the events it tunes, the actions they run, and the components whose tools those events limit
 requires:
   actions/block: ""
   actions/cap: ""

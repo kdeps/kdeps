@@ -121,8 +121,10 @@ else
     test_failed "update item@version" "$OUT"
 fi
 
+# The version of presets/frugal in assets/, so an asset bump does not break this test.
+FRUGAL_V=$(sed -n '1s/^version: //p' "$SCRIPT_DIR/../../assets/presets/frugal.yaml" | sed 's/\./\\./g')
 OUT=$(upd --remove presets/frugal)
-if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +1\.4\.0 +removed" "$(upd --list)"; then
+if output_grep "presets/frugal +remove" "$OUT" && output_grep "presets/frugal +$FRUGAL_V +removed" "$(upd --list)"; then
     test_passed "update --remove removes an item"
 else
     test_failed "update --remove" "$OUT"
@@ -137,7 +139,7 @@ else
 fi
 
 OUT=$(upd presets/frugal)
-if output_grep "presets/frugal +1\.4\.0 +source" "$(upd --list)"; then
+if output_grep "presets/frugal +$FRUGAL_V +source" "$(upd --list)"; then
     test_passed "update <item> restores a removed item"
 else
     test_failed "update <item> restore" "$OUT"
