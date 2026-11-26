@@ -1,0 +1,24 @@
+version: 1.0.0
+kdeps: ">=3.6.0"
+description: 'Discord messages over the Gateway: runs the workflow once for each new message in a guild channel or a DM. The event is the message: input(''content''), input(''channel_id''), input(''author'').username. Messages from bots are left out. Reply with the discord_post component. Enable the Message Content intent for the bot. Requires DISCORD_BOT_TOKEN or the vault secret discord_bot_token.'
+websocket:
+  env:
+    TOKEN: [DISCORD_BOT_TOKEN, "secret:discord_bot_token"]
+  url: 'wss://gateway.discord.gg/?v=10&encoding=json'
+  heartbeat:
+    # op 1 carries the last sequence number, or null before the first event.
+    send: '{"op":1,"d":{{or .state.seq "null"}}}'
+  on:
+    # op 10 Hello: start the heartbeat at the interval Discord sets, then
+    # identify. Intents: GUILDS, GUILD_MESSAGES, DIRECT_MESSAGES, MESSAGE_CONTENT.
+    - when: '{{if eq (int .msg.op) 10}}y{{end}}'
+      every: '{{.msg.d.heartbeat_interval}}ms'
+      send: '{"op":2,"d":{"token":"{{.env.TOKEN}}","intents":37377,"properties":{"os":"linux","browser":"kdeps","device":"kdeps"}}}'
+    - when: '{{.msg.s}}'
+      set:
+        seq: '{{.msg.s}}'
+    - when: '{{if and (eq .msg.t "MESSAGE_CREATE") (not .msg.d.author.bot)}}y{{end}}'
+      emit: '{{json .msg.d}}'
+    # op 7 Reconnect and op 9 Invalid Session: connect and identify again.
+    - when: '{{if or (eq (int .msg.op) 7) (eq (int .msg.op) 9)}}y{{end}}'
+      reconnect: true

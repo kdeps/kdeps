@@ -56,7 +56,7 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 		`duplicate id "listen-0"`: {
 			Listen: []domain.ListenSpec{{File: file}, {ID: "listen-0", File: file}},
 		},
-		"set exactly one of fifo, file, poll, webhook and websocket": {
+		"set exactly one of listener, fifo, file, poll, webhook and websocket": {
 			Listen: []domain.ListenSpec{{File: file, Poll: poll}},
 		},
 		"listen listen-0: set exactly one": {Listen: []domain.ListenSpec{{}}},
@@ -101,6 +101,16 @@ func TestValidateInputConfig_Listen(t *testing.T) {
 	bad["websocket.on[0].when is required"] = ws(
 		&domain.ListenWebsocketSpec{URL: "x", On: []domain.ListenWebsocketRule{{Send: "x"}}},
 	)
+	require.NoError(t, v.ValidateInputConfig(&domain.InputConfig{Listen: []domain.ListenSpec{
+		{Listener: "slack_events"}, {Listener: "slack_events", ID: "second", Key: "{{.event.channel}}"},
+	}}))
+	bad[`duplicate id "slack_events"`] = &domain.InputConfig{
+		Listen: []domain.ListenSpec{{Listener: "slack_events"}, {Listener: "slack_events"}},
+	}
+	bad[`listener "a/b"`] = &domain.InputConfig{Listen: []domain.ListenSpec{{Listener: "a/b"}}}
+	bad["set exactly one of listener, fifo"] = &domain.InputConfig{
+		Listen: []domain.ListenSpec{{Listener: "x", File: file}},
+	}
 	for want, c := range bad {
 		err := v.ValidateInputConfig(c)
 		require.Error(t, err, want)

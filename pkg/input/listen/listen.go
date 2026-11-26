@@ -65,10 +65,14 @@ type Options struct {
 	Out io.Writer
 }
 
-// ID returns the listener id: its id: value, or listen-<index>.
+// ID returns the listener id: its id: value, the listener name, or
+// listen-<index>.
 func ID(spec domain.ListenSpec, index int) string {
-	if spec.ID != "" {
+	switch {
+	case spec.ID != "":
 		return spec.ID
+	case spec.Listener != "":
+		return spec.Listener
 	}
 	return fmt.Sprintf("listen-%d", index)
 }
@@ -93,7 +97,11 @@ func Run(ctx context.Context, specs []domain.ListenSpec, opts Options) error {
 	hub := newWebhookHub()
 	for i, spec := range specs {
 		id := ID(spec, i)
-		src, err := newSource(spec, id, hub, opts)
+		full, err := resolve(spec)
+		if err != nil {
+			return err
+		}
+		src, err := newSource(full, id, hub, opts)
 		if err != nil {
 			return err
 		}

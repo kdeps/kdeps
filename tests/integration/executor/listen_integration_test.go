@@ -28,8 +28,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +41,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v3/pkg/api"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/input/listen"
 	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
@@ -319,4 +322,106 @@ apiResponse:
 	cancel()
 	require.NoError(t, <-done)
 	assert.JSONEq(t, `{"envelope_id":"e1"}`, <-acks)
+}
+
+// TestListen_TelegramBotWithoutBotInput replaces bot input: the
+// telegram_updates listener polls a fake Telegram, and the workflow answers
+// each message with the telegram_post component.
+func TestListen_TelegramBotWithoutBotInput(t *testing.T) {
+	githubEnv(t)
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	t.Setenv("TELEGRAM_TOKEN", "")
+	t.Setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+	_, file, _, _ := runtime.Caller(0)
+	t.Setenv("KDEPS_ASSETS_SRC", filepath.Join(filepath.Dir(file), "..", "..", "..", "assets"))
+
+	var (
+		mu    sync.Mutex
+		sent  []string
+		polls int
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/getUpdates"):
+			polls++
+			if polls == 1 {
+				_, _ = w.Write(
+					[]byte(`{"ok":true,"result":[{"update_id":5,"message":{"chat":{"id":42},"text":"ping"}}]}`),
+				)
+				return
+			}
+			_, _ = w.Write([]byte(`{"ok":true,"result":[]}`))
+		case strings.HasSuffix(r.URL.Path, "/sendMessage"):
+			sent = append(sent, r.URL.Path+" "+string(b))
+			_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	target, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	orig := api.HTTPToolClient
+	api.HTTPToolClient = &http.Client{Transport: ghTransport(func(r *http.Request) (*http.Response, error) {
+		r = r.Clone(r.Context())
+		r.URL.Scheme, r.URL.Host = target.Scheme, target.Host
+		return http.DefaultTransport.RoundTrip(r)
+	})}
+	t.Cleanup(func() { api.HTTPToolClient = orig })
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "resources"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: telegram-bot
+  version: "1.0.0"
+  targetActionId: reply
+deploy:
+  input:
+    listen:
+      - listener: telegram_updates
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "resources", "reply.yaml"), []byte(`actionId: reply
+name: Reply
+component:
+  name: telegram_post
+  with:
+    path: sendMessage
+    body:
+      chat_id: "{{ input('message').chat.id }}"
+      text: "pong: {{ input('message').text }}"
+`), 0o600))
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+	require.NoError(t, err)
+
+	eng := newExecEngine(t)
+	opts := listen.Options{
+		ProjectDir: dir,
+		Out:        &lockedBuf{},
+		Exec: func(ctx context.Context, id string, ev listen.Event) (any, error) {
+			return eng.Execute(wf, &executor.RequestContext{Ctx: ctx, Method: "POST", Path: "/listen/" + id, Body: ev})
+		},
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- listen.Run(ctx, wf.Settings.Input.Listen, opts) }()
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(sent) == 1
+	}, 15*time.Second, 50*time.Millisecond, "output: %s", opts.Out)
+	cancel()
+	require.NoError(t, <-done)
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Contains(t, sent[0], "/bot123:abc/sendMessage")
+	assert.Contains(t, sent[0], `"text":"pong: ping"`)
+	assert.Contains(t, sent[0], `"chat_id":42`)
 }

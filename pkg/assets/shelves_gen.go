@@ -47,6 +47,7 @@ var setShelf = map[string]string{
 	"harness":    ShelfHarness,
 	"k8s":        ShelfDeploy,
 	"knowledge":  ShelfRag,
+	"listeners":  ShelfWorkflow,
 	"memory":     ShelfMemory,
 	"models":     ShelfModel,
 	"policy":     ShelfGuardrails,

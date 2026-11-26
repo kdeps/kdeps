@@ -52,6 +52,10 @@ In the agent loop, a connector tool with no token is not offered to the model.
 | `jira_get` | GET | `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` (or vault `jira_url`, `jira_email`, `jira_api_token`) | T0 (read-only) | issues, projects, JQL search |
 | `jira_post` | POST | same as `jira_get` | T1 (workspace-write) | new issues, comments, transitions |
 | `jira_put` | PUT | same as `jira_get` | T1 (workspace-write) | issue fields, assignee |
+| `telegram_get` | GET | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_TOKEN`, vault `telegram_bot_token` | T0 (read-only) | getMe, getChat, getFile |
+| `telegram_post` | POST | same as `telegram_get` | T1 (workspace-write) | send, edit and delete messages |
+| `discord_get` | GET | `DISCORD_BOT_TOKEN`, vault `discord_bot_token` | T0 (read-only) | channels, messages, users |
+| `discord_post` | POST | same as `discord_get` | T1 (workspace-write) | send messages and reactions |
 
 The tool tier comes from `assets/policy/permission.yaml`. A `T1` tool needs the `workspace-write` permission mode or higher. In the agent loop, a person approves each `T2` call; a run with no one to ask refuses it. A workflow step that names the component runs it without approval.
 
@@ -224,6 +228,10 @@ component:
 </div>
 
 `jira_put` returns an empty output: Jira answers an edit with `204 No Content`.
+
+## Telegram and Discord
+
+`path` is a Telegram Bot API method (`sendMessage`), or the part of the URL after `https://discord.com/api/v10/` (`channels/ID/messages`). The [listeners](/reference/workflow/input-sources#ready-made-listeners) `telegram_updates` and `discord_gateway` receive the messages these connectors answer.
 
 ## Add a connector
 

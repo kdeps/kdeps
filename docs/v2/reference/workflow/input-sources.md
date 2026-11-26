@@ -224,6 +224,41 @@ deploy:
 | `webhook.handshake` | A template over `.event`, `.body`, `.headers`, `.query` and `.method`. When it renders text, kdeps answers with that text and starts no run. |
 | `webhook.verify` | An HMAC check: `secret` (env names and `secret:NAME` entries), `algorithm` (`sha256` or `sha1`), `encoding` (`hex` or `base64`), `message` and `signature` templates. |
 
+### Ready-made listeners
+
+`listener:` names a listener asset: one transport block in YAML, installed on first use. Reply with the service's connector in a step.
+
+<div v-pre>
+
+```yaml
+# workflow.yaml
+deploy:
+  input:
+    listen:
+      - listener: telegram_updates     # or slack_events, discord_gateway
+        key: "{{.event.message.chat.id}}"   # one chat in order, other chats in parallel
+
+# resources/reply.yaml
+actionId: reply
+component:
+  name: telegram_post
+  with:
+    path: sendMessage
+    body:
+      chat_id: "{{ input('message').chat.id }}"
+      text: "{{ output('answer') }}"
+```
+
+</div>
+
+| Listener | Transport | Token | The event | Reply with |
+|---|---|---|---|---|
+| `telegram_updates` | poll `getUpdates` every 2s | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_TOKEN`, vault `telegram_bot_token` | the update: `input('message').text`, `input('message').chat.id` | `telegram_post` (`sendMessage`) |
+| `slack_events` | Socket Mode websocket, no public URL | `SLACK_APP_TOKEN` (`xapp-`), vault `slack_app_token` | the message event: `input('text')`, `input('channel')`, `input('user')` | `slack_post` (`chat.postMessage`) |
+| `discord_gateway` | Gateway websocket, heartbeat and identify | `DISCORD_BOT_TOKEN`, vault `discord_bot_token` | the message: `input('content')`, `input('channel_id')`, `input('author').username` | `discord_post` (`channels/ID/messages`) |
+
+Messages from bots start no run, so a reply does not start a loop. `slack_events` acknowledges every envelope. `discord_gateway` needs the Message Content intent turned on for the bot. Each asset is a plain listener block: copy it into `listen:` to change it.
+
 ### Websocket
 
 A `websocket` listener keeps one connection open and connects again after a failure (wait 1s, doubling up to 1m). `on:` rules describe the service's protocol in YAML: kdeps checks every rule for each message, in order. A rule matches when `when` renders text other than `false`.

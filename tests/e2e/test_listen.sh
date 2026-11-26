@@ -239,5 +239,63 @@ else
     echo "  (skip websocket: python3 not found)"
 fi
 
+# A listener asset: telegram_updates without a token logs which variables
+# and vault secret it needs, and keeps running.
+TDIR=$(mktemp -d)
+mkdir -p "$TDIR/home" "$TDIR/data" "$TDIR/proj/resources"
+cat > "$TDIR/proj/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: telegram-listener-e2e
+  version: "1.0.0"
+  targetActionId: reply
+deploy:
+  input:
+    listen:
+      - listener: telegram_updates
+YAML
+cat > "$TDIR/proj/resources/reply.yaml" <<'YAML'
+actionId: reply
+name: Reply
+component:
+  name: telegram_post
+  with:
+    path: sendMessage
+    body:
+      chat_id: "{{ input('message').chat.id }}"
+      text: "pong"
+YAML
+trun() {
+    (cd "$TDIR/proj" && HOME="$TDIR/home" USERPROFILE="$(to_native_path "$TDIR/home")" \
+        KDEPS_DATA_DIR="$(to_native_path "$TDIR/data")" TELEGRAM_BOT_TOKEN="" TELEGRAM_TOKEN="" \
+        KDEPS_VAULT_PASSWORD="" "$KDEPS_BIN" "$@")
+}
+OUT=$(trun validate workflow.yaml 2>&1)
+if [ $? -eq 0 ]; then
+    test_passed "listen - a workflow with listener: telegram_updates and a telegram_post reply validates"
+else
+    test_failed "listen - telegram validate" "$OUT"
+fi
+trun run workflow.yaml > "$TDIR/out.log" 2>&1 &
+TPID=$!
+FOUND=false
+for i in $(seq 1 75); do
+    if grep -qF "TELEGRAM_BOT_TOKEN or TELEGRAM_TOKEN or the vault secret telegram_bot_token" "$TDIR/out.log" 2>/dev/null; then
+        FOUND=true
+        break
+    fi
+    sleep 0.2
+done
+if [ "$FOUND" = true ] && kill -0 "$TPID" 2>/dev/null; then
+    test_passed "listen - telegram_updates without a token names its sources and keeps running"
+else
+    test_failed "listen - telegram no token" "$(tail -20 "$TDIR/out.log")"
+fi
+pkill -P "$TPID" 2>/dev/null || true
+kill "$TPID" 2>/dev/null || true
+wait "$TPID" 2>/dev/null || true
+rm -rf "$TDIR"
+
 rm -rf "$LDIR"
 echo ""

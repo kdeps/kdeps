@@ -1,0 +1,22 @@
+version: 1.0.0
+description: 'Write to the Discord API: POST a JSON body to https://discord.com/api/v10/PATH and return the JSON. Use it to send messages and add reactions. Requires DISCORD_BOT_TOKEN or the vault secret discord_bot_token.'
+parameters:
+  path:
+    type: string
+    description: 'The API path after https://discord.com/api/v10/. Example: channels/CHANNEL_ID/messages.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example for a reply: {"content": "...", "message_reference": {"message_id": "..."}}.'
+    required: true
+http:
+  env:
+    TOKEN: [DISCORD_BOT_TOKEN, "secret:discord_bot_token"]
+  method: POST
+  # The host is fixed; path only adds to it.
+  url: 'https://discord.com/api/v10/{{trimPrefix .args.path "/"}}'
+  headers:
+    Authorization: 'Bot {{.env.TOKEN}}'
+    Content-Type: application/json
+    User-Agent: 'DiscordBot (https://kdeps.com, 1)'
+  body: '{{json .args.body}}'

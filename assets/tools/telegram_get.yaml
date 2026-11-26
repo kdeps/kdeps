@@ -1,0 +1,15 @@
+version: 1.0.0
+description: 'Read the Telegram Bot API: GET https://api.telegram.org/bot<TOKEN>/METHOD and return the JSON. Use it for getMe, getUpdates, getChat and getFile. Requires TELEGRAM_BOT_TOKEN, TELEGRAM_TOKEN or the vault secret telegram_bot_token.'
+parameters:
+  path:
+    type: string
+    description: 'The Bot API method, with its query string. Examples: getMe, getUpdates?offset=0&timeout=0, getChat?chat_id=123.'
+    required: true
+http:
+  env:
+    TOKEN: [TELEGRAM_BOT_TOKEN, TELEGRAM_TOKEN, "secret:telegram_bot_token"]
+  method: GET
+  # The host is fixed; path only adds to it. The token is part of the URL path.
+  url: 'https://api.telegram.org/bot{{.env.TOKEN}}/{{trimPrefix .args.path "/"}}'
+  headers:
+    User-Agent: kdeps

@@ -9,6 +9,7 @@ deploy:
     sources: [bot]     # bot, file or interactive; apiServer: starts the HTTP server
     listen:            # one run per event, the event is the input: input('line')
       - file: { path: inbox.txt }
+      - listener: telegram_updates   # ready-made: also slack_events, discord_gateway
 ```
 
 ## Read next

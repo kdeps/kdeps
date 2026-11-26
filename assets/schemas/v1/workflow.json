@@ -403,6 +403,10 @@
                         }
                       }
                     }
+                  },
+                  "listener": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.-]+$"
                   }
                 },
                 "oneOf": [
@@ -429,6 +433,11 @@
                   {
                     "required": [
                       "websocket"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "listener"
                     ]
                   }
                 ]

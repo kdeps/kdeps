@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: slack_socket_open
+  description: Open a Slack Socket Mode connection through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs: []
+  # The Slack reply, parsed from JSON: url is the websocket address.
+  # No SLACK_APP_TOKEN or vault secret slack_app_token is an error.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Slack Socket Mode open
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/slack_socket_open/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data: {}

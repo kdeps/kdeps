@@ -1,0 +1,19 @@
+version: 1.0.0
+kdeps: ">=3.6.0"
+description: 'Slack events over Socket Mode (no public URL): runs the workflow once for each message event. The event is the Slack event: input(''text''), input(''channel''), input(''user''). Messages from bots are left out. Reply with the slack_post component (chat.postMessage). Needs SLACK_APP_TOKEN (xapp-) for the connection.'
+requires:
+  tools/slack_socket_open: ""
+websocket:
+  # apps.connections.open hands out a new wss:// URL for each connection.
+  open:
+    tool: slack_socket_open
+  url: '{{.open.url}}'
+  on:
+    # Slack wants each envelope acknowledged within 3 seconds.
+    - when: '{{.msg.envelope_id}}'
+      send: '{"envelope_id":"{{.msg.envelope_id}}"}'
+    - when: '{{if and (eq .msg.type "events_api") (eq .msg.payload.event.type "message") (not .msg.payload.event.bot_id)}}y{{end}}'
+      emit: '{{json .msg.payload.event}}'
+    # Slack asks for a new connection before it closes this one.
+    - when: '{{if eq .msg.type "disconnect"}}y{{end}}'
+      reconnect: true

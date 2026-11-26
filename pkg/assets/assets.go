@@ -57,6 +57,7 @@ var Sets = []string{
 	"harness", "events", "actions", "presets", "policy", "tools", "recipes",
 	"models", "templates",
 	"docker", "k8s", "schemas", "defaults", "components", "providers", "memory", "knowledge", "codegraph",
+	"listeners",
 }
 
 // bundleSets are the sets whose items are directories, distributed as one

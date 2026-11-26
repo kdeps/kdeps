@@ -89,8 +89,8 @@ var Profiles = []Profile{
 	},
 	{
 		Name:        "workflows",
-		Description: "minimum, kdeps new templates and the components (sql, browser, email, ...)",
-		Sets:        append(RunSets(), "templates", "components"),
+		Description: "minimum, kdeps new templates, the components (sql, browser, email, ...) and the listeners",
+		Sets:        append(RunSets(), "templates", "components", "listeners"),
 	},
 	{
 		Name:        "agent",
@@ -103,7 +103,7 @@ var Profiles = []Profile{
 	{
 		Name:        "deploy",
 		Description: "workflows, and kdeps build/export: Docker and Kubernetes templates, LLM server recipes",
-		Sets:        append(RunSets(), "templates", "components", "docker", "k8s", "recipes"),
+		Sets:        append(RunSets(), "templates", "components", "listeners", "docker", "k8s", "recipes"),
 	},
 	{Name: "full", Description: "every asset set", All: true},
 }

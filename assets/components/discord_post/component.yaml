@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: discord_post
+  description: Write to the Discord API through the kdeps API
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: 'The API path after https://discord.com/api/v10/ (channels/CHANNEL_ID/messages)'
+    - name: body
+      type: object
+      required: true
+      description: 'The JSON request body, for example {"content": "..."}'
+  # The Discord reply, parsed from JSON. A missing token is an error that names its sources.
+  output: "{{ fromJSON(output('call').body) }}"
+resources:
+  - actionId: call
+    name: Discord POST
+    httpClient:
+      method: POST
+      # In-process host. The HTTP executor calls the handler without dialing.
+      url: http://kdeps.api/apis/tools.kdeps.io/v1/tools/discord_post/call
+      headers:
+        Content-Type: application/json
+      failOnError: true
+      timeout: 60s
+      data:
+        path: "{{ get('discord_post.path') }}"
+        body: "{{ get('discord_post.body') }}"

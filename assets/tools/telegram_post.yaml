@@ -1,0 +1,21 @@
+version: 1.0.0
+description: 'Write to the Telegram Bot API: POST a JSON body to https://api.telegram.org/bot<TOKEN>/METHOD and return the JSON. Use it to send, edit and delete messages. Requires TELEGRAM_BOT_TOKEN, TELEGRAM_TOKEN or the vault secret telegram_bot_token.'
+parameters:
+  path:
+    type: string
+    description: 'The Bot API method. Examples: sendMessage, editMessageText, deleteMessage.'
+    required: true
+  body:
+    type: object
+    description: 'The JSON request body. Example for a reply: {"chat_id": 123, "text": "..."}.'
+    required: true
+http:
+  env:
+    TOKEN: [TELEGRAM_BOT_TOKEN, TELEGRAM_TOKEN, "secret:telegram_bot_token"]
+  method: POST
+  # The host is fixed; path only adds to it. The token is part of the URL path.
+  url: 'https://api.telegram.org/bot{{.env.TOKEN}}/{{trimPrefix .args.path "/"}}'
+  headers:
+    Content-Type: application/json
+    User-Agent: kdeps
+  body: '{{json .args.body}}'
