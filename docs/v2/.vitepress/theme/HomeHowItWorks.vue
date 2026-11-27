@@ -50,7 +50,7 @@ onUnmounted(() => {
           <div class="step-num">02</div>
           <div class="step-body">
             <h3>Run it</h3>
-            <p><code>kdeps run</code> serves it as an API, a bot, a file job, or a prompt.</p>
+            <p><code>kdeps run</code> serves it as an API, a listener, a file job, or a prompt.</p>
           </div>
         </div>
 

@@ -29,6 +29,7 @@ import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
 import HomeGitNative from './HomeGitNative.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
 import HomeBook from './HomeBook.vue'
+import HomeEvents from './HomeEvents.vue'
 import FooterCTAs from './FooterCTAs.vue'
 import './custom.css'
 
@@ -91,6 +92,7 @@ export default {
         h(HomeWhoNeedsThis),
         h(HomeGitNative),
         h(HomeHowItWorks),
+        h(HomeEvents),
         h(HomeBook),
       ],
       'layout-bottom': () => h(FooterCTAs),
