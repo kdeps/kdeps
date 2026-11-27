@@ -77,6 +77,11 @@ func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 			return err
 		}
 	}
+	if limits := workflow.Settings.Limits; limits != nil {
+		if err := limits.Check(); err != nil {
+			return domain.NewError(domain.ErrCodeInvalidWorkflow, err.Error(), nil)
+		}
+	}
 	return nil
 }
 

@@ -265,6 +265,7 @@ var (
 			"letsEncrypt":   "deploy.letsEncrypt",
 			"input":         "deploy.input",
 			"agentSettings": "deploy.runtime",
+			"limits":        "deploy.limits",
 			"session":       "session",
 			"llm":           "repl",
 		})

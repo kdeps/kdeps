@@ -135,6 +135,25 @@ deploy:
 
 DNS must point at this host. Open ports 80 and 443. Full guide: [TLS and HTTPS](/deploy/tls-https). If you set both, static `certFile`/`keyFile` have priority.
 
+## Run limits
+
+`limits` bounds each workflow run, for every input: an API request, a listener event, a file or a prompt line.
+
+```yaml
+# workflow.yaml
+deploy:
+  limits:
+    timeout: 60s       # stop a run after 60s; the error names deploy.limits.timeout
+    concurrency: 4     # 4 runs at once in this process; other runs wait for a slot
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `timeout` | no limit | A Go duration (`30s`, `2m`). The timer starts when the run gets its slot. |
+| `concurrency` | no limit | Runs at once in one process, across all inputs. A run that waits stops when its request ends. |
+
+`apiServer.maxConcurrent` is a different control. It answers `503` at once when too many HTTP requests are open. `limits.concurrency` makes runs wait in a queue.
+
 ## Web server
 
 `webServer` serves static files or proxies to a running app process. Use it alongside `apiServer` to serve a frontend next to your API.
