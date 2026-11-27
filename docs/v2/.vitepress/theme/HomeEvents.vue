@@ -21,7 +21,7 @@
           </ul>
         </a>
 
-        <div class="arrow" aria-hidden="true">-></div>
+        <div class="arrow" aria-hidden="true">&rarr;</div>
 
         <a href="/workflow/" class="kd-stagger col center" style="--i: 1">
           <span class="col-label">workflow.yaml</span>
@@ -29,7 +29,7 @@
           <p class="hint">checks, a model, an agent step</p>
         </a>
 
-        <div class="arrow" aria-hidden="true">-></div>
+        <div class="arrow" aria-hidden="true">&rarr;</div>
 
         <a href="/workflow/resources/connectors" class="kd-stagger col" style="--i: 2">
           <span class="col-label">connectors</span>
