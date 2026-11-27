@@ -11,7 +11,7 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-kdeps turns one `workflow.yaml` into an offline AI appliance. An API call, a chat message or a webhook starts one bounded run.
+**Serverless AI agents:** Lambda-style AI agents on your own hardware. One `workflow.yaml` runs once per event (an API call, a chat message, a webhook), offline, and ships as an API, a binary, an image, or an ISO.
 
 1. **Workflows** - a YAML pipeline. Each event starts one run: an API call, a file, a prompt, or a listener (Telegram, Slack, Discord, WhatsApp, a webhook, a websocket, a polled API). Connectors send the answer.
 2. **Agents** - a `chat` with `loop:` calls tools, as one step of the workflow.
