@@ -100,7 +100,7 @@ See the [agent docs](https://kdeps.com/workflow/agent-loop/).
 
 ## 3. Deploy on your infrastructure
 
-Ship the same YAML as an image, Kubernetes manifests, an ISO, or one binary.
+Ship the same YAML as an image, Kubernetes manifests that scale to zero, an ISO, or one binary.
 
 ```bash
 kdeps bundle build .                                          # container image

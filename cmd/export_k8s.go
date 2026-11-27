@@ -33,7 +33,6 @@ import (
 type K8sFlags struct {
 	Image         string
 	Output        string
-	Replica       int
 	NetworkPolicy bool
 }
 
@@ -45,11 +44,12 @@ func newExportK8sCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "k8s [path]",
 		Short: "Export workflow as Kubernetes manifests",
-		Long: `Export kdeps workflow as Kubernetes manifests (Deployment and Service).
+		Long: `Export a kdeps workflow as Kubernetes manifests.
 
-Generates YAML manifests that can be used to deploy the workflow to a Kubernetes cluster.
-The generated manifests include a Deployment with the specified image,
-replicas, and resource limits, as well as a Service to expose the ports.
+deploy.scale in workflow.yaml selects the output:
+  min 0 (default)        a Knative Service that scales to zero
+  engine: keda           a Deployment, a Service and a KEDA HTTPScaledObject
+  min equal to max       a Deployment with that many replicas, and a Service
 
 Examples:
   # Export manifests to stdout
@@ -69,7 +69,6 @@ Examples:
 
 	cmd.Flags().StringVarP(&flags.Image, "image", "i", "", "Docker image to use in the manifest")
 	cmd.Flags().StringVarP(&flags.Output, "output", "o", "", "Output file path (default: stdout)")
-	cmd.Flags().IntVarP(&flags.Replica, "replicas", "r", 0, "Number of replicas (overrides workflow.yaml)")
 	cmd.Flags().
 		BoolVar(&flags.NetworkPolicy, "network-policy", false, "Generate a NetworkPolicy restricting ingress to the configured ports (or set agentSettings.networkPolicy in workflow.yaml)")
 
@@ -83,7 +82,6 @@ func RunExportK8sCmd(cmd *cobra.Command, args []string) error {
 	if cmd != nil {
 		flags.Image, _ = cmd.Flags().GetString("image")
 		flags.Output, _ = cmd.Flags().GetString("output")
-		flags.Replica, _ = cmd.Flags().GetInt("replicas")
 		flags.NetworkPolicy, _ = cmd.Flags().GetBool("network-policy")
 	}
 	return exportK8sInternal(cmd, args, flags)
@@ -126,9 +124,6 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 
 	workflow := pkg.Workflow
 
-	if flags.Replica > 0 {
-		workflow.Settings.AgentSettings.Replicas = flags.Replica
-	}
 	if flags.NetworkPolicy {
 		workflow.Settings.AgentSettings.NetworkPolicy = true
 	}

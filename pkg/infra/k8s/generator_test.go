@@ -38,8 +38,8 @@ func TestGenerateManifests(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
+			Scale:     &domain.ScaleConfig{Min: 3, Max: 3},
 			AgentSettings: domain.AgentSettings{
-				Replicas: 3,
 				Env: map[string]string{
 					"ENV_VAR": "value",
 				},
@@ -82,6 +82,7 @@ func TestGenerateManifests_secretEnvUsesSecretKeyRef(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 		Settings: domain.WorkflowSettings{
+			Scale:     fixedOne(),
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
 			AgentSettings: domain.AgentSettings{
 				Env: map[string]string{
@@ -103,6 +104,7 @@ func TestGenerateManifests_rejectsBakedAuthToken(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 		Settings: domain.WorkflowSettings{
+			Scale: fixedOne(),
 			AgentSettings: domain.AgentSettings{
 				Env: map[string]string{"KDEPS_API_AUTH_TOKEN": "secret"},
 			},
@@ -119,6 +121,7 @@ func TestGenerateManifests_WebServer(t *testing.T) {
 			Name: "web-app",
 		},
 		Settings: domain.WorkflowSettings{
+			Scale:     fixedOne(),
 			WebServer: &domain.WebServerConfig{PortNum: 9090},
 		},
 	}
@@ -139,7 +142,7 @@ func TestGenerateManifests_WebServer(t *testing.T) {
 func TestGenerateManifests_NoServers_NoPortsNoProbes(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot-app"},
-		Settings: domain.WorkflowSettings{},
+		Settings: domain.WorkflowSettings{Scale: fixedOne()},
 	}
 
 	manifests, err := NewGenerator("bot-image").GenerateManifests(workflow)
@@ -154,6 +157,7 @@ func TestGenerateManifests_DefaultPortsWhenUnset(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "defaults-app"},
 		Settings: domain.WorkflowSettings{
+			Scale:     fixedOne(),
 			APIServer: &domain.APIServerConfig{},
 			WebServer: &domain.WebServerConfig{},
 		},
@@ -171,6 +175,7 @@ func TestGenerateManifests_NetworkPolicy(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "np-app", Version: "1.0.0"},
 		Settings: domain.WorkflowSettings{
+			Scale:     fixedOne(),
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
 			WebServer: &domain.WebServerConfig{PortNum: 9090},
 			AgentSettings: domain.AgentSettings{
@@ -194,6 +199,7 @@ func TestGenerateManifests_NetworkPolicy_NoServers_DeniesAllIngress(t *testing.T
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "np-bot"},
 		Settings: domain.WorkflowSettings{
+			Scale:         fixedOne(),
 			AgentSettings: domain.AgentSettings{NetworkPolicy: true},
 		},
 	}
@@ -210,6 +216,7 @@ func TestGenerateManifests_NetworkPolicy_DisabledByDefault(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "plain-app"},
 		Settings: domain.WorkflowSettings{
+			Scale:     fixedOne(),
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
 		},
 	}
@@ -226,7 +233,7 @@ func TestGenerateManifests_Defaults(t *testing.T) {
 			Name:    "default-app",
 			Version: "0.1.0",
 		},
-		Settings: domain.WorkflowSettings{},
+		Settings: domain.WorkflowSettings{Scale: fixedOne()},
 	}
 
 	generator := NewGenerator("default-image")
@@ -245,6 +252,7 @@ func TestGenerateManifests_Ollama(t *testing.T) {
 			Name: "ollama-app",
 		},
 		Settings: domain.WorkflowSettings{
+			Scale: fixedOne(),
 			AgentSettings: domain.AgentSettings{
 				InstallOllama: &installOllama,
 			},
@@ -266,6 +274,7 @@ func TestGenerateManifests_ChatResourcesDefaultToFileBackend(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{
 			Name: "auto-ollama",
 		},
+		Settings: domain.WorkflowSettings{Scale: fixedOne()},
 		Resources: []*domain.Resource{
 			{
 				Chat: &domain.ChatConfig{
@@ -288,6 +297,7 @@ func TestGenerateManifests_OllamaViaEnvBackend(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{
 			Name: "auto-ollama",
 		},
+		Settings: domain.WorkflowSettings{Scale: fixedOne()},
 		Resources: []*domain.Resource{
 			{
 				Chat: &domain.ChatConfig{
@@ -327,13 +337,25 @@ func TestGenerateManifests_TemplateErrors(t *testing.T) {
 	generator := NewGenerator("test")
 	npWorkflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
+			Scale:         fixedOne(),
 			AgentSettings: domain.AgentSettings{NetworkPolicy: true},
 		},
 	}
-	for _, name := range []string{deployment, service, networkPol} {
+	kedaWorkflow := &domain.Workflow{Settings: domain.WorkflowSettings{
+		APIServer: &domain.APIServerConfig{PortNum: 8080},
+		Scale:     &domain.ScaleConfig{Engine: domain.ScaleEngineKEDA},
+	}}
+	knativeWorkflow := &domain.Workflow{Settings: domain.WorkflowSettings{
+		APIServer: &domain.APIServerConfig{PortNum: 8080},
+	}}
+	cases := map[string]*domain.Workflow{
+		deployment: npWorkflow, service: npWorkflow, networkPol: npWorkflow,
+		kedaHTTP: kedaWorkflow, knativeSvc: knativeWorkflow,
+	}
+	for name, wf := range cases {
 		t.Run(name, func(t *testing.T) {
 			brokenManifestSource(t, name+templateExt)
-			_, err := generator.GenerateManifests(npWorkflow)
+			_, err := generator.GenerateManifests(wf)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "render "+name+" template")
 		})
@@ -343,7 +365,8 @@ func TestGenerateManifests_TemplateErrors(t *testing.T) {
 func TestGenerateManifests_NoAssets(t *testing.T) {
 	t.Setenv(assets.SourceEnv, t.TempDir())
 	t.Setenv("KDEPS_ASSETS_DIR", t.TempDir())
-	_, err := NewGenerator("test").GenerateManifests(&domain.Workflow{})
+	wf := &domain.Workflow{Settings: domain.WorkflowSettings{Scale: fixedOne()}}
+	_, err := NewGenerator("test").GenerateManifests(wf)
 	require.ErrorContains(t, err, "run kdeps upgrade")
 }
 
@@ -355,4 +378,112 @@ func TestRenderTemplate_Error(t *testing.T) {
 	// Invalid syntax will fail
 	_, err = g.renderTemplate("bad", "{{ if }}", &ManifestData{})
 	assert.Error(t, err)
+}
+
+func fixedOne() *domain.ScaleConfig { return &domain.ScaleConfig{Min: 1, Max: 1} }
+
+func TestGenerateManifests_ScaleToZeroKnative(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "ai", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+			Scale:     &domain.ScaleConfig{Max: 5, Idle: "5m"},
+			Limits:    &domain.LimitsConfig{Timeout: "1500ms", Concurrency: 4},
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{"APP": "x", "OPENAI_API_KEY": "sk"},
+			},
+		},
+	}
+	out, err := NewGenerator("img:1").GenerateManifests(workflow)
+	require.NoError(t, err)
+	for _, want := range []string{
+		"apiVersion: serving.knative.dev/v1",
+		`autoscaling.knative.dev/min-scale: "0"`,
+		`autoscaling.knative.dev/max-scale: "5"`,
+		`autoscaling.knative.dev/scale-to-zero-pod-retention-period: "5m"`,
+		"containerConcurrency: 4",
+		"timeoutSeconds: 2",
+		"- containerPort: 8080",
+		"path: /health",
+		"name: ai-auth",
+		"name: ai-env",
+		"type: RuntimeDefault",
+	} {
+		assert.Contains(t, out, want)
+	}
+	assert.NotContains(t, out, "kind: Deployment")
+	assert.NotContains(t, out, "sk\"")
+}
+
+func TestGenerateManifests_ScaleToZeroKnativeDefaults(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "web"},
+		Settings: domain.WorkflowSettings{WebServer: &domain.WebServerConfig{PortNum: 9090}},
+	}
+	out, err := NewGenerator("img").GenerateManifests(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, out, "- containerPort: 9090")
+	assert.Contains(t, out, "tcpSocket: {}")
+	assert.NotContains(t, out, "max-scale")
+	assert.NotContains(t, out, "retention-period")
+	assert.NotContains(t, out, "containerConcurrency")
+	assert.NotContains(t, out, "timeoutSeconds")
+}
+
+func TestGenerateManifests_ScaleToZeroKEDA(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "ai"},
+		Settings: domain.WorkflowSettings{
+			APIServer:     &domain.APIServerConfig{PortNum: 8080},
+			Scale:         &domain.ScaleConfig{Engine: domain.ScaleEngineKEDA, Max: 3, Idle: "2m"},
+			Limits:        &domain.LimitsConfig{Concurrency: 2},
+			AgentSettings: domain.AgentSettings{NetworkPolicy: true},
+		},
+	}
+	out, err := NewGenerator("img").GenerateManifests(workflow)
+	require.NoError(t, err)
+	for _, want := range []string{
+		"kind: Deployment", "replicas: 0", "kind: Service", "kind: NetworkPolicy",
+		"kind: HTTPScaledObject", "apiVersion: http.keda.sh/v1alpha1",
+		"service: ai", "port: 8080", "min: 0", "max: 3", "scaledownPeriod: 120", "targetValue: 2",
+	} {
+		assert.Contains(t, out, want)
+	}
+}
+
+func TestGenerateManifests_ScaleErrors(t *testing.T) {
+	api := &domain.APIServerConfig{PortNum: 8080}
+	cases := map[string]struct {
+		settings domain.WorkflowSettings
+		want     string
+	}{
+		"no server": {domain.WorkflowSettings{}, "needs apiServer or webServer"},
+		"listener": {domain.WorkflowSettings{APIServer: api, Input: &domain.InputConfig{
+			Listen: []domain.ListenSpec{{Listener: "telegram_updates"}},
+		}}, "a listener keeps kdeps running"},
+		"two ports": {domain.WorkflowSettings{APIServer: api, WebServer: &domain.WebServerConfig{PortNum: 9090}},
+			"serves one port"},
+		"knative network policy": {domain.WorkflowSettings{APIServer: api,
+			AgentSettings: domain.AgentSettings{NetworkPolicy: true}}, "networkPolicy needs engine keda"},
+		"bad engine": {domain.WorkflowSettings{APIServer: api, Scale: &domain.ScaleConfig{Engine: "x"}},
+			"deploy.scale.engine"},
+		"bad timeout": {domain.WorkflowSettings{APIServer: api, Limits: &domain.LimitsConfig{Timeout: "soon"}},
+			"deploy.limits.timeout"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewGenerator("img").GenerateManifests(&domain.Workflow{Settings: tc.settings})
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+}
+
+func TestGenerateManifests_SameAPIAndWebPort(t *testing.T) {
+	workflow := &domain.Workflow{Settings: domain.WorkflowSettings{
+		APIServer: &domain.APIServerConfig{PortNum: 8080},
+		WebServer: &domain.WebServerConfig{PortNum: 8080},
+	}}
+	out, err := NewGenerator("img").GenerateManifests(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, out, "- containerPort: 8080")
 }

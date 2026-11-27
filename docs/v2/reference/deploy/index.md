@@ -90,9 +90,9 @@ kubectl apply -f k8s.yaml
 kubectl rollout status deployment/my-agent
 ```
 
-The generated manifests include Deployment, Service, and environment configuration - all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
+By default the manifest is a Knative Service that scales to zero. `deploy.scale` selects KEDA or a fixed Deployment instead.
 
-See [Kubernetes deployment](/deploy/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
+See [Kubernetes deployment](/deploy/kubernetes) for the manifest structure, health checks and scale settings.
 
 ## CI/CD pipeline example
 

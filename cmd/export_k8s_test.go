@@ -44,8 +44,9 @@ func TestExportK8sInternal_Success(t *testing.T) {
 			0644,
 		),
 	)
-	err := exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{Replica: 2})
-	require.NoError(t, err)
+	err := exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "scale to zero needs apiServer or webServer")
 }
 
 func TestWriteK8sManifests_WriteError(t *testing.T) {
@@ -65,12 +66,6 @@ func TestExportK8sInternal_ParseError(t *testing.T) {
 	)
 	err := exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{})
 	require.Error(t, err)
-}
-
-func TestExportK8sInternal_ReplicaFlag(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
-	require.NoError(t, exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{Replica: 3}))
 }
 
 func TestWriteK8sManifests_Stdout(t *testing.T) {
@@ -122,7 +117,7 @@ func TestExportK8sInternal_InvalidPath(t *testing.T) {
 
 func TestExportK8sInternal_WorkflowDir(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  scale:\n    min: 1\n    max: 1\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -139,7 +134,7 @@ func TestExportK8sInternal_WorkflowDir(t *testing.T) {
 
 func TestExportK8sInternal_DefaultImageName(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: mywf\n  version: \"2.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: mywf\n  version: \"2.0\"\n  targetActionId: act\ndeploy:\n  scale:\n    min: 1\n    max: 1\n  runtime:\n    pythonVersion: \"3.12\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -155,7 +150,7 @@ func TestExportK8sInternal_DefaultImageName(t *testing.T) {
 
 func TestRunExportK8sCmd_WithCommand(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n  scale:\n    min: 2\n    max: 2\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -170,10 +165,8 @@ func TestRunExportK8sCmd_WithCommand(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.Flags().String("image", "", "")
 	cmd.Flags().String("output", "", "")
-	cmd.Flags().Int("replicas", 0, "")
 	cmd.Flags().Bool("network-policy", false, "")
 	require.NoError(t, cmd.Flags().Set("image", "myimg:v1"))
-	require.NoError(t, cmd.Flags().Set("replicas", "2"))
 	require.NoError(t, cmd.Flags().Set("network-policy", "true"))
 
 	var out bytes.Buffer
@@ -181,11 +174,12 @@ func TestRunExportK8sCmd_WithCommand(t *testing.T) {
 	err := RunExportK8sCmd(cmd, []string{tmp})
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "kind: NetworkPolicy")
+	assert.Contains(t, out.String(), "replicas: 2")
 }
 
 func TestExportK8sInternal_NetworkPolicyFromWorkflow(t *testing.T) {
 	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  apiServer:\n    portNum: 8080\n    routes:\n      - path: /api\n        methods: [GET]\n  runtime:\n    networkPolicy: true\n"
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  apiServer:\n    portNum: 8080\n    routes:\n      - path: /api\n        methods: [GET]\n  scale:\n    engine: keda\n  runtime:\n    networkPolicy: true\n"
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
 	require.NoError(
@@ -205,25 +199,29 @@ func TestExportK8sInternal_NetworkPolicyFromWorkflow(t *testing.T) {
 	assert.Contains(t, out.String(), "port: 8080")
 }
 
-func TestExportK8sInternal_ReplicaOverride(t *testing.T) {
-	tmp := t.TempDir()
-	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\ndeploy:\n  runtime:\n    pythonVersion: \"3.12\"\n"
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
-	require.NoError(
-		t,
-		os.WriteFile(
-			filepath.Join(tmp, "resources", "act.yaml"),
-			[]byte("actionId: act\nname: T\n"),
-			0644,
-		),
-	)
-	require.NoError(t, exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{Replica: 3}))
-}
-
-func TestExportK8sInternal_ReplicaZero(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
-	err := exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{Replica: 0})
-	require.NoError(t, err)
+func TestExportK8sInternal_ScaleModes(t *testing.T) {
+	cases := map[string]struct {
+		scale string
+		want  []string
+	}{
+		"default knative": {"", []string{"kind: Service\n", "serving.knative.dev/v1", `min-scale: "0"`}},
+		"keda":            {"  scale:\n    engine: keda\n", []string{"kind: Deployment", "kind: HTTPScaledObject"}},
+		"fixed":           {"  scale:\n    min: 2\n    max: 2\n", []string{"kind: Deployment", "replicas: 2"}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			tmp := t.TempDir()
+			wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n" +
+				"  targetActionId: act\ndeploy:\n  apiServer:\n    portNum: 8080\n" + tc.scale +
+				"resources:\n  - actionId: act\n    name: Act\n    apiResponse:\n      success: true\n"
+			require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wf), 0644))
+			cmd := &cobra.Command{}
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			require.NoError(t, exportK8sInternal(cmd, []string{tmp}, &K8sFlags{}))
+			for _, w := range tc.want {
+				assert.Contains(t, out.String(), w)
+			}
+		})
+	}
 }

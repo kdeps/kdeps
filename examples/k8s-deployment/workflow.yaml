@@ -2,7 +2,7 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: k8s-example
-  description: "A workflow demonstrating Kubernetes-specific settings like replicas and resource limits."
+  description: "A workflow that scales to zero on Kubernetes, with resource limits."
   version: 1.0.0
   targetActionId: main
 
@@ -12,9 +12,11 @@ deploy:
     routes:
       - path: /api/v1/ask
         methods: [POST]
+  scale:
+    min: 0          # scale to zero: the first request starts a pod
+    max: 3          # at most 3 pods
+    idle: 5m        # keep the last pod 5m after the last request
   runtime:
-    # Kubernetes-specific settings
-    replicas: 3
     resources:
       cpuLimit: "1000m"
       memoryLimit: "1Gi"

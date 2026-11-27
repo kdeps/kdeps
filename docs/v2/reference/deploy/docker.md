@@ -421,8 +421,10 @@ Configure Kubernetes settings in `workflow.yaml`:
 deploy:
   apiServer:
     portNum: 16395
+  scale:
+    min: 3          # a fixed count: min equal to max writes a plain Deployment
+    max: 3
   runtime:
-    replicas: 3
     resources:
       cpuLimit: "2000m"
       memoryLimit: "4Gi"

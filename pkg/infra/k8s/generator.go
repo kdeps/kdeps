@@ -19,7 +19,10 @@
 package k8s
 
 import (
+	"errors"
 	"fmt"
+	"math"
+	"strings"
 
 	"github.com/kdeps/kdeps/v3/pkg/assets"
 	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
@@ -37,13 +40,16 @@ const (
 	deployment  = "deployment"
 	service     = "service"
 	networkPol  = "networkpolicy"
+	knativeSvc  = "knative"
+	kedaHTTP    = "httpscaledobject"
 )
 
 //nolint:gochecknoinits // registers the Kubernetes templates as a versioned asset set
 func init() {
 	assets.Register(k8sSet, assets.Spec{
 		Validate: func(data []byte, _ string) error {
-			_, err := assets.ValidateBundle(data, deployment+templateExt, service+templateExt, networkPol+templateExt)
+			_, err := assets.ValidateBundle(data, deployment+templateExt, service+templateExt,
+				networkPol+templateExt, knativeSvc+templateExt, kedaHTTP+templateExt)
 			return err
 		},
 		Required: []string{k8sItem},
@@ -66,6 +72,12 @@ type ManifestData struct {
 	Env           map[string]string
 	SecretEnv     []string
 	Resources     *domain.Resources
+	// Scale to zero (deploy.scale with no fixed count).
+	Scale            domain.ScaleConfig
+	WakePort         int
+	Concurrency      int
+	TimeoutSeconds   int
+	ScaledownSeconds int
 }
 
 // Generator generates Kubernetes manifests from workflows.
@@ -88,32 +100,36 @@ func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error)
 		return "", k8sEnvErr
 	}
 
-	data := g.buildTemplateData(workflow)
-
-	deployment, err := g.renderManifest(deployment, data)
+	data, err := g.buildTemplateData(workflow)
 	if err != nil {
-		return "", fmt.Errorf("failed to render deployment template: %w", err)
+		return "", err
 	}
 
-	service, err := g.renderManifest(service, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to render service template: %w", err)
+	var names []string
+	switch {
+	case data.Replicas > 0:
+		names = []string{deployment, service}
+	case data.Scale.EngineName() == domain.ScaleEngineKEDA:
+		names = []string{deployment, service, kedaHTTP}
+	default:
+		names = []string{knativeSvc}
 	}
-
-	manifests := fmt.Sprintf("%s---\n%s", deployment, service)
-
 	if data.NetworkPolicy {
-		policy, policyErr := g.renderManifest(networkPol, data)
-		if policyErr != nil {
-			return "", fmt.Errorf("failed to render networkpolicy template: %w", policyErr)
-		}
-		manifests = fmt.Sprintf("%s---\n%s", manifests, policy)
+		names = append(names, networkPol)
 	}
 
-	return manifests, nil
+	docs := make([]string, 0, len(names))
+	for _, name := range names {
+		doc, renderErr := g.renderManifest(name, data)
+		if renderErr != nil {
+			return "", fmt.Errorf("failed to render %s template: %w", name, renderErr)
+		}
+		docs = append(docs, doc)
+	}
+	return strings.Join(docs, "---\n"), nil
 }
 
-func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
+func (g *Generator) buildTemplateData(workflow *domain.Workflow) (*ManifestData, error) {
 	kdeps_debug.Log("enter: buildTemplateData")
 
 	plainEnv, secretEnv := deployenv.PartitionK8sEnv(workflow.Settings.AgentSettings.Env)
@@ -121,7 +137,6 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 		Name:          workflow.Metadata.Name,
 		Version:       workflow.Metadata.Version,
 		Image:         g.ImageName,
-		Replicas:      resolveReplicas(workflow),
 		HasAPIServer:  workflow.Settings.APIServer != nil,
 		NetworkPolicy: workflow.Settings.AgentSettings.NetworkPolicy,
 		Env:           plainEnv,
@@ -133,16 +148,66 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	if domain.ResolveInstallOllama(workflow) {
 		data.BackendPort = defaultOllamaPort
 	}
-
-	return data
+	if err := applyScale(data, workflow); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
-func resolveReplicas(workflow *domain.Workflow) int {
-	replicas := workflow.Settings.AgentSettings.Replicas
-	if replicas <= 0 {
-		return 1
+// applyScale sets a fixed replica count, or the scale-to-zero values.
+func applyScale(data *ManifestData, workflow *domain.Workflow) error {
+	if workflow.Settings.Scale != nil {
+		data.Scale = *workflow.Settings.Scale
 	}
-	return replicas
+	scale := &data.Scale
+	if err := scale.Check(); err != nil {
+		return err
+	}
+	if scale.Fixed() {
+		data.Replicas = scale.Min
+		return nil
+	}
+	if err := wakePort(data, workflow); err != nil {
+		return err
+	}
+	if scale.EngineName() == domain.ScaleEngineKnative && data.NetworkPolicy {
+		return errors.New("deploy.scale: networkPolicy needs engine keda or a fixed count (min equal to max)")
+	}
+	idle, err := scale.IdleDuration()
+	if err != nil {
+		return err
+	}
+	data.ScaledownSeconds = int(idle.Seconds())
+	if limits := workflow.Settings.Limits; limits != nil {
+		timeout, timeoutErr := limits.TimeoutDuration()
+		if timeoutErr != nil {
+			return timeoutErr
+		}
+		data.Concurrency = limits.Concurrency
+		data.TimeoutSeconds = int(math.Ceil(timeout.Seconds()))
+	}
+	return nil
+}
+
+// wakePort picks the one HTTP port a request wakes the workflow on.
+func wakePort(data *ManifestData, workflow *domain.Workflow) error {
+	if input := workflow.Settings.Input; input != nil && len(input.Listen) > 0 {
+		return errors.New("deploy.scale: a listener keeps kdeps running; set deploy.scale.min and max to 1 or more")
+	}
+	switch {
+	case data.APIPort > 0 && data.WebServerPort > 0 && data.APIPort != data.WebServerPort:
+		return fmt.Errorf("deploy.scale: scale to zero serves one port; apiServer (%d) and webServer (%d) differ",
+			data.APIPort, data.WebServerPort)
+	case data.APIPort > 0:
+		data.WakePort = data.APIPort
+	case data.WebServerPort > 0:
+		data.WakePort = data.WebServerPort
+	default:
+		return errors.New(
+			"deploy.scale: scale to zero needs apiServer or webServer; set deploy.scale.min and max to 1 or more",
+		)
+	}
+	return nil
 }
 
 // applyManifestPorts derives ports from what the workflow actually configures:

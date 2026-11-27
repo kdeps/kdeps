@@ -266,6 +266,7 @@ var (
 			"input":         "deploy.input",
 			"agentSettings": "deploy.runtime",
 			"limits":        "deploy.limits",
+			"scale":         "deploy.scale",
 			"session":       "session",
 			"llm":           "repl",
 		})

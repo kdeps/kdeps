@@ -1,0 +1,83 @@
+# Knative Service: scales to zero. The first request waits while a pod starts.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ .Name }}
+  labels:
+    app: {{ .Name }}
+    version: {{ .Version }}
+    kdeps-component: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ .Name }}
+      annotations:
+        autoscaling.knative.dev/min-scale: "{{ .Scale.Min }}"
+        {{- if .Scale.Max }}
+        autoscaling.knative.dev/max-scale: "{{ .Scale.Max }}"
+        {{- end }}
+        {{- if .Scale.Idle }}
+        autoscaling.knative.dev/scale-to-zero-pod-retention-period: "{{ .Scale.Idle }}"
+        {{- end }}
+    spec:
+      {{- if .Concurrency }}
+      containerConcurrency: {{ .Concurrency }}
+      {{- end }}
+      {{- if .TimeoutSeconds }}
+      timeoutSeconds: {{ .TimeoutSeconds }}
+      {{- end }}
+      containers:
+      - name: {{ .Name }}
+        image: {{ .Image }}
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        ports:
+        - containerPort: {{ .WakePort }}
+        env:
+        {{- if .HasAPIServer }}
+        - name: KDEPS_API_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Name }}-auth
+              key: api-token
+        - name: KDEPS_MANAGEMENT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Name }}-auth
+              key: management-token
+              optional: true
+        {{- end }}
+        {{- range $key, $value := .Env }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- range $key := .SecretEnv }}
+        - name: {{ $key }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Name }}-env
+              key: {{ $key }}
+        {{- end }}
+        {{- if .Resources }}
+        resources:
+          limits:
+            cpu: "{{ .Resources.CPULimit }}"
+            memory: "{{ .Resources.MemoryLimit }}"
+          requests:
+            cpu: "{{ .Resources.CPURequest }}"
+            memory: "{{ .Resources.MemoryRequest }}"
+        {{- end }}
+        readinessProbe:
+          {{- if .HasAPIServer }}
+          httpGet:
+            path: /health
+          {{- else }}
+          tcpSocket: {}
+          {{- end }}

@@ -82,6 +82,11 @@ func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 			return domain.NewError(domain.ErrCodeInvalidWorkflow, err.Error(), nil)
 		}
 	}
+	if scale := workflow.Settings.Scale; scale != nil {
+		if err := scale.Check(); err != nil {
+			return domain.NewError(domain.ErrCodeInvalidWorkflow, err.Error(), nil)
+		}
+	}
 	return nil
 }
 
