@@ -19,10 +19,10 @@ hero:
       link: /deploy/
 
 features:
-  - title: One file, four outputs
-    details: Ship the same file as an API, a binary, an image, or an ISO.
-    link: /deploy/
-    linkText: Ship the file
+  - title: A function per event
+    details: A request, a chat message or a webhook starts one bounded run. The logic is YAML only.
+    link: /workflow/input-sources
+    linkText: See the events
   - title: Behavior you can review
     details: A change is a pull request. kdeps test runs the evals.
     link: /workflow/testing

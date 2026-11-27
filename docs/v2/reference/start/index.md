@@ -8,6 +8,10 @@ description: What kdeps is, the problem it solves, and the smallest mental model
 This page has every step and detail. The [overview](/start/) is the short version.
 
 
+kdeps runs serverless AI agents on your own hardware. Each event (an API call,
+a chat message, a webhook) starts one bounded run of a workflow, as with a
+serverless function. The function is YAML, and it runs offline.
+
 kdeps is a git-native AI appliance builder. You describe an agent in YAML files:
 the model to call, the data to validate, and the shape of the answer. These
 files are the full specification. When you commit them, kdeps packages the
