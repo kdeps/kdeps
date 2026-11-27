@@ -1,6 +1,6 @@
 # kdeps workflow
 
-A kdeps workflow is a deterministic YAML pipeline. A request arrives, resources run in dependency order, and kdeps returns the result. Serve it as an HTTP API, a bot, a file processor, or an interactive prompt.
+A kdeps workflow is a deterministic YAML pipeline. A request arrives, resources run in dependency order, and kdeps returns the result. Serve it as an HTTP API, a listener (chat bots, webhooks), a file processor, or an interactive prompt.
 
 ```bash
 kdeps run ./my-agent/      # run once / serve on :16395

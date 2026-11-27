@@ -4,7 +4,7 @@ layout: home
 hero:
   name: kdeps
   text: One YAML file, offline
-  tagline: "kdeps turns one workflow.yaml into an offline AI appliance: an API, a binary, an image, or an ISO."
+  tagline: "kdeps turns one workflow.yaml into an offline AI appliance. An API call, a chat message or a webhook starts one bounded run."
   announcement: Your AI on a USB stick
   announcementLink: /reference/deploy/cli#kdeps-bundle-prepackage
   actions:

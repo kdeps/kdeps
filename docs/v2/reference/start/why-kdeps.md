@@ -3,7 +3,7 @@
 This page has every step and detail. The [overview](/start/why-kdeps) is the short version.
 
 
-One `workflow.yaml` runs as an API, a bot, a file job, or a prompt. A `chat` with `loop:` is the step where the model picks tools. You pay for the hardware it runs on.
+One `workflow.yaml` runs as an API, a listener, a file job, or a prompt. Each event starts one run. A `chat` with `loop:` is the step where the model picks tools. You pay for the hardware it runs on.
 
 ## The same file
 
@@ -64,14 +64,14 @@ repository state as part of its pipeline - status, diff, log, commit, branch.
 direction: right
 
 api: "api\nHTTP request" {shape: oval}
-bot: "bot\nDiscord, Slack, Telegram" {shape: oval}
+listen: "listen\nchat bots, webhooks, websockets" {shape: oval}
 file: "file\nstdin or path" {shape: oval}
 prompt: "interactive\nterminal prompt" {shape: oval}
 W: "workflow.yaml\nDAG, deterministic order"
 L: "chat with loop:\nagent: tools, memory"
 
 api -> W
-bot -> W
+listen -> W
 file -> W
 prompt -> W
 W -> L: "when a step is an agent"

@@ -13,7 +13,7 @@ the model to call, the data to validate, and the shape of the answer. These
 files are the full specification. When you commit them, kdeps packages the
 workflow, its tools, and the model into one self-contained unit.
 
-You can run this unit as an HTTP API, a bot, a terminal prompt, a Docker image, a
+You can run this unit as an HTTP API, a listener, a terminal prompt, a Docker image, a
 Kubernetes deployment, a bootable ISO, or a single binary. All of these use the
 same `workflow.yaml`. You do not rewrite code, change the configuration, or
 import a framework.
@@ -105,7 +105,7 @@ kdeps run ./my-agent/     # run it once / serve it
 
 | You want to... | Read |
 |---|---|
-| Run the YAML as an API, a bot, or a file processor | [Workflow](/workflow/) |
+| Run the YAML as an API, a listener, or a file processor | [Workflow](/workflow/) |
 | Give a `chat` tools with `loop:` | [Agent loop](/workflow/agent-loop/) |
 | Run several workflows as one system | [Agencies](/agencies/) |
 | Serve an OpenAI-compatible endpoint, with no workflow | [LLM server](/llm-server/) |

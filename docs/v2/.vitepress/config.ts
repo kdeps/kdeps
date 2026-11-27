@@ -111,7 +111,7 @@ const readingPath: [string, string, string][] = [
 
 export default defineConfig({
   title: 'kdeps',
-  description: 'One workflow.yaml becomes an offline API, a binary, an image, or an ISO.',
+  description: 'One workflow.yaml becomes an offline AI appliance. Each API call, chat message or webhook starts one run. Ship it as an image, a binary, or an ISO.',
 
   appearance: 'force-dark',
 
@@ -126,7 +126,7 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps Documentation' }],
     ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
-    ['meta', { name: 'og:description', content: 'One workflow.yaml becomes an offline API, a binary, an image, or an ISO.' }],
+    ['meta', { name: 'og:description', content: 'One workflow.yaml becomes an offline AI appliance. Each API call, chat message or webhook starts one run. Ship it as an image, a binary, or an ISO.' }],
   ],
 
   transformPageData(pageData) {
