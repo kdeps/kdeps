@@ -1,4 +1,4 @@
-version: 1.4.6
+version: 1.4.7
 name: permission
 # The one tool policy. Each tool names a tier; each tier names the permission
 # mode it needs. A tool not listed uses default.
@@ -59,6 +59,7 @@ tools:
   jira_post: T1           # creates issues and comments, moves issue status
   jira_put: T1
   telegram_post: T1       # sends, edits and deletes messages
+  whatsapp_post: T1       # sends WhatsApp messages
   discord_post: T1        # sends messages and reactions
   google_cache_create: T1
   google_cache_delete: T1

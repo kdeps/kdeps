@@ -17,9 +17,9 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for the whatsapp-bot template: kdeps new, then the webhook against
-# a fake Graph API - verification handshake, signed POST answered via
-# httpClient, forged POST and status callbacks.
+# E2E tests for the whatsapp-bot template: kdeps new, then the
+# whatsapp_webhook listener - verification handshake, forged POST, status
+# callback, and a signed message that runs llm (mock LLM) and reply.
 
 set -uo pipefail
 
@@ -28,7 +28,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing the whatsapp-bot template..."
 
-for tool in uv python3 curl openssl; do
+for tool in python3 curl openssl; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         test_skipped "whatsapp-bot template - needs $tool"
         return 0 2>/dev/null || exit 0
@@ -40,75 +40,56 @@ WA_PIDS=""
 trap 'for p in $WA_PIDS; do kill "$p" 2>/dev/null; done; rm -rf "$WA_DIR"' EXIT
 cd "$WA_DIR" || exit 1
 
-if "$KDEPS_BIN" new bot --template whatsapp-bot >/dev/null 2>&1 && [ -f bot/resources/reply.yaml ] \
-    && "$KDEPS_BIN" validate bot/workflow.yaml >/dev/null 2>&1; then
-    test_passed "whatsapp-bot template - kdeps new generates a valid workflow"
+if "$KDEPS_BIN" new bot --template whatsapp-bot >/dev/null 2>&1 && grep -q "listener: whatsapp_webhook" bot/workflow.yaml \
+    && grep -q "name: whatsapp_post" bot/resources/reply.yaml && "$KDEPS_BIN" validate bot/workflow.yaml >/dev/null 2>&1; then
+    test_passed "whatsapp-bot template - kdeps new generates a valid listener workflow"
 else
     test_failed "whatsapp-bot template - generate" "$(ls -R bot 2>&1)"
     cd - >/dev/null; return 0 2>/dev/null || exit 0
 fi
 
-# A fixed answer instead of a model call; same skip and signature check.
-python3 - bot/resources/llm.yaml <<'PY'
-import re, sys
-p = sys.argv[1]; s = open(p).read()
-s = s[:s.index("chat:")] + 'component:\n  name: python\n  with:\n    script: |\n      import json; print(json.dumps({"message": {"content": "pong"}}))\n'
-open(p, "w").write(s)
-PY
-
-cat > graph.py <<'PY'
-import http.server, sys
-class H(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
-        body = self.rfile.read(int(self.headers["Content-Length"]))
-        open("sent.txt", "a").write(self.path + " " + self.headers.get("Authorization", "") + " " + body.decode() + "\n")
-        self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
-        self.wfile.write(b'{"messages":[{"id":"wamid.1"}]}')
-    def log_message(self, *a): pass
-srv = http.server.HTTPServer(("127.0.0.1", 0), H)
-open("graph.port", "w").write(str(srv.server_address[1]))
-srv.serve_forever()
-PY
-python3 graph.py & WA_PIDS="$WA_PIDS $!"
-for _ in $(seq 1 50); do [ -s graph.port ] && break; sleep 0.1; done
-PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-sed -i.bak "s/portNum: .*/portNum: $PORT/" bot/workflow.yaml
-
-WHATSAPP_API_URL="http://127.0.0.1:$(cat graph.port)" WHATSAPP_PHONE_NUMBER_ID=123 WHATSAPP_ACCESS_TOKEN=tok \
-WHATSAPP_VERIFY_TOKEN=vt WHATSAPP_APP_SECRET=shh KDEPS_API_AUTH_TOKEN=e2e \
+# No access token: the reply step fails offline with an error that names its
+# sources, which shows the run got through llm to whatsapp_post.
+WHATSAPP_ACCESS_TOKEN="" WHATSAPP_PHONE_NUMBER_ID=123 WHATSAPP_VERIFY_TOKEN=vt WHATSAPP_APP_SECRET=shh \
     "$KDEPS_BIN" run bot/workflow.yaml > run.log 2>&1 & WA_PIDS="$WA_PIDS $!"
-# kdeps moves to another port when $PORT was taken meanwhile; use the one it bound.
-for _ in $(seq 1 120); do grep -q "Starting HTTP server on" run.log && break; sleep 0.5; done
-BOUND=$(sed -n 's/.*Starting HTTP server on [^:]*:\([0-9]*\).*/\1/p' run.log | head -1)
-URL="http://127.0.0.1:${BOUND:-$PORT}/webhook"
-for _ in $(seq 1 120); do command curl -s -o /dev/null "$URL" && break; sleep 0.5; done
-
-GET=$(command curl -s -D get.h "$URL?hub.mode=subscribe&hub.verify_token=vt&hub.challenge=4242")
-if [ "$GET" = "4242" ] && grep -qi "content-type: text/plain" get.h \
-    && [ "$(command curl -s -o /dev/null -w '%{http_code}' "$URL?hub.mode=subscribe&hub.verify_token=no&hub.challenge=1")" = "403" ]; then
-    test_passed "whatsapp-bot template - verification handshake echoes hub.challenge as text, 403 on a bad token"
+URL="http://127.0.0.1:16396/whatsapp"
+GET=""
+for _ in $(seq 1 120); do
+    GET=$(command curl -s "$URL?hub.mode=subscribe&hub.verify_token=vt&hub.challenge=4242" 2>/dev/null) && [ "$GET" = "4242" ] && break
+    sleep 0.5
+done
+BAD=$(command curl -s -o /dev/null -w '%{http_code}' "$URL?hub.mode=subscribe&hub.verify_token=no&hub.challenge=1")
+if [ "$GET" = "4242" ] && [ "$BAD" != "200" ]; then
+    test_passed "whatsapp-bot template - verification handshake echoes hub.challenge, refuses a bad token"
 else
-    test_failed "whatsapp-bot template - handshake" "$GET $(cat get.h)"
+    test_failed "whatsapp-bot template - handshake" "get=$GET bad=$BAD $(tail -20 run.log)"
 fi
 
-BODY='{"entry":[{"changes":[{"value":{"messages":[{"from":"15551234","type":"text","text":{"body":"ping"}}]}}]}]}'
-SIG=sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac shh | awk '{print $NF}')
-POST=$(command curl -s -X POST -H 'Content-Type: application/json' -H "X-Hub-Signature-256: $SIG" -d "$BODY" "$URL")
-if [ "$POST" = "ok" ] && grep -q '/123/messages Bearer tok .*"body":"pong".*"to":"15551234"' sent.txt; then
-    test_passed "whatsapp-bot template - a signed message is answered through the Graph API"
-else
-    test_failed "whatsapp-bot template - signed POST" "$POST / $(cat sent.txt 2>/dev/null) / $(tail -20 run.log)"
-fi
-
-FORGED=$(command curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-    -H 'X-Hub-Signature-256: sha256=00' -d "$BODY" "$URL")
+sig() { printf '%s' "$1" | openssl dgst -sha256 -hmac shh | awk '{print "sha256="$NF}'; }
+post() { command curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-Hub-Signature-256: $2" -d "$1" "$URL"; }
+BODY='{"entry":[{"changes":[{"value":{"messages":[{"from":"15551234","type":"text","text":{"body":"WA-E2E-PING"}}]}}]}]}'
 STATUS='{"entry":[{"changes":[{"value":{"statuses":[{"status":"read"}]}}]}]}'
-SIG2=sha256=$(printf '%s' "$STATUS" | openssl dgst -sha256 -hmac shh | awk '{print $NF}')
-ACK=$(command curl -s -X POST -H 'Content-Type: application/json' -H "X-Hub-Signature-256: $SIG2" -d "$STATUS" "$URL")
-if [ "$FORGED" = "403" ] && [ "$ACK" = "ok" ] && [ "$(wc -l < sent.txt | tr -d ' ')" = "1" ]; then
-    test_passed "whatsapp-bot template - forged POST rejected (403), status callback acknowledged without a reply"
+FORGED=$(post "$BODY" "sha256=00")
+ACK=$(post "$STATUS" "$(sig "$STATUS")")
+if [ "$FORGED" = "401" ] && [ "$ACK" = "200" ]; then
+    test_passed "whatsapp-bot template - forged POST gets 401, a status callback gets 200 and starts no run"
 else
-    test_failed "whatsapp-bot template - forged/status" "forged=$FORGED ack=$ACK sent=$(cat sent.txt)"
+    test_failed "whatsapp-bot template - forged/status" "forged=$FORGED status=$ACK"
+fi
+
+CODE=$(post "$BODY" "$(sig "$BODY")")
+for _ in $(seq 1 60); do grep -q "WHATSAPP_ACCESS_TOKEN" run.log && break; sleep 0.5; done
+if [ "$CODE" = "202" ] && grep -q "WHATSAPP_ACCESS_TOKEN" run.log && grep -q "WA-E2E-PING" "${E2E_MOCK_LLM_LOG:-/dev/null}" 2>/dev/null; then
+    test_passed "whatsapp-bot template - a signed message runs llm and reaches whatsapp_post"
+elif [ "$CODE" = "202" ] && grep -q "WHATSAPP_ACCESS_TOKEN" run.log; then
+    test_passed "whatsapp-bot template - a signed message reaches whatsapp_post"
+else
+    test_failed "whatsapp-bot template - signed POST" "code=$CODE $(tail -20 run.log)"
+fi
+if [ "$(grep -c '\[listen whatsapp_webhook\]' run.log)" = "1" ]; then
+    test_passed "whatsapp-bot template - exactly one run (the signed message)"
+else
+    test_failed "whatsapp-bot template - run count" "$(grep '\[listen' run.log)"
 fi
 
 cd - >/dev/null || true

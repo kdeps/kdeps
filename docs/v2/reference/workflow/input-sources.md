@@ -190,7 +190,9 @@ deploy:
 | `poll.cursor`, `poll.start` | The next cursor, a template over `.item` and `.cursor`, and the first cursor. |
 | `webhook.path`, `webhook.addr` | The URL path and the listen address. A JSON body is the event; a form body is its fields; another body is `{"body": "..."}`. |
 | `webhook.wait` | `false` (default): answer `202` at once and run after. `true`: run, then answer with the result, or `500` and the error. |
-| `webhook.handshake` | A template over `.event`, `.body`, `.headers`, `.query` and `.method`. When it renders text, kdeps answers with that text and starts no run. |
+| `webhook.env` | Names for `.env`: each lists environment variables and `secret:NAME` vault entries. The listener does not start without them. |
+| `webhook.handshake` | A template over `.event`, `.body`, `.headers`, `.query`, `.method` and `.env`. When it renders text, kdeps answers with that text and starts no run. |
+| `webhook.when` | A template over the same data. A POST runs only when it renders text other than `false`; any other POST gets `200` and starts no run. |
 | `webhook.verify` | An HMAC check: `secret` (env names and `secret:NAME` entries), `algorithm` (`sha256` or `sha1`), `encoding` (`hex` or `base64`), `message` and `signature` templates. |
 
 ### Ready-made listeners
@@ -225,8 +227,9 @@ component:
 | `telegram_updates` | poll `getUpdates` every 2s | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_TOKEN`, vault `telegram_bot_token` | the update: `input('message').text`, `input('message').chat.id` | `telegram_post` (`sendMessage`) |
 | `slack_events` | Socket Mode websocket, no public URL | `SLACK_APP_TOKEN` (`xapp-`), vault `slack_app_token` | the message event: `input('text')`, `input('channel')`, `input('user')` | `slack_post` (`chat.postMessage`) |
 | `discord_gateway` | Gateway websocket, heartbeat and identify | `DISCORD_BOT_TOKEN`, vault `discord_bot_token` | the message: `input('content')`, `input('channel_id')`, `input('author').username` | `discord_post` (`channels/ID/messages`) |
+| `whatsapp_webhook` | webhook `POST /whatsapp` on `:16396`, Meta handshake and signature | `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, vault `whatsapp_verify_token`, `whatsapp_app_secret` | the notification: `input('entry')[0].changes[0].value.messages[0]` | `whatsapp_post` (`v23.0/PHONE_NUMBER_ID/messages`) |
 
-Messages from bots start no run, so a reply does not start a loop. `slack_events` acknowledges every envelope. `discord_gateway` needs the Message Content intent turned on for the bot. Each asset is a plain listener block: copy it into `listen:` to change it.
+Messages from bots start no run, so a reply does not start a loop. `slack_events` acknowledges every envelope. `discord_gateway` needs the Message Content intent turned on for the bot. `whatsapp_webhook` runs only for notifications with messages; status callbacks get `200`. Meta calls only HTTPS URLs, so put a TLS proxy or tunnel in front of port 16396. Each asset is a plain listener block: copy it into `listen:` to change it.
 
 ### Websocket
 

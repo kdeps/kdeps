@@ -8,7 +8,7 @@ deploy:
   input:
     listen:            # one run per event; the event is the input
       - file: { path: inbox.txt }      # input('line')
-      - listener: telegram_updates     # ready-made: also slack_events, discord_gateway
+      - listener: telegram_updates     # ready-made: also slack_events, discord_gateway, whatsapp_webhook
 ```
 
 `sources: [file]` reads one file and stops. `sources: [interactive]` runs the workflow for each line you type.

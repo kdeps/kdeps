@@ -36,7 +36,7 @@ const listenersSet = "listeners"
 // works with any install profile.
 //
 //nolint:gochecknoglobals // fixed list
-var RequiredListeners = []string{"telegram_updates", "slack_events", "discord_gateway"}
+var RequiredListeners = []string{"telegram_updates", "slack_events", "discord_gateway", "whatsapp_webhook"}
 
 //nolint:gochecknoinits // registers the set with the asset store
 func init() {

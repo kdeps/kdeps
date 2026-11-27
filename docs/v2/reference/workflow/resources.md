@@ -126,7 +126,7 @@ All executors are part of the `kdeps` binary. You do not install them. This page
 
 | YAML key | Description | Page |
 |---|---|---|
-| `component: slack_post`, `telegram_post`, `discord_post` | Send a message to a chat - connector components, YAML only | [Connectors](/workflow/resources/connectors) |
+| `component: slack_post`, `telegram_post`, `discord_post`, `whatsapp_post` | Send a message to a chat - connector components, YAML only | [Connectors](/workflow/resources/connectors) |
 
 ## Orchestration
 

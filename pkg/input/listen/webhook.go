@@ -134,7 +134,9 @@ type webhookSource struct {
 	addr      string
 	wait      bool
 	handshake *template.Template
+	when      *template.Template
 	verify    *verifier
+	env       map[string]string
 	hub       *webhookHub
 	opts      Options
 	queue     chan Event
@@ -153,9 +155,19 @@ func newWebhookSource(
 	if s.addr == "" {
 		s.addr = DefaultWebhookAddr
 	}
+	env, ok := (&api.HTTPToolSpec{Env: spec.Env}).ResolveEnv()
+	if len(spec.Env) > 0 && !ok {
+		return nil, fmt.Errorf("listen %s: webhook.env: %s", id, envHelp(spec.Env))
+	}
+	s.env = env
 	var err error
 	if spec.Handshake != "" {
 		if s.handshake, err = parse(id+" handshake", spec.Handshake); err != nil {
+			return nil, err
+		}
+	}
+	if spec.When != "" {
+		if s.when, err = parse(id+" when", spec.When); err != nil {
 			return nil, err
 		}
 	}
@@ -206,7 +218,9 @@ func (s *webhookSource) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for k := range r.URL.Query() {
 		query[k] = r.URL.Query().Get(k)
 	}
-	data := map[string]any{"body": string(body), "headers": headers, "query": query, "method": r.Method}
+	data := map[string]any{
+		"body": string(body), "headers": headers, "query": query, "method": r.Method, "env": s.env,
+	}
 
 	// Only a signed POST can start a run; a GET can only answer a handshake.
 	if r.Method == http.MethodPost && s.verify != nil && !s.verify.ok(data) {
@@ -228,6 +242,10 @@ func (s *webhookSource) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "use POST", http.StatusMethodNotAllowed)
+		return
+	}
+	if !matches(s.when, data) {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	if s.wait {

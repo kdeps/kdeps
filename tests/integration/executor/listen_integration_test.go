@@ -40,13 +40,16 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	yamlv3 "gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v3/pkg/api"
+	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/executor"
 	"github.com/kdeps/kdeps/v3/pkg/input/listen"
 	"github.com/kdeps/kdeps/v3/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v3/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v3/pkg/secrets"
+	"github.com/kdeps/kdeps/v3/pkg/templates"
 	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
 
@@ -424,4 +427,143 @@ component:
 	assert.Contains(t, sent[0], "/bot123:abc/sendMessage")
 	assert.Contains(t, sent[0], `"text":"pong: ping"`)
 	assert.Contains(t, sent[0], `"chat_id":42`)
+}
+
+// TestListen_WhatsAppTemplate runs the whatsapp-bot template's workflow on the
+// shipped whatsapp_webhook listener: a signed message is answered through
+// whatsapp_post; a status callback and a forged POST start no run.
+func TestListen_WhatsAppTemplate(t *testing.T) {
+	githubEnv(t)
+	t.Setenv("KDEPS_DATA_DIR", t.TempDir())
+	_, file, _, _ := runtime.Caller(0)
+	repoAssets := filepath.Join(filepath.Dir(file), "..", "..", "..", "assets")
+	t.Setenv("KDEPS_ASSETS_SRC", repoAssets)
+	t.Setenv("WHATSAPP_VERIFY_TOKEN", "vt")
+	t.Setenv("WHATSAPP_APP_SECRET", "shh")
+	t.Setenv("WHATSAPP_ACCESS_TOKEN", "wtok")
+	t.Setenv("WHATSAPP_PHONE_NUMBER_ID", "555")
+
+	var (
+		mu   sync.Mutex
+		sent []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		sent = append(sent, r.URL.Path+" "+r.Header.Get("Authorization")+" "+string(b))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"messages":[{"id":"wamid.1"}]}`))
+	}))
+	defer srv.Close()
+	target, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	orig := api.HTTPToolClient
+	api.HTTPToolClient = &http.Client{Transport: ghTransport(func(r *http.Request) (*http.Response, error) {
+		r = r.Clone(r.Context())
+		r.URL.Scheme, r.URL.Host = target.Scheme, target.Host
+		return http.DefaultTransport.RoundTrip(r)
+	})}
+	t.Cleanup(func() { api.HTTPToolClient = orig })
+
+	// An OpenAI-compatible stub answers every chat call with "pong".
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(b), `"stream":true`) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, `data: {"choices":[{"index":0,"delta":{"role":"assistant","content":"pong"}}]}`+
+				"\n\n"+`data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`+"\n\ndata: [DONE]\n\n")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":"pong"},`+
+			`"finish_reason":"stop"}]}`)
+	}))
+	defer model.Close()
+	t.Setenv("KDEPS_LLM_OVERRIDE_URL", model.URL)
+
+	gen, err := templates.NewGenerator()
+	require.NoError(t, err)
+	dir := filepath.Join(t.TempDir(), "wa")
+	require.NoError(
+		t,
+		gen.GenerateProject(
+			"whatsapp-bot",
+			dir,
+			templates.TemplateData{Name: "wa", Description: "WhatsApp bot", Version: "1.0.0"},
+		),
+	)
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	wf, err := yaml.NewParser(sv, expression.NewParser()).ParseWorkflow(filepath.Join(dir, "workflow.yaml"))
+	require.NoError(t, err)
+	require.Equal(t, "whatsapp_webhook", wf.Settings.Input.Listen[0].Listener)
+
+	// The shipped listener on a free port instead of :16396.
+	data, err := os.ReadFile(filepath.Join(repoAssets, "listeners", "whatsapp_webhook.yaml"))
+	require.NoError(t, err)
+	var spec domain.ListenSpec
+	require.NoError(t, yamlv3.Unmarshal(data, &spec))
+	spec.ID = "whatsapp_webhook"
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	spec.Webhook.Addr = ln.Addr().String()
+	require.NoError(t, ln.Close())
+
+	eng := newExecEngine(t)
+	opts := listen.Options{
+		ProjectDir: dir,
+		Out:        &lockedBuf{},
+		Exec: func(ctx context.Context, id string, ev listen.Event) (any, error) {
+			return eng.Execute(wf, &executor.RequestContext{Ctx: ctx, Method: "POST", Path: "/listen/" + id, Body: ev})
+		},
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- listen.Run(ctx, []domain.ListenSpec{spec}, opts) }()
+	base := "http://" + spec.Webhook.Addr + "/whatsapp"
+	postSigned := func(body, key string) int {
+		mac := hmac.New(sha256.New, []byte(key))
+		_, _ = mac.Write([]byte(body))
+		req, rErr := http.NewRequestWithContext(t.Context(), http.MethodPost, base, strings.NewReader(body))
+		require.NoError(t, rErr)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Hub-Signature-256", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+		resp, dErr := http.DefaultClient.Do(req)
+		require.NoError(t, dErr)
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	require.Eventually(t, func() bool {
+		resp, gErr := http.Get(
+			base + "?hub.mode=subscribe&hub.verify_token=vt&hub.challenge=4242",
+		) //nolint:noctx // test
+		if gErr != nil {
+			return false
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b, _ := io.ReadAll(resp.Body)
+		return string(b) == "4242"
+	}, 10*time.Second, 50*time.Millisecond)
+
+	status := `{"entry":[{"changes":[{"value":{"statuses":[{"status":"read"}]}}]}]}`
+	assert.Equal(t, http.StatusOK, postSigned(status, "shh"), "a status callback starts no run")
+	msg := `{"entry":[{"changes":[{"value":{"messages":[{"from":"15551234","type":"text","text":{"body":"ping"}}]}}]}]}`
+	assert.Equal(t, http.StatusUnauthorized, postSigned(msg, "forged"))
+	assert.Equal(t, http.StatusAccepted, postSigned(msg, "shh"))
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(sent) == 1
+	}, 15*time.Second, 50*time.Millisecond, "output: %s", opts.Out)
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+	require.NoError(t, <-done)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, sent, 1, "only the signed text message is answered")
+	assert.Contains(t, sent[0], "/v23.0/555/messages Bearer wtok ")
+	assert.Contains(t, sent[0], `"to":"15551234"`)
+	assert.Contains(t, sent[0], `"body":"pong"`)
 }

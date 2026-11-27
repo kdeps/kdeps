@@ -190,6 +190,22 @@ func TestWebhook_Handshakes(t *testing.T) {
 	assert.Equal(t, Event{"type": "event_callback"}, rec.snapshot()[0], "a handshake starts no run")
 }
 
+func TestWebhook_WhenFiltersPosts(t *testing.T) {
+	_, rec, _, opts := setup(t)
+	t.Setenv("KDEPS_TEST_HOOK_KIND", "push")
+	base := startHooks(t, opts, domain.ListenSpec{Webhook: &domain.ListenWebhookSpec{
+		Addr: freeAddr(t), Path: "/h",
+		Env:  map[string][]string{"KIND": {"KDEPS_TEST_HOOK_KIND"}},
+		When: `{{eq .event.kind .env.KIND}}`,
+	}})
+	code, _ := post(t, base+"/h", "application/json", `{"kind":"ping"}`)
+	assert.Equal(t, http.StatusOK, code, "no match: 200, no run")
+	code, _ = post(t, base+"/h", "application/json", `{"kind":"push"}`)
+	assert.Equal(t, http.StatusAccepted, code)
+	require.Eventually(t, func() bool { return rec.count() == 1 }, 5*time.Second, 10*time.Millisecond)
+	assert.Equal(t, Event{"kind": "push"}, rec.snapshot()[0])
+}
+
 func TestWebhook_HandshakeTemplateFails(t *testing.T) {
 	_, _, _, opts := setup(t)
 	addr := freeAddr(t)
@@ -282,6 +298,10 @@ func TestWebhook_StartErrors(t *testing.T) {
 			Verify: &domain.ListenVerifySpec{Secret: []string{"KDEPS_TEST_UNSET", "secret:nope"}, Signature: "x"},
 		})},
 		"handshake": {hook(&domain.ListenWebhookSpec{Path: "/a", Handshake: "{{"})},
+		"when":      {hook(&domain.ListenWebhookSpec{Path: "/a", When: "{{"})},
+		"webhook.env": {hook(&domain.ListenWebhookSpec{
+			Path: "/a", Env: map[string][]string{"TOKEN": {"KDEPS_TEST_UNSET"}},
+		})},
 		"verify.message": {hook(&domain.ListenWebhookSpec{
 			Path:   "/a",
 			Verify: &domain.ListenVerifySpec{Secret: []string{"KDEPS_TEST_HOOK_SECRET"}, Message: "{{", Signature: "x"},

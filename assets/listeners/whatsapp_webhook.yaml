@@ -1,0 +1,15 @@
+version: 1.0.0
+kdeps: ">=3.6.0"
+description: 'WhatsApp Cloud API webhook on /whatsapp: answers the Meta verification handshake and runs the workflow once for each signed notification. The event is the notification: input(''entry'')[0].changes[0].value.messages[0]. Status callbacks (sent, delivered, read) get 200 and start no run. Reply with the whatsapp_post component. Needs WHATSAPP_VERIFY_TOKEN and WHATSAPP_APP_SECRET.'
+webhook:
+  path: /whatsapp
+  env:
+    VERIFY_TOKEN: [WHATSAPP_VERIFY_TOKEN, "secret:whatsapp_verify_token"]
+  # Meta's GET check: echo hub.challenge (a number) when the verify token matches.
+  handshake: '{{if and (eq .method "GET") (eq (index .query "hub.mode") "subscribe") (eq (index .query "hub.verify_token") .env.VERIFY_TOKEN)}}{{int (index .query "hub.challenge")}}{{end}}'
+  # Only notifications with messages run; status callbacks (sent, delivered, read) get 200.
+  when: '{{if get .event "entry" 0 "changes" 0 "value" "messages"}}true{{end}}'
+  # Meta signs each POST body with the app secret: X-Hub-Signature-256: sha256=<hex>.
+  verify:
+    secret: [WHATSAPP_APP_SECRET, "secret:whatsapp_app_secret"]
+    signature: '{{trimPrefix (index .headers "X-Hub-Signature-256") "sha256="}}'
