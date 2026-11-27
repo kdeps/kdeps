@@ -55,7 +55,7 @@ def reply_for(msgs):
         return "HARNESS " + (",".join(tags) or "none")
     slow = re.search(r"SLOW (\w+)", last)
     if slow:
-        time.sleep(1)  # a slow model call: parallel workflow resources overlap these
+        time.sleep(2)  # a slow model call: parallel workflow resources overlap these
         return "SLOW-DONE " + slow.group(1)
     if "Design document:" in last:
         # design-review example: a doc marked TBD fails every reviewer.
