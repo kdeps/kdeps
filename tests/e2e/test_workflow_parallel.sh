@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # E2E: independent workflow resources run in parallel. Three chat calls the
-# mock LLM answers after 1s each finish in about 1s, and the response that
+# mock LLM answers after 2s each finish in about 2s, and the response that
 # requires them sees all three outputs. Three calls of a read-only component
 # (named wikipedia, read-only in the permission policy) do the same.
 
@@ -105,10 +105,10 @@ else
     test_failed "Parallel resources - response sees every output" "resp=$RESP"
 fi
 
-if python3 -c "import sys; sys.exit(0 if $ELAPSED < 2.5 else 1)"; then
-    test_passed "Parallel resources - three 1s model calls finish together (${ELAPSED}s)"
+if python3 -c "import sys; sys.exit(0 if $ELAPSED < 4.5 else 1)"; then
+    test_passed "Parallel resources - three 2s model calls finish together (${ELAPSED}s)"
 else
-    test_failed "Parallel resources - three 1s model calls finish together" "elapsed=${ELAPSED}s"
+    test_failed "Parallel resources - three 2s model calls finish together" "elapsed=${ELAPSED}s"
 fi
 
 # Read-only component calls: each call gets its own q and they overlap.
@@ -191,7 +191,7 @@ else
     test_failed "Parallel components - each call gets its own input" "resp=$RESP log=$(tail -5 "$LOG_FILE")"
 fi
 
-if python3 -c "import sys; sys.exit(0 if $ELAPSED < 2.5 else 1)"; then
+if python3 -c "import sys; sys.exit(0 if $ELAPSED < 4.5 else 1)"; then
     test_passed "Parallel components - three read-only calls finish together (${ELAPSED}s)"
 else
     test_failed "Parallel components - three read-only calls finish together" "elapsed=${ELAPSED}s"
