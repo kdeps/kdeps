@@ -111,7 +111,7 @@ const readingPath: [string, string, string][] = [
 
 export default defineConfig({
   title: 'kdeps',
-  description: 'One workflow.yaml becomes an offline AI appliance. Each API call, chat message or webhook starts one run. Ship it as an image, a binary, or an ISO.',
+  description: 'Serverless AI agents: Lambda-style AI agents on your own hardware. One workflow.yaml runs once per event, offline.',
 
   appearance: 'force-dark',
 
@@ -125,8 +125,8 @@ export default defineConfig({
     ['script', {}, "if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('kd-motion')"],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps Documentation' }],
-    ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
-    ['meta', { name: 'og:description', content: 'One workflow.yaml becomes an offline AI appliance. Each API call, chat message or webhook starts one run. Ship it as an image, a binary, or an ISO.' }],
+    ['meta', { name: 'og:title', content: 'kdeps - Serverless AI agents' }],
+    ['meta', { name: 'og:description', content: 'Serverless AI agents: Lambda-style AI agents on your own hardware. One workflow.yaml runs once per event, offline.' }],
   ],
 
   transformPageData(pageData) {
