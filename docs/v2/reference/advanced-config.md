@@ -227,26 +227,21 @@ deploy:
       - "10.0.0.1"
 ```
 
-## Environment variable expansion
+## Environment variables
 
-Use environment variables in configuration values.
+### In `workflow.yaml`
 
-### Syntax
+`deploy.runtime.env` sets default values. kdeps does not expand `${...}` in them, and `kdeps build` rejects a value that contains `$`, `"`, `\` or a backtick.
 
 ```yaml
 # workflow.yaml
 deploy:
   runtime:
     env:
-      # Direct reference
-      API_KEY: "${API_KEY}"
-
-      # With default value
-      LOG_LEVEL: "${LOG_LEVEL:-info}"
-
-      # Combined
-      DATABASE_URL: "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}"
+      LOG_LEVEL: info   # literal default; an env var with the same name wins
 ```
+
+A variable that is already set wins: the shell for `kdeps run`, `docker run -e LOG_LEVEL=debug` for an image. Keep API keys out of `workflow.yaml`: put them in the vault and read them with `secret('NAME')`. See [Secrets](/reference/workflow/secrets).
 
 ### In `~/.kdeps/config.yaml`
 
