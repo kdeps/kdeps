@@ -11,11 +11,11 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-kdeps turns one `workflow.yaml` into an offline AI appliance: an API, a binary, an image, or an ISO.
+kdeps turns one `workflow.yaml` into an offline AI appliance. An API call, a chat message or a webhook starts one bounded run.
 
-1. **Workflows** - a YAML pipeline, fed by an API, a file, a prompt, or listeners (a chat bot, a followed file, a named pipe, a polled API, a webhook, a websocket).
+1. **Workflows** - a YAML pipeline. Each event starts one run: an API call, a file, a prompt, or a listener (Telegram, Slack, Discord, WhatsApp, a webhook, a websocket, a polled API). Connectors send the answer.
 2. **Agents** - a `chat` with `loop:` calls tools, as one step of the workflow.
-3. **Deploy** - ship the same YAML on your own infrastructure.
+3. **Deploy** - ship the same YAML as an image, a binary, or an ISO, on your own infrastructure.
 
 ## Install
 
@@ -55,7 +55,31 @@ kdeps run workflow.yaml                 # serve POST /api/v1/chat on :16395
 
 `kdeps test .` runs the `evals:` of the workflow.
 
-See the [quickstart](https://kdeps.com/workflow/quickstart), the [workflow docs](https://kdeps.com/workflow/) and the [examples](https://kdeps.com/examples/).
+A listener starts one run for each event, and a connector sends the answer. This is a Telegram bot:
+
+```yaml
+# workflow.yaml
+deploy:
+  input:
+    listen:
+      - listener: telegram_updates   # one run per message; token from the vault
+```
+
+```yaml
+# resources/reply.yaml
+actionId: reply
+flow:
+  requires: [llm]
+component:
+  name: telegram_post                # connector: one Bot API call
+  with:
+    path: sendMessage
+    body:
+      chat_id: "{{ input('message').chat.id }}"
+      text: "{{ get('llm').message.content }}"
+```
+
+See the [quickstart](https://kdeps.com/workflow/quickstart), [listeners](https://kdeps.com/workflow/input-sources), [connectors](https://kdeps.com/workflow/resources/connectors) and the [examples](https://kdeps.com/examples/).
 
 ## 2. Agents
 
