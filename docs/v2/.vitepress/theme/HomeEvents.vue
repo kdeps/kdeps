@@ -6,8 +6,8 @@
   <section class="events">
     <div class="container">
       <p class="section-eyebrow">events in, calls out</p>
-      <h2 class="section-title">One run per event</h2>
-      <p class="section-sub">A listener starts one bounded run for each event. A connector sends the answer. Keys stay in an encrypted vault.</p>
+      <h2 class="section-title">A function per event</h2>
+      <p class="section-sub">Each event starts one bounded run, as with a serverless function. A listener receives the event, and a connector sends the answer. Keys stay in an encrypted vault.</p>
 
       <div class="kd-play flow">
         <a href="/workflow/input-sources" class="kd-stagger col" style="--i: 0">
