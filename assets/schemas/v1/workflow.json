@@ -448,6 +448,22 @@
               "type": "string"
             }
           }
+        },
+        "limits": {
+          "type": "object",
+          "description": "Bounds for each run, for every input.",
+          "additionalProperties": false,
+          "properties": {
+            "timeout": {
+              "type": "string",
+              "description": "Stop a run after this Go duration, such as 60s. Empty: no limit."
+            },
+            "concurrency": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs at once in one process. Other runs wait. 0: no limit."
+            }
+          }
         }
       },
       "additionalProperties": false

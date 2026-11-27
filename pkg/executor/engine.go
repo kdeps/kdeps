@@ -48,8 +48,25 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		return nil, err
 	}
 
+	runCtx, release, err := e.startRun(e.runContext(reqCtx), workflow)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	out, err := e.executeRun(runCtx, workflow, reqCtx, sessionID)
+	return out, runLimitError(runCtx, workflow, err)
+}
+
+// executeRun runs the workflow resources under ctx.
+func (e *Engine) executeRun(
+	runCtx context.Context,
+	workflow *domain.Workflow,
+	reqCtx *RequestContext,
+	sessionID string,
+) (interface{}, error) {
 	e.ensureNewExecutionContextFactory()
-	ctx, err := e.newExecutionContext(e.runContext(reqCtx), workflow, sessionID)
+	ctx, err := e.newExecutionContext(runCtx, workflow, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution context: %w", err)
 	}

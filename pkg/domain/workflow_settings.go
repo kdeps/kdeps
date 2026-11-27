@@ -18,7 +18,12 @@
 
 package domain
 
-import kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+import (
+	"fmt"
+	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v3/pkg/debug"
+)
 
 func hostIPFromServers(api *APIServerConfig, web *WebServerConfig) string {
 	if api != nil && api.HostIP != "" {
@@ -170,6 +175,37 @@ func (s *SessionConfig) GetType() string {
 func (s *SessionConfig) GetPath() string {
 	kdeps_debug.Log("enter: GetPath")
 	return s.Path
+}
+
+// LimitsConfig bounds each workflow run, for every input (deploy.limits): an
+// API request, a listener event, a file or a prompt line.
+type LimitsConfig struct {
+	// Timeout stops a run after this Go duration ("60s"). Empty: no limit.
+	Timeout string `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	// Concurrency is the number of runs at once in one process. Other runs
+	// wait for a free slot. 0: no limit.
+	Concurrency int `yaml:"concurrency,omitempty" json:"concurrency,omitempty"`
+}
+
+// TimeoutDuration parses Timeout. Empty is 0: no limit.
+func (l *LimitsConfig) TimeoutDuration() (time.Duration, error) {
+	if l.Timeout == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(l.Timeout)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("deploy.limits.timeout: %q is not a positive duration", l.Timeout)
+	}
+	return d, nil
+}
+
+// Check reports the first invalid deploy.limits value.
+func (l *LimitsConfig) Check() error {
+	if l.Concurrency < 0 {
+		return fmt.Errorf("deploy.limits.concurrency: %d is below 0", l.Concurrency)
+	}
+	_, err := l.TimeoutDuration()
+	return err
 }
 
 // RateLimitConfig controls per-IP request rate limiting.

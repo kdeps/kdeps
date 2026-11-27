@@ -21,6 +21,8 @@ package validator_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v3/pkg/domain"
 	"github.com/kdeps/kdeps/v3/pkg/validator"
 )
@@ -64,4 +66,21 @@ func TestWorkflowValidator_ValidateSettings_WebServerPort(t *testing.T) {
 			t.Error("expected error for invalid WebServer port, got nil")
 		}
 	})
+}
+
+func TestWorkflowValidator_ValidateSettings_Limits(t *testing.T) {
+	v := validator.NewWorkflowValidator(nil)
+	ok := &domain.Workflow{Settings: domain.WorkflowSettings{
+		Limits: &domain.LimitsConfig{Timeout: "30s", Concurrency: 2},
+	}}
+	require.NoError(t, v.ValidateSettings(ok))
+
+	for name, limits := range map[string]*domain.LimitsConfig{
+		"bad timeout":          {Timeout: "later"},
+		"negative concurrency": {Concurrency: -2},
+	} {
+		err := v.ValidateSettings(&domain.Workflow{Settings: domain.WorkflowSettings{Limits: limits}})
+		require.Error(t, err, name)
+		require.Contains(t, err.Error(), "deploy.limits", name)
+	}
 }

@@ -60,6 +60,10 @@ type Engine struct {
 	// the workflow runner when --memory is enabled. Nil when not configured.
 	// Propagated to every ExecutionContext created by this engine.
 	agentMemoryStore AgentMemoryStore
+	// runSlots holds one token per running workflow run when the workflow
+	// sets deploy.limits.concurrency. It is made on the first such run.
+	runSlots     chan struct{}
+	runSlotsOnce sync.Once
 }
 
 type inputValidator interface {
