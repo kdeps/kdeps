@@ -186,7 +186,7 @@ kdeps export k8s examples/chatbot \
   --output k8s.yaml                            # Save to file
 ```
 
-`deploy.scale` selects the output: a Knative Service that scales to zero (default), a KEDA `HTTPScaledObject` (`engine: keda`), or a fixed Deployment (`min` equal to `max`). See [Scale to zero](/reference/deploy/kubernetes#scale-to-zero).
+`deploy.scale` selects the output: a Knative Service that scales to zero (default), a KEDA `HTTPScaledObject` (`engine: keda`), or a fixed Deployment (`min` equal to `max`). A workflow that no request can wake gets one pod. See [Scale to zero](/reference/deploy/kubernetes#scale-to-zero).
 
 `runtime` in `workflow.yaml` controls the container:
 - `resources` - CPU/memory limits and requests

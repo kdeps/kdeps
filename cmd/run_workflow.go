@@ -242,6 +242,14 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	if connErr := ensureWorkflowRuntimeConfig(workflow); connErr != nil {
 		return connErr
 	}
+	frontAddr, frontErr := scaleFrontAddr(workflow, flags)
+	if frontErr != nil {
+		return frontErr
+	}
+	if frontAddr != "" {
+		fmt.Fprintln(os.Stdout, "\n[3/5] Holding the port (deploy.scale.min is 0)...")
+		return runScaleFrontFn(cmd, workflow, workflowPath, frontAddr)
+	}
 	if setupErr := setupEnvironmentStep(cmd.Context(), workflow); setupErr != nil {
 		return setupErr
 	}

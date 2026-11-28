@@ -88,9 +88,16 @@ func TestWorkflowValidator_ValidateSettings_Limits(t *testing.T) {
 func TestWorkflowValidator_ValidateSettings_Scale(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 	ok := &domain.Workflow{Settings: domain.WorkflowSettings{
-		Scale: &domain.ScaleConfig{Max: 3, Idle: "5m", Engine: "keda"},
+		APIServer: &domain.APIServerConfig{PortNum: 8080, Routes: []domain.Route{{Path: "/a"}}},
+		Scale:     &domain.ScaleConfig{Max: 3, Idle: "5m", Engine: "keda"},
 	}}
 	require.NoError(t, v.ValidateSettings(ok))
+
+	// min 0 that no request can wake is an error, not a silent fallback.
+	noWake := &domain.Workflow{Settings: domain.WorkflowSettings{Scale: &domain.ScaleConfig{Max: 3}}}
+	require.ErrorContains(t, v.ValidateSettings(noWake), "scale to zero needs apiServer or webServer")
+	fixed := &domain.Workflow{Settings: domain.WorkflowSettings{Scale: &domain.ScaleConfig{Min: 1, Max: 1}}}
+	require.NoError(t, v.ValidateSettings(fixed))
 
 	bad := &domain.Workflow{Settings: domain.WorkflowSettings{
 		Scale: &domain.ScaleConfig{Min: 4, Max: 2},

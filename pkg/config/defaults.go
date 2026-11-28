@@ -54,6 +54,13 @@ type ExecutorDefaults struct {
 	Embedding    EmbeddingDefaults      `yaml:"embedding"`
 	VectorStore  VectorStoreDefaults    `yaml:"vector_store"`
 	SessionStore SessionStoreDefaults   `yaml:"session_store"`
+	Scale        ScaleDefaults          `yaml:"scale"`
+}
+
+// ScaleDefaults holds the kdeps run scale-to-zero defaults.
+type ScaleDefaults struct {
+	Idle         string `yaml:"idle"`
+	StartTimeout string `yaml:"start_timeout"`
 }
 
 // ChatExecutorDefaults holds default values for LLM chat execution.
@@ -156,4 +163,14 @@ func (p *PythonExecutorDefaults) TimeoutDuration() time.Duration {
 // TimeoutDuration parses the Exec timeout string into a time.Duration.
 func (e *ExecExecutorDefaults) TimeoutDuration() time.Duration {
 	return parseDurationOrDefault(e.Timeout, 30*time.Second) //nolint:mnd // fallback
+}
+
+// IdleDuration parses the idle time after which kdeps run stops its worker.
+func (s *ScaleDefaults) IdleDuration() time.Duration {
+	return parseDurationOrDefault(s.Idle, 5*time.Minute) //nolint:mnd // fallback
+}
+
+// StartTimeoutDuration parses how long kdeps run waits for a woken worker.
+func (s *ScaleDefaults) StartTimeoutDuration() time.Duration {
+	return parseDurationOrDefault(s.StartTimeout, 60*time.Second) //nolint:mnd // fallback
 }

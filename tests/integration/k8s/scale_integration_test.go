@@ -107,3 +107,24 @@ func TestScale_ValidatorRejectsMaxBelowMin(t *testing.T) {
 	err = validator.NewWorkflowValidator(nil).ValidateSettings(wf)
 	require.ErrorContains(t, err, "deploy.scale.max")
 }
+
+const secondPort = "  webServer:\n    portNum: 9090\n    routes:\n      - path: /\n        publicPath: /public\n"
+
+// With no deploy.scale, a workflow that no request can wake runs one pod.
+func TestScale_DefaultWithoutWakeIsOnePod(t *testing.T) {
+	wf, err := parseScaleWorkflow(t, secondPort)
+	require.NoError(t, err)
+	require.NoError(t, validator.NewWorkflowValidator(nil).ValidateSettings(wf))
+	assert.Equal(t, domain.ScaleConfig{Min: 1, Max: 1}, wf.Settings.EffectiveScale())
+	out, err := k8s.NewGenerator("agent:1").GenerateManifests(wf)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"apps/v1 Deployment", "v1 Service"}, kinds(t, out))
+}
+
+// An explicit scale.min 0 that no request can wake fails validation.
+func TestScale_ValidatorRejectsZeroWithoutWake(t *testing.T) {
+	wf, err := parseScaleWorkflow(t, secondPort+"  scale:\n    max: 3\n")
+	require.NoError(t, err)
+	err = validator.NewWorkflowValidator(nil).ValidateSettings(wf)
+	require.ErrorContains(t, err, "scale to zero serves one port")
+}

@@ -1,7 +1,7 @@
 # Default values for kdeps executors.
 # Used when neither resource YAML nor config.yaml resource_defaults provides a value.
 # Values in config.yaml always override these.
-version: 1.5.0
+version: 1.6.0
 chat:
   timeout: "60s"
   context_length: 8192  # --ctx-size of a local model server (llamafile, GGUF, Ollama num_ctx); the agent loop's prompt needs about 4000 tokens
@@ -25,3 +25,6 @@ vector_store:
 session_store:
   mongodb_database: kdeps  # the mongodb session store's database when none is configured
   mongodb_collection: sessions  # its collection when none is configured
+scale:
+  idle: "5m"  # kdeps run stops the worker this long after the last request, when deploy.scale sets no idle
+  start_timeout: "60s"  # how long a woken worker has to open its port before the request fails with 503

@@ -156,9 +156,7 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) (*ManifestData,
 
 // applyScale sets a fixed replica count, or the scale-to-zero values.
 func applyScale(data *ManifestData, workflow *domain.Workflow) error {
-	if workflow.Settings.Scale != nil {
-		data.Scale = *workflow.Settings.Scale
-	}
+	data.Scale = workflow.Settings.EffectiveScale()
 	scale := &data.Scale
 	if err := scale.Check(); err != nil {
 		return err
@@ -167,15 +165,17 @@ func applyScale(data *ManifestData, workflow *domain.Workflow) error {
 		data.Replicas = scale.Min
 		return nil
 	}
-	if err := wakePort(data, workflow); err != nil {
+	port, err := workflow.Settings.WakePort()
+	if err != nil {
 		return err
 	}
+	data.WakePort = port
 	if scale.EngineName() == domain.ScaleEngineKnative && data.NetworkPolicy {
 		return errors.New("deploy.scale: networkPolicy needs engine keda or a fixed count (min equal to max)")
 	}
-	idle, err := scale.IdleDuration()
-	if err != nil {
-		return err
+	idle, idleErr := scale.IdleDuration()
+	if idleErr != nil {
+		return idleErr
 	}
 	data.ScaledownSeconds = int(idle.Seconds())
 	if limits := workflow.Settings.Limits; limits != nil {
@@ -185,27 +185,6 @@ func applyScale(data *ManifestData, workflow *domain.Workflow) error {
 		}
 		data.Concurrency = limits.Concurrency
 		data.TimeoutSeconds = int(math.Ceil(timeout.Seconds()))
-	}
-	return nil
-}
-
-// wakePort picks the one HTTP port a request wakes the workflow on.
-func wakePort(data *ManifestData, workflow *domain.Workflow) error {
-	if input := workflow.Settings.Input; input != nil && len(input.Listen) > 0 {
-		return errors.New("deploy.scale: a listener keeps kdeps running; set deploy.scale.min and max to 1 or more")
-	}
-	switch {
-	case data.APIPort > 0 && data.WebServerPort > 0 && data.APIPort != data.WebServerPort:
-		return fmt.Errorf("deploy.scale: scale to zero serves one port; apiServer (%d) and webServer (%d) differ",
-			data.APIPort, data.WebServerPort)
-	case data.APIPort > 0:
-		data.WakePort = data.APIPort
-	case data.WebServerPort > 0:
-		data.WakePort = data.WebServerPort
-	default:
-		return errors.New(
-			"deploy.scale: scale to zero needs apiServer or webServer; set deploy.scale.min and max to 1 or more",
-		)
 	}
 	return nil
 }

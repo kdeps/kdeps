@@ -56,7 +56,7 @@ deploy:
   webServer: { ... }       # static file or app proxy settings
   runtime: { ... }         # runtime environment (Python, OS packages, LLM backend)
   limits: { ... }          # per-run timeout and concurrency
-  scale: { ... }           # Kubernetes copies: scale to zero (default) or a fixed count
+  scale: { ... }           # copies: scale to zero (default where a request can wake it) or a fixed count
 session: { ... }           # per-session key-value store: set(k, v, 'session')
 repl: { ... }              # look of the interactive prompt (prompt, sessionId)
 ```
@@ -158,19 +158,27 @@ deploy:
 
 ## Scale
 
-`scale` sets how many copies run in a Kubernetes cluster (`kdeps export k8s`). The default scales to zero.
+`scale` sets how many copies of the workflow run: one machine (`kdeps run`) or a cluster (`kdeps export k8s`). With no `scale`, a workflow that one HTTP port can wake scales to zero. Any other workflow keeps one copy up.
 
 ```yaml
 # workflow.yaml
 deploy:
   scale:
-    min: 0            # default; 0 = scale to zero, the first request wakes a copy
-    max: 5            # 0 or unset = no limit
-    idle: 5m          # keep the last copy 5m after the last request
-    engine: knative   # knative (default) or keda; min equal to max = a fixed Deployment
+    min: 0            # 0 = scale to zero: the first request starts a copy; 1 or more = always up
+    max: 5            # Kubernetes only; 0 or unset = no limit
+    idle: 5m          # stop the last copy 5m after the last request (unset: 5m on one machine)
+    engine: knative   # Kubernetes only: knative (default) or keda; min equal to max = a fixed Deployment
 ```
 
-See [Scale to zero](/reference/deploy/kubernetes#scale-to-zero) for the output of each setting and the cluster it needs.
+On one machine, `kdeps run` holds the port. The first request starts the workflow in a worker process, and kdeps sends the request to it. After `idle` with no request, kdeps stops the worker and its local model server. The next request starts it again.
+
+```text
+request -> kdeps run (holds the port) -> worker (starts on demand, stops after idle)
+```
+
+`min: 0` needs one HTTP port to wake on. `kdeps validate` fails, and names the cause, when the workflow has no `apiServer` or `webServer`, two server ports, or a `listen:` listener.
+
+See [Scale to zero](/reference/deploy/kubernetes#scale-to-zero) for the Kubernetes output of each setting and the cluster it needs.
 
 ## Web server
 

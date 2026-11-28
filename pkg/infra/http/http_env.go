@@ -18,11 +18,15 @@
 
 package http
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 const (
 	apiAuthTokenEnvVar   = "KDEPS_API_AUTH_TOKEN"
 	bindHostEnvVar       = "KDEPS_BIND_HOST"
+	bindPortEnvVar       = "KDEPS_BIND_PORT"
 	debugEnvVarTrue      = "true"
 	debugEnvVarOne       = "1"
 	healthCheckPathValue = "/health"
@@ -45,3 +49,15 @@ func effectiveBindHostFromEnv(defaultHost string) string {
 	}
 	return defaultHost
 }
+
+// BindPortFromEnv returns the KDEPS_BIND_PORT port when it is set to a port
+// number, else port. The scale-to-zero front sets it for its worker.
+func BindPortFromEnv(port int) int {
+	override, err := strconv.Atoi(os.Getenv(bindPortEnvVar))
+	if err != nil || override <= 0 || override > maxBindPort {
+		return port
+	}
+	return override
+}
+
+const maxBindPort = 65535

@@ -42,6 +42,8 @@ kdeps run workflow.yaml --interactive      # prompt alongside server
 
 When you configure `apiServer`, kdeps does not start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security reference](/reference/security).
 
+A workflow with `deploy.scale.min: 0` scales to zero. `kdeps run` holds the port and starts the workflow in a worker process. The worker stops after `deploy.scale.idle` with no request, and the next request starts it again. `--dev`, `--interactive` and `--file` serve directly. See [Scale](/reference/workflow/configuration#scale).
+
 ---
 
 ## `kdeps [path]` (run a workflow)

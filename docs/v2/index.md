@@ -20,7 +20,7 @@ hero:
 
 features:
   - title: A function per event
-    details: A request, a chat message or a webhook starts one bounded run. The logic is YAML only.
+    details: A request starts one bounded run, and an idle agent scales to zero. The logic is YAML only.
     link: /workflow/input-sources
     linkText: See the events
   - title: Behavior you can review

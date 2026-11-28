@@ -963,3 +963,21 @@ func TestMergeConfig_PythonExecSQLDefaults(t *testing.T) {
 	assert.Equal(t, "20s", dst.ResourceDefaults.SQL.Timeout)
 	assert.Equal(t, 500, dst.ResourceDefaults.SQL.MaxRows)
 }
+
+func TestScaleDefaults_Durations(t *testing.T) {
+	set := &ScaleDefaults{Idle: "2m", StartTimeout: "9s"}
+	assert.Equal(t, 2*time.Minute, set.IdleDuration())
+	assert.Equal(t, 9*time.Second, set.StartTimeoutDuration())
+	empty := &ScaleDefaults{}
+	assert.Equal(t, 5*time.Minute, empty.IdleDuration())
+	assert.Equal(t, 60*time.Second, empty.StartTimeoutDuration())
+}
+
+func TestScaleDefaults_FromAsset(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "assets", "defaults", "executors.yaml"))
+	require.NoError(t, err)
+	var d ExecutorDefaults
+	require.NoError(t, yaml.Unmarshal(data, &d))
+	assert.Equal(t, 5*time.Minute, d.Scale.IdleDuration())
+	assert.Equal(t, 60*time.Second, d.Scale.StartTimeoutDuration())
+}

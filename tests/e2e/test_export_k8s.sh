@@ -142,10 +142,21 @@ fi
 write_scale_workflow "  runtime:
     timezone: Etc/UTC"
 OUTPUT=$("$KDEPS_BIN" export k8s "$SZ_DIR" 2>&1)
-if output_grep_fixed "scale to zero needs apiServer or webServer" "$OUTPUT"; then
-    test_passed "export k8s - scale to zero without an HTTP server fails"
+if output_grep_fixed "kind: Deployment" "$OUTPUT" \
+    && output_grep_fixed "replicas: 1" "$OUTPUT" \
+    && ! output_grep_fixed "serving.knative.dev" "$OUTPUT"; then
+    test_passed "export k8s - no HTTP server and no deploy.scale runs one pod"
 else
-    test_failed "export k8s - scale to zero without an HTTP server fails" "Output: $OUTPUT"
+    test_failed "export k8s - no HTTP server and no deploy.scale runs one pod" "Output: $OUTPUT"
+fi
+
+write_scale_workflow "  scale:
+    max: 3"
+OUTPUT=$("$KDEPS_BIN" export k8s "$SZ_DIR" 2>&1)
+if output_grep_fixed "scale to zero needs apiServer or webServer" "$OUTPUT"; then
+    test_passed "export k8s - scale.min 0 without an HTTP server fails"
+else
+    test_failed "export k8s - scale.min 0 without an HTTP server fails" "Output: $OUTPUT"
 fi
 
 write_scale_workflow "$API_BLOCK

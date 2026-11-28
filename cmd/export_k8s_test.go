@@ -44,9 +44,12 @@ func TestExportK8sInternal_Success(t *testing.T) {
 			0644,
 		),
 	)
-	err := exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "scale to zero needs apiServer or webServer")
+	// No server and no deploy.scale: one pod stays up.
+	out := filepath.Join(tmp, "out.yaml")
+	require.NoError(t, exportK8sInternal(&cobra.Command{}, []string{tmp}, &K8sFlags{Output: out}))
+	data, err := os.ReadFile(out)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "kind: Deployment")
 }
 
 func TestWriteK8sManifests_WriteError(t *testing.T) {
