@@ -208,6 +208,69 @@ func (l *LimitsConfig) Check() error {
 	return err
 }
 
+// Scale engines for deploy.scale.engine.
+const (
+	ScaleEngineKnative = "knative"
+	ScaleEngineKEDA    = "keda"
+)
+
+// ScaleConfig sets how many copies of the workflow run in a cluster
+// (deploy.scale). The zero value scales to zero with Knative.
+type ScaleConfig struct {
+	// Min is the lowest copy count. 0: scale to zero; the first request wakes a copy.
+	Min int `yaml:"min,omitempty" json:"min,omitempty"`
+	// Max is the highest copy count. 0: no limit.
+	Max int `yaml:"max,omitempty" json:"max,omitempty"`
+	// Idle keeps the last copy this long after the last request (Go duration).
+	Idle string `yaml:"idle,omitempty" json:"idle,omitempty"`
+	// Engine is the autoscaler: knative (default) or keda.
+	Engine string `yaml:"engine,omitempty" json:"engine,omitempty"`
+}
+
+// Fixed reports a set copy count (min equals max, at least 1): no autoscaler.
+func (s *ScaleConfig) Fixed() bool {
+	return s.Min >= 1 && s.Max == s.Min
+}
+
+// EngineName returns the autoscaler; empty is knative.
+func (s *ScaleConfig) EngineName() string {
+	if s.Engine == "" {
+		return ScaleEngineKnative
+	}
+	return s.Engine
+}
+
+// IdleDuration parses Idle. Empty is 0: the autoscaler default.
+func (s *ScaleConfig) IdleDuration() (time.Duration, error) {
+	if s.Idle == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(s.Idle)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("deploy.scale.idle: %q is not a duration of 0 or more", s.Idle)
+	}
+	return d, nil
+}
+
+// Check reports the first invalid deploy.scale value.
+func (s *ScaleConfig) Check() error {
+	switch {
+	case s.Min < 0:
+		return fmt.Errorf("deploy.scale.min: %d is below 0", s.Min)
+	case s.Max < 0:
+		return fmt.Errorf("deploy.scale.max: %d is below 0", s.Max)
+	case s.Max > 0 && s.Max < s.Min:
+		return fmt.Errorf("deploy.scale.max: %d is below deploy.scale.min %d", s.Max, s.Min)
+	}
+	switch s.Engine {
+	case "", ScaleEngineKnative, ScaleEngineKEDA:
+	default:
+		return fmt.Errorf("deploy.scale.engine: %q is not knative or keda", s.Engine)
+	}
+	_, err := s.IdleDuration()
+	return err
+}
+
 // RateLimitConfig controls per-IP request rate limiting.
 type RateLimitConfig struct {
 	// RequestsPerMinute is the sustained request rate allowed per client IP.
@@ -302,7 +365,6 @@ type AgentSettings struct {
 	OllamaURL   string            `yaml:"-"`
 	Args        map[string]string `yaml:"args,omitempty"`
 	Env         map[string]string `yaml:"env,omitempty"`
-	Replicas    int               `yaml:"replicas,omitempty"`  // Kubernetes replicas
 	Resources   *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
 	// NetworkPolicy opts in to generating a Kubernetes NetworkPolicy that
 	// restricts pod ingress to the configured server ports. Egress is unrestricted.

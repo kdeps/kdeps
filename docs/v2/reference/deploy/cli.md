@@ -175,7 +175,6 @@ kdeps export k8s [path] [flags]
 |---|---|---|---|
 | `--image` | `-i` | Container image name | `{name}:{version}` |
 | `--output` | `-o` | Output file path | stdout |
-| `--replicas` | `-r` | Number of replicas | From workflow |
 | `--network-policy` | | Also generate an ingress-restricting NetworkPolicy | Off |
 
 **Examples:**
@@ -185,11 +184,11 @@ kdeps export k8s examples/chatbot              # Print to stdout
 kdeps export k8s examples/chatbot \
   --image my-registry/chatbot:v1.0.0 \
   --output k8s.yaml                            # Save to file
-kdeps export k8s examples/chatbot --replicas 5 # Override replicas
 ```
 
-`runtime` in `workflow.yaml` controls the manifests:
-- `replicas` - number of pod replicas
+`deploy.scale` selects the output: a Knative Service that scales to zero (default), a KEDA `HTTPScaledObject` (`engine: keda`), or a fixed Deployment (`min` equal to `max`). See [Scale to zero](/reference/deploy/kubernetes#scale-to-zero).
+
+`runtime` in `workflow.yaml` controls the container:
 - `resources` - CPU/memory limits and requests
 - `env` - container environment variables
 - `networkPolicy: true` - appends a NetworkPolicy restricting ingress to the configured ports

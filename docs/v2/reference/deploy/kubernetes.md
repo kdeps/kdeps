@@ -3,7 +3,7 @@
 This page lists every field and option. The [overview](/deploy/kubernetes) shows what it does and a first example.
 
 
-`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` - no manual YAML authoring required.
+`kdeps export k8s` writes Kubernetes manifests from your `workflow.yaml`. `deploy.scale` selects the output. By default the agent scales to zero with Knative.
 
 ## Quick start
 
@@ -31,7 +31,6 @@ kdeps export k8s [path] [flags]
 |------|-------|-------------|---------|
 | `--image` | `-i` | Container image to use | `{name}:{version}` from workflow |
 | `--output` | `-o` | Output file path | stdout |
-| `--replicas` | `-r` | Number of replicas (overrides `workflow.yaml`) | From workflow |
 | `--network-policy` | | Also generate a NetworkPolicy restricting ingress to the configured ports | Off (or `runtime.networkPolicy`) |
 
 **Examples:**
@@ -43,18 +42,53 @@ kdeps export k8s examples/chatbot
 # Custom image from a private registry
 kdeps export k8s examples/chatbot --image registry.example.com/chatbot:v1.2.0
 
-# Override replicas at export time
-kdeps export k8s examples/chatbot --replicas 5
-
 # Save directly to a file
 kdeps export k8s examples/chatbot --output deploy/k8s.yaml
 
 # Full example with all flags
 kdeps export k8s examples/chatbot \
   --image registry.example.com/chatbot:v1.2.0 \
-  --replicas 3 \
   --output deploy/k8s.yaml
 ```
+
+## Scale to zero
+
+`deploy.scale` sets how many pods run. The default (`min: 0`) scales to zero: a request starts a pod, and the pod stops after `idle`.
+
+```yaml
+# workflow.yaml
+deploy:
+  apiServer:
+    portNum: 8080
+  scale:
+    min: 0            # default; 0 = scale to zero, the first request wakes a pod
+    max: 5            # highest pod count; 0 or unset = no limit
+    idle: 5m          # keep the last pod 5m after the last request
+    engine: knative   # knative (default) or keda
+  limits:
+    timeout: 60s      # also the Knative request timeout (timeoutSeconds)
+    concurrency: 4    # requests per pod (Knative containerConcurrency, KEDA targetValue)
+```
+
+| `deploy.scale` | Output |
+|---|---|
+| `min: 0` (default), `engine: knative` | Knative `Service` (`serving.knative.dev/v1`) |
+| `min: 0`, `engine: keda` | `Deployment`, `Service` and KEDA `HTTPScaledObject` (`http.keda.sh/v1alpha1`) |
+| `min` equal to `max` (1 or more) | `Deployment` with `replicas: <min>` and a `Service` (no autoscaler) |
+
+Your cluster must run the engine:
+
+- **Knative:** install Knative Serving and a network layer (for example Kourier). The Knative activator holds the first request while the pod starts.
+- **KEDA:** install KEDA and the KEDA HTTP add-on. Send traffic through the KEDA HTTP interceptor service. It holds the first request while the pod starts.
+
+Scale to zero needs one HTTP port to wake on. `kdeps export k8s` fails, and names the cause, when:
+
+- the workflow has no `apiServer` and no `webServer`;
+- `apiServer` and `webServer` use different ports;
+- the workflow has a `listen:` listener (a listener keeps kdeps running);
+- `engine` is `knative` and `networkPolicy` is on.
+
+For these workflows, set `min` equal to `max` for a fixed count.
 
 ## Workflow configuration
 
@@ -65,10 +99,10 @@ Configure Kubernetes-specific settings in `workflow.yaml` under `runtime`:
 deploy:
   apiServer:
     portNum: 8080
+  scale:
+    min: 3          # a fixed count: min equal to max writes a Deployment
+    max: 3
   runtime:
-    # Number of pod replicas
-    replicas: 3
-
     # CPU and memory limits/requests
     resources:
       cpuLimit: "1000m"
@@ -121,7 +155,7 @@ If you do not set `resources`, kdeps writes no `resources:` block (Kubernetes de
 
 ## Generated manifests
 
-`kdeps export k8s` produces a single YAML document with a Deployment and a Service separated by `---` (plus a NetworkPolicy when opted in).
+With a fixed count (`min` equal to `max`), `kdeps export k8s` writes a Deployment and a Service, separated by `---` (plus a NetworkPolicy when opted in).
 
 ## Deployment
 
@@ -296,8 +330,8 @@ kdeps export k8s examples/chatbot \
 # 4. Apply to your cluster
 kubectl apply -f k8s.yaml
 
-# 5. Verify rollout
-kubectl rollout status deployment/chatbot
+# 5. Verify (Knative, the default)
+kubectl get ksvc chatbot
 ```
 
 ## Example: k8s-deployment

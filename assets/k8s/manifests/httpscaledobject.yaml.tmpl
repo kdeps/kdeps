@@ -1,0 +1,29 @@
+# KEDA HTTP add-on: scales the Deployment to zero. Send traffic through the
+# KEDA HTTP interceptor; it holds a request while a pod starts.
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: {{ .Name }}
+  labels:
+    app: {{ .Name }}
+    kdeps-component: "true"
+spec:
+  scaleTargetRef:
+    name: {{ .Name }}
+    kind: Deployment
+    apiVersion: apps/v1
+    service: {{ .Name }}
+    port: {{ .WakePort }}
+  replicas:
+    min: {{ .Scale.Min }}
+    {{- if .Scale.Max }}
+    max: {{ .Scale.Max }}
+    {{- end }}
+  {{- if .ScaledownSeconds }}
+  scaledownPeriod: {{ .ScaledownSeconds }}
+  {{- end }}
+  {{- if .Concurrency }}
+  scalingMetric:
+    concurrency:
+      targetValue: {{ .Concurrency }}
+  {{- end }}

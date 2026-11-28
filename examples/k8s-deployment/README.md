@@ -6,7 +6,7 @@ This example demonstrates how to use `kdeps` to generate Kubernetes manifests fo
 
 The `workflow.yaml` file includes several Kubernetes-specific settings:
 
-- **Replicas:** `replicas: 3` tells Kubernetes to run 3 instances of your agent.
+- **Scale:** `scale` (`min: 0`, `max: 3`, `idle: 5m`) writes a Knative Service. The agent scales to zero, and the first request starts a pod. Set `engine: keda` for KEDA, or `min` equal to `max` for a fixed count.
 - **Resource Limits:** `resources` block specifies CPU and Memory limits and requests.
 - **Environment Variables:** `env` block is automatically mapped to Kubernetes container environment variables.
 - **Ports:** `portNum` and `apiServerMode: true` are used to generate a Kubernetes Service.
@@ -14,7 +14,7 @@ The `workflow.yaml` file includes several Kubernetes-specific settings:
 
 ## How to Export Manifests
 
-You can generate the Kubernetes Deployment and Service YAML by running:
+Generate the Kubernetes manifests:
 
 ```bash
 kdeps export k8s .
@@ -25,10 +25,6 @@ kdeps export k8s .
 - **Specify Image:** Use `--image` to set the container image to use in the manifest.
   ```bash
   kdeps export k8s . --image my-registry/k8s-example:1.0.0
-  ```
-- **Override Replicas:** Use `--replicas` to change the number of instances at export time.
-  ```bash
-  kdeps export k8s . --replicas 5
   ```
 - **Save to File:** Use `--output` to save the manifests to a file.
   ```bash

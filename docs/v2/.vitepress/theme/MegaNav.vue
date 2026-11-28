@@ -105,7 +105,7 @@ const categories: MenuCategory[] = [
         label: 'Deploy',
         items: [
           { title: 'Docker', desc: 'Build an image with no Dockerfile', link: '/deploy/docker' },
-          { title: 'Kubernetes', desc: 'Run the same workflow.yaml as a Deployment', link: '/deploy/kubernetes' },
+          { title: 'Kubernetes', desc: 'Scale to zero with Knative or KEDA', link: '/deploy/kubernetes' },
           { title: 'Standalone binaries', desc: 'One self-contained executable. You do not install a runtime', link: '/deploy/binaries' },
           { title: 'Web server mode / TLS', desc: 'Static files, proxies, and HTTPS setup', link: '/deploy/webserver' },
         ],

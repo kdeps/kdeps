@@ -175,7 +175,9 @@ func TestFirstRun_FullProfileInstallsEveryAsset(t *testing.T) {
 	require.NoError(t, err)
 	_, err = validator.NewSchemaValidator()
 	require.NoError(t, err, "schemas")
-	_, err = k8s.NewGenerator("img").GenerateManifests(&domain.Workflow{})
+	_, err = k8s.NewGenerator("img").GenerateManifests(&domain.Workflow{Settings: domain.WorkflowSettings{
+		Scale: &domain.ScaleConfig{Min: 1, Max: 1},
+	}})
 	require.NoError(t, err, "k8s templates")
 	df, err := (&docker.Builder{BaseOS: "alpine"}).GenerateDockerfile(
 		t.Context(),

@@ -198,6 +198,9 @@ metadata:
 deploy:
   input:
     sources: [file]
+  scale:
+    min: 1  # a fixed count renders the Deployment template
+    max: 1
   runtime:
     versions:
       kdeps: v2.0.0

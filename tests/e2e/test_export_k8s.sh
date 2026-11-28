@@ -43,8 +43,10 @@ deploy:
     routes:
       - path: /api
         methods: [GET]
+  scale:
+    min: 2
+    max: 2
   runtime:
-    replicas: 2
     resources:
       cpuLimit: "500m"
       memoryLimit: "512Mi"
@@ -86,12 +88,75 @@ else
     test_failed "export k8s - replicas from workflow.yaml" "Output: $OUTPUT"
 fi
 
-# ── Test 5: --replicas flag overrides workflow ────────────────────────────────
-OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" --replicas 5 2>/dev/null)
-if output_grep_fixed "replicas: 5" "$OUTPUT"; then
-    test_passed "export k8s - --replicas flag overrides workflow value"
+# ── Test 5: scale to zero (default Knative, KEDA, no HTTP server) ──────────
+SZ_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR" "$SZ_DIR"' EXIT
+write_scale_workflow() {
+    cat > "$SZ_DIR/workflow.yaml" <<WFEOF
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: scale-e2e-test
+  version: 1.0.0
+  targetActionId: main
+deploy:
+$1
+  limits:
+    timeout: 30s
+    concurrency: 3
+WFEOF
+}
+API_BLOCK='  apiServer:
+    portNum: 8080
+    routes:
+      - path: /api
+        methods: [GET]'
+
+write_scale_workflow "$API_BLOCK"
+OUTPUT=$("$KDEPS_BIN" export k8s "$SZ_DIR" 2>&1)
+if output_grep_fixed "apiVersion: serving.knative.dev/v1" "$OUTPUT" \
+    && output_grep_fixed 'autoscaling.knative.dev/min-scale: "0"' "$OUTPUT" \
+    && output_grep_fixed "containerConcurrency: 3" "$OUTPUT" \
+    && output_grep_fixed "timeoutSeconds: 30" "$OUTPUT" \
+    && ! output_grep_fixed "kind: Deployment" "$OUTPUT"; then
+    test_passed "export k8s - default scales to zero with a Knative Service"
 else
-    test_failed "export k8s - --replicas flag overrides workflow value" "Output: $OUTPUT"
+    test_failed "export k8s - default scales to zero with a Knative Service" "Output: $OUTPUT"
+fi
+
+write_scale_workflow "$API_BLOCK
+  scale:
+    engine: keda
+    max: 4
+    idle: 2m"
+OUTPUT=$("$KDEPS_BIN" export k8s "$SZ_DIR" 2>&1)
+if output_grep_fixed "kind: HTTPScaledObject" "$OUTPUT" \
+    && output_grep_fixed "kind: Deployment" "$OUTPUT" \
+    && output_grep_fixed "scaledownPeriod: 120" "$OUTPUT" \
+    && output_grep_fixed "max: 4" "$OUTPUT"; then
+    test_passed "export k8s - engine keda writes a KEDA HTTPScaledObject"
+else
+    test_failed "export k8s - engine keda writes a KEDA HTTPScaledObject" "Output: $OUTPUT"
+fi
+
+write_scale_workflow "  runtime:
+    timezone: Etc/UTC"
+OUTPUT=$("$KDEPS_BIN" export k8s "$SZ_DIR" 2>&1)
+if output_grep_fixed "scale to zero needs apiServer or webServer" "$OUTPUT"; then
+    test_passed "export k8s - scale to zero without an HTTP server fails"
+else
+    test_failed "export k8s - scale to zero without an HTTP server fails" "Output: $OUTPUT"
+fi
+
+write_scale_workflow "$API_BLOCK
+  scale:
+    min: 3
+    max: 1"
+OUTPUT=$("$KDEPS_BIN" validate "$SZ_DIR/workflow.yaml" 2>&1)
+if output_grep_fixed "deploy.scale.max" "$OUTPUT"; then
+    test_passed "export k8s - kdeps validate rejects max below min"
+else
+    test_failed "export k8s - kdeps validate rejects max below min" "Output: $OUTPUT"
 fi
 
 # ── Test 6: --image flag sets container image ─────────────────────────────────
@@ -172,12 +237,15 @@ deploy:
     routes:
       - path: /api
         methods: [GET]
+  scale:
+    min: 1
+    max: 1
   runtime:
     installOllama: true
 WFEOF
 
 OLLAMA_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR" "$OLLAMA_DIR"' EXIT
+trap 'rm -rf "$TMP_DIR" "$SZ_DIR" "$OLLAMA_DIR"' EXIT
 cp "$TMP_DIR/workflow_ollama.yaml" "$OLLAMA_DIR/workflow.yaml"
 
 OUTPUT=$("$KDEPS_BIN" export k8s "$OLLAMA_DIR" 2>/dev/null)
@@ -205,7 +273,7 @@ fi
 
 # ── Test 16: agentSettings.networkPolicy in workflow.yaml ──────────────────────
 NP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR" "$OLLAMA_DIR" "$NP_DIR"' EXIT
+trap 'rm -rf "$TMP_DIR" "$SZ_DIR" "$OLLAMA_DIR" "$NP_DIR"' EXIT
 cat > "$NP_DIR/workflow.yaml" <<'WFEOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
@@ -219,6 +287,9 @@ deploy:
     routes:
       - path: /api
         methods: [GET]
+  scale:
+    min: 1
+    max: 1
   runtime:
     networkPolicy: true
 WFEOF
@@ -232,7 +303,7 @@ fi
 
 # ── Test 17: probes are derived from configuration ─────────────────────────────
 WEB_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR" "$OLLAMA_DIR" "$NP_DIR" "$WEB_DIR"' EXIT
+trap 'rm -rf "$TMP_DIR" "$SZ_DIR" "$OLLAMA_DIR" "$NP_DIR" "$WEB_DIR"' EXIT
 cat > "$WEB_DIR/workflow.yaml" <<'WFEOF'
 apiVersion: kdeps.io/v1
 kind: Workflow

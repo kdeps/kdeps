@@ -42,8 +42,9 @@ metadata:
 deploy:
   apiServer:
     portNum: 1234
-  runtime:
-    replicas: 2
+  scale:
+    min: 2
+    max: 2
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)
@@ -65,7 +66,9 @@ metadata:
   version: 1.0.0
   targetActionId: main
 deploy:
-  runtime: {}
+  scale:
+    min: 10
+    max: 10
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)
@@ -76,7 +79,6 @@ deploy:
 	rootCmd.SetOut(&out)
 	rootCmd.SetArgs([]string{
 		"export", "k8s", tmpDir,
-		"--replicas", "10",
 		"--image", "my-org/my-app:v2",
 	})
 
@@ -104,7 +106,9 @@ deploy:
     routes:
       - path: /api
         methods: [GET]
-  runtime: {}
+  scale:
+    min: 1
+    max: 1
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)
@@ -140,7 +144,9 @@ metadata:
   version: 1.0.0
   targetActionId: main
 deploy:
-  runtime: {}
+  scale:
+    min: 1
+    max: 1
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)

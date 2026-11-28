@@ -84,3 +84,18 @@ func TestWorkflowValidator_ValidateSettings_Limits(t *testing.T) {
 		require.Contains(t, err.Error(), "deploy.limits", name)
 	}
 }
+
+func TestWorkflowValidator_ValidateSettings_Scale(t *testing.T) {
+	v := validator.NewWorkflowValidator(nil)
+	ok := &domain.Workflow{Settings: domain.WorkflowSettings{
+		Scale: &domain.ScaleConfig{Max: 3, Idle: "5m", Engine: "keda"},
+	}}
+	require.NoError(t, v.ValidateSettings(ok))
+
+	bad := &domain.Workflow{Settings: domain.WorkflowSettings{
+		Scale: &domain.ScaleConfig{Min: 4, Max: 2},
+	}}
+	err := v.ValidateSettings(bad)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "deploy.scale.max")
+}

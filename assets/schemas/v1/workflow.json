@@ -446,6 +446,10 @@
             },
             "requirementsFile": {
               "type": "string"
+            },
+            "replicas": {
+              "not": {},
+              "description": "Removed. Use deploy.scale.min and deploy.scale.max."
             }
           }
         },
@@ -462,6 +466,35 @@
               "type": "integer",
               "minimum": 0,
               "description": "Runs at once in one process. Other runs wait. 0: no limit."
+            }
+          }
+        },
+        "scale": {
+          "type": "object",
+          "description": "Copies of the workflow in a cluster (kdeps export k8s). Default: scale to zero with Knative.",
+          "additionalProperties": false,
+          "properties": {
+            "min": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Lowest copy count. 0: scale to zero; the first request wakes a copy."
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Highest copy count. 0: no limit. min equal to max: a fixed count, no autoscaler."
+            },
+            "idle": {
+              "type": "string",
+              "description": "Keep the last copy this long after the last request (Go duration)."
+            },
+            "engine": {
+              "type": "string",
+              "enum": [
+                "knative",
+                "keda"
+              ],
+              "description": "Autoscaler for scale to zero: knative (default) or keda (HTTP add-on)."
             }
           }
         }

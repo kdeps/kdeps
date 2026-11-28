@@ -145,6 +145,7 @@ type WorkflowSettings struct {
 	Input         *InputConfig       `yaml:"input,omitempty"       json:"input,omitempty"`
 	LLM           *LLMInputConfig    `yaml:"llm,omitempty"         json:"llm,omitempty"`
 	Limits        *LimitsConfig      `yaml:"limits,omitempty"      json:"limits,omitempty"`
+	Scale         *ScaleConfig       `yaml:"scale,omitempty"       json:"scale,omitempty"`
 }
 
 // LetsEncryptConfig configures automatic certificates from Let's Encrypt (or the LE staging CA).

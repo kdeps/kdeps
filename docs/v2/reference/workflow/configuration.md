@@ -55,6 +55,8 @@ deploy:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
   runtime: { ... }         # runtime environment (Python, OS packages, LLM backend)
+  limits: { ... }          # per-run timeout and concurrency
+  scale: { ... }           # Kubernetes copies: scale to zero (default) or a fixed count
 session: { ... }           # per-session key-value store: set(k, v, 'session')
 repl: { ... }              # look of the interactive prompt (prompt, sessionId)
 ```
@@ -153,6 +155,22 @@ deploy:
 | `concurrency` | no limit | Runs at once in one process, across all inputs. A run that waits stops when its request ends. |
 
 `apiServer.maxConcurrent` is a different control. It answers `503` at once when too many HTTP requests are open. `limits.concurrency` makes runs wait in a queue.
+
+## Scale
+
+`scale` sets how many copies run in a Kubernetes cluster (`kdeps export k8s`). The default scales to zero.
+
+```yaml
+# workflow.yaml
+deploy:
+  scale:
+    min: 0            # default; 0 = scale to zero, the first request wakes a copy
+    max: 5            # 0 or unset = no limit
+    idle: 5m          # keep the last copy 5m after the last request
+    engine: knative   # knative (default) or keda; min equal to max = a fixed Deployment
+```
+
+See [Scale to zero](/reference/deploy/kubernetes#scale-to-zero) for the output of each setting and the cluster it needs.
 
 ## Web server
 

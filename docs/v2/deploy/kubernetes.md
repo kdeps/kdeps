@@ -1,6 +1,15 @@
 # Kubernetes deployment
 
-`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml`. You write no manifest by hand.
+`kdeps export k8s` writes Kubernetes manifests from your `workflow.yaml`. By default the agent scales to zero: a request starts a pod, and the pod stops when it is idle.
+
+```yaml
+# workflow.yaml
+deploy:
+  scale:
+    min: 0            # default; the first request wakes a pod (Knative)
+    max: 5
+    idle: 5m          # keep the last pod 5m after the last request
+```
 
 ```bash
 kdeps export k8s examples/chatbot --output k8s.yaml
