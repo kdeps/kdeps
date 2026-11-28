@@ -1,6 +1,6 @@
 # Kubernetes deployment
 
-`kdeps export k8s` writes Kubernetes manifests from your `workflow.yaml`. By default the agent scales to zero: a request starts a pod, and the pod stops when it is idle.
+`kdeps export k8s` writes Kubernetes manifests from your `workflow.yaml`. An agent with an API scales to zero by default: a request starts a pod, and the pod stops when it is idle.
 
 ```yaml
 # workflow.yaml

@@ -65,3 +65,32 @@ deploy:
 	require.NotNil(t, wf.Settings.Scale)
 	assert.Equal(t, domain.ScaleConfig{Min: 1, Max: 4, Idle: "5m", Engine: "keda"}, *wf.Settings.Scale)
 }
+
+func TestWorkflowSettings_WakePort(t *testing.T) {
+	api := &domain.APIServerConfig{PortNum: 8080}
+	port, err := (&domain.WorkflowSettings{APIServer: api}).WakePort()
+	require.NoError(t, err)
+	assert.Equal(t, 8080, port)
+
+	port, err = (&domain.WorkflowSettings{WebServer: &domain.WebServerConfig{}}).WakePort()
+	require.NoError(t, err)
+	assert.Equal(t, domain.DefaultPort, port)
+
+	bad := map[string]domain.WorkflowSettings{
+		"needs apiServer or webServer":   {},
+		"a listener keeps kdeps running": {APIServer: api, Input: &domain.InputConfig{Listen: []domain.ListenSpec{{}}}},
+		"serves one port":                {APIServer: api, WebServer: &domain.WebServerConfig{PortNum: 9090}},
+	}
+	for want, s := range bad {
+		_, wakeErr := s.WakePort()
+		assert.ErrorContains(t, wakeErr, want)
+	}
+}
+
+func TestWorkflowSettings_EffectiveScale(t *testing.T) {
+	api := &domain.APIServerConfig{PortNum: 8080}
+	assert.Equal(t, domain.ScaleConfig{}, (&domain.WorkflowSettings{APIServer: api}).EffectiveScale())
+	assert.Equal(t, domain.ScaleConfig{Min: 1, Max: 1}, (&domain.WorkflowSettings{}).EffectiveScale())
+	set := &domain.ScaleConfig{Max: 4}
+	assert.Equal(t, *set, (&domain.WorkflowSettings{Scale: set}).EffectiveScale())
+}

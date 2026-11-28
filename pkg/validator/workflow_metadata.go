@@ -77,15 +77,30 @@ func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 			return err
 		}
 	}
-	if limits := workflow.Settings.Limits; limits != nil {
+	if err := validateRunBounds(&workflow.Settings); err != nil {
+		return domain.NewError(domain.ErrCodeInvalidWorkflow, err.Error(), nil)
+	}
+	return nil
+}
+
+// validateRunBounds checks deploy.limits and deploy.scale. scale.min 0 needs
+// a port that a request can wake the workflow on.
+func validateRunBounds(settings *domain.WorkflowSettings) error {
+	if limits := settings.Limits; limits != nil {
 		if err := limits.Check(); err != nil {
-			return domain.NewError(domain.ErrCodeInvalidWorkflow, err.Error(), nil)
+			return err
 		}
 	}
-	if scale := workflow.Settings.Scale; scale != nil {
-		if err := scale.Check(); err != nil {
-			return domain.NewError(domain.ErrCodeInvalidWorkflow, err.Error(), nil)
-		}
+	scale := settings.Scale
+	if scale == nil {
+		return nil
+	}
+	if err := scale.Check(); err != nil {
+		return err
+	}
+	if scale.Min == 0 {
+		_, err := settings.WakePort()
+		return err
 	}
 	return nil
 }

@@ -45,8 +45,8 @@ var generatedFlows = map[string]SetInfo{
 			{Label: "the executor defaults fill it in", Here: true},
 			{Label: "the executor runs the resource"},
 		},
-		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec", "kdeps test"},
-		Code:   []string{"kdeps (agent loop)", "executor.(*Engine).Execute", "parallel.Run", "judge.Panel", "llm.(*Executor).reviewWithJudges", "config.GetDefaults"},
+		UsedBy: []string{"kdeps (agent loop)", "kdeps run", "kdeps exec"},
+		Code:   []string{"kdeps (agent loop)", "config.GetDefaults"},
 	},
 	"docker": {
 		Mode: "cli",

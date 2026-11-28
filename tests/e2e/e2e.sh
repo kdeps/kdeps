@@ -109,6 +109,7 @@ scenario test_features_route_methods.sh
 scenario test_http_client.sh
 scenario test_workflow_parallel.sh
 scenario test_workflow_limits.sh
+scenario test_run_scale.sh
 scenario test_examples_design_review.sh
 scenario test_workflow_judges.sh
 scenario test_workflow_kdeps_tools.sh

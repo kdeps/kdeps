@@ -41,6 +41,8 @@ spec:
         ports:
         - containerPort: {{ .WakePort }}
         env:
+        - name: KDEPS_SCALE_DIRECT  # the cluster scales the pods, so kdeps serves the port itself
+          value: "1"
         {{- if .HasAPIServer }}
         - name: KDEPS_API_AUTH_TOKEN
           valueFrom:

@@ -453,16 +453,17 @@ func TestGenerateManifests_ScaleToZeroKEDA(t *testing.T) {
 
 func TestGenerateManifests_ScaleErrors(t *testing.T) {
 	api := &domain.APIServerConfig{PortNum: 8080}
+	zero := &domain.ScaleConfig{}
 	cases := map[string]struct {
 		settings domain.WorkflowSettings
 		want     string
 	}{
-		"no server": {domain.WorkflowSettings{}, "needs apiServer or webServer"},
-		"listener": {domain.WorkflowSettings{APIServer: api, Input: &domain.InputConfig{
+		"no server": {domain.WorkflowSettings{Scale: zero}, "needs apiServer or webServer"},
+		"listener": {domain.WorkflowSettings{APIServer: api, Scale: zero, Input: &domain.InputConfig{
 			Listen: []domain.ListenSpec{{Listener: "telegram_updates"}},
 		}}, "a listener keeps kdeps running"},
-		"two ports": {domain.WorkflowSettings{APIServer: api, WebServer: &domain.WebServerConfig{PortNum: 9090}},
-			"serves one port"},
+		"two ports": {domain.WorkflowSettings{APIServer: api, Scale: zero,
+			WebServer: &domain.WebServerConfig{PortNum: 9090}}, "serves one port"},
 		"knative network policy": {domain.WorkflowSettings{APIServer: api,
 			AgentSettings: domain.AgentSettings{NetworkPolicy: true}}, "networkPolicy needs engine keda"},
 		"bad engine": {domain.WorkflowSettings{APIServer: api, Scale: &domain.ScaleConfig{Engine: "x"}},
@@ -474,6 +475,39 @@ func TestGenerateManifests_ScaleErrors(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, err := NewGenerator("img").GenerateManifests(&domain.Workflow{Settings: tc.settings})
 			require.ErrorContains(t, err, tc.want)
+		})
+	}
+}
+
+// With no deploy.scale, a workflow that no request can wake runs one pod.
+func TestGenerateManifests_NoScaleNoWakeIsOnePod(t *testing.T) {
+	listen := &domain.InputConfig{Listen: []domain.ListenSpec{{Listener: "telegram_updates"}}}
+	for name, settings := range map[string]domain.WorkflowSettings{
+		"no server": {},
+		"listener":  {APIServer: &domain.APIServerConfig{PortNum: 8080}, Input: listen},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, err := NewGenerator("img").GenerateManifests(&domain.Workflow{Settings: settings})
+			require.NoError(t, err)
+			assert.Contains(t, out, "kind: Deployment")
+			assert.Contains(t, out, "replicas: 1")
+			assert.NotContains(t, out, "serving.knative.dev")
+		})
+	}
+}
+
+func TestGenerateManifests_ServeDirectEnv(t *testing.T) {
+	for name, scale := range map[string]*domain.ScaleConfig{
+		"knative": nil,
+		"keda":    {Engine: domain.ScaleEngineKEDA},
+		"fixed":   {Min: 2, Max: 2},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, err := NewGenerator("img").GenerateManifests(&domain.Workflow{Settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080}, Scale: scale,
+			}})
+			require.NoError(t, err)
+			assert.Contains(t, out, "name: KDEPS_SCALE_DIRECT")
 		})
 	}
 }

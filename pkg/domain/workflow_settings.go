@@ -19,6 +19,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -214,8 +215,8 @@ const (
 	ScaleEngineKEDA    = "keda"
 )
 
-// ScaleConfig sets how many copies of the workflow run in a cluster
-// (deploy.scale). The zero value scales to zero with Knative.
+// ScaleConfig sets how many copies of the workflow run (deploy.scale): in a
+// cluster, or one on a single machine. The zero value scales to zero.
 type ScaleConfig struct {
 	// Min is the lowest copy count. 0: scale to zero; the first request wakes a copy.
 	Min int `yaml:"min,omitempty" json:"min,omitempty"`
@@ -269,6 +270,37 @@ func (s *ScaleConfig) Check() error {
 	}
 	_, err := s.IdleDuration()
 	return err
+}
+
+// WakePort returns the one HTTP port a request wakes the workflow on from
+// zero. A listener, no server, or two server ports is an error.
+func (w *WorkflowSettings) WakePort() (int, error) {
+	kdeps_debug.Log("enter: WakePort")
+	switch {
+	case w.Input != nil && len(w.Input.Listen) > 0:
+		return 0, errors.New("deploy.scale: a listener keeps kdeps running; set deploy.scale.min and max to 1 or more")
+	case w.APIServer == nil && w.WebServer == nil:
+		return 0, errors.New(
+			"deploy.scale: scale to zero needs apiServer or webServer; set deploy.scale.min and max to 1 or more",
+		)
+	case w.HasDistinctWebPort():
+		return 0, fmt.Errorf("deploy.scale: scale to zero serves one port; apiServer (%d) and webServer (%d) differ",
+			w.GetPortNum(), w.WebServer.PortNum)
+	}
+	return w.GetPortNum(), nil
+}
+
+// EffectiveScale returns deploy.scale. With no deploy.scale, the workflow
+// scales to zero when a request can wake it; else one copy stays up.
+func (w *WorkflowSettings) EffectiveScale() ScaleConfig {
+	kdeps_debug.Log("enter: EffectiveScale")
+	if w.Scale != nil {
+		return *w.Scale
+	}
+	if _, err := w.WakePort(); err != nil {
+		return ScaleConfig{Min: 1, Max: 1}
+	}
+	return ScaleConfig{}
 }
 
 // RateLimitConfig controls per-IP request rate limiting.

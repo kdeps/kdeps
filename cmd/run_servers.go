@@ -58,6 +58,9 @@ func resolveServerBindAddress(workflow *domain.Workflow) (string, error) {
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
+	if override := http.BindPortFromEnv(0); override > 0 {
+		return fmt.Sprintf("%s:%d", hostIP, override), nil
+	}
 	availablePort, findErr := findAvailablePortFunc(hostIP, portNum)
 	if findErr != nil {
 		return "", findErr

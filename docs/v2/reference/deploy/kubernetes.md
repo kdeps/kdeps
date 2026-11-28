@@ -3,7 +3,7 @@
 This page lists every field and option. The [overview](/deploy/kubernetes) shows what it does and a first example.
 
 
-`kdeps export k8s` writes Kubernetes manifests from your `workflow.yaml`. `deploy.scale` selects the output. By default the agent scales to zero with Knative.
+`kdeps export k8s` writes Kubernetes manifests from your `workflow.yaml`. `deploy.scale` selects the output. An agent that a request can wake scales to zero with Knative by default.
 
 ## Quick start
 
@@ -53,7 +53,7 @@ kdeps export k8s examples/chatbot \
 
 ## Scale to zero
 
-`deploy.scale` sets how many pods run. The default (`min: 0`) scales to zero: a request starts a pod, and the pod stops after `idle`.
+`deploy.scale` sets how many pods run. With `min: 0`, the agent scales to zero: a request starts a pod, and the pod stops after `idle`. With no `deploy.scale`, a workflow that one HTTP port can wake scales to zero. Any other workflow runs one pod (a `Deployment` with `replicas: 1`).
 
 ```yaml
 # workflow.yaml
@@ -61,7 +61,7 @@ deploy:
   apiServer:
     portNum: 8080
   scale:
-    min: 0            # default; 0 = scale to zero, the first request wakes a pod
+    min: 0            # 0 = scale to zero, the first request wakes a pod
     max: 5            # highest pod count; 0 or unset = no limit
     idle: 5m          # keep the last pod 5m after the last request
     engine: knative   # knative (default) or keda
@@ -72,7 +72,7 @@ deploy:
 
 | `deploy.scale` | Output |
 |---|---|
-| `min: 0` (default), `engine: knative` | Knative `Service` (`serving.knative.dev/v1`) |
+| `min: 0`, `engine: knative` (default) | Knative `Service` (`serving.knative.dev/v1`) |
 | `min: 0`, `engine: keda` | `Deployment`, `Service` and KEDA `HTTPScaledObject` (`http.keda.sh/v1alpha1`) |
 | `min` equal to `max` (1 or more) | `Deployment` with `replicas: <min>` and a `Service` (no autoscaler) |
 
@@ -81,12 +81,14 @@ Your cluster must run the engine:
 - **Knative:** install Knative Serving and a network layer (for example Kourier). The Knative activator holds the first request while the pod starts.
 - **KEDA:** install KEDA and the KEDA HTTP add-on. Send traffic through the KEDA HTTP interceptor service. It holds the first request while the pod starts.
 
-Scale to zero needs one HTTP port to wake on. `kdeps export k8s` fails, and names the cause, when:
+The cluster scales the pods, so each pod serves its port directly: the manifests set `KDEPS_SCALE_DIRECT=1`.
+
+`min: 0` needs one HTTP port to wake on. `kdeps validate` and `kdeps export k8s` fail, and name the cause, when:
 
 - the workflow has no `apiServer` and no `webServer`;
 - `apiServer` and `webServer` use different ports;
 - the workflow has a `listen:` listener (a listener keeps kdeps running);
-- `engine` is `knative` and `networkPolicy` is on.
+- `engine` is `knative` and `networkPolicy` is on (`kdeps export k8s` only).
 
 For these workflows, set `min` equal to `max` for a fixed count.
 
